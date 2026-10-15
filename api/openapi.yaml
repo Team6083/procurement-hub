@@ -1,0 +1,1447 @@
+openapi: 3.1.0
+info:
+  title: procurement-hub API
+  version: 0.1.0
+  license:
+    name: Apache-2.0
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+paths:
+  /meta:
+    get:
+      operationId: getMeta
+      summary: Deployment metadata (unauthenticated)
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Meta"
+  /me:
+    get:
+      operationId: getMe
+      summary: Current user profile, memberships and system-admin flag
+      description: The `ETag` header (and `version` field) is the value to send in `If-Match` on `PATCH /me`.
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    patch:
+      operationId: patchMe
+      summary: Update locale and/or notification preferences
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchMeRequest" }
+      responses:
+        "200":
+          description: Updated profile
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Me" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /users:
+    get:
+      operationId: searchUsers
+      summary: Search users who have logged in at least once
+      description: |
+        Only system admins and members of at least one team may search (otherwise 403).
+        `q` must contain at least 2 characters after trimming (otherwise 400 `VALIDATION_ERROR`).
+        At most 20 users are returned; `nextCursor` is always null.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string, minLength: 2 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+  /teams:
+    get:
+      operationId: listTeams
+      summary: List all teams (names are visible to every authenticated user)
+      description: Returns every team as a summary in one page; `nextCursor` is always null.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamSummaryPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+    post:
+      operationId: createTeam
+      summary: Create a team (system admin only)
+      description: Creates the team with `visibility=public`, `locale=en`, and makes `firstAdminUserId` its first admin (manual role).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTeamRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /teams/{teamId}:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    get:
+      operationId: getTeam
+      summary: Team details
+      description: |
+        The response shape depends on the caller. System admins and members of the team receive the full
+        `Team` (with an `ETag` header, the only place the version is exposed besides the `version` field).
+        All other authenticated users receive a `TeamSummary` without an `ETag` header. Distinguish the
+        two by the presence of `version` (only `Team` has it).
+      responses:
+        "200":
+          description: Full team or summary
+          headers:
+            ETag:
+              description: Present only for the full `Team` response.
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Team"
+                  - $ref: "#/components/schemas/TeamSummary"
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: patchTeam
+      summary: Update team settings, or archive/unarchive (system admin)
+      description: |
+        Team admins (and system admins) may change `name`, `description`, `visibility`, `locale` and
+        `priorityLabels`. `archived` is system-admin only and must not be combined with other fields
+        (400 `VALIDATION_ERROR`). Archived teams reject other edits with 422 `TEAM_ARCHIVED`.
+        `priorityLabels` keys must be "1" to "5"; labels are at most 200 characters; the map replaces the stored one.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchTeamRequest" }
+      responses:
+        "200":
+          description: Updated team
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /teams/{teamId}/members:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    get:
+      operationId: listTeamMembers
+      summary: List members (team members and system admins only)
+      responses:
+        "200":
+          description: OK (whole list, `nextCursor` is always null)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamMemberPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: addTeamMember
+      summary: Grant a manual role to a user, creating the membership if needed (team admin)
+      description: |
+        Returns 201 when the membership was created and 200 when an existing membership was updated.
+        The body has the same shape as a `GET members` item; `ETag` is the membership version.
+        This endpoint does not use `If-Match`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddMemberRequest" }
+      responses:
+        "200":
+          description: Existing membership updated
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamMember" }
+        "201":
+          description: Membership created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamMember" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /teams/{teamId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+      - $ref: "#/components/parameters/UserId"
+    patch:
+      operationId: patchTeamMember
+      summary: Set or clear the manual role and/or the default subgroup
+      description: |
+        `manualRole`: "member" or "admin" sets it, JSON `null` clears it, absent leaves it unchanged.
+        Role changes are team-admin only. `defaultSubgroupId`: "" clears it; it must reference an
+        active subgroup. Team admins may set it for anyone; a member may set only their own.
+        Clearing the manual role of a member without an SSO role fails with 422 `MEMBER_NO_ROLE_SOURCE`.
+        `If-Match` is the membership `version` (from `GET members` or the previous response).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchMemberRequest" }
+      responses:
+        "200":
+          description: Updated member
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TeamMember" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+    delete:
+      operationId: removeTeamMember
+      summary: Clear the manual role; delete the membership if no SSO role remains (team admin)
+      description: |
+        `If-Match` is the membership `version`. If the membership has no manual role the call fails with
+        422 `MEMBER_MANAGED_BY_SSO`. If an SSO role remains, the membership stays (and the call still returns 204).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /teams/{teamId}/subgroups:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    post:
+      operationId: addSubgroup
+      summary: Add a subgroup (team admin)
+      description: Returns the whole updated team. 422 `SUBGROUP_EXISTS` when the name exists (case-insensitive); 422 `TEAM_ARCHIVED` for archived teams.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddSubgroupRequest" }
+      responses:
+        "200":
+          description: Updated team
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /teams/{teamId}/subgroups/{id}:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+      - name: id
+        in: path
+        required: true
+        description: Subgroup id (a string inside `Team.subgroups`).
+        schema: { type: string }
+    patch:
+      operationId: patchSubgroup
+      summary: Rename and/or (de)activate a subgroup (team admin; subgroups are never deleted)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchSubgroupRequest" }
+      responses:
+        "200":
+          description: Updated team
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /teams/{teamId}/reference-rates:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    put:
+      operationId: replaceReferenceRates
+      summary: Replace the team's reference rate list (team admin)
+      description: |
+        Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
+        currency. `rateToBase` is a positive decimal string.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutReferenceRatesRequest" }
+      responses:
+        "200":
+          description: Updated team
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Team" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /admin/role-mappings:
+    get:
+      operationId: listRoleMappings
+      summary: List role-mapping rules (system admin only)
+      responses:
+        "200":
+          description: OK (whole list, `nextCursor` is always null)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleMappingPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+    post:
+      operationId: createRoleMapping
+      summary: Create a UI-managed rule (system admin only)
+      description: The server assigns `id` and forces `managed=false`. Validation failures use `details.fields.rule`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRoleMappingRequest" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+  /admin/role-mappings/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    patch:
+      operationId: patchRoleMapping
+      summary: Update a UI-managed rule (system admin only)
+      description: Managed rules fail with 422 `ROLE_MAPPING_MANAGED`. Rules carry no version; this endpoint does not use `If-Match`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchRoleMappingRequest" }
+      responses:
+        "200":
+          description: Updated rule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RoleMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+    delete:
+      operationId: deleteRoleMapping
+      summary: Delete a UI-managed rule (system admin only)
+      description: Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /batches:
+    get:
+      operationId: listBatches
+      summary: List batches the caller can read, newest first
+      description: |
+        Cursor-paginated. `nextCursor` is null on the last page. `limit` defaults to 50 and values above
+        100 fall back to 50; a non-positive or non-numeric `limit`, a malformed `teamId` or `cursor` yield
+        400 `VALIDATION_ERROR`. `status` is passed through unvalidated (unknown values match nothing).
+      parameters:
+        - { name: teamId, in: query, schema: { type: string } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/BatchStatus" } }
+        - { name: q, in: query, description: Free-text search., schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { name: cursor, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BatchPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /teams/{teamId}/batches:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    post:
+      operationId: createBatch
+      summary: Create a draft batch (team admin, propose=false) or propose one (any member)
+      description: |
+        A team admin with `propose=false` creates a `draft`; otherwise a team member creates a `proposed`
+        batch. Non-members get 403. Archived teams get 422 `TEAM_ARCHIVED`. `title` is required, at most 200 characters.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateBatchRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Batch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /batches/{id}:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    get:
+      operationId: getBatch
+      summary: Batch details (404 when the caller cannot read it)
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Batch" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    patch:
+      operationId: patchBatch
+      summary: Edit title, description, deadline, visibility override (team admin)
+      description: |
+        `deadline` and `visibilityOverride` accept an explicit JSON `null` to clear them; absent leaves
+        them unchanged. While `collecting`, a changed deadline must be in the future
+        (422 `DEADLINE_NOT_IN_FUTURE`). Closed batches (completed, cancelled, proposal_rejected) fail with
+        422 `BATCH_CLOSED`; archived teams with 422 `TEAM_ARCHIVED`.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchBatchRequest" }
+      responses:
+        "200":
+          description: Updated batch
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Batch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /batches/{id}/assignments:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    put:
+      operationId: setBatchAssignments
+      summary: Replace approvers, purchasers and receivers (team admin)
+      description: Every assignee must be a member of the batch's team (otherwise 400 `VALIDATION_ERROR` on that field). Duplicates are removed. 422 `BATCH_CLOSED` / `TEAM_ARCHIVED`.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AssignmentsRequest" }
+      responses:
+        "200":
+          description: Updated batch
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Batch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /batches/{id}/transitions:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    post:
+      operationId: transitionBatch
+      summary: Manual lifecycle action
+      description: |
+        Permissions: `withdraw_proposal` only by the proposer (batch origin `proposed`, `createdBy` = caller);
+        every other action by team admins and system admins. Guards:
+        `open` (from proposed/draft) needs complete assignments (422 `ASSIGNMENTS_INCOMPLETE`) and a future
+        deadline, taken from the body or else the batch (`DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`);
+        `start_review` (proposed/draft) needs complete assignments and at least one pending item (`NO_PENDING_ITEMS`);
+        `close` (collecting) moves to reviewing, or cancels the batch itself when no pending/returned items exist;
+        `reopen` (reviewing) needs a future `deadline`;
+        `cancel` (draft/collecting/reviewing) needs `reason` (`REASON_REQUIRED`);
+        `reject_proposal` (proposed) needs `reason`;
+        `withdraw_proposal` (proposed). A wrong source state yields 409 `INVALID_TRANSITION`.
+        The batch may also advance automatically (reviewing -> ordering/completed) after the action; the response is the final state.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TransitionRequest" }
+      responses:
+        "200":
+          description: Updated batch
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Batch" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`VERSION_CONFLICT` (stale If-Match) or `INVALID_TRANSITION` (action not allowed in the current status)."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /batches/{id}/items:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    get:
+      operationId: listBatchItems
+      summary: List the batch's items (anyone who can read the batch)
+      description: Returns all items in one page, `nextCursor` is always null. Withdrawn items are included.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ItemPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+    post:
+      operationId: addBatchItem
+      summary: Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
+      description: |
+        Other batch statuses fail with 422 `BATCH_NOT_COLLECTING`; non-members get 403; archived teams 422 `TEAM_ARCHIVED`.
+        If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `VALIDATION_ERROR`
+        (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
+        estimatedUnitPrice (non-negative, supported currency), productUrl (http/https), subgroupId (active subgroup).
+        `autoFilledFields` and `lookupProvider` record product-lookup provenance and are only honoured on create.
+        No `If-Match`; the new item's version is in `ETag`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /batches/{id}/reviews:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    post:
+      operationId: reviewItems
+      summary: Apply review decisions atomically (approvers and team admins, batch `reviewing`)
+      description: |
+        1 to 1000 decisions, no duplicate items. `return` and `reject` require a non-blank comment
+        (400 `VALIDATION_ERROR` on `decisions`). A decision on an item that is not pending fails with
+        422 `ITEM_NOT_REVIEWABLE`; a batch not under review with 422 `BATCH_NOT_REVIEWING`.
+        The batch may advance automatically (e.g. to `ordering`); the returned batch is the final state and
+        `ETag` is its version. This endpoint does not use `If-Match`; item versions are checked internally (409 possible).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReviewRequest" }
+      responses:
+        "200":
+          description: Reviewed
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReviewResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+  /items/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    patch:
+      operationId: patchItem
+      summary: Edit an item (full replacement of the editable fields)
+      description: |
+        Despite PATCH, the body replaces all editable fields (same validation as create); omitted optional
+        strings become empty. Allowed for the requester while the item is `pending` in a `proposed`/`collecting` batch
+        or `returned` in a `reviewing` batch, and for team admins while the batch is `collecting` and the item is
+        pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
+        `autoFilledFields` / `lookupProvider` are accepted but ignored on update.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ItemRequest" }
+      responses:
+        "200":
+          description: Updated item
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /items/{id}/withdraw:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: withdrawItem
+      summary: Withdraw an item (same permission rule as editing)
+      description: 422 `ITEM_NOT_EDITABLE` when the caller is related to the item but it can no longer be withdrawn. No request body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated item
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /items/{id}/resubmit:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: resubmitItem
+      summary: Send a returned item back to review (requester only)
+      description: |
+        Requires a `returned` item in a `reviewing` batch (else 409 `INVALID_TRANSITION`), and that the item was edited after it was returned
+        (`item.updatedAt` after `item.review.at`, else 422 `ITEM_NOT_EDITED`). No request body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated item
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`VERSION_CONFLICT` or `INVALID_TRANSITION`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /items/{id}/force-reject:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: forceRejectItem
+      summary: Reject a pending or returned item during review (team admin)
+      description: Requires the batch to be `reviewing` (422 `BATCH_NOT_REVIEWING`) and a non-blank `reason` (400 `VALIDATION_ERROR`).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForceRejectRequest" }
+      responses:
+        "200":
+          description: Updated item
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`VERSION_CONFLICT` or `INVALID_TRANSITION`."
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+  /me/tasks:
+    get:
+      operationId: getMyTasks
+      summary: Work waiting for the caller
+      description: |
+        `batchesToOrder`, `itemsToReceive` and `openExceptions` are always empty until later milestones.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MyTasks" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+  /audit:
+    get:
+      operationId: getAudit
+      summary: Timeline of a batch (including its items' events) or of an item
+      description: Newest events as returned by the store (at most 500), whole list in one page. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400.
+      parameters:
+        - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item] } }
+        - { name: objectId, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEventPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /teams/{teamId}/audit:
+    parameters:
+      - $ref: "#/components/parameters/TeamId"
+    get:
+      operationId: getTeamAudit
+      summary: Team-wide audit log (team admins and system admins)
+      responses:
+        "200":
+          description: OK (at most 500 events, `nextCursor` always null)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditEventPage" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  headers:
+    ETag:
+      description: Resource version as a quoted integer, e.g. `"3"`. Send it back in `If-Match`.
+      schema: { type: string, examples: ['"3"'] }
+  parameters:
+    TeamId:
+      name: teamId
+      in: path
+      required: true
+      description: Team id (24-hex). A malformed id yields 404 `NOT_FOUND`.
+      schema: { type: string }
+    UserId:
+      name: userId
+      in: path
+      required: true
+      description: User id (24-hex). A malformed id yields 404 `NOT_FOUND`.
+      schema: { type: string }
+    BatchId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    ItemId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    IfMatch:
+      name: If-Match
+      in: header
+      required: true
+      description: |
+        Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+        Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
+        a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+      schema: { type: string }
+  responses:
+    BadRequest:
+      description: |
+        Validation or malformed request. Codes: `VALIDATION_ERROR` (with `details.fields`, a map of field to message),
+        `INVALID_BODY`, `INVALID_IF_MATCH`.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Missing, invalid or expired token (`UNAUTHENTICATED`).
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Forbidden:
+      description: "`FORBIDDEN`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: "`NOT_FOUND` (also returned for malformed ids)"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    VersionConflict:
+      description: "`VERSION_CONFLICT`: the If-Match version is stale; refetch and retry."
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    PayloadTooLarge:
+      description: "`BODY_TOO_LARGE`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    IfMatchRequired:
+      description: "`IF_MATCH_REQUIRED`"
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unprocessable:
+      description: |
+        Business-rule violation. Codes: `TEAM_SLUG_TAKEN`, `TEAM_ARCHIVED`, `SUBGROUP_EXISTS`,
+        `MEMBER_NO_ROLE_SOURCE`, `MEMBER_MANAGED_BY_SSO`, `ROLE_MAPPING_MANAGED`, `BATCH_NOT_COLLECTING`,
+        `BATCH_NOT_REVIEWING`, `BATCH_CLOSED`, `ASSIGNMENTS_INCOMPLETE`, `DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`,
+        `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`.
+        (`INVALID_TRANSITION` is a business rule too but is returned as HTTP 409.)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+  schemas:
+    Role:
+      type: string
+      enum: [member, admin]
+    RoleOrNone:
+      description: A role, or the empty string when the role source is not set.
+      type: string
+      enum: ["", member, admin]
+    Locale:
+      type: string
+      enum: [en, zh-TW]
+    Visibility:
+      type: string
+      enum: [public, members]
+    NotificationPref:
+      type: object
+      required: [email]
+      properties:
+        email: { type: boolean }
+    MyMembership:
+      type: object
+      required: [teamId, slug, name, role, ssoRole, manualRole, defaultSubgroupId]
+      properties:
+        teamId: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        role: { $ref: "#/components/schemas/RoleOrNone", description: Effective role (higher of ssoRole and manualRole). }
+        ssoRole: { $ref: "#/components/schemas/RoleOrNone" }
+        manualRole: { $ref: "#/components/schemas/RoleOrNone" }
+        defaultSubgroupId: { type: string, description: Empty string when unset. }
+    Me:
+      type: object
+      required: [id, username, email, displayName, locale, notificationPrefs, createdAt, updatedAt, version, memberships, isSystemAdmin]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        locale: { $ref: "#/components/schemas/Locale" }
+        notificationPrefs:
+          type: [object, "null"]
+          additionalProperties: { $ref: "#/components/schemas/NotificationPref" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        memberships:
+          type: array
+          items: { $ref: "#/components/schemas/MyMembership" }
+        isSystemAdmin: { type: boolean }
+    PatchMeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        locale: { $ref: "#/components/schemas/Locale" }
+        notificationPrefs:
+          type: object
+          description: Replaces the stored map. Keys are event types (1 to 100 characters).
+          additionalProperties: { $ref: "#/components/schemas/NotificationPref" }
+    User:
+      type: object
+      required: [id, username, displayName, email]
+      properties:
+        id: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        email: { type: string }
+    Subgroup:
+      type: object
+      required: [id, name, active]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        active: { type: boolean }
+    ReferenceRate:
+      type: object
+      required: [currency, rateToBase, updatedAt, updatedBy]
+      properties:
+        currency: { type: string }
+        rateToBase: { type: string, description: Decimal string. }
+        updatedAt: { type: string, format: date-time }
+        updatedBy: { type: string, description: User id. }
+    TeamSummary:
+      description: What non-members see. Has no `version`.
+      type: object
+      additionalProperties: false
+      required: [id, slug, name, description, archived]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        archived: { type: boolean }
+    Team:
+      description: Full team, returned to members and system admins.
+      type: object
+      required: [id, slug, name, description, visibility, locale, priorityLabels, subgroups, referenceRates, archived, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        slug: { type: string }
+        name: { type: string }
+        description: { type: string }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        priorityLabels:
+          type: [object, "null"]
+          description: Keys "1" to "5". Null or missing keys mean the built-in default label applies.
+          additionalProperties: { type: string }
+        subgroups:
+          type: array
+          items: { $ref: "#/components/schemas/Subgroup" }
+        referenceRates:
+          type: array
+          items: { $ref: "#/components/schemas/ReferenceRate" }
+        archived: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    CreateTeamRequest:
+      type: object
+      additionalProperties: false
+      required: [slug, name, firstAdminUserId]
+      properties:
+        slug: { type: string, maxLength: 63, pattern: "^[a-z0-9]+(-[a-z0-9]+)*$" }
+        name: { type: string, maxLength: 200 }
+        description: { type: string }
+        firstAdminUserId: { type: string }
+    PatchTeamRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 200 }
+        description: { type: string }
+        visibility: { $ref: "#/components/schemas/Visibility" }
+        locale: { $ref: "#/components/schemas/Locale" }
+        priorityLabels:
+          type: object
+          propertyNames: { enum: ["1", "2", "3", "4", "5"] }
+          additionalProperties: { type: string, maxLength: 200 }
+        archived:
+          type: boolean
+          description: System admin only; cannot be combined with other fields.
+    TeamMember:
+      type: object
+      required: [userId, username, displayName, email, ssoRole, manualRole, effectiveRole, defaultSubgroupId, version]
+      properties:
+        userId: { type: string }
+        username: { type: string }
+        displayName: { type: string }
+        email: { type: string }
+        ssoRole: { $ref: "#/components/schemas/RoleOrNone" }
+        manualRole: { $ref: "#/components/schemas/RoleOrNone" }
+        effectiveRole: { $ref: "#/components/schemas/RoleOrNone" }
+        defaultSubgroupId: { type: string, description: Empty string when unset. }
+        version: { type: integer, format: int64, description: Membership version. }
+    AddMemberRequest:
+      type: object
+      additionalProperties: false
+      required: [userId, role]
+      properties:
+        userId: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+    PatchMemberRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        manualRole:
+          description: '"member" or "admin" sets, null clears, absent leaves unchanged.'
+          oneOf:
+            - { $ref: "#/components/schemas/Role" }
+            - { type: "null" }
+        defaultSubgroupId: { type: string, description: Empty string clears. }
+    AddSubgroupRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 200 }
+    PatchSubgroupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 200 }
+        active: { type: boolean }
+    PutReferenceRatesRequest:
+      type: object
+      additionalProperties: false
+      required: [rates]
+      properties:
+        rates:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [currency, rateToBase]
+            properties:
+              currency: { type: string }
+              rateToBase: { type: string, description: Positive decimal string. }
+    RoleMapping:
+      type: object
+      required: [id, claim, pattern, team, role, enabled, managed, description]
+      properties:
+        id: { type: string }
+        claim: { type: string, enum: [groups, roles] }
+        pattern: { type: string, description: "Glob over `/`-separated segments; `*` matches exactly one whole segment, captured as $1, $2, ..." }
+        team: { type: string, description: Team slug; may reference captures such as `$1`. }
+        role: { $ref: "#/components/schemas/Role" }
+        enabled: { type: boolean }
+        managed: { type: boolean, description: True when loaded from the rules file; read-only. }
+        description: { type: string }
+    CreateRoleMappingRequest:
+      type: object
+      additionalProperties: false
+      required: [claim, pattern, team, role, enabled]
+      properties:
+        claim: { type: string, enum: [groups, roles] }
+        pattern: { type: string }
+        team: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        enabled: { type: boolean }
+        description: { type: string }
+    PatchRoleMappingRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        claim: { type: string, enum: [groups, roles] }
+        pattern: { type: string }
+        team: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        enabled: { type: boolean }
+        description: { type: string }
+    UserPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/User" } }
+        nextCursor: { type: [string, "null"] }
+    TeamSummaryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TeamSummary" } }
+        nextCursor: { type: [string, "null"] }
+    TeamMemberPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/TeamMember" } }
+        nextCursor: { type: [string, "null"] }
+    RoleMappingPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/RoleMapping" } }
+        nextCursor: { type: [string, "null"] }
+    Meta:
+      type: object
+      required: [version, commit, baseCurrency, supportedCurrencies, lookupEnabled, emailEnabled]
+      properties:
+        version: { type: string }
+        commit: { type: string }
+        baseCurrency: { type: string }
+        supportedCurrencies: { type: array, items: { type: string } }
+        lookupEnabled: { type: boolean }
+        emailEnabled: { type: boolean }
+    Money:
+      type: object
+      required: [amount, currency]
+      properties:
+        amount: { type: string, description: Decimal string. }
+        currency: { type: string }
+    BatchStatus:
+      type: string
+      enum: [proposed, proposal_rejected, draft, collecting, reviewing, ordering, receiving, completed, cancelled]
+    BatchAction:
+      type: string
+      enum: [open, start_review, close, reopen, cancel, reject_proposal, withdraw_proposal]
+    Assignments:
+      type: object
+      required: [approvers, purchasers, receivers]
+      properties:
+        approvers: { type: array, items: { type: string } }
+        purchasers: { type: array, items: { type: string } }
+        receivers: { type: array, items: { type: string } }
+    Batch:
+      type: object
+      required: [id, teamId, number, title, description, status, origin, createdBy, deadline, assignments, visibilityOverride, statusReason, statusChangedAt, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        teamId: { type: string }
+        number: { type: integer, description: Per-team batch number. }
+        title: { type: string }
+        description: { type: string }
+        status: { $ref: "#/components/schemas/BatchStatus" }
+        origin: { type: string, enum: [created, proposed] }
+        createdBy: { type: string, description: User id. }
+        deadline: { type: [string, "null"], format: date-time }
+        assignments: { $ref: "#/components/schemas/Assignments" }
+        visibilityOverride:
+          description: Empty string when there is no override.
+          type: string
+          enum: ["", public, members]
+        statusReason: { type: string }
+        statusChangedAt: { type: string, format: date-time }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    CreateBatchRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title: { type: string, maxLength: 200 }
+        description: { type: string }
+        propose: { type: boolean, description: Team admins set true to propose instead of creating a draft. }
+    PatchBatchRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, maxLength: 200 }
+        description: { type: string }
+        deadline: { type: [string, "null"], format: date-time, description: null clears. }
+        visibilityOverride:
+          description: null clears.
+          oneOf:
+            - { $ref: "#/components/schemas/Visibility" }
+            - { type: "null" }
+    AssignmentsRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        approvers: { type: array, items: { type: string } }
+        purchasers: { type: array, items: { type: string } }
+        receivers: { type: array, items: { type: string } }
+    TransitionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { $ref: "#/components/schemas/BatchAction" }
+        reason: { type: string }
+        deadline: { type: [string, "null"], format: date-time }
+    ItemStatus:
+      type: string
+      enum: [pending, withdrawn, approved, returned, rejected, ordered, unpurchasable, partially_received, received, exception, accepted_short, not_obtained]
+    Review:
+      type: object
+      required: [decision, by, at, comment, forced, atVersion]
+      properties:
+        decision: { type: string, enum: [approved, returned, rejected] }
+        by: { type: string }
+        at: { type: string, format: date-time }
+        comment: { type: string }
+        forced: { type: boolean }
+        atVersion:
+          type: integer
+          format: int64
+          description: Item version produced by this decision. A returned item may be resubmitted only once item.version is greater than this (i.e. it was edited since).
+    LookupInfo:
+      type: object
+      required: [provider, fetchedAt, autoFilledFields]
+      properties:
+        provider: { type: string }
+        fetchedAt: { type: string, format: date-time }
+        autoFilledFields: { type: array, items: { type: string } }
+    Item:
+      type: object
+      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendor, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, lookup, orderId, actualUnitPrice, actualCostBase, receivedQuantity, closeReason, customFields, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        teamId: { type: string }
+        batchId: { type: string }
+        seqNo: { type: integer, description: Per-batch item number. }
+        requesterId: { type: string }
+        subgroupId: { type: string, description: Empty string when unset. }
+        name: { type: string }
+        vendor: { type: string }
+        sku: { type: string }
+        quantity: { type: integer }
+        estimatedUnitPrice: { $ref: "#/components/schemas/Money" }
+        priority: { type: integer, minimum: 1, maximum: 5 }
+        purpose: { type: string }
+        notes: { type: string }
+        productUrl: { type: string }
+        status: { $ref: "#/components/schemas/ItemStatus" }
+        review: { oneOf: [{ $ref: "#/components/schemas/Review" }, { type: "null" }] }
+        lookup: { oneOf: [{ $ref: "#/components/schemas/LookupInfo" }, { type: "null" }] }
+        orderId: { type: [string, "null"] }
+        actualUnitPrice: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        actualCostBase: { type: [string, "null"], description: Decimal string. }
+        receivedQuantity: { type: integer }
+        closeReason: { type: string }
+        customFields: { type: [object, "null"], additionalProperties: true, description: Reserved. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    ItemRequest:
+      type: object
+      additionalProperties: false
+      required: [name, quantity, estimatedUnitPrice, priority, purpose]
+      properties:
+        subgroupId: { type: string }
+        name: { type: string, maxLength: 300 }
+        vendor: { type: string }
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        estimatedUnitPrice: { $ref: "#/components/schemas/Money" }
+        priority: { type: integer, minimum: 1, maximum: 5 }
+        purpose: { type: string }
+        notes: { type: string }
+        productUrl: { type: string, description: http or https URL. }
+        autoFilledFields: { type: array, items: { type: string } }
+        lookupProvider: { type: string }
+    ReviewRequest:
+      type: object
+      additionalProperties: false
+      required: [decisions]
+      properties:
+        decisions:
+          type: array
+          minItems: 1
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            required: [itemId, decision]
+            properties:
+              itemId: { type: string }
+              decision: { type: string, enum: [approve, return, reject] }
+              comment: { type: string, description: Required for return and reject. }
+    ReviewResult:
+      type: object
+      required: [batch, items]
+      properties:
+        batch: { $ref: "#/components/schemas/Batch" }
+        items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+    ForceRejectRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string }
+    BatchTask:
+      type: object
+      required: [batch, count]
+      properties:
+        batch: { $ref: "#/components/schemas/Batch" }
+        count: { type: integer, description: Number of pending items (itemsToReview); 0 otherwise. }
+    MyTasks:
+      type: object
+      required: [proposalsToHandle, itemsToReview, returnedItems, batchesToOrder, itemsToReceive, openExceptions]
+      properties:
+        proposalsToHandle: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+        itemsToReview: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+        returnedItems: { type: array, items: { $ref: "#/components/schemas/Item" } }
+        batchesToOrder: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+        itemsToReceive: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+        openExceptions: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+    AuditChange:
+      type: object
+      required: [field, from, to]
+      properties:
+        field: { type: string }
+        from: {}
+        to: {}
+    AuditEvent:
+      type: object
+      required: [id, at, actor, objectType, objectId, action, changes]
+      properties:
+        id: { type: string }
+        at: { type: string, format: date-time }
+        actor: { type: string, description: 'User id, or "system:<job>".' }
+        teamId: { type: string, description: Zero id "000000000000000000000000" when not set (see notes). }
+        batchId: { type: string, description: Set for batch and item events. }
+        objectType: { type: string }
+        objectId: { type: string }
+        action: { type: string, description: 'e.g. batch.created, batch.open, item.approved.' }
+        changes: { type: [array, "null"], items: { $ref: "#/components/schemas/AuditChange" } }
+        comment: { type: string }
+    BatchPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Batch" } }
+        nextCursor: { type: [string, "null"] }
+    ItemPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+        nextCursor: { type: [string, "null"] }
+    AuditEventPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/AuditEvent" } }
+        nextCursor: { type: [string, "null"] }
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }

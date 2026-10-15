@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "採購中心"
+  },
+  "nav": {
+    "home": "我的待辦",
+    "batches": "採購批次",
+    "reports": "報表",
+    "settings": "設定",
+    "admin": "角色對應",
+    "teams": "團隊"
+  },
+  "language": {
+    "label": "語言",
+    "en": "English",
+    "zh-TW": "繁體中文"
+  },
+  "user": {
+    "menu": "使用者選單",
+    "logout": "登出",
+    "unknown": "已登入"
+  },
+  "loading": "載入中…",
+  "banner": {
+    "updated": "系統已更新，請重新載入頁面。",
+    "reload": "重新載入"
+  },
+  "placeholder": {
+    "title": "即將推出",
+    "body": "此頁面尚未開放。"
+  },
+  "pages": {
+    "home": "我的待辦",
+    "batches": "採購批次",
+    "settings": "設定",
+    "team": "團隊",
+    "batch": "批次",
+    "reports": "報表",
+    "roleMappings": "角色對應",
+    "notFound": "找不到頁面"
+  },
+  "config": {
+    "missing": {
+      "title": "找不到設定檔",
+      "body": "應用程式無法載入 /config.json，請聯絡管理員提供。"
+    },
+    "invalid": {
+      "title": "設定檔無效",
+      "body": "已找到 /config.json，但內容不正確。"
+    },
+    "details": "詳細資訊"
+  },
+  "actions": {
+    "save": "儲存",
+    "cancel": "取消",
+    "delete": "刪除",
+    "edit": "編輯",
+    "saved": "已儲存。"
+  },
+  "validation": {
+    "required": "此欄位為必填。",
+    "tooLong": "內容過長。"
+  },
+  "userSearch": {
+    "placeholder": "以姓名或電子郵件搜尋",
+    "minChars": "請至少輸入 2 個字元。",
+    "none": "找不到使用者。使用者首次登入後才會出現在這裡。"
+  },
+  "settingsPage": {
+    "languageHelp": "您的語言設定會儲存到個人資料。"
+  }
+}

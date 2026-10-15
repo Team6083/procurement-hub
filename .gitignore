@@ -1,0 +1,7 @@
+spec.md
+node_modules/
+dist/
+frontend/public/config.json
+frontend/public/_headers
+*.env
+.env*

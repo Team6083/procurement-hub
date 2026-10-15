@@ -1,0 +1,271 @@
+package store
+
+import (
+	"context"
+	"errors"
+	"regexp"
+	"time"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
+
+	"github.com/OWNER/procurement-hub/internal/domain"
+)
+
+var (
+	ErrNotFound        = errors.New("not found")
+	ErrVersionConflict = errors.New("version conflict")
+	ErrDuplicate       = errors.New("duplicate")
+)
+
+func mapErr(err error) error {
+	switch {
+	case err == nil:
+		return nil
+	case errors.Is(err, mongo.ErrNoDocuments):
+		return ErrNotFound
+	case mongo.IsDuplicateKeyError(err):
+		return ErrDuplicate
+	}
+	return err
+}
+
+func (s *Store) c(name string) *mongo.Collection { return s.DB.Collection(name) }
+
+// UpdateVersioned applies `set` (plus updatedAt and version+1) to the document
+// if its current version equals expected; otherwise ErrVersionConflict.
+// The updated document is decoded into out.
+func (s *Store) UpdateVersioned(ctx context.Context, coll string, id bson.ObjectID, expected int64, set bson.D, out any) error {
+	set = append(set, bson.E{Key: "updatedAt", Value: time.Now().UTC()})
+	res := s.c(coll).FindOneAndUpdate(ctx,
+		bson.D{{Key: "_id", Value: id}, {Key: "version", Value: expected}},
+		bson.D{{Key: "$set", Value: set}, {Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}}},
+		options.FindOneAndUpdate().SetReturnDocument(options.After))
+	if err := res.Decode(out); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			// Distinguish missing from stale.
+			n, cerr := s.c(coll).CountDocuments(ctx, bson.D{{Key: "_id", Value: id}})
+			if cerr == nil && n > 0 {
+				return ErrVersionConflict
+			}
+			return ErrNotFound
+		}
+		return mapErr(err)
+	}
+	return nil
+}
+
+// ---- users ----
+
+// UpsertUser creates the user for sub if unknown and returns the current doc.
+func (s *Store) UpsertUser(ctx context.Context, sub, username, email, displayName string) (*domain.User, error) {
+	now := time.Now().UTC()
+	var u domain.User
+	err := s.c("users").FindOneAndUpdate(ctx,
+		bson.D{{Key: "sub", Value: sub}},
+		bson.D{{Key: "$setOnInsert", Value: bson.D{
+			{Key: "sub", Value: sub}, {Key: "username", Value: username}, {Key: "email", Value: email},
+			{Key: "displayName", Value: displayName}, {Key: "locale", Value: domain.LocaleEN},
+			{Key: "lastSyncedTokenIat", Value: time.Time{}},
+			{Key: "createdAt", Value: now}, {Key: "updatedAt", Value: now}, {Key: "version", Value: int64(1)},
+		}}},
+		options.FindOneAndUpdate().SetUpsert(true).SetReturnDocument(options.After)).Decode(&u)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &u, nil
+}
+
+// MarkSynced refreshes profile fields and lastSyncedTokenIat, but only moves
+// the timestamp forward.
+func (s *Store) MarkSynced(ctx context.Context, userID bson.ObjectID, iat time.Time, username, email, displayName string) error {
+	_, err := s.c("users").UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: userID}, {Key: "lastSyncedTokenIat", Value: bson.D{{Key: "$lt", Value: iat}}}},
+		bson.D{{Key: "$set", Value: bson.D{
+			{Key: "lastSyncedTokenIat", Value: iat}, {Key: "username", Value: username},
+			{Key: "email", Value: email}, {Key: "displayName", Value: displayName},
+			{Key: "updatedAt", Value: time.Now().UTC()},
+		}}})
+	return err
+}
+
+func (s *Store) GetUser(ctx context.Context, id bson.ObjectID) (*domain.User, error) {
+	var u domain.User
+	if err := s.c("users").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&u); err != nil {
+		return nil, mapErr(err)
+	}
+	return &u, nil
+}
+
+// SearchUsers matches username, email or display name by case-insensitive prefix/substring.
+func (s *Store) SearchUsers(ctx context.Context, q string, limit int64) ([]domain.User, error) {
+	if limit <= 0 || limit > 50 {
+		limit = 20
+	}
+	re := bson.Regex{Pattern: regexp.QuoteMeta(q), Options: "i"}
+	cur, err := s.c("users").Find(ctx, bson.D{{Key: "$or", Value: bson.A{
+		bson.D{{Key: "username", Value: re}}, bson.D{{Key: "email", Value: re}}, bson.D{{Key: "displayName", Value: re}},
+	}}}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "username", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.User
+	return out, cur.All(ctx, &out)
+}
+
+// ---- teams ----
+
+func (s *Store) CreateTeam(ctx context.Context, t *domain.Team) error {
+	now := time.Now().UTC()
+	t.CreatedAt, t.UpdatedAt, t.Version = now, now, 1
+	if t.Subgroups == nil {
+		t.Subgroups = []domain.Subgroup{}
+	}
+	if t.ReferenceRates == nil {
+		t.ReferenceRates = []domain.ReferenceRate{}
+	}
+	res, err := s.c("teams").InsertOne(ctx, t)
+	if err != nil {
+		return mapErr(err)
+	}
+	t.ID = res.InsertedID.(bson.ObjectID)
+	return nil
+}
+
+func (s *Store) GetTeam(ctx context.Context, id bson.ObjectID) (*domain.Team, error) {
+	var t domain.Team
+	if err := s.c("teams").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&t); err != nil {
+		return nil, mapErr(err)
+	}
+	return &t, nil
+}
+
+func (s *Store) GetTeamBySlug(ctx context.Context, slug string) (*domain.Team, error) {
+	var t domain.Team
+	if err := s.c("teams").FindOne(ctx, bson.D{{Key: "slug", Value: slug}}).Decode(&t); err != nil {
+		return nil, mapErr(err)
+	}
+	return &t, nil
+}
+
+func (s *Store) ListTeams(ctx context.Context) ([]domain.Team, error) {
+	cur, err := s.c("teams").Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "name", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Team
+	return out, cur.All(ctx, &out)
+}
+
+// ---- memberships ----
+
+func (s *Store) MembershipsByUser(ctx context.Context, userID bson.ObjectID) ([]domain.Membership, error) {
+	return s.findMemberships(ctx, bson.D{{Key: "userId", Value: userID}})
+}
+
+func (s *Store) MembershipsByTeam(ctx context.Context, teamID bson.ObjectID) ([]domain.Membership, error) {
+	return s.findMemberships(ctx, bson.D{{Key: "teamId", Value: teamID}})
+}
+
+func (s *Store) findMemberships(ctx context.Context, f bson.D) ([]domain.Membership, error) {
+	cur, err := s.c("memberships").Find(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Membership
+	return out, cur.All(ctx, &out)
+}
+
+func (s *Store) GetMembership(ctx context.Context, teamID, userID bson.ObjectID) (*domain.Membership, error) {
+	var m domain.Membership
+	err := s.c("memberships").FindOne(ctx, bson.D{{Key: "teamId", Value: teamID}, {Key: "userId", Value: userID}}).Decode(&m)
+	if err != nil {
+		return nil, mapErr(err)
+	}
+	return &m, nil
+}
+
+func (s *Store) InsertMembership(ctx context.Context, m *domain.Membership) error {
+	now := time.Now().UTC()
+	m.CreatedAt, m.UpdatedAt, m.Version = now, now, 1
+	res, err := s.c("memberships").InsertOne(ctx, m)
+	if err != nil {
+		return mapErr(err)
+	}
+	m.ID = res.InsertedID.(bson.ObjectID)
+	return nil
+}
+
+// SetMembershipRoles overwrites the stored role sources of a membership.
+// Unset (empty) roles are removed from the document.
+func (s *Store) SetMembershipRoles(ctx context.Context, id bson.ObjectID, sso, manual domain.Role) error {
+	set, unset := bson.D{{Key: "updatedAt", Value: time.Now().UTC()}}, bson.D{}
+	for k, v := range map[string]domain.Role{"ssoRole": sso, "manualRole": manual} {
+		if v == domain.RoleNone {
+			unset = append(unset, bson.E{Key: k, Value: ""})
+		} else {
+			set = append(set, bson.E{Key: k, Value: v})
+		}
+	}
+	upd := bson.D{{Key: "$set", Value: set}, {Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}}}
+	if len(unset) > 0 {
+		upd = append(upd, bson.E{Key: "$unset", Value: unset})
+	}
+	_, err := s.c("memberships").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}}, upd)
+	return err
+}
+
+func (s *Store) DeleteMembership(ctx context.Context, id bson.ObjectID) error {
+	_, err := s.c("memberships").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	return err
+}
+
+// ---- role mappings ----
+
+func (s *Store) ListRoleMappings(ctx context.Context) ([]domain.RoleMapping, error) {
+	cur, err := s.c("roleMappings").Find(ctx, bson.D{}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.RoleMapping
+	return out, cur.All(ctx, &out)
+}
+
+func (s *Store) GetRoleMapping(ctx context.Context, id string) (*domain.RoleMapping, error) {
+	var m domain.RoleMapping
+	if err := s.c("roleMappings").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&m); err != nil {
+		return nil, mapErr(err)
+	}
+	return &m, nil
+}
+
+func (s *Store) PutRoleMapping(ctx context.Context, m domain.RoleMapping) error {
+	_, err := s.c("roleMappings").ReplaceOne(ctx, bson.D{{Key: "_id", Value: m.ID}}, m, options.Replace().SetUpsert(true))
+	return err
+}
+
+func (s *Store) DeleteRoleMapping(ctx context.Context, id string) error {
+	res, err := s.c("roleMappings").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	if err == nil && res.DeletedCount == 0 {
+		return ErrNotFound
+	}
+	return err
+}
+
+// SyncManagedRoleMappings upserts the given managed rules and deletes managed
+// rules that are no longer present (spec §7.4).
+func (s *Store) SyncManagedRoleMappings(ctx context.Context, rules []domain.RoleMapping) error {
+	ids := bson.A{}
+	for _, r := range rules {
+		r.Managed = true
+		if err := s.PutRoleMapping(ctx, r); err != nil {
+			return err
+		}
+		ids = append(ids, r.ID)
+	}
+	_, err := s.c("roleMappings").DeleteMany(ctx, bson.D{
+		{Key: "managed", Value: true}, {Key: "_id", Value: bson.D{{Key: "$nin", Value: ids}}},
+	})
+	return err
+}

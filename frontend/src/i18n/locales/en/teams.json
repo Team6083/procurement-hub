@@ -1,0 +1,122 @@
+{
+  "home": {
+    "myTasks": {
+      "title": "My tasks",
+      "body": "Tasks assigned to you will appear here."
+    },
+    "teams": {
+      "title": "Teams",
+      "empty": "There are no teams yet.",
+      "archived": "Archived"
+    },
+    "createTeam": "Create team"
+  },
+  "createTeam": {
+    "title": "Create team",
+    "slug": "Slug",
+    "slugHelp": "Lowercase letters, digits and single hyphens. Used in the team URL; cannot be changed later.",
+    "name": "Name",
+    "description": "Description",
+    "firstAdmin": "First team admin",
+    "submit": "Create"
+  },
+  "validation": {
+    "slug": "Use lowercase letters and digits, separated by single hyphens.",
+    "rate": "Enter a positive decimal number.",
+    "duplicateCurrency": "This currency is already listed."
+  },
+  "role": {
+    "member": "Member",
+    "admin": "Admin",
+    "none": "None"
+  },
+  "ssoBadge": "Managed by SSO",
+  "ssoBadgeHint": "This role comes from your identity provider and cannot be changed here.",
+  "tabs": {
+    "overview": "Overview",
+    "members": "Members",
+    "settings": "Settings"
+  },
+  "team": {
+    "notFound": "Team not found.",
+    "archived": "Archived",
+    "visibility": {
+      "public": "Public",
+      "members": "Members only"
+    },
+    "subgroups": "Subgroups",
+    "noSubgroups": "No subgroups.",
+    "noDescription": "No description.",
+    "batchesPlaceholder": "Batches of this team will appear here."
+  },
+  "settings": {
+    "nav": {
+      "general": "General",
+      "subgroups": "Subgroups",
+      "rates": "Reference rates",
+      "members": "Members"
+    },
+    "forbidden": "You do not have access to this page.",
+    "archivedNotice": "This team is archived and read-only."
+  },
+  "general": {
+    "name": "Name",
+    "description": "Description",
+    "visibility": "Visibility",
+    "locale": "Locale",
+    "localeHelp": "Default language for notifications about this team.",
+    "priorityLabels": "Priority labels",
+    "priorityHelp": "Leave a field empty to use the built-in label shown as placeholder.",
+    "archive": {
+      "title": "Archive",
+      "help": "Archived teams are read-only. Only system admins can change this.",
+      "archive": "Archive team",
+      "unarchive": "Unarchive team"
+    }
+  },
+  "priority": {
+    "level": "Priority {{n}}",
+    "default": {
+      "5": "Must buy; something breaks without it",
+      "4": "Should buy; very likely to be used",
+      "3": "Good to have as a spare",
+      "2": "Probably unused, but acceptable to buy",
+      "1": "Looks cool; maybe buy"
+    }
+  },
+  "subgroups": {
+    "name": "Subgroup name",
+    "add": "Add subgroup",
+    "rename": "Rename",
+    "deactivate": "Deactivate",
+    "activate": "Activate",
+    "inactive": "Inactive",
+    "empty": "No subgroups yet."
+  },
+  "rates": {
+    "help": "Reference rates convert other currencies into the base currency ({{base}}) for estimates. Saving replaces the whole list.",
+    "none": "No reference rates.",
+    "currency": "Currency",
+    "rate": "Rate to {{base}}",
+    "add": "Add rate",
+    "remove": "Remove",
+    "noCurrencies": "No other currencies are supported."
+  },
+  "members": {
+    "user": "User",
+    "effective": "Role",
+    "manualRole": "Manual role",
+    "defaultSubgroup": "Default subgroup",
+    "actions": "Actions",
+    "role": "Role",
+    "add": "Add member",
+    "addButton": "Add",
+    "noDefault": "None",
+    "noManual": "None",
+    "clearManual": "Clear manual role",
+    "remove": "Remove",
+    "removeTitle": "Remove member",
+    "removeConfirm": "Remove the manual role of {{name}}?",
+    "removeNote": "The member is removed from the team unless an SSO role still applies."
+  }
+}

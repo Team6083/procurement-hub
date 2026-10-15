@@ -1,0 +1,449 @@
+package httpapi
+
+import (
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"go.mongodb.org/mongo-driver/v2/bson"
+
+	"github.com/OWNER/procurement-hub/internal/domain"
+	"github.com/OWNER/procurement-hub/internal/service"
+)
+
+// BatchesAPI serves batches, items, reviews, tasks and audit timelines.
+type BatchesAPI struct {
+	Batches  *service.Batches
+	Items    *service.Items
+	Tasks    *service.Tasks
+	Timeline *service.Timeline
+}
+
+func (a *BatchesAPI) Mount(r chi.Router) {
+	r.Get("/batches", a.list)
+	r.Post("/teams/{teamId}/batches", a.create)
+	r.Get("/batches/{id}", a.get)
+	r.Patch("/batches/{id}", a.patch)
+	r.Put("/batches/{id}/assignments", a.assignments)
+	r.Post("/batches/{id}/transitions", a.transition)
+	r.Get("/batches/{id}/items", a.listItems)
+	r.Post("/batches/{id}/items", a.addItem)
+	r.Post("/batches/{id}/reviews", a.review)
+	r.Patch("/items/{id}", a.patchItem)
+	r.Post("/items/{id}/withdraw", a.withdrawItem)
+	r.Post("/items/{id}/resubmit", a.resubmitItem)
+	r.Post("/items/{id}/force-reject", a.forceReject)
+	r.Get("/me/tasks", a.tasks)
+	r.Get("/audit", a.audit)
+	r.Get("/teams/{teamId}/audit", a.teamAudit)
+}
+
+func idParam(w http.ResponseWriter, r *http.Request, name string) (bson.ObjectID, bool) {
+	id, e := objectID(chi.URLParam(r, name))
+	if e != nil {
+		WriteError(w, e)
+		return id, false
+	}
+	return id, true
+}
+
+func (a *BatchesAPI) actor(r *http.Request) *Caller { return CallerFrom(r.Context()) }
+
+func respondBatch(w http.ResponseWriter, status int, b *domain.Batch, err error) {
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	setETag(w, b.Version)
+	WriteJSON(w, status, b)
+}
+
+func (a *BatchesAPI) list(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	in := service.ListBatchesInput{Status: domain.BatchStatus(q.Get("status")), Query: q.Get("q")}
+	if v := q.Get("teamId"); v != "" {
+		id, e := bson.ObjectIDFromHex(v)
+		if e != nil {
+			fail(w, service.Invalid("teamId", "must be a team id"))
+			return
+		}
+		in.TeamID = id
+	}
+	if v := q.Get("cursor"); v != "" {
+		id, e := bson.ObjectIDFromHex(v)
+		if e != nil {
+			fail(w, service.Invalid("cursor", "invalid cursor"))
+			return
+		}
+		in.Cursor = id
+	}
+	if v := q.Get("limit"); v != "" {
+		n, e := strconv.Atoi(v)
+		if e != nil || n < 1 {
+			fail(w, service.Invalid("limit", "must be a positive integer"))
+			return
+		}
+		in.Limit = n
+	}
+	p, err := a.Batches.List(r.Context(), a.actor(r).Actor, in)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	out := page[domain.Batch]{Items: p.Items}
+	if p.NextCursor != nil {
+		c := p.NextCursor.Hex()
+		out.NextCursor = &c
+	}
+	WriteJSON(w, http.StatusOK, out)
+}
+
+func (a *BatchesAPI) create(w http.ResponseWriter, r *http.Request) {
+	teamID, ok := idParam(w, r, "teamId")
+	if !ok {
+		return
+	}
+	var req struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+		Propose     bool   `json:"propose"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	b, err := a.Batches.Create(r.Context(), a.actor(r).Actor, teamID, service.CreateBatchInput{
+		Title: req.Title, Description: req.Description, Propose: req.Propose,
+	})
+	respondBatch(w, http.StatusCreated, b, err)
+}
+
+func (a *BatchesAPI) get(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	b, _, err := a.Batches.Get(r.Context(), a.actor(r).Actor, id)
+	respondBatch(w, http.StatusOK, b, err)
+}
+
+func (a *BatchesAPI) patch(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Title              *string        `json:"title"`
+		Description        *string        `json:"description"`
+		Deadline           optionalTime   `json:"deadline"`
+		VisibilityOverride optionalString `json:"visibilityOverride"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	b, err := a.Batches.Update(r.Context(), a.actor(r).Actor, id, ver, service.BatchPatch{
+		Title: req.Title, Description: req.Description,
+		DeadlineSet: req.Deadline.Set, Deadline: req.Deadline.Value,
+		VisibilitySet: req.VisibilityOverride.Set, VisibilityOverride: domain.Visibility(req.VisibilityOverride.Value),
+	})
+	respondBatch(w, http.StatusOK, b, err)
+}
+
+func (a *BatchesAPI) assignments(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Approvers  []string `json:"approvers"`
+		Purchasers []string `json:"purchasers"`
+		Receivers  []string `json:"receivers"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	parse := func(field string, in []string) ([]bson.ObjectID, error) {
+		out := make([]bson.ObjectID, 0, len(in))
+		for _, s := range in {
+			oid, err := bson.ObjectIDFromHex(s)
+			if err != nil {
+				return nil, service.Invalid(field, "invalid user id")
+			}
+			out = append(out, oid)
+		}
+		return out, nil
+	}
+	var in service.AssignmentsInput
+	var err error
+	if in.Approvers, err = parse("approvers", req.Approvers); err != nil {
+		fail(w, err)
+		return
+	}
+	if in.Purchasers, err = parse("purchasers", req.Purchasers); err != nil {
+		fail(w, err)
+		return
+	}
+	if in.Receivers, err = parse("receivers", req.Receivers); err != nil {
+		fail(w, err)
+		return
+	}
+	b, err := a.Batches.SetAssignments(r.Context(), a.actor(r).Actor, id, ver, in)
+	respondBatch(w, http.StatusOK, b, err)
+}
+
+func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Action   domain.BatchAction `json:"action"`
+		Reason   string             `json:"reason"`
+		Deadline *time.Time         `json:"deadline"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	if req.Deadline != nil {
+		d := req.Deadline.UTC()
+		req.Deadline = &d
+	}
+	b, err := a.Batches.Transition(r.Context(), a.actor(r).Actor, id, ver, service.TransitionInput{
+		Action: req.Action, Reason: req.Reason, Deadline: req.Deadline,
+	})
+	respondBatch(w, http.StatusOK, b, err)
+}
+
+// ---- items ----
+
+type itemReq struct {
+	SubgroupID         string       `json:"subgroupId"`
+	Name               string       `json:"name"`
+	Vendor             string       `json:"vendor"`
+	SKU                string       `json:"sku"`
+	Quantity           int          `json:"quantity"`
+	EstimatedUnitPrice domain.Money `json:"estimatedUnitPrice"`
+	Priority           int          `json:"priority"`
+	Purpose            string       `json:"purpose"`
+	Notes              string       `json:"notes"`
+	ProductURL         string       `json:"productUrl"`
+	AutoFilledFields   []string     `json:"autoFilledFields"`
+	LookupProvider     string       `json:"lookupProvider"`
+}
+
+func (q itemReq) input() service.ItemInput {
+	return service.ItemInput{
+		SubgroupID: q.SubgroupID, Name: q.Name, Vendor: q.Vendor, SKU: q.SKU, Quantity: q.Quantity,
+		EstimatedUnitPrice: q.EstimatedUnitPrice, Priority: q.Priority, Purpose: q.Purpose, Notes: q.Notes,
+		ProductURL: q.ProductURL, AutoFilledFields: q.AutoFilledFields, LookupProvider: q.LookupProvider,
+	}
+}
+
+func respondItem(w http.ResponseWriter, status int, it *domain.Item, err error) {
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	setETag(w, it.Version)
+	WriteJSON(w, status, it)
+}
+
+func (a *BatchesAPI) listItems(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	items, err := a.Items.List(r.Context(), a.actor(r).Actor, id)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, wholePage(items))
+}
+
+func (a *BatchesAPI) addItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var req itemReq
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.Add(r.Context(), a.actor(r).Actor, id, req.input())
+	respondItem(w, http.StatusCreated, it, err)
+}
+
+func (a *BatchesAPI) patchItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req itemReq
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.Update(r.Context(), a.actor(r).Actor, id, ver, req.input())
+	respondItem(w, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) withdrawItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.Withdraw(r.Context(), a.actor(r).Actor, id, ver)
+	respondItem(w, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) resubmitItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.Resubmit(r.Context(), a.actor(r).Actor, id, ver)
+	respondItem(w, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) forceReject(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.ForceReject(r.Context(), a.actor(r).Actor, id, ver, req.Reason)
+	respondItem(w, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) review(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	var req struct {
+		Decisions []struct {
+			ItemID   string `json:"itemId"`
+			Decision string `json:"decision"`
+			Comment  string `json:"comment"`
+		} `json:"decisions"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	ds := make([]service.Decision, 0, len(req.Decisions))
+	for _, d := range req.Decisions {
+		oid, err := bson.ObjectIDFromHex(d.ItemID)
+		if err != nil {
+			fail(w, service.Invalid("decisions", "invalid item id"))
+			return
+		}
+		ds = append(ds, service.Decision{ItemID: oid, Decision: d.Decision, Comment: d.Comment})
+	}
+	res, err := a.Items.Review(r.Context(), a.actor(r).Actor, id, ds)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	setETag(w, res.Batch.Version)
+	WriteJSON(w, http.StatusOK, map[string]any{"batch": res.Batch, "items": res.Items})
+}
+
+// ---- tasks and audit ----
+
+func (a *BatchesAPI) tasks(w http.ResponseWriter, r *http.Request) {
+	t, err := a.Tasks.For(r.Context(), a.actor(r).Actor)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, map[string]any{
+		"proposalsToHandle": t.ProposalsToHandle, "itemsToReview": t.ItemsToReview, "returnedItems": t.ReturnedItems,
+		"batchesToOrder": t.BatchesToOrder, "itemsToReceive": t.ItemsToReceive, "openExceptions": t.OpenExceptions,
+	})
+}
+
+func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	id, e := objectID(q.Get("objectId"))
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var evs []domain.AuditEvent
+	var err error
+	switch q.Get("objectType") {
+	case "batch":
+		evs, err = a.Timeline.ForBatch(r.Context(), a.actor(r).Actor, id)
+	case "item":
+		evs, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id)
+	default:
+		fail(w, service.Invalid("objectType", "must be batch or item"))
+		return
+	}
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, wholePage(evs))
+}
+
+func (a *BatchesAPI) teamAudit(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "teamId")
+	if !ok {
+		return
+	}
+	evs, err := a.Timeline.ForTeam(r.Context(), a.actor(r).Actor, id)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, wholePage(evs))
+}

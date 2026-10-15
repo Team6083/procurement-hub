@@ -1,0 +1,53 @@
+import { z } from 'zod';
+import type { Item } from '../../api/types';
+
+/** Returns the URL only when it is http(s); used before rendering links. */
+export function safeHttpUrl(url: string | undefined | null): string | undefined {
+  if (!url) return undefined;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'http:' || u.protocol === 'https:' ? u.toString() : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Messages are i18n keys resolved at render time.
+export const itemFormSchema = z.object({
+  name: z.string().trim().min(1, 'common:validation.required').max(300, 'common:validation.tooLong'),
+  vendor: z.string(),
+  sku: z.string(),
+  quantity: z.string().regex(/^[1-9]\d*$/, 'batches:validation.quantity'),
+  unitPrice: z.string().trim().regex(/^(?:\d+(?:\.\d+)?|\.\d+)$/, 'batches:validation.price'),
+  currency: z.string().min(1, 'common:validation.required'),
+  priority: z.enum(['1', '2', '3', '4', '5']),
+  subgroupId: z.string(),
+  purpose: z.string().trim().min(1, 'common:validation.required'),
+  notes: z.string(),
+  productUrl: z
+    .string()
+    .trim()
+    .refine((v) => v === '' || safeHttpUrl(v) !== undefined, 'batches:validation.url'),
+});
+export type ItemForm = z.infer<typeof itemFormSchema>;
+
+export function emptyItemForm(currency: string, subgroupId: string): ItemForm {
+  return { name: '', vendor: '', sku: '', quantity: '1', unitPrice: '', currency, priority: '3', subgroupId, purpose: '', notes: '', productUrl: '' };
+}
+
+export function itemToForm(i: Item): ItemForm {
+  return {
+    name: i.name, vendor: i.vendor, sku: i.sku, quantity: String(i.quantity), unitPrice: i.estimatedUnitPrice.amount,
+    currency: i.estimatedUnitPrice.currency, priority: String(i.priority) as ItemForm['priority'], subgroupId: i.subgroupId,
+    purpose: i.purpose, notes: i.notes, productUrl: i.productUrl,
+  };
+}
+
+/** The PATCH /items body replaces all editable fields, so always send them all. */
+export function toItemRequest(f: ItemForm) {
+  return {
+    name: f.name.trim(), vendor: f.vendor.trim(), sku: f.sku.trim(), quantity: Number(f.quantity),
+    estimatedUnitPrice: { amount: f.unitPrice.trim(), currency: f.currency }, priority: Number(f.priority),
+    subgroupId: f.subgroupId, purpose: f.purpose.trim(), notes: f.notes, productUrl: f.productUrl.trim(),
+  };
+}

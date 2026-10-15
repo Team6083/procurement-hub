@@ -1,0 +1,122 @@
+{
+  "home": {
+    "myTasks": {
+      "title": "我的待辦",
+      "body": "指派給您的待辦事項會顯示在這裡。"
+    },
+    "teams": {
+      "title": "團隊",
+      "empty": "目前沒有任何團隊。",
+      "archived": "已封存"
+    },
+    "createTeam": "建立團隊"
+  },
+  "createTeam": {
+    "title": "建立團隊",
+    "slug": "代稱 (slug)",
+    "slugHelp": "小寫字母、數字與單一連字號。用於團隊網址，建立後無法變更。",
+    "name": "名稱",
+    "description": "說明",
+    "firstAdmin": "第一位團隊管理員",
+    "submit": "建立"
+  },
+  "validation": {
+    "slug": "請使用小寫字母與數字，並以單一連字號分隔。",
+    "rate": "請輸入大於零的十進位數字。",
+    "duplicateCurrency": "此幣別已在清單中。"
+  },
+  "role": {
+    "member": "成員",
+    "admin": "管理員",
+    "none": "無"
+  },
+  "ssoBadge": "由 SSO 管理",
+  "ssoBadgeHint": "此角色來自身分提供者，無法在此變更。",
+  "tabs": {
+    "overview": "總覽",
+    "members": "成員",
+    "settings": "設定"
+  },
+  "team": {
+    "notFound": "找不到此團隊。",
+    "archived": "已封存",
+    "visibility": {
+      "public": "公開",
+      "members": "僅限成員"
+    },
+    "subgroups": "子群組",
+    "noSubgroups": "沒有子群組。",
+    "noDescription": "沒有說明。",
+    "batchesPlaceholder": "此團隊的批次會顯示在這裡。"
+  },
+  "settings": {
+    "nav": {
+      "general": "一般",
+      "subgroups": "子群組",
+      "rates": "參考匯率",
+      "members": "成員"
+    },
+    "forbidden": "您沒有權限存取此頁面。",
+    "archivedNotice": "此團隊已封存，僅供檢視。"
+  },
+  "general": {
+    "name": "名稱",
+    "description": "說明",
+    "visibility": "可見度",
+    "locale": "語系",
+    "localeHelp": "此團隊通知的預設語言。",
+    "priorityLabels": "優先順序標籤",
+    "priorityHelp": "留空則使用以預留文字顯示的內建標籤。",
+    "archive": {
+      "title": "封存",
+      "help": "已封存的團隊僅供檢視。只有系統管理員可以變更。",
+      "archive": "封存團隊",
+      "unarchive": "取消封存團隊"
+    }
+  },
+  "priority": {
+    "level": "優先順序 {{n}}",
+    "default": {
+      "5": "必買；沒有它會出問題",
+      "4": "應該買；很可能會用到",
+      "3": "當作備品很好",
+      "2": "可能用不到，但可以接受購買",
+      "1": "看起來很酷；也許買"
+    }
+  },
+  "subgroups": {
+    "name": "子群組名稱",
+    "add": "新增子群組",
+    "rename": "重新命名",
+    "deactivate": "停用",
+    "activate": "啟用",
+    "inactive": "已停用",
+    "empty": "尚無子群組。"
+  },
+  "rates": {
+    "help": "參考匯率用於將其他幣別換算為基準幣別 ({{base}}) 以供估算。儲存時會取代整份清單。",
+    "none": "沒有參考匯率。",
+    "currency": "幣別",
+    "rate": "兌 {{base}} 匯率",
+    "add": "新增匯率",
+    "remove": "移除",
+    "noCurrencies": "沒有其他支援的幣別。"
+  },
+  "members": {
+    "user": "使用者",
+    "effective": "角色",
+    "manualRole": "手動角色",
+    "defaultSubgroup": "預設子群組",
+    "actions": "操作",
+    "role": "角色",
+    "add": "新增成員",
+    "addButton": "新增",
+    "noDefault": "無",
+    "noManual": "無",
+    "clearManual": "清除手動角色",
+    "remove": "移除",
+    "removeTitle": "移除成員",
+    "removeConfirm": "要移除 {{name}} 的手動角色嗎？",
+    "removeNote": "除非仍有 SSO 角色，否則該成員會被移出團隊。"
+  }
+}

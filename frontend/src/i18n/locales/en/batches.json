@@ -1,0 +1,192 @@
+{
+  "tabs": {
+    "items": "Items",
+    "review": "Review",
+    "timeline": "Timeline"
+  },
+  "status": {
+    "proposed": "Proposed",
+    "proposal_rejected": "Proposal rejected",
+    "draft": "Draft",
+    "collecting": "Collecting",
+    "reviewing": "Reviewing",
+    "ordering": "Ordering",
+    "receiving": "Receiving",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  },
+  "itemStatus": {
+    "pending": "Pending",
+    "withdrawn": "Withdrawn",
+    "approved": "Approved",
+    "returned": "Returned",
+    "rejected": "Rejected",
+    "ordered": "Ordered",
+    "unpurchasable": "Unpurchasable",
+    "partially_received": "Partially received",
+    "received": "Received",
+    "exception": "Exception",
+    "accepted_short": "Accepted short",
+    "not_obtained": "Not obtained"
+  },
+  "filters": {
+    "team": "Team",
+    "status": "Status",
+    "text": "Search",
+    "all": "All"
+  },
+  "list": {
+    "title": "Batches",
+    "new": "New batch",
+    "propose": "Propose batch",
+    "empty": "No batches found.",
+    "number": "No.",
+    "batchTitle": "Title",
+    "loadMore": "Load more"
+  },
+  "create": {
+    "dialogTitle": "New batch",
+    "title": "Title",
+    "description": "Description",
+    "proposeInstead": "Propose instead of creating a draft",
+    "proposeHelp": "A proposal waits for a team admin to open or reject it.",
+    "memberNote": "Your batch will be submitted as a proposal.",
+    "submitDraft": "Create draft",
+    "submitPropose": "Propose"
+  },
+  "header": {
+    "deadline": "Deadline",
+    "visibility": "Visibility",
+    "reason": "Reason: {{reason}}",
+    "proposed": "Proposed by a member"
+  },
+  "visibility": {
+    "inherit": "Same as team",
+    "public": "Public",
+    "members": "Members only"
+  },
+  "assignments": {
+    "approvers": "Approvers",
+    "purchasers": "Purchasers",
+    "receivers": "Receivers",
+    "none": "None"
+  },
+  "actions": {
+    "open": "Open for items",
+    "start_review": "Start review",
+    "close": "Close collection",
+    "reopen": "Reopen",
+    "cancel": "Cancel batch",
+    "reject_proposal": "Reject proposal",
+    "withdraw_proposal": "Withdraw proposal",
+    "reason": "Reason",
+    "deadlineRequired": "A deadline in the future is required.",
+    "deadlineOptional": "Leave empty to keep the current deadline.",
+    "disabled": {
+      "assignments": "Assign at least one approver, purchaser and receiver first.",
+      "noPending": "There are no pending items to review."
+    },
+    "confirm": {
+      "start_review": "Start reviewing the pending items now?",
+      "close": "Close collection and move to review? If there are no items the batch is cancelled.",
+      "cancel": "Cancel this batch? A reason is required.",
+      "reject_proposal": "Reject this proposal? A reason is required.",
+      "withdraw_proposal": "Withdraw your proposal?"
+    }
+  },
+  "edit": {
+    "title": "Edit batch",
+    "button": "Edit"
+  },
+  "item": {
+    "name": "Name",
+    "vendor": "Vendor",
+    "sku": "SKU",
+    "quantity": "Quantity",
+    "unitPrice": "Unit price",
+    "currency": "Currency",
+    "priority": "Priority",
+    "subgroup": "Subgroup",
+    "noSubgroup": "None",
+    "purpose": "Purpose",
+    "productUrl": "Product URL",
+    "notes": "Notes",
+    "add": "Add item",
+    "addTitle": "Add item",
+    "editTitle": "Edit item",
+    "requester": "Requester",
+    "status": "Status",
+    "lineTotal": "Total",
+    "selectAll": "Select all",
+    "selectRow": "Select row",
+    "withdraw": "Withdraw",
+    "withdrawConfirm": "Withdraw item {{name}}?",
+    "resubmit": "Resubmit",
+    "resubmitNeedsEdit": "Edit the item before resubmitting it.",
+    "returnedComment": "Returned: {{comment}}",
+    "rejectedComment": "Rejected: {{comment}}",
+    "empty": "No items yet."
+  },
+  "totals": {
+    "none": "No amounts.",
+    "base": "Estimate: {{amount}} {{currency}}",
+    "noRate": "No rate",
+    "visible": "Totals (excluding withdrawn and rejected)",
+    "selected": "Selected ({{count}})",
+    "pending": "Pending items"
+  },
+  "review": {
+    "notReviewing": "This batch is not under review.",
+    "readOnly": "Only approvers and team admins can review items.",
+    "pending": "Pending items ({{count}})",
+    "nonePending": "No pending items.",
+    "approve": "Approve selected ({{count}})",
+    "return": "Return",
+    "reject": "Reject",
+    "forceReject": "Force reject",
+    "comment": "Comment",
+    "commentHelp": "A comment is required. It will be shown to the requester of {{count}} selected item(s).",
+    "reason": "Reason",
+    "forceHelp": "Force-reject {{name}}? A reason is required.",
+    "returned": "Returned items ({{count}})"
+  },
+  "timeline": {
+    "empty": "No events yet.",
+    "system": "System",
+    "generic": "Event: {{action}}",
+    "actions": {
+      "batch_created": "Batch created",
+      "batch_proposed": "Batch proposed",
+      "batch_updated": "Batch edited",
+      "batch_assignments_changed": "Assignments changed",
+      "batch_open": "Opened for items",
+      "batch_start_review": "Review started",
+      "batch_close": "Collection closed",
+      "batch_reopen": "Reopened",
+      "batch_cancel": "Batch cancelled",
+      "batch_reject_proposal": "Proposal rejected",
+      "batch_withdraw_proposal": "Proposal withdrawn",
+      "batch_auto_transition": "Status changed automatically",
+      "item_created": "Item added",
+      "item_updated": "Item edited",
+      "item_withdrawn": "Item withdrawn",
+      "item_resubmitted": "Item resubmitted",
+      "item_approved": "Item approved",
+      "item_returned": "Item returned",
+      "item_rejected": "Item rejected",
+      "item_force_rejected": "Item force-rejected"
+    }
+  },
+  "tasks": {
+    "empty": "Nothing needs your attention.",
+    "proposals": "Proposals to handle",
+    "review": "Items to review",
+    "returned": "Returned items",
+    "pendingCount": "{{count}} pending"
+  },
+  "validation": {
+    "quantity": "Enter a whole number of at least 1.",
+    "price": "Enter a non-negative decimal number.",
+    "url": "Enter an http or https URL."
+  }
+}

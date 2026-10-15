@@ -1,0 +1,447 @@
+package service
+
+import (
+	"context"
+	"strings"
+
+	"go.mongodb.org/mongo-driver/v2/bson"
+
+	"github.com/OWNER/procurement-hub/internal/audit"
+	"github.com/OWNER/procurement-hub/internal/authz"
+	"github.com/OWNER/procurement-hub/internal/domain"
+	"github.com/OWNER/procurement-hub/internal/store"
+)
+
+type Items struct {
+	st      *store.Store
+	audit   *audit.Log
+	batches *Batches
+}
+
+func NewItems(st *store.Store, a *audit.Log, b *Batches) *Items {
+	return &Items{st: st, audit: a, batches: b}
+}
+
+// ItemInput carries the user-editable item fields.
+type ItemInput struct {
+	SubgroupID         string
+	Name               string
+	Vendor             string
+	SKU                string
+	Quantity           int
+	EstimatedUnitPrice domain.Money
+	Priority           int
+	Purpose            string
+	Notes              string
+	ProductURL         string
+	AutoFilledFields   []string
+	LookupProvider     string
+}
+
+func (in ItemInput) fields() domain.ItemFields {
+	return domain.ItemFields{
+		SubgroupID: in.SubgroupID, Name: in.Name, Vendor: in.Vendor, SKU: in.SKU, Quantity: in.Quantity,
+		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose,
+		Notes: in.Notes, ProductURL: in.ProductURL,
+	}
+}
+
+func (s *Items) validate(in ItemInput, t *domain.Team) error {
+	if errs := domain.ValidateItemFields(in.fields(), s.batches.supported); len(errs) > 0 {
+		return &ValidationError{Fields: errs}
+	}
+	if in.SubgroupID != "" {
+		for _, g := range t.Subgroups {
+			if g.ID == in.SubgroupID && g.Active {
+				return nil
+			}
+		}
+		return Invalid("subgroupId", "unknown or inactive subgroup")
+	}
+	return nil
+}
+
+func (s *Items) event(actor string, b *domain.Batch, it *domain.Item, action string, comment string, changes ...domain.AuditChange) domain.AuditEvent {
+	return domain.AuditEvent{
+		Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectType: "item", ObjectID: it.ID.Hex(),
+		Action: action, Comment: comment, Changes: changes,
+	}
+}
+
+// List returns a batch's items to anyone who can read the batch.
+func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.ObjectID) ([]domain.Item, error) {
+	if _, _, err := s.batches.load(ctx, actor, batchID); err != nil {
+		return nil, err
+	}
+	items, err := s.st.ListItems(ctx, batchID)
+	if items == nil {
+		items = []domain.Item{}
+	}
+	return items, err
+}
+
+// Add creates an item: team members, while the batch is `proposed` (proposer
+// only) or `collecting` (spec §8.3).
+func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectID, in ItemInput) (*domain.Item, error) {
+	b, t, err := s.batches.load(ctx, actor, batchID)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.IsMember(t.ID) {
+		return nil, ErrForbidden
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	switch b.Status {
+	case domain.BatchProposed:
+		if b.CreatedBy != actor.UserID {
+			return nil, ErrForbidden
+		}
+	case domain.BatchCollecting:
+	default:
+		return nil, Rule("BATCH_NOT_COLLECTING", "Batch is not accepting items.")
+	}
+	in.Name, in.Purpose = strings.TrimSpace(in.Name), strings.TrimSpace(in.Purpose)
+	if in.SubgroupID == "" {
+		if m, err := s.st.GetMembership(ctx, t.ID, actor.UserID); err == nil {
+			for _, g := range t.Subgroups {
+				if g.ID == m.DefaultSubgroupID && g.Active {
+					in.SubgroupID = g.ID
+				}
+			}
+		}
+	}
+	if err := s.validate(in, t); err != nil {
+		return nil, err
+	}
+	it := &domain.Item{
+		TeamID: t.ID, BatchID: b.ID, RequesterID: actor.UserID, Status: domain.ItemPending,
+		SubgroupID: in.SubgroupID, Name: in.Name, Vendor: in.Vendor, SKU: in.SKU, Quantity: in.Quantity,
+		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose, Notes: in.Notes, ProductURL: in.ProductURL,
+	}
+	if len(in.AutoFilledFields) > 0 {
+		it.Lookup = &domain.LookupInfo{Provider: in.LookupProvider, FetchedAt: s.batches.now(), AutoFilledFields: in.AutoFilledFields}
+	}
+	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		seq, err := s.st.NextItemSeq(ctx, b.ID)
+		if err != nil {
+			return mapStore(err)
+		}
+		it.SeqNo = seq
+		if err := s.st.InsertItem(ctx, it); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, it, "item.created", "",
+			domain.AuditChange{Field: "status", From: "", To: string(it.Status)}))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return it, nil
+}
+
+// loadItem fetches an item together with its batch/team and checks read access.
+func (s *Items) loadItem(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Item, *domain.Batch, *domain.Team, error) {
+	it, err := s.st.GetItem(ctx, id)
+	if err != nil {
+		return nil, nil, nil, mapStore(err)
+	}
+	b, t, err := s.batches.load(ctx, actor, it.BatchID)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return it, b, t, nil
+}
+
+// canModify implements "edit/withdraw own item" and the team-admin override
+// (spec §8.3).
+func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
+	if it.RequesterID == actor.UserID {
+		switch {
+		case it.Status == domain.ItemPending && (b.Status == domain.BatchProposed || b.Status == domain.BatchCollecting):
+			return true
+		case it.Status == domain.ItemReturned && b.Status == domain.BatchReviewing:
+			return true
+		}
+	}
+	return actor.IsTeamAdmin(b.TeamID) && b.Status == domain.BatchCollecting &&
+		(it.Status == domain.ItemPending || it.Status == domain.ItemReturned)
+}
+
+// Update edits item fields in place (full replacement of editable fields).
+func (s *Items) Update(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, in ItemInput) (*domain.Item, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	if !canModify(actor, it, b) {
+		if it.RequesterID == actor.UserID || actor.IsTeamAdmin(b.TeamID) {
+			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be edited.")
+		}
+		return nil, ErrForbidden
+	}
+	in.Name, in.Purpose = strings.TrimSpace(in.Name), strings.TrimSpace(in.Purpose)
+	if err := s.validate(in, t); err != nil {
+		return nil, err
+	}
+	set := bson.D{
+		{Key: "subgroupId", Value: in.SubgroupID}, {Key: "name", Value: in.Name}, {Key: "vendor", Value: in.Vendor},
+		{Key: "sku", Value: in.SKU}, {Key: "quantity", Value: in.Quantity},
+		{Key: "estimatedUnitPrice", Value: in.EstimatedUnitPrice}, {Key: "priority", Value: in.Priority},
+		{Key: "purpose", Value: in.Purpose}, {Key: "notes", Value: in.Notes}, {Key: "productUrl", Value: in.ProductURL},
+	}
+	changes := diffItem(it, in)
+	if len(changes) == 0 {
+		if it.Version != version {
+			return nil, ErrVersionConflict
+		}
+		return it, nil
+	}
+	var out *domain.Item
+	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		ni, err := s.st.UpdateItem(ctx, it.ID, version, set)
+		if err != nil {
+			return mapStore(err)
+		}
+		out = ni
+		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, ni, "item.updated", "", changes...))
+	})
+	return out, err
+}
+
+func diffItem(it *domain.Item, in ItemInput) []domain.AuditChange {
+	var ch []domain.AuditChange
+	add := func(f string, from, to any) { ch = append(ch, domain.AuditChange{Field: f, From: from, To: to}) }
+	if it.Name != in.Name {
+		add("name", it.Name, in.Name)
+	}
+	if it.SubgroupID != in.SubgroupID {
+		add("subgroupId", it.SubgroupID, in.SubgroupID)
+	}
+	if it.Vendor != in.Vendor {
+		add("vendor", it.Vendor, in.Vendor)
+	}
+	if it.SKU != in.SKU {
+		add("sku", it.SKU, in.SKU)
+	}
+	if it.Quantity != in.Quantity {
+		add("quantity", it.Quantity, in.Quantity)
+	}
+	if !it.EstimatedUnitPrice.Amount.Equal(in.EstimatedUnitPrice.Amount.Decimal) || it.EstimatedUnitPrice.Currency != in.EstimatedUnitPrice.Currency {
+		add("estimatedUnitPrice", it.EstimatedUnitPrice.Amount.String()+" "+it.EstimatedUnitPrice.Currency,
+			in.EstimatedUnitPrice.Amount.String()+" "+in.EstimatedUnitPrice.Currency)
+	}
+	if it.Priority != in.Priority {
+		add("priority", it.Priority, in.Priority)
+	}
+	if it.Purpose != in.Purpose {
+		add("purpose", it.Purpose, in.Purpose)
+	}
+	if it.Notes != in.Notes {
+		add("notes", it.Notes, in.Notes)
+	}
+	if it.ProductURL != in.ProductURL {
+		add("productUrl", it.ProductURL, in.ProductURL)
+	}
+	return ch
+}
+
+// Withdraw marks the item withdrawn (requester, or team admin while collecting).
+func (s *Items) Withdraw(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) (*domain.Item, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	if !canModify(actor, it, b) {
+		if it.RequesterID == actor.UserID || actor.IsTeamAdmin(b.TeamID) {
+			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be withdrawn.")
+		}
+		return nil, ErrForbidden
+	}
+	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvWithdraw, "item.withdrawn", "", nil)
+}
+
+// Resubmit sends a returned item back to review. The requester must have
+// edited it since it was returned (spec §10.2).
+func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) (*domain.Item, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	if it.RequesterID != actor.UserID {
+		return nil, ErrForbidden
+	}
+	if b.Status != domain.BatchReviewing || it.Status != domain.ItemReturned {
+		return nil, Rule("INVALID_TRANSITION", "Only returned items in a batch under review can be resubmitted.")
+	}
+	if it.Review != nil && it.Version <= it.Review.AtVersion {
+		return nil, Rule("ITEM_NOT_EDITED", "Edit the item before resubmitting it.")
+	}
+	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvResubmit, "item.resubmitted", "", nil)
+}
+
+// transitionItem applies a single event with audit and batch re-evaluation.
+func (s *Items) transitionItem(ctx context.Context, actor string, b *domain.Batch, it *domain.Item, version int64,
+	ev domain.ItemEvent, action, comment string, review *domain.Review) (*domain.Item, error) {
+	to, err := domain.NextItemStatus(it.Status, ev, it.ReceivedQuantity)
+	if err != nil {
+		return nil, ruleFromDomain(err)
+	}
+	set := bson.D{{Key: "status", Value: to}}
+	if review != nil {
+		review.AtVersion = version + 1
+		set = append(set, bson.E{Key: "review", Value: review})
+	}
+	var out *domain.Item
+	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		ni, err := s.st.UpdateItem(ctx, it.ID, version, set)
+		if err != nil {
+			return mapStore(err)
+		}
+		out = ni
+		if err := s.audit.Record(ctx, s.event(actor, b, ni, action, comment,
+			domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)})); err != nil {
+			return err
+		}
+		return s.batches.reevaluateTx(ctx, b.ID)
+	})
+	return out, err
+}
+
+// ---- review ----
+
+type Decision struct {
+	ItemID   bson.ObjectID
+	Decision string // approve | return | reject
+	Comment  string
+}
+
+type ReviewResult struct {
+	Items []domain.Item
+	Batch *domain.Batch
+}
+
+var decisionEvent = map[string]struct {
+	ev       domain.ItemEvent
+	recorded string
+	action   string
+}{
+	"approve": {domain.EvApprove, "approved", "item.approved"},
+	"return":  {domain.EvReturn, "returned", "item.returned"},
+	"reject":  {domain.EvReject, "rejected", "item.rejected"},
+}
+
+// Review applies a list of decisions atomically: approvers (or team admins)
+// while the batch is `reviewing`. `return` and `reject` need a comment.
+func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.ObjectID, decisions []Decision) (*ReviewResult, error) {
+	b, t, err := s.batches.load(ctx, actor, batchID)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.HasBatchRole(t.ID, authzAssignments(b.Assignments), authz.BatchApprover) {
+		return nil, ErrForbidden
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	if b.Status != domain.BatchReviewing {
+		return nil, Rule("BATCH_NOT_REVIEWING", "Batch is not under review.")
+	}
+	if len(decisions) == 0 || len(decisions) > 1000 {
+		return nil, Invalid("decisions", "between 1 and 1000 decisions are required")
+	}
+	seen := map[bson.ObjectID]bool{}
+	for i, d := range decisions {
+		if _, ok := decisionEvent[d.Decision]; !ok {
+			return nil, Invalid("decisions", "unknown decision at position "+itoa(i))
+		}
+		if d.Decision != "approve" && strings.TrimSpace(d.Comment) == "" {
+			return nil, Invalid("decisions", "a comment is required to "+d.Decision+" (position "+itoa(i)+")")
+		}
+		if seen[d.ItemID] {
+			return nil, Invalid("decisions", "duplicate item at position "+itoa(i))
+		}
+		seen[d.ItemID] = true
+	}
+
+	res := &ReviewResult{}
+	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		res.Items = res.Items[:0]
+		var evs []domain.AuditEvent
+		now := s.batches.now()
+		for _, d := range decisions {
+			it, err := s.st.GetItem(ctx, d.ItemID)
+			if err != nil || it.BatchID != b.ID {
+				return Invalid("decisions", d.ItemID.Hex()+" is not an item of this batch")
+			}
+			meta := decisionEvent[d.Decision]
+			to, err := domain.NextItemStatus(it.Status, meta.ev, it.ReceivedQuantity)
+			if err != nil {
+				return Rule("ITEM_NOT_REVIEWABLE", "Item #%d is %s and cannot be %s.", it.SeqNo, it.Status, meta.recorded)
+			}
+			comment := strings.TrimSpace(d.Comment)
+			ni, err := s.st.UpdateItem(ctx, it.ID, it.Version, bson.D{
+				{Key: "status", Value: to},
+				{Key: "review", Value: domain.Review{Decision: meta.recorded, By: actor.UserID, At: now, Comment: comment, AtVersion: it.Version + 1}},
+			})
+			if err != nil {
+				return mapStore(err)
+			}
+			res.Items = append(res.Items, *ni)
+			evs = append(evs, s.event(actor.UserID.Hex(), b, ni, meta.action, comment,
+				domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)}))
+		}
+		if err := s.audit.Record(ctx, evs...); err != nil {
+			return err
+		}
+		if err := s.batches.reevaluateTx(ctx, b.ID); err != nil {
+			return err
+		}
+		nb, err := s.st.GetBatch(ctx, b.ID)
+		res.Batch = nb
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return res, nil
+}
+
+// ForceReject lets a team admin reject a pending or returned item during review.
+func (s *Items) ForceReject(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.CanAdminTeam(t.ID) {
+		return nil, ErrForbidden
+	}
+	if t.Archived {
+		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+	}
+	if b.Status != domain.BatchReviewing {
+		return nil, Rule("BATCH_NOT_REVIEWING", "Batch is not under review.")
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, Invalid("reason", "required")
+	}
+	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvForceReject, "item.force_rejected", reason,
+		&domain.Review{Decision: "rejected", By: actor.UserID, At: s.batches.now(), Comment: reason, Forced: true})
+}
+
+func authzAssignments(a domain.Assignments) authz.Assignments {
+	return authz.Assignments{Approvers: a.Approvers, Purchasers: a.Purchasers, Receivers: a.Receivers}
+}
+
+func itoa(i int) string { return strconvItoa(i) }

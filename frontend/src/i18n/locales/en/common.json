@@ -1,0 +1,72 @@
+{
+  "app": {
+    "name": "Procurement Hub"
+  },
+  "nav": {
+    "home": "My tasks",
+    "batches": "Batches",
+    "reports": "Reports",
+    "settings": "Settings",
+    "admin": "Role mappings",
+    "teams": "Teams"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "zh-TW": "繁體中文"
+  },
+  "user": {
+    "menu": "User menu",
+    "logout": "Log out",
+    "unknown": "Signed in"
+  },
+  "loading": "Loading…",
+  "banner": {
+    "updated": "The system has been updated. Please reload the page.",
+    "reload": "Reload"
+  },
+  "placeholder": {
+    "title": "Coming soon",
+    "body": "This page is not available yet."
+  },
+  "pages": {
+    "home": "My tasks",
+    "batches": "Batches",
+    "settings": "Settings",
+    "team": "Team",
+    "batch": "Batch",
+    "reports": "Reports",
+    "roleMappings": "Role mappings",
+    "notFound": "Page not found"
+  },
+  "config": {
+    "missing": {
+      "title": "Configuration not found",
+      "body": "The application could not load /config.json. Ask your administrator to provide it."
+    },
+    "invalid": {
+      "title": "Configuration is invalid",
+      "body": "The file /config.json was found but its contents are not valid."
+    },
+    "details": "Details"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "saved": "Saved."
+  },
+  "validation": {
+    "required": "This field is required.",
+    "tooLong": "This value is too long."
+  },
+  "userSearch": {
+    "placeholder": "Search by name or email",
+    "minChars": "Type at least 2 characters.",
+    "none": "No users found. Users appear here after their first login."
+  },
+  "settingsPage": {
+    "languageHelp": "Your language is saved to your profile."
+  }
+}

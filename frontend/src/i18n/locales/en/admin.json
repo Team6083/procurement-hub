@@ -1,0 +1,27 @@
+{
+  "title": "Role mappings",
+  "forbidden": "Only system admins can manage role mappings.",
+  "intro": "Rules map identity-provider claim values to team roles. Rules loaded from the rules file are managed and read-only.",
+  "create": "Create rule",
+  "edit": "Edit rule",
+  "empty": "No rules yet.",
+  "managed": "Managed",
+  "on": "On",
+  "off": "Off",
+  "claim": {
+    "groups": "Groups",
+    "roles": "Roles"
+  },
+  "form": {
+    "claim": "Claim",
+    "pattern": "Pattern",
+    "team": "Team slug",
+    "role": "Role",
+    "enabled": "Enabled",
+    "description": "Description"
+  },
+  "patternHelp": "The pattern is matched against the values of the chosen claim, split on \"/\". Each \"*\" matches exactly one whole segment and is captured in order as $1, $2, and so on. Example: /teams/*/members.",
+  "teamHelp": "Slug of the target team. May use captures, for example $1. Rules for teams that do not exist are skipped.",
+  "deleteTitle": "Delete rule",
+  "deleteConfirm": "Delete the rule for pattern {{pattern}}?"
+}

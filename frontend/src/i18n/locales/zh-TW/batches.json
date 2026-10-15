@@ -1,0 +1,192 @@
+{
+  "tabs": {
+    "items": "品項",
+    "review": "審核",
+    "timeline": "時間軸"
+  },
+  "status": {
+    "proposed": "已提案",
+    "proposal_rejected": "提案已駁回",
+    "draft": "草稿",
+    "collecting": "收集中",
+    "reviewing": "審核中",
+    "ordering": "訂購中",
+    "receiving": "收貨中",
+    "completed": "已完成",
+    "cancelled": "已取消"
+  },
+  "itemStatus": {
+    "pending": "待審核",
+    "withdrawn": "已撤回",
+    "approved": "已核准",
+    "returned": "已退回",
+    "rejected": "已駁回",
+    "ordered": "已訂購",
+    "unpurchasable": "無法購買",
+    "partially_received": "部分到貨",
+    "received": "已收貨",
+    "exception": "異常",
+    "accepted_short": "接受短少",
+    "not_obtained": "未取得"
+  },
+  "filters": {
+    "team": "團隊",
+    "status": "狀態",
+    "text": "搜尋",
+    "all": "全部"
+  },
+  "list": {
+    "title": "批次",
+    "new": "新增批次",
+    "propose": "提議批次",
+    "empty": "找不到批次。",
+    "number": "編號",
+    "batchTitle": "標題",
+    "loadMore": "載入更多"
+  },
+  "create": {
+    "dialogTitle": "新增批次",
+    "title": "標題",
+    "description": "說明",
+    "proposeInstead": "以提案方式送出而非建立草稿",
+    "proposeHelp": "提案需等待團隊管理員開放或駁回。",
+    "memberNote": "您的批次將以提案方式送出。",
+    "submitDraft": "建立草稿",
+    "submitPropose": "提議"
+  },
+  "header": {
+    "deadline": "截止時間",
+    "visibility": "可見度",
+    "reason": "原因：{{reason}}",
+    "proposed": "由成員提議"
+  },
+  "visibility": {
+    "inherit": "與團隊相同",
+    "public": "公開",
+    "members": "僅限成員"
+  },
+  "assignments": {
+    "approvers": "審核者",
+    "purchasers": "採購者",
+    "receivers": "收貨者",
+    "none": "無"
+  },
+  "actions": {
+    "open": "開放收集品項",
+    "start_review": "開始審核",
+    "close": "結束收集",
+    "reopen": "重新開放",
+    "cancel": "取消批次",
+    "reject_proposal": "駁回提案",
+    "withdraw_proposal": "撤回提案",
+    "reason": "原因",
+    "deadlineRequired": "必須設定未來的截止時間。",
+    "deadlineOptional": "留空則維持目前的截止時間。",
+    "disabled": {
+      "assignments": "請先指派至少一位審核者、採購者與收貨者。",
+      "noPending": "沒有待審核的品項。"
+    },
+    "confirm": {
+      "start_review": "要立即開始審核待審核品項嗎？",
+      "close": "要結束收集並進入審核嗎？若沒有品項，批次會被取消。",
+      "cancel": "要取消此批次嗎？必須填寫原因。",
+      "reject_proposal": "要駁回此提案嗎？必須填寫原因。",
+      "withdraw_proposal": "要撤回您的提案嗎？"
+    }
+  },
+  "edit": {
+    "title": "編輯批次",
+    "button": "編輯"
+  },
+  "item": {
+    "name": "名稱",
+    "vendor": "供應商",
+    "sku": "SKU",
+    "quantity": "數量",
+    "unitPrice": "單價",
+    "currency": "幣別",
+    "priority": "優先順序",
+    "subgroup": "子群組",
+    "noSubgroup": "無",
+    "purpose": "用途",
+    "productUrl": "產品網址",
+    "notes": "備註",
+    "add": "新增品項",
+    "addTitle": "新增品項",
+    "editTitle": "編輯品項",
+    "requester": "申請人",
+    "status": "狀態",
+    "lineTotal": "合計",
+    "selectAll": "全選",
+    "selectRow": "選取此列",
+    "withdraw": "撤回",
+    "withdrawConfirm": "要撤回品項 {{name}} 嗎？",
+    "resubmit": "重新送審",
+    "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
+    "returnedComment": "已退回：{{comment}}",
+    "rejectedComment": "已駁回：{{comment}}",
+    "empty": "尚無品項。"
+  },
+  "totals": {
+    "none": "沒有金額。",
+    "base": "估算：{{amount}} {{currency}}",
+    "noRate": "無匯率",
+    "visible": "合計（不含已撤回與已駁回）",
+    "selected": "已選取 ({{count}})",
+    "pending": "待審核品項"
+  },
+  "review": {
+    "notReviewing": "此批次目前不在審核中。",
+    "readOnly": "只有審核者與團隊管理員可以審核品項。",
+    "pending": "待審核品項 ({{count}})",
+    "nonePending": "沒有待審核品項。",
+    "approve": "核准所選 ({{count}})",
+    "return": "退回",
+    "reject": "駁回",
+    "forceReject": "強制駁回",
+    "comment": "意見",
+    "commentHelp": "必須填寫意見，申請人會看到所選 {{count}} 個品項的意見。",
+    "reason": "原因",
+    "forceHelp": "要強制駁回 {{name}} 嗎？必須填寫原因。",
+    "returned": "已退回品項 ({{count}})"
+  },
+  "timeline": {
+    "empty": "尚無事件。",
+    "system": "系統",
+    "generic": "事件：{{action}}",
+    "actions": {
+      "batch_created": "批次已建立",
+      "batch_proposed": "批次已提議",
+      "batch_updated": "批次已編輯",
+      "batch_assignments_changed": "指派已變更",
+      "batch_open": "已開放收集品項",
+      "batch_start_review": "已開始審核",
+      "batch_close": "已結束收集",
+      "batch_reopen": "已重新開放",
+      "batch_cancel": "批次已取消",
+      "batch_reject_proposal": "提案已駁回",
+      "batch_withdraw_proposal": "提案已撤回",
+      "batch_auto_transition": "狀態自動變更",
+      "item_created": "已新增品項",
+      "item_updated": "品項已編輯",
+      "item_withdrawn": "品項已撤回",
+      "item_resubmitted": "品項已重新送審",
+      "item_approved": "品項已核准",
+      "item_returned": "品項已退回",
+      "item_rejected": "品項已駁回",
+      "item_force_rejected": "品項已強制駁回"
+    }
+  },
+  "tasks": {
+    "empty": "目前沒有需要您處理的事項。",
+    "proposals": "待處理的提案",
+    "review": "待審核品項",
+    "returned": "已退回的品項",
+    "pendingCount": "{{count}} 項待審"
+  },
+  "validation": {
+    "quantity": "請輸入至少為 1 的整數。",
+    "price": "請輸入非負數的十進位數字。",
+    "url": "請輸入 http 或 https 網址。"
+  }
+}
