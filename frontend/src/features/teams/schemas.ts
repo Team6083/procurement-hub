@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_RATE_DIGITS, fractionDigits } from '../money';
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -42,7 +43,10 @@ export const ratesSchema = z
     rates: z.array(
       z.object({
         currency: z.string().min(1, 'common:validation.required'),
-        rateToBase: z.string().refine(isPositiveDecimal, 'teams:validation.rate'),
+        rateToBase: z
+          .string()
+          .refine(isPositiveDecimal, 'teams:validation.rate')
+          .refine((v) => fractionDigits(v) <= MAX_RATE_DIGITS, 'teams:validation.rateDigits'),
       }),
     ),
   })

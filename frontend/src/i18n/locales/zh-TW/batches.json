@@ -187,6 +187,7 @@
   "validation": {
     "quantity": "請輸入至少為 1 的整數。",
     "price": "請輸入非負數的十進位數字。",
-    "url": "請輸入 http 或 https 網址。"
+    "url": "請輸入 http 或 https 網址。",
+    "priceDigits": "此幣別的小數位數過多。"
   }
 }

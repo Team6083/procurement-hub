@@ -69,14 +69,15 @@ export function canAddItem(b: Batch, c: Caller): boolean {
   return b.status === 'collecting';
 }
 
-/** Mirrors backend canModify: requester rules, plus team-admin override while collecting. */
+/** Mirrors backend canModify: requester rules, plus the admin override (team or system admin) while collecting. */
 export function canModifyItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
   if (c.archived) return false;
   if (it.requesterId === c.userId) {
     if (it.status === 'pending' && (b.status === 'proposed' || b.status === 'collecting')) return true;
     if (it.status === 'returned' && b.status === 'reviewing') return true;
   }
-  return isTeamAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
+  // Team admins and system admins (backend CanAdminTeam); system admins still have no implicit membership.
+  return canAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
 }
 
 /** Resubmit only after an edit since the return: item.version above review.atVersion (backend ITEM_NOT_EDITED). */

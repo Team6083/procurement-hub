@@ -1,11 +1,12 @@
 import react from '@vitejs/plugin-react';
 import { defineConfig } from 'vitest/config';
-import { resolveCommit } from './scripts/gen-runtime-files.mjs';
+import { resolveCommitStrict } from './scripts/gen-runtime-files.mjs';
 
-export default defineConfig({
+export default defineConfig(({ command, mode }) => ({
   plugins: [react()],
   define: {
-    __APP_COMMIT__: JSON.stringify(resolveCommit(process.env)),
+    // Fails production builds (vite build, NODE_ENV=production, CI) when no commit can be determined (spec §6.3).
+    __APP_COMMIT__: JSON.stringify(resolveCommitStrict(process.env, undefined, command === 'build' && mode === 'production')),
   },
   build: {
     // scripts/gen-runtime-files.mjs prepares dist/ (config.json, _headers) before this build runs.
@@ -17,4 +18,4 @@ export default defineConfig({
     globals: false,
     include: ['src/**/*.test.{ts,tsx}'],
   },
-});
+}));

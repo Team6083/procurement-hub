@@ -2,12 +2,12 @@ package httpapi
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/OWNER/procurement-hub/internal/audit"
 	"github.com/OWNER/procurement-hub/internal/domain"
 	"github.com/OWNER/procurement-hub/internal/service"
 )
@@ -30,7 +30,7 @@ func (a *BatchesAPI) Mount(r chi.Router) {
 	r.Get("/batches/{id}/items", a.listItems)
 	r.Post("/batches/{id}/items", a.addItem)
 	r.Post("/batches/{id}/reviews", a.review)
-	r.Patch("/items/{id}", a.patchItem)
+	r.Put("/items/{id}", a.putItem)
 	r.Post("/items/{id}/withdraw", a.withdrawItem)
 	r.Post("/items/{id}/resubmit", a.resubmitItem)
 	r.Post("/items/{id}/force-reject", a.forceReject)
@@ -61,7 +61,17 @@ func respondBatch(w http.ResponseWriter, status int, b *domain.Batch, err error)
 
 func (a *BatchesAPI) list(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	in := service.ListBatchesInput{Status: domain.BatchStatus(q.Get("status")), Query: q.Get("q")}
+	limit, e := parseLimit(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	cursor, err := parseCursor(r)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	in := service.ListBatchesInput{Status: domain.BatchStatus(q.Get("status")), Query: q.Get("q"), Cursor: cursor, Limit: limit}
 	if v := q.Get("teamId"); v != "" {
 		id, e := bson.ObjectIDFromHex(v)
 		if e != nil {
@@ -70,33 +80,12 @@ func (a *BatchesAPI) list(w http.ResponseWriter, r *http.Request) {
 		}
 		in.TeamID = id
 	}
-	if v := q.Get("cursor"); v != "" {
-		id, e := bson.ObjectIDFromHex(v)
-		if e != nil {
-			fail(w, service.Invalid("cursor", "invalid cursor"))
-			return
-		}
-		in.Cursor = id
-	}
-	if v := q.Get("limit"); v != "" {
-		n, e := strconv.Atoi(v)
-		if e != nil || n < 1 {
-			fail(w, service.Invalid("limit", "must be a positive integer"))
-			return
-		}
-		in.Limit = n
-	}
 	p, err := a.Batches.List(r.Context(), a.actor(r).Actor, in)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	out := page[domain.Batch]{Items: p.Items}
-	if p.NextCursor != nil {
-		c := p.NextCursor.Hex()
-		out.NextCursor = &c
-	}
-	WriteJSON(w, http.StatusOK, out)
+	WriteJSON(w, http.StatusOK, newPage(p.Items, p.NextCursor))
 }
 
 func (a *BatchesAPI) create(w http.ResponseWriter, r *http.Request) {
@@ -277,7 +266,7 @@ func (a *BatchesAPI) listItems(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, wholePage(items))
+	WriteJSON(w, http.StatusOK, wholeList(items))
 }
 
 func (a *BatchesAPI) addItem(w http.ResponseWriter, r *http.Request) {
@@ -294,7 +283,7 @@ func (a *BatchesAPI) addItem(w http.ResponseWriter, r *http.Request) {
 	respondItem(w, http.StatusCreated, it, err)
 }
 
-func (a *BatchesAPI) patchItem(w http.ResponseWriter, r *http.Request) {
+func (a *BatchesAPI) putItem(w http.ResponseWriter, r *http.Request) {
 	id, ok := idParam(w, r, "id")
 	if !ok {
 		return
@@ -417,13 +406,22 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e)
 		return
 	}
-	var evs []domain.AuditEvent
-	var err error
+	limit, le := parseLimit(r)
+	if le != nil {
+		WriteError(w, le)
+		return
+	}
+	cursor, err := parseCursor(r)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	var pg *audit.Page
 	switch q.Get("objectType") {
 	case "batch":
-		evs, err = a.Timeline.ForBatch(r.Context(), a.actor(r).Actor, id)
+		pg, err = a.Timeline.ForBatch(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	case "item":
-		evs, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id)
+		pg, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	default:
 		fail(w, service.Invalid("objectType", "must be batch or item"))
 		return
@@ -432,7 +430,7 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, wholePage(evs))
+	WriteJSON(w, http.StatusOK, newPage(pg.Events, pg.NextCursor))
 }
 
 func (a *BatchesAPI) teamAudit(w http.ResponseWriter, r *http.Request) {
@@ -440,10 +438,20 @@ func (a *BatchesAPI) teamAudit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	evs, err := a.Timeline.ForTeam(r.Context(), a.actor(r).Actor, id)
+	limit, le := parseLimit(r)
+	if le != nil {
+		WriteError(w, le)
+		return
+	}
+	cursor, err := parseCursor(r)
 	if err != nil {
 		fail(w, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, wholePage(evs))
+	pg, err := a.Timeline.ForTeam(r.Context(), a.actor(r).Actor, id, cursor, limit)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	WriteJSON(w, http.StatusOK, newPage(pg.Events, pg.NextCursor))
 }

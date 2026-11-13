@@ -240,25 +240,71 @@ func (s *Store) GetRoleMapping(ctx context.Context, id string) (*domain.RoleMapp
 	return &m, nil
 }
 
+// PutRoleMapping upserts a rule as-is (used for managed rules, whose version
+// is computed by SyncManagedRoleMappings).
 func (s *Store) PutRoleMapping(ctx context.Context, m domain.RoleMapping) error {
 	_, err := s.c("roleMappings").ReplaceOne(ctx, bson.D{{Key: "_id", Value: m.ID}}, m, options.Replace().SetUpsert(true))
 	return err
 }
 
-func (s *Store) DeleteRoleMapping(ctx context.Context, id string) error {
-	res, err := s.c("roleMappings").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
-	if err == nil && res.DeletedCount == 0 {
+// InsertRoleMapping creates a UI-managed rule at version 1.
+func (s *Store) InsertRoleMapping(ctx context.Context, m *domain.RoleMapping) error {
+	m.Version = 1
+	_, err := s.c("roleMappings").InsertOne(ctx, m)
+	return mapErr(err)
+}
+
+// ReplaceRoleMapping replaces a rule if its version equals expected and bumps
+// the version; otherwise ErrVersionConflict (or ErrNotFound).
+func (s *Store) ReplaceRoleMapping(ctx context.Context, m domain.RoleMapping, expected int64) (*domain.RoleMapping, error) {
+	m.Version = expected + 1
+	res := s.c("roleMappings").FindOneAndReplace(ctx,
+		bson.D{{Key: "_id", Value: m.ID}, {Key: "version", Value: expected}}, m,
+		options.FindOneAndReplace().SetReturnDocument(options.After))
+	var out domain.RoleMapping
+	if err := res.Decode(&out); err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			if n, cerr := s.c("roleMappings").CountDocuments(ctx, bson.D{{Key: "_id", Value: m.ID}}); cerr == nil && n > 0 {
+				return nil, ErrVersionConflict
+			}
+			return nil, ErrNotFound
+		}
+		return nil, mapErr(err)
+	}
+	return &out, nil
+}
+
+// DeleteRoleMappingVersioned deletes a rule if its version equals expected.
+func (s *Store) DeleteRoleMappingVersioned(ctx context.Context, id string, expected int64) error {
+	res, err := s.c("roleMappings").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "version", Value: expected}})
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount == 0 {
+		if n, cerr := s.c("roleMappings").CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}); cerr == nil && n > 0 {
+			return ErrVersionConflict
+		}
 		return ErrNotFound
 	}
-	return err
+	return nil
 }
 
 // SyncManagedRoleMappings upserts the given managed rules and deletes managed
-// rules that are no longer present (spec §7.4).
+// rules that are no longer present (spec §7.4). A rule's version is 1 when
+// first loaded and increases whenever the file changes its content.
 func (s *Store) SyncManagedRoleMappings(ctx context.Context, rules []domain.RoleMapping) error {
 	ids := bson.A{}
 	for _, r := range rules {
 		r.Managed = true
+		r.Version = 1
+		if old, err := s.GetRoleMapping(ctx, r.ID); err == nil {
+			r.Version = old.Version
+			if !sameRuleContent(*old, r) {
+				r.Version = old.Version + 1
+			}
+		} else if !errors.Is(err, ErrNotFound) {
+			return err
+		}
 		if err := s.PutRoleMapping(ctx, r); err != nil {
 			return err
 		}
@@ -268,4 +314,9 @@ func (s *Store) SyncManagedRoleMappings(ctx context.Context, rules []domain.Role
 		{Key: "managed", Value: true}, {Key: "_id", Value: bson.D{{Key: "$nin", Value: ids}}},
 	})
 	return err
+}
+
+func sameRuleContent(a, b domain.RoleMapping) bool {
+	a.Version, b.Version = 0, 0
+	return a == b
 }

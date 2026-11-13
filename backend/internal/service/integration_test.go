@@ -102,12 +102,12 @@ func TestSSOSyncLifecycle(t *testing.T) {
 		t.Error("manual membership must survive")
 	}
 
-	evs, err := log.ForTeam(ctx, alpha.ID, 50)
+	pg, err := log.PageForTeam(ctx, alpha.ID, bson.ObjectID{}, 50)
 	if err != nil {
 		t.Fatal(err)
 	}
 	var sawSync bool
-	for _, e := range evs {
+	for _, e := range pg.Events {
 		if e.Actor == "system:sso-sync" {
 			sawSync = true
 		}

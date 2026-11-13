@@ -28,6 +28,30 @@ export function resolveCommit(env, gitRevParse = gitHead) {
   );
 }
 
+/** True for production builds: NODE_ENV=production, or CI=true/1 (case-insensitive). */
+export function requiresCommit(env) {
+  const ci = String(env.CI ?? '').trim().toLowerCase();
+  return env.NODE_ENV === 'production' || ci === 'true' || ci === '1';
+}
+
+export const COMMIT_SOURCES = ['APP_COMMIT', 'CF_PAGES_COMMIT_SHA', 'WORKERS_CI_COMMIT_SHA', 'git rev-parse HEAD'];
+
+/**
+ * Spec §6.3: like resolveCommit, but throws in production builds (NODE_ENV=production or CI) when no
+ * commit can be determined, so "unknown" never reaches a release. `force` marks a build that is
+ * production regardless of env (e.g. `vite build`).
+ */
+export function resolveCommitStrict(env, gitRevParse = gitHead, force = false) {
+  const commit = resolveCommit(env, gitRevParse);
+  if (commit === 'unknown' && (force || requiresCommit(env))) {
+    throw new Error(
+      `Cannot determine the build commit for a production build. Set one of: ${COMMIT_SOURCES.join(', ')} ` +
+        '(checked in this order). The commit SHA is the frontend/backend version comparison key (spec section 6.3).',
+    );
+  }
+  return commit;
+}
+
 function originOf(name, value) {
   let url;
   try {
@@ -97,6 +121,12 @@ export function generate(env, distDir) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    resolveCommitStrict(process.env);
+  } catch (e) {
+    console.error(`gen-runtime-files: ${e.message}`);
+    process.exit(1);
+  }
   const dist = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'dist');
   const { configWritten } = generate(process.env, dist);
   console.log(

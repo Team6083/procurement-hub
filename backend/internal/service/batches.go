@@ -26,11 +26,12 @@ type Batches struct {
 	st        *store.Store
 	audit     *audit.Log
 	supported []string
+	cur       domain.Currencies
 	now       func() time.Time
 }
 
-func NewBatches(st *store.Store, a *audit.Log, supportedCurrencies []string) *Batches {
-	return &Batches{st: st, audit: a, supported: supportedCurrencies, now: func() time.Time { return time.Now().UTC() }}
+func NewBatches(st *store.Store, a *audit.Log, supportedCurrencies []string, cur domain.Currencies) *Batches {
+	return &Batches{st: st, audit: a, supported: supportedCurrencies, cur: cur, now: func() time.Time { return time.Now().UTC() }}
 }
 
 // batchCtx loads a batch with its team and enforces read visibility.
@@ -130,8 +131,11 @@ type BatchPage struct {
 // fetching; the scan continues until the page is full or data runs out.
 func (s *Batches) List(ctx context.Context, actor authz.Actor, in ListBatchesInput) (*BatchPage, error) {
 	limit := in.Limit
-	if limit <= 0 || limit > 100 {
+	if limit < 1 {
 		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
 	}
 	teams := map[bson.ObjectID]*domain.Team{}
 	teamVis := func(id bson.ObjectID) (*domain.Team, error) {

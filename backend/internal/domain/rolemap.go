@@ -54,6 +54,7 @@ type RoleMapping struct {
 	Enabled     bool   `bson:"enabled" json:"enabled"`
 	Managed     bool   `bson:"managed" json:"managed"`
 	Description string `bson:"description" json:"description"`
+	Version     int64  `bson:"version" json:"version"`
 }
 
 // Validate checks the pattern syntax and that team capture references exist.

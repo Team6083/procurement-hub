@@ -65,7 +65,7 @@ paths:
       description: |
         Only system admins and members of at least one team may search (otherwise 403).
         `q` must contain at least 2 characters after trimming (otherwise 400 `VALIDATION_ERROR`).
-        At most 20 users are returned; `nextCursor` is always null.
+        At most 20 users are returned. Not paginated: the response is `{items}` only.
       parameters:
         - name: q
           in: query
@@ -76,7 +76,7 @@ paths:
           description: OK
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/UserPage" }
+              schema: { $ref: "#/components/schemas/UserList" }
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
@@ -84,13 +84,13 @@ paths:
     get:
       operationId: listTeams
       summary: List all teams (names are visible to every authenticated user)
-      description: Returns every team as a summary in one page; `nextCursor` is always null.
+      description: "Returns every team as a summary. Not paginated: the response is `{items}` only."
       responses:
         "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/TeamSummaryPage" }
+              schema: { $ref: "#/components/schemas/TeamSummaryList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
     post:
       operationId: createTeam
@@ -179,10 +179,10 @@ paths:
       summary: List members (team members and system admins only)
       responses:
         "200":
-          description: OK (whole list, `nextCursor` is always null)
+          description: "OK (whole list, not paginated: `{items}` only)"
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/TeamMemberPage" }
+              schema: { $ref: "#/components/schemas/TeamMemberList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -342,7 +342,7 @@ paths:
       summary: Replace the team's reference rate list (team admin)
       description: |
         Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
-        currency. `rateToBase` is a positive decimal string.
+        currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `VALIDATION_ERROR`, field `rateToBase`).
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -372,10 +372,10 @@ paths:
       summary: List role-mapping rules (system admin only)
       responses:
         "200":
-          description: OK (whole list, `nextCursor` is always null)
+          description: "OK (whole list, not paginated: `{items}` only)"
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/RoleMappingPage" }
+              schema: { $ref: "#/components/schemas/RoleMappingList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
     post:
@@ -390,6 +390,8 @@ paths:
       responses:
         "201":
           description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoleMapping" }
@@ -403,18 +405,24 @@ paths:
         in: path
         required: true
         schema: { type: string }
-    patch:
-      operationId: patchRoleMapping
-      summary: Update a UI-managed rule (system admin only)
-      description: Managed rules fail with 422 `ROLE_MAPPING_MANAGED`. Rules carry no version; this endpoint does not use `If-Match`.
+    put:
+      operationId: putRoleMapping
+      summary: Replace a UI-managed rule (system admin only)
+      description: |
+        Full replacement of all editable fields; omitted fields are cleared (`enabled` false, `description` empty).
+        `If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: "#/components/schemas/PatchRoleMappingRequest" }
+            schema: { $ref: "#/components/schemas/RoleMappingRequest" }
       responses:
         "200":
           description: Updated rule
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
           content:
             application/json:
               schema: { $ref: "#/components/schemas/RoleMapping" }
@@ -422,32 +430,38 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
     delete:
       operationId: deleteRoleMapping
       summary: Delete a UI-managed rule (system admin only)
-      description: Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+      description: "`If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`."
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
       responses:
         "204": { description: Deleted }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
   /batches:
     get:
       operationId: listBatches
       summary: List batches the caller can read, newest first
       description: |
-        Cursor-paginated. `nextCursor` is null on the last page. `limit` defaults to 50 and values above
-        100 fall back to 50; a non-positive or non-numeric `limit`, a malformed `teamId` or `cursor` yield
-        400 `VALIDATION_ERROR`. `status` is passed through unvalidated (unknown values match nothing).
+        Cursor-paginated (spec §16.1). `nextCursor` is null on the last page. `limit` defaults to 50 and values
+        above 100 clamp to 100; a non-numeric or < 1 `limit` yields 400 `INVALID_LIMIT`. A malformed `teamId` or
+        `cursor` yields 400 `VALIDATION_ERROR`. The cursor is opaque. `status` is passed through unvalidated (unknown values match nothing).
       parameters:
         - { name: teamId, in: query, schema: { type: string } }
         - { name: status, in: query, schema: { $ref: "#/components/schemas/BatchStatus" } }
         - { name: q, in: query, description: Free-text search., schema: { type: string } }
-        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100 } }
-        - { name: cursor, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
       responses:
         "200":
           description: OK
@@ -612,13 +626,13 @@ paths:
     get:
       operationId: listBatchItems
       summary: List the batch's items (anyone who can read the batch)
-      description: Returns all items in one page, `nextCursor` is always null. Withdrawn items are included.
+      description: "Returns all items, not paginated (`{items}` only). Withdrawn items are included."
       responses:
         "200":
           description: OK
           content:
             application/json:
-              schema: { $ref: "#/components/schemas/ItemPage" }
+              schema: { $ref: "#/components/schemas/ItemList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { $ref: "#/components/responses/NotFound" }
     post:
@@ -628,7 +642,8 @@ paths:
         Other batch statuses fail with 422 `BATCH_NOT_COLLECTING`; non-members get 403; archived teams 422 `TEAM_ARCHIVED`.
         If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `VALIDATION_ERROR`
         (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
-        estimatedUnitPrice (non-negative, supported currency), productUrl (http/https), subgroupId (active subgroup).
+        estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
+        ISO 4217, or the server's APP_BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
         `autoFilledFields` and `lookupProvider` record product-lookup provenance and are only honoured on create.
         No `If-Match`; the new item's version is in `ETag`.
       requestBody:
@@ -685,14 +700,13 @@ paths:
   /items/{id}:
     parameters:
       - $ref: "#/components/parameters/ItemId"
-    patch:
-      operationId: patchItem
-      summary: Edit an item (full replacement of the editable fields)
+    put:
+      operationId: putItem
+      summary: Replace an item's editable fields
       description: |
-        Despite PATCH, the body replaces all editable fields (same validation as create); omitted optional
-        strings become empty. Allowed for the requester while the item is `pending` in a `proposed`/`collecting` batch
-        or `returned` in a `reviewing` batch, and for team admins while the batch is `collecting` and the item is
-        pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
+        Full replacement (same validation as create); omitted optional fields are cleared. Allowed for the requester
+        while the item is `pending` in a `proposed`/`collecting` batch or `returned` in a `reviewing` batch, and for
+        team admins and system admins while the batch is `collecting` and the item is pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
         `autoFilledFields` / `lookupProvider` are accepted but ignored on update.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
@@ -820,8 +834,10 @@ paths:
     get:
       operationId: getAudit
       summary: Timeline of a batch (including its items' events) or of an item
-      description: Newest events as returned by the store (at most 500), whole list in one page. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400.
+      description: Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `INVALID_LIMIT`.
       parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
         - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item] } }
         - { name: objectId, in: query, required: true, schema: { type: string } }
       responses:
@@ -839,12 +855,17 @@ paths:
     get:
       operationId: getTeamAudit
       summary: Team-wide audit log (team admins and system admins)
+      description: Cursor-paginated, newest event first.
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
       responses:
         "200":
-          description: OK (at most 500 events, `nextCursor` always null)
+          description: OK
           content:
             application/json:
               schema: { $ref: "#/components/schemas/AuditEventPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -871,6 +892,16 @@ components:
       required: true
       description: User id (24-hex). A malformed id yields 404 `NOT_FOUND`.
       schema: { type: string }
+    Limit:
+      name: limit
+      in: query
+      description: Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`.
+      schema: { type: integer, minimum: 1, default: 50 }
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`.
+      schema: { type: string }
     BatchId:
       name: id
       in: path
@@ -894,7 +925,7 @@ components:
     BadRequest:
       description: |
         Validation or malformed request. Codes: `VALIDATION_ERROR` (with `details.fields`, a map of field to message),
-        `INVALID_BODY`, `INVALID_IF_MATCH`.
+        `INVALID_BODY`, `INVALID_IF_MATCH`, `INVALID_LIMIT`.
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
@@ -933,7 +964,7 @@ components:
         Business-rule violation. Codes: `TEAM_SLUG_TAKEN`, `TEAM_ARCHIVED`, `SUBGROUP_EXISTS`,
         `MEMBER_NO_ROLE_SOURCE`, `MEMBER_MANAGED_BY_SSO`, `ROLE_MAPPING_MANAGED`, `BATCH_NOT_COLLECTING`,
         `BATCH_NOT_REVIEWING`, `BATCH_CLOSED`, `ASSIGNMENTS_INCOMPLETE`, `DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`,
-        `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`.
+        `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`, `BATCH_ITEM_LIMIT` (more than 5000 non-withdrawn items in a batch).
         (`INVALID_TRANSITION` is a business rule too but is returned as HTTP 409.)
       content:
         application/json:
@@ -1137,9 +1168,10 @@ components:
               rateToBase: { type: string, description: Positive decimal string. }
     RoleMapping:
       type: object
-      required: [id, claim, pattern, team, role, enabled, managed, description]
+      required: [id, claim, pattern, team, role, enabled, managed, description, version]
       properties:
         id: { type: string }
+        version: { type: integer, format: int64 }
         claim: { type: string, enum: [groups, roles] }
         pattern: { type: string, description: "Glob over `/`-separated segments; `*` matches exactly one whole segment, captured as $1, $2, ..." }
         team: { type: string, description: Team slug; may reference captures such as `$1`. }
@@ -1158,9 +1190,11 @@ components:
         role: { $ref: "#/components/schemas/Role" }
         enabled: { type: boolean }
         description: { type: string }
-    PatchRoleMappingRequest:
+    RoleMappingRequest:
+      description: Full replacement body; omitted fields are cleared.
       type: object
       additionalProperties: false
+      required: [claim, pattern, team, role]
       properties:
         claim: { type: string, enum: [groups, roles] }
         pattern: { type: string }
@@ -1168,30 +1202,26 @@ components:
         role: { $ref: "#/components/schemas/Role" }
         enabled: { type: boolean }
         description: { type: string }
-    UserPage:
+    UserList:
       type: object
-      required: [items, nextCursor]
+      required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/User" } }
-        nextCursor: { type: [string, "null"] }
-    TeamSummaryPage:
+    TeamSummaryList:
       type: object
-      required: [items, nextCursor]
+      required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/TeamSummary" } }
-        nextCursor: { type: [string, "null"] }
-    TeamMemberPage:
+    TeamMemberList:
       type: object
-      required: [items, nextCursor]
+      required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/TeamMember" } }
-        nextCursor: { type: [string, "null"] }
-    RoleMappingPage:
+    RoleMappingList:
       type: object
-      required: [items, nextCursor]
+      required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/RoleMapping" } }
-        nextCursor: { type: [string, "null"] }
     Meta:
       type: object
       required: [version, commit, baseCurrency, supportedCurrencies, lookupEnabled, emailEnabled]
@@ -1206,7 +1236,7 @@ components:
       type: object
       required: [amount, currency]
       properties:
-        amount: { type: string, description: Decimal string. }
+        amount: { type: string, description: 'Decimal string with no fixed number of fractional digits ("12.5", "100").' }
         currency: { type: string }
     BatchStatus:
       type: string
@@ -1400,8 +1430,12 @@ components:
       required: [field, from, to]
       properties:
         field: { type: string }
-        from: {}
-        to: {}
+        from:
+          description: Previous value; any JSON type, null when there was none.
+          type: [string, number, integer, boolean, object, array, "null"]
+        to:
+          description: New value; any JSON type, null when cleared.
+          type: [string, number, integer, boolean, object, array, "null"]
     AuditEvent:
       type: object
       required: [id, at, actor, objectType, objectId, action, changes]
@@ -1422,12 +1456,11 @@ components:
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Batch" } }
         nextCursor: { type: [string, "null"] }
-    ItemPage:
+    ItemList:
       type: object
-      required: [items, nextCursor]
+      required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Item" } }
-        nextCursor: { type: [string, "null"] }
     AuditEventPage:
       type: object
       required: [items, nextCursor]

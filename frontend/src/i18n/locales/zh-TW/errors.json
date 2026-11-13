@@ -31,6 +31,8 @@
     "REASON_REQUIRED": "必須填寫原因。",
     "ITEM_NOT_EDITABLE": "此品項已無法編輯或撤回。",
     "ITEM_NOT_EDITED": "請先編輯品項才能重新送審。",
-    "ITEM_NOT_REVIEWABLE": "其中有品項已無法審核（可能已被決定）。"
+    "ITEM_NOT_REVIEWABLE": "其中有品項已無法審核（可能已被決定）。",
+    "INVALID_LIMIT": "每頁筆數必須為正整數。",
+    "BATCH_ITEM_LIMIT": "此批次的品項已達上限（5000 項）。"
   }
 }

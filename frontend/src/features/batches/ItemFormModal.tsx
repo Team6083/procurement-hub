@@ -2,7 +2,7 @@ import { Button, Group, Modal, Select, Stack, Textarea, TextInput } from '@manti
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useAddItem, usePatchItem } from '../../api/batches';
+import { useAddItem, usePutItem } from '../../api/batches';
 import { useMeta } from '../../api/meta';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -23,7 +23,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item }: Omit<Props, 'o
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const add = useAddItem(batch.id);
-  const patch = usePatchItem(batch.id);
+  const patch = usePutItem(batch.id);
   const currencies = meta.data?.supportedCurrencies ?? [];
   const base = meta.data?.baseCurrency ?? currencies[0] ?? '';
   const activeDefault = team?.subgroups.some((g) => g.id === defaultSubgroupId && g.active) ? defaultSubgroupId : '';

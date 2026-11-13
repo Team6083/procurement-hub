@@ -23,7 +23,8 @@
   "validation": {
     "slug": "Use lowercase letters and digits, separated by single hyphens.",
     "rate": "Enter a positive decimal number.",
-    "duplicateCurrency": "This currency is already listed."
+    "duplicateCurrency": "This currency is already listed.",
+    "rateDigits": "Use at most 6 decimal places."
   },
   "role": {
     "member": "Member",

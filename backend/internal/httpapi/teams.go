@@ -59,7 +59,7 @@ func (a *TeamsAPI) list(w http.ResponseWriter, r *http.Request) {
 	for _, t := range ts {
 		out = append(out, summary(t))
 	}
-	WriteJSON(w, http.StatusOK, wholePage(out))
+	WriteJSON(w, http.StatusOK, wholeList(out))
 }
 
 type createTeamReq struct {
@@ -206,7 +206,7 @@ func (a *TeamsAPI) listMembers(w http.ResponseWriter, r *http.Request) {
 	for _, m := range ms {
 		out = append(out, toMemberResp(m))
 	}
-	WriteJSON(w, http.StatusOK, wholePage(out))
+	WriteJSON(w, http.StatusOK, wholeList(out))
 }
 
 type addMemberReq struct {

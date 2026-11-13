@@ -41,32 +41,56 @@ func (l *Log) Record(ctx context.Context, events ...domain.AuditEvent) error {
 	return err
 }
 
-// ForObject returns the timeline of one object, oldest first.
-func (l *Log) ForObject(ctx context.Context, objectType, objectID string, limit int64) ([]domain.AuditEvent, error) {
-	return l.find(ctx, bson.D{{Key: "objectType", Value: objectType}, {Key: "objectId", Value: objectID}}, limit, 1)
+// Page is one page of audit events plus the cursor for the next page (nil at the end).
+type Page struct {
+	Events     []domain.AuditEvent
+	NextCursor *bson.ObjectID
 }
 
-// ForBatch returns the timeline of a batch including its items' events, oldest first.
-func (l *Log) ForBatch(ctx context.Context, batchID bson.ObjectID, limit int64) ([]domain.AuditEvent, error) {
-	return l.find(ctx, bson.D{{Key: "batchId", Value: batchID}}, limit, 1)
+// PageForObject returns an object's timeline, oldest first.
+func (l *Log) PageForObject(ctx context.Context, objectType, objectID string, after bson.ObjectID, limit int) (*Page, error) {
+	return l.page(ctx, bson.D{{Key: "objectType", Value: objectType}, {Key: "objectId", Value: objectID}}, after, limit, 1)
 }
 
-// ForTeam returns recent team audit events, newest first.
-func (l *Log) ForTeam(ctx context.Context, teamID bson.ObjectID, limit int64) ([]domain.AuditEvent, error) {
-	return l.find(ctx, bson.D{{Key: "teamId", Value: teamID}}, limit, -1)
+// PageForBatch returns a batch's timeline including its items' events, oldest first.
+func (l *Log) PageForBatch(ctx context.Context, batchID bson.ObjectID, after bson.ObjectID, limit int) (*Page, error) {
+	return l.page(ctx, bson.D{{Key: "batchId", Value: batchID}}, after, limit, 1)
 }
 
-func (l *Log) find(ctx context.Context, filter bson.D, limit int64, order int) ([]domain.AuditEvent, error) {
-	if limit <= 0 || limit > 500 {
-		limit = 200
+// PageForTeam returns the team-wide log, newest first.
+func (l *Log) PageForTeam(ctx context.Context, teamID bson.ObjectID, after bson.ObjectID, limit int) (*Page, error) {
+	return l.page(ctx, bson.D{{Key: "teamId", Value: teamID}}, after, limit, -1)
+}
+
+// page orders by _id (insertion order) so the cursor — the _id of the last
+// returned event — is stable even when timestamps tie.
+func (l *Log) page(ctx context.Context, filter bson.D, after bson.ObjectID, limit, order int) (*Page, error) {
+	if limit < 1 {
+		limit = 50
 	}
-	cur, err := l.coll.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "at", Value: order}}).SetLimit(limit))
+	if !after.IsZero() {
+		op := "$gt"
+		if order < 0 {
+			op = "$lt"
+		}
+		filter = append(filter, bson.E{Key: "_id", Value: bson.D{{Key: op, Value: after}}})
+	}
+	cur, err := l.coll.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "_id", Value: order}}).SetLimit(int64(limit)+1))
 	if err != nil {
 		return nil, err
 	}
-	var out []domain.AuditEvent
-	if err := cur.All(ctx, &out); err != nil {
+	var evs []domain.AuditEvent
+	if err := cur.All(ctx, &evs); err != nil {
 		return nil, err
 	}
-	return out, nil
+	pg := &Page{Events: evs}
+	if len(evs) > limit {
+		pg.Events = evs[:limit]
+		last := pg.Events[limit-1].ID
+		pg.NextCursor = &last
+	}
+	if pg.Events == nil {
+		pg.Events = []domain.AuditEvent{}
+	}
+	return pg, nil
 }

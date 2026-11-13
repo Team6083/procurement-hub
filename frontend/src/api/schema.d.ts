@@ -53,7 +53,7 @@ export interface paths {
          * Search users who have logged in at least once
          * @description Only system admins and members of at least one team may search (otherwise 403).
          *     `q` must contain at least 2 characters after trimming (otherwise 400 `VALIDATION_ERROR`).
-         *     At most 20 users are returned; `nextCursor` is always null.
+         *     At most 20 users are returned. Not paginated: the response is `{items}` only.
          */
         get: operations["searchUsers"];
         put?: never;
@@ -73,7 +73,7 @@ export interface paths {
         };
         /**
          * List all teams (names are visible to every authenticated user)
-         * @description Returns every team as a summary in one page; `nextCursor` is always null.
+         * @description Returns every team as a summary. Not paginated: the response is `{items}` only.
          */
         get: operations["listTeams"];
         put?: never;
@@ -240,7 +240,7 @@ export interface paths {
         /**
          * Replace the team's reference rate list (team admin)
          * @description Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
-         *     currency. `rateToBase` is a positive decimal string.
+         *     currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `VALIDATION_ERROR`, field `rateToBase`).
          */
         put: operations["replaceReferenceRates"];
         post?: never;
@@ -281,20 +281,21 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Replace a UI-managed rule (system admin only)
+         * @description Full replacement of all editable fields; omitted fields are cleared (`enabled` false, `description` empty).
+         *     `If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+         */
+        put: operations["putRoleMapping"];
         post?: never;
         /**
          * Delete a UI-managed rule (system admin only)
-         * @description Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+         * @description `If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
          */
         delete: operations["deleteRoleMapping"];
         options?: never;
         head?: never;
-        /**
-         * Update a UI-managed rule (system admin only)
-         * @description Managed rules fail with 422 `ROLE_MAPPING_MANAGED`. Rules carry no version; this endpoint does not use `If-Match`.
-         */
-        patch: operations["patchRoleMapping"];
+        patch?: never;
         trace?: never;
     };
     "/batches": {
@@ -306,9 +307,9 @@ export interface paths {
         };
         /**
          * List batches the caller can read, newest first
-         * @description Cursor-paginated. `nextCursor` is null on the last page. `limit` defaults to 50 and values above
-         *     100 fall back to 50; a non-positive or non-numeric `limit`, a malformed `teamId` or `cursor` yield
-         *     400 `VALIDATION_ERROR`. `status` is passed through unvalidated (unknown values match nothing).
+         * @description Cursor-paginated (spec §16.1). `nextCursor` is null on the last page. `limit` defaults to 50 and values
+         *     above 100 clamp to 100; a non-numeric or < 1 `limit` yields 400 `INVALID_LIMIT`. A malformed `teamId` or
+         *     `cursor` yields 400 `VALIDATION_ERROR`. The cursor is opaque. `status` is passed through unvalidated (unknown values match nothing).
          */
         get: operations["listBatches"];
         put?: never;
@@ -434,7 +435,7 @@ export interface paths {
         };
         /**
          * List the batch's items (anyone who can read the batch)
-         * @description Returns all items in one page, `nextCursor` is always null. Withdrawn items are included.
+         * @description Returns all items, not paginated (`{items}` only). Withdrawn items are included.
          */
         get: operations["listBatchItems"];
         put?: never;
@@ -443,7 +444,8 @@ export interface paths {
          * @description Other batch statuses fail with 422 `BATCH_NOT_COLLECTING`; non-members get 403; archived teams 422 `TEAM_ARCHIVED`.
          *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `VALIDATION_ERROR`
          *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
-         *     estimatedUnitPrice (non-negative, supported currency), productUrl (http/https), subgroupId (active subgroup).
+         *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
+         *     ISO 4217, or the server's APP_BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
          *     `autoFilledFields` and `lookupProvider` record product-lookup provenance and are only honoured on create.
          *     No `If-Match`; the new item's version is in `ETag`.
          */
@@ -490,20 +492,19 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Replace an item's editable fields
+         * @description Full replacement (same validation as create); omitted optional fields are cleared. Allowed for the requester
+         *     while the item is `pending` in a `proposed`/`collecting` batch or `returned` in a `reviewing` batch, and for
+         *     team admins and system admins while the batch is `collecting` and the item is pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
+         *     `autoFilledFields` / `lookupProvider` are accepted but ignored on update.
+         */
+        put: operations["putItem"];
         post?: never;
         delete?: never;
         options?: never;
         head?: never;
-        /**
-         * Edit an item (full replacement of the editable fields)
-         * @description Despite PATCH, the body replaces all editable fields (same validation as create); omitted optional
-         *     strings become empty. Allowed for the requester while the item is `pending` in a `proposed`/`collecting` batch
-         *     or `returned` in a `reviewing` batch, and for team admins while the batch is `collecting` and the item is
-         *     pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
-         *     `autoFilledFields` / `lookupProvider` are accepted but ignored on update.
-         */
-        patch: operations["patchItem"];
+        patch?: never;
         trace?: never;
     };
     "/items/{id}/withdraw": {
@@ -602,7 +603,7 @@ export interface paths {
         };
         /**
          * Timeline of a batch (including its items' events) or of an item
-         * @description Newest events as returned by the store (at most 500), whole list in one page. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400.
+         * @description Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `INVALID_LIMIT`.
          */
         get: operations["getAudit"];
         put?: never;
@@ -623,7 +624,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Team-wide audit log (team admins and system admins) */
+        /**
+         * Team-wide audit log (team admins and system admins)
+         * @description Cursor-paginated, newest event first.
+         */
         get: operations["getTeamAudit"];
         put?: never;
         post?: never;
@@ -796,6 +800,8 @@ export interface components {
         };
         RoleMapping: {
             id: string;
+            /** Format: int64 */
+            version: number;
             /** @enum {string} */
             claim: "groups" | "roles";
             /** @description Glob over `/`-separated segments; `*` matches exactly one whole segment, captured as $1, $2, ... */
@@ -817,30 +823,27 @@ export interface components {
             enabled: boolean;
             description?: string;
         };
-        PatchRoleMappingRequest: {
+        /** @description Full replacement body; omitted fields are cleared. */
+        RoleMappingRequest: {
             /** @enum {string} */
-            claim?: "groups" | "roles";
-            pattern?: string;
-            team?: string;
-            role?: components["schemas"]["Role"];
+            claim: "groups" | "roles";
+            pattern: string;
+            team: string;
+            role: components["schemas"]["Role"];
             enabled?: boolean;
             description?: string;
         };
-        UserPage: {
+        UserList: {
             items: components["schemas"]["User"][];
-            nextCursor: string | null;
         };
-        TeamSummaryPage: {
+        TeamSummaryList: {
             items: components["schemas"]["TeamSummary"][];
-            nextCursor: string | null;
         };
-        TeamMemberPage: {
+        TeamMemberList: {
             items: components["schemas"]["TeamMember"][];
-            nextCursor: string | null;
         };
-        RoleMappingPage: {
+        RoleMappingList: {
             items: components["schemas"]["RoleMapping"][];
-            nextCursor: string | null;
         };
         Meta: {
             version: string;
@@ -851,7 +854,7 @@ export interface components {
             emailEnabled: boolean;
         };
         Money: {
-            /** @description Decimal string. */
+            /** @description Decimal string with no fixed number of fractional digits ("12.5", "100"). */
             amount: string;
             currency: string;
         };
@@ -1028,8 +1031,10 @@ export interface components {
         };
         AuditChange: {
             field: string;
-            from: unknown;
-            to: unknown;
+            /** @description Previous value; any JSON type, null when there was none. */
+            from: string | number | boolean | Record<string, never> | unknown[] | null;
+            /** @description New value; any JSON type, null when cleared. */
+            to: string | number | boolean | Record<string, never> | unknown[] | null;
         };
         AuditEvent: {
             id: string;
@@ -1052,9 +1057,8 @@ export interface components {
             items: components["schemas"]["Batch"][];
             nextCursor: string | null;
         };
-        ItemPage: {
+        ItemList: {
             items: components["schemas"]["Item"][];
-            nextCursor: string | null;
         };
         AuditEventPage: {
             items: components["schemas"]["AuditEvent"][];
@@ -1073,7 +1077,7 @@ export interface components {
     responses: {
         /**
          * @description Validation or malformed request. Codes: `VALIDATION_ERROR` (with `details.fields`, a map of field to message),
-         *     `INVALID_BODY`, `INVALID_IF_MATCH`.
+         *     `INVALID_BODY`, `INVALID_IF_MATCH`, `INVALID_LIMIT`.
          */
         BadRequest: {
             headers: {
@@ -1141,7 +1145,7 @@ export interface components {
          * @description Business-rule violation. Codes: `TEAM_SLUG_TAKEN`, `TEAM_ARCHIVED`, `SUBGROUP_EXISTS`,
          *     `MEMBER_NO_ROLE_SOURCE`, `MEMBER_MANAGED_BY_SSO`, `ROLE_MAPPING_MANAGED`, `BATCH_NOT_COLLECTING`,
          *     `BATCH_NOT_REVIEWING`, `BATCH_CLOSED`, `ASSIGNMENTS_INCOMPLETE`, `DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`,
-         *     `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`.
+         *     `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`, `BATCH_ITEM_LIMIT` (more than 5000 non-withdrawn items in a batch).
          *     (`INVALID_TRANSITION` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -1158,6 +1162,10 @@ export interface components {
         TeamId: string;
         /** @description User id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
         UserId: string;
+        /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+        Limit: number;
+        /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+        Cursor: string;
         BatchId: string;
         ItemId: string;
         /**
@@ -1272,7 +1280,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["UserPage"];
+                    "application/json": components["schemas"]["UserList"];
                 };
             };
             400: components["responses"]["BadRequest"];
@@ -1295,7 +1303,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamSummaryPage"];
+                    "application/json": components["schemas"]["TeamSummaryList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -1413,13 +1421,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK (whole list, `nextCursor` is always null) */
+            /** @description OK (whole list, not paginated: `{items}` only) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TeamMemberPage"];
+                    "application/json": components["schemas"]["TeamMemberList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -1691,13 +1699,13 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK (whole list, `nextCursor` is always null) */
+            /** @description OK (whole list, not paginated: `{items}` only) */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["RoleMappingPage"];
+                    "application/json": components["schemas"]["RoleMappingList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -1720,6 +1728,7 @@ export interface operations {
             /** @description Created */
             201: {
                 headers: {
+                    ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
@@ -1732,10 +1741,59 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
         };
     };
+    putRoleMapping: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
+                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleMappingRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated rule */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleMapping"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+        };
+    };
     deleteRoleMapping: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
+                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
             path: {
                 id: string;
             };
@@ -1753,39 +1811,9 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
             422: components["responses"]["Unprocessable"];
-        };
-    };
-    patchRoleMapping: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchRoleMappingRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated rule */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RoleMapping"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
         };
     };
     listBatches: {
@@ -1795,8 +1823,10 @@ export interface operations {
                 status?: components["schemas"]["BatchStatus"];
                 /** @description Free-text search. */
                 q?: string;
-                limit?: number;
-                cursor?: string;
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path?: never;
@@ -2027,7 +2057,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ItemPage"];
+                    "application/json": components["schemas"]["ItemList"];
                 };
             };
             401: components["responses"]["Unauthorized"];
@@ -2101,7 +2131,7 @@ export interface operations {
             422: components["responses"]["Unprocessable"];
         };
     };
-    patchItem: {
+    putItem: {
         parameters: {
             query?: never;
             header: {
@@ -2297,6 +2327,10 @@ export interface operations {
     getAudit: {
         parameters: {
             query: {
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                cursor?: components["parameters"]["Cursor"];
                 objectType: "batch" | "item";
                 objectId: string;
             };
@@ -2322,7 +2356,12 @@ export interface operations {
     };
     getTeamAudit: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                cursor?: components["parameters"]["Cursor"];
+            };
             header?: never;
             path: {
                 /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
@@ -2332,7 +2371,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK (at most 500 events, `nextCursor` always null) */
+            /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2341,6 +2380,7 @@ export interface operations {
                     "application/json": components["schemas"]["AuditEventPage"];
                 };
             };
+            400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

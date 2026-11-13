@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -64,8 +65,31 @@ func StringsAtPath(claims map[string]any, path string) []string {
 	return nil
 }
 
-// PrincipalFromClaims builds a Principal from decoded claims.
-func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim, adminRole string) (*Principal, error) {
+// ClientRoles reads Keycloak client roles from resource_access and returns
+// them as "<client id>:<role>", the same notation oauth2-proxy's
+// --allowed-role uses. Realm roles stay as bare names.
+func ClientRoles(claims map[string]any) []string {
+	ra, _ := claims["resource_access"].(map[string]any)
+	clients := make([]string, 0, len(ra))
+	for c := range ra {
+		clients = append(clients, c)
+	}
+	sort.Strings(clients) // deterministic order
+	var out []string
+	for _, c := range clients {
+		m, _ := ra[c].(map[string]any)
+		for _, r := range StringsAtPath(m, "roles") {
+			out = append(out, c+":"+r)
+		}
+	}
+	return out
+}
+
+// PrincipalFromClaims builds a Principal from decoded claims. Roles holds the
+// realm roles (bare names, read from rolesClaim) followed by client roles
+// ("<client id>:<role>"). The principal is a system admin if any adminRoles
+// entry is among them.
+func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim string, adminRoles []string) (*Principal, error) {
 	str := func(k string) string { s, _ := claims[k].(string); return s }
 	sub := str("sub")
 	if sub == "" {
@@ -77,14 +101,16 @@ func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim, adminRo
 		Email:             str("email"),
 		Name:              str("name"),
 		Groups:            StringsAtPath(claims, groupsClaim),
-		Roles:             StringsAtPath(claims, rolesClaim),
+		Roles:             append(StringsAtPath(claims, rolesClaim), ClientRoles(claims)...),
 	}
 	if iat, ok := claims["iat"].(float64); ok {
 		p.IssuedAt = time.Unix(int64(iat), 0).UTC()
 	}
 	for _, r := range p.Roles {
-		if r == adminRole {
-			p.IsSystemAdmin = true
+		for _, a := range adminRoles {
+			if r == a {
+				p.IsSystemAdmin = true
+			}
 		}
 	}
 	return p, nil
@@ -96,7 +122,7 @@ type VerifierConfig struct {
 	Audience    string
 	GroupsClaim string
 	RolesClaim  string
-	AdminRole   string
+	AdminRoles  []string // realm role, or "<client id>:<client role>"; any match grants system admin
 	ClockSkew   time.Duration
 }
 
@@ -144,7 +170,7 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	if !hasAudience(tok.Audience, v.cfg.Audience) {
 		return nil, fmt.Errorf("%w: audience mismatch", ErrInvalidToken)
 	}
-	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.RolesClaim, v.cfg.AdminRole)
+	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.RolesClaim, v.cfg.AdminRoles)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}

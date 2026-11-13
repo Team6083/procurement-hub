@@ -16,6 +16,7 @@ func TestCanModify(t *testing.T) {
 	requester := authz.Actor{UserID: req, TeamRoles: roles}
 	stranger := authz.Actor{UserID: other, TeamRoles: roles}
 	admin := authz.Actor{UserID: adm, TeamRoles: map[bson.ObjectID]domain.Role{team: domain.RoleAdmin}}
+	sysadmin := authz.Actor{UserID: bson.NewObjectID(), IsSystemAdmin: true} // not a member of the team
 
 	tests := []struct {
 		name  string
@@ -34,6 +35,10 @@ func TestCanModify(t *testing.T) {
 		{"admin edits any in collecting", admin, domain.ItemPending, domain.BatchCollecting, true},
 		{"admin cannot edit in reviewing", admin, domain.ItemPending, domain.BatchReviewing, false},
 		{"admin cannot edit approved", admin, domain.ItemApproved, domain.BatchCollecting, false},
+		{"system admin edits any pending item in collecting", sysadmin, domain.ItemPending, domain.BatchCollecting, true},
+		{"system admin edits any returned item in collecting", sysadmin, domain.ItemReturned, domain.BatchCollecting, true},
+		{"system admin cannot edit in reviewing", sysadmin, domain.ItemPending, domain.BatchReviewing, false},
+		{"system admin cannot edit approved", sysadmin, domain.ItemApproved, domain.BatchCollecting, false},
 	}
 	for _, tt := range tests {
 		it := &domain.Item{RequesterID: req, Status: tt.item}

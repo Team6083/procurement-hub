@@ -12,6 +12,10 @@ import (
 	"github.com/OWNER/procurement-hub/internal/store"
 )
 
+// MaxItemsPerBatch caps non-withdrawn items in one batch (spec §9.1). It is a
+// variable only so tests can lower it.
+var MaxItemsPerBatch = 5000
+
 type Items struct {
 	st      *store.Store
 	audit   *audit.Log
@@ -47,7 +51,7 @@ func (in ItemInput) fields() domain.ItemFields {
 }
 
 func (s *Items) validate(in ItemInput, t *domain.Team) error {
-	if errs := domain.ValidateItemFields(in.fields(), s.batches.supported); len(errs) > 0 {
+	if errs := domain.ValidateItemFields(in.fields(), s.batches.supported, s.batches.cur); len(errs) > 0 {
 		return &ValidationError{Fields: errs}
 	}
 	if in.SubgroupID != "" {
@@ -124,6 +128,17 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		it.Lookup = &domain.LookupInfo{Provider: in.LookupProvider, FetchedAt: s.batches.now(), AutoFilledFields: in.AutoFilledFields}
 	}
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		counts, err := s.st.ItemCounts(ctx, b.ID) // non-withdrawn items
+		if err != nil {
+			return err
+		}
+		total := 0
+		for _, n := range counts {
+			total += n
+		}
+		if total >= MaxItemsPerBatch {
+			return Rule("BATCH_ITEM_LIMIT", "A batch holds at most %d items.", MaxItemsPerBatch)
+		}
 		seq, err := s.st.NextItemSeq(ctx, b.ID)
 		if err != nil {
 			return mapStore(err)
@@ -155,7 +170,7 @@ func (s *Items) loadItem(ctx context.Context, actor authz.Actor, id bson.ObjectI
 }
 
 // canModify implements "edit/withdraw own item" and the team-admin override
-// (spec §8.3).
+// (spec §8.3). System admins hold every Team-admin permission (§8.1).
 func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
 	if it.RequesterID == actor.UserID {
 		switch {
@@ -165,7 +180,7 @@ func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
 			return true
 		}
 	}
-	return actor.IsTeamAdmin(b.TeamID) && b.Status == domain.BatchCollecting &&
+	return actor.CanAdminTeam(b.TeamID) && b.Status == domain.BatchCollecting &&
 		(it.Status == domain.ItemPending || it.Status == domain.ItemReturned)
 }
 
@@ -179,7 +194,7 @@ func (s *Items) Update(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
 	}
 	if !canModify(actor, it, b) {
-		if it.RequesterID == actor.UserID || actor.IsTeamAdmin(b.TeamID) {
+		if it.RequesterID == actor.UserID || actor.CanAdminTeam(b.TeamID) {
 			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be edited.")
 		}
 		return nil, ErrForbidden
@@ -260,7 +275,7 @@ func (s *Items) Withdraw(ctx context.Context, actor authz.Actor, id bson.ObjectI
 		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
 	}
 	if !canModify(actor, it, b) {
-		if it.RequesterID == actor.UserID || actor.IsTeamAdmin(b.TeamID) {
+		if it.RequesterID == actor.UserID || actor.CanAdminTeam(b.TeamID) {
 			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be withdrawn.")
 		}
 		return nil, ErrForbidden

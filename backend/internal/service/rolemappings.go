@@ -86,7 +86,7 @@ func (s *RoleMappings) List(ctx context.Context, actor authz.Actor) ([]domain.Ro
 	return s.st.ListRoleMappings(ctx)
 }
 
-// Create adds a UI-managed (managed=false) rule.
+// Create adds a UI-managed (managed=false) rule at version 1.
 func (s *RoleMappings) Create(ctx context.Context, actor authz.Actor, m domain.RoleMapping) (*domain.RoleMapping, error) {
 	if !actor.IsSystemAdmin {
 		return nil, ErrForbidden
@@ -95,55 +95,34 @@ func (s *RoleMappings) Create(ctx context.Context, actor authz.Actor, m domain.R
 	if err := m.Validate(); err != nil {
 		return nil, Invalid("rule", err.Error())
 	}
-	return &m, s.st.PutRoleMapping(ctx, m)
+	if err := s.st.InsertRoleMapping(ctx, &m); err != nil {
+		return nil, err
+	}
+	return &m, nil
 }
 
-// RoleMappingPatch: nil fields unchanged.
-type RoleMappingPatch struct {
-	Claim       *domain.Claim
-	Pattern     *string
-	Team        *string
-	Role        *domain.Role
-	Enabled     *bool
-	Description *string
-}
-
-func (s *RoleMappings) Update(ctx context.Context, actor authz.Actor, id string, p RoleMappingPatch) (*domain.RoleMapping, error) {
+// Replace replaces all editable fields of a UI-managed rule (omitted fields
+// are cleared). Managed rules are read-only.
+func (s *RoleMappings) Replace(ctx context.Context, actor authz.Actor, id string, version int64, in domain.RoleMapping) (*domain.RoleMapping, error) {
 	if !actor.IsSystemAdmin {
 		return nil, ErrForbidden
 	}
-	m, err := s.st.GetRoleMapping(ctx, id)
+	cur, err := s.st.GetRoleMapping(ctx, id)
 	if err != nil {
 		return nil, mapStore(err)
 	}
-	if m.Managed {
+	if cur.Managed {
 		return nil, Rule("ROLE_MAPPING_MANAGED", "Managed rules are read-only.")
 	}
-	if p.Claim != nil {
-		m.Claim = *p.Claim
-	}
-	if p.Pattern != nil {
-		m.Pattern = *p.Pattern
-	}
-	if p.Team != nil {
-		m.Team = *p.Team
-	}
-	if p.Role != nil {
-		m.Role = *p.Role
-	}
-	if p.Enabled != nil {
-		m.Enabled = *p.Enabled
-	}
-	if p.Description != nil {
-		m.Description = *p.Description
-	}
-	if err := m.Validate(); err != nil {
+	in.ID, in.Managed = id, false
+	if err := in.Validate(); err != nil {
 		return nil, Invalid("rule", err.Error())
 	}
-	return m, s.st.PutRoleMapping(ctx, *m)
+	out, err := s.st.ReplaceRoleMapping(ctx, in, version)
+	return out, mapStore(err)
 }
 
-func (s *RoleMappings) Delete(ctx context.Context, actor authz.Actor, id string) error {
+func (s *RoleMappings) Delete(ctx context.Context, actor authz.Actor, id string, version int64) error {
 	if !actor.IsSystemAdmin {
 		return ErrForbidden
 	}
@@ -154,5 +133,5 @@ func (s *RoleMappings) Delete(ctx context.Context, actor authz.Actor, id string)
 	if m.Managed {
 		return Rule("ROLE_MAPPING_MANAGED", "Managed rules are read-only.")
 	}
-	return mapStore(s.st.DeleteRoleMapping(ctx, id))
+	return mapStore(s.st.DeleteRoleMappingVersioned(ctx, id, version))
 }

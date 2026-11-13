@@ -52,7 +52,7 @@ type Subgroup struct {
 
 type ReferenceRate struct {
 	Currency   string    `bson:"currency" json:"currency"`
-	RateToBase string    `bson:"rateToBase" json:"rateToBase"` // decimal string
+	RateToBase Decimal   `bson:"rateToBase" json:"rateToBase"` // Decimal128 in MongoDB, decimal string in JSON
 	UpdatedAt  time.Time `bson:"updatedAt" json:"updatedAt"`
 	UpdatedBy  string    `bson:"updatedBy" json:"updatedBy"`
 }

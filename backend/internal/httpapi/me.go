@@ -22,7 +22,7 @@ func (a *MeAPI) Mount(r chi.Router) {
 	r.Get("/users", a.users)
 	r.Get("/admin/role-mappings", a.listRules)
 	r.Post("/admin/role-mappings", a.createRule)
-	r.Patch("/admin/role-mappings/{id}", a.patchRule)
+	r.Put("/admin/role-mappings/{id}", a.putRule)
 	r.Delete("/admin/role-mappings/{id}", a.deleteRule)
 }
 
@@ -101,7 +101,7 @@ func (a *MeAPI) users(w http.ResponseWriter, r *http.Request) {
 	for _, u := range us {
 		out = append(out, userResp{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName, Email: u.Email})
 	}
-	WriteJSON(w, http.StatusOK, wholePage(out))
+	WriteJSON(w, http.StatusOK, wholeList(out))
 }
 
 func (a *MeAPI) listRules(w http.ResponseWriter, r *http.Request) {
@@ -110,7 +110,7 @@ func (a *MeAPI) listRules(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, wholePage(rs))
+	WriteJSON(w, http.StatusOK, wholeList(rs))
 }
 
 type ruleReq struct {
@@ -128,41 +128,47 @@ func (a *MeAPI) createRule(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e)
 		return
 	}
-	m, err := a.RoleMappings.Create(r.Context(), CallerFrom(r.Context()).Actor, domain.RoleMapping{
-		Claim: req.Claim, Pattern: req.Pattern, Team: req.Team, Role: req.Role, Enabled: req.Enabled, Description: req.Description,
-	})
+	m, err := a.RoleMappings.Create(r.Context(), CallerFrom(r.Context()).Actor, req.mapping())
 	if err != nil {
 		fail(w, err)
 		return
 	}
+	setETag(w, m.Version)
 	WriteJSON(w, http.StatusCreated, m)
 }
 
-func (a *MeAPI) patchRule(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		Claim       *domain.Claim `json:"claim"`
-		Pattern     *string       `json:"pattern"`
-		Team        *string       `json:"team"`
-		Role        *domain.Role  `json:"role"`
-		Enabled     *bool         `json:"enabled"`
-		Description *string       `json:"description"`
+func (r ruleReq) mapping() domain.RoleMapping {
+	return domain.RoleMapping{Claim: r.Claim, Pattern: r.Pattern, Team: r.Team, Role: r.Role, Enabled: r.Enabled, Description: r.Description}
+}
+
+// putRule replaces all editable fields (omitted fields are cleared, spec §16.1).
+func (a *MeAPI) putRule(w http.ResponseWriter, r *http.Request) {
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
 	}
+	var req ruleReq
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	m, err := a.RoleMappings.Update(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id"), service.RoleMappingPatch{
-		Claim: req.Claim, Pattern: req.Pattern, Team: req.Team, Role: req.Role, Enabled: req.Enabled, Description: req.Description,
-	})
+	m, err := a.RoleMappings.Replace(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id"), ver, req.mapping())
 	if err != nil {
 		fail(w, err)
 		return
 	}
+	setETag(w, m.Version)
 	WriteJSON(w, http.StatusOK, m)
 }
 
 func (a *MeAPI) deleteRule(w http.ResponseWriter, r *http.Request) {
-	if err := a.RoleMappings.Delete(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id")); err != nil {
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	if err := a.RoleMappings.Delete(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id"), ver); err != nil {
 		fail(w, err)
 		return
 	}

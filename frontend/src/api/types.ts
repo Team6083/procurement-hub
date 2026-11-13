@@ -18,7 +18,7 @@ export type PatchTeamRequest = S['PatchTeamRequest'];
 export type CreateTeamRequest = S['CreateTeamRequest'];
 export type PatchMemberRequest = S['PatchMemberRequest'];
 export type CreateRoleMappingRequest = S['CreateRoleMappingRequest'];
-export type PatchRoleMappingRequest = S['PatchRoleMappingRequest'];
+export type RoleMappingRequest = S['RoleMappingRequest'];
 
 export interface Page<T> {
   items: T[];

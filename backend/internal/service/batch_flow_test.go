@@ -29,7 +29,7 @@ func newFlowEnv(t *testing.T) *flowEnv {
 	ctx := context.Background()
 	log := audit.New(st.DB)
 	e := &flowEnv{st: st, teams: NewTeams(st, log, "USD", []string{"USD"})}
-	e.batches = NewBatches(st, log, []string{"USD"})
+	e.batches = NewBatches(st, log, []string{"USD"}, domain.Currencies{Base: "USD", BaseDecimals: -1})
 	e.items = NewItems(st, log, e.batches)
 
 	mk := func(sub string) *domain.User {
@@ -313,9 +313,9 @@ func TestRemovedMemberLosesAssignments(t *testing.T) {
 			t.Fatal("departed member is still an assigned receiver")
 		}
 	}
-	evs, _ := audit.New(e.st.DB).ForBatch(ctx, b.ID, 100)
+	pg, _ := audit.New(e.st.DB).PageForBatch(ctx, b.ID, bson.ObjectID{}, 100)
 	var audited bool
-	for _, ev := range evs {
+	for _, ev := range pg.Events {
 		if ev.Action == "batch.assignee_removed" {
 			audited = true
 		}

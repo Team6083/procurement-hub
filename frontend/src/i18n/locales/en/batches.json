@@ -187,6 +187,7 @@
   "validation": {
     "quantity": "Enter a whole number of at least 1.",
     "price": "Enter a non-negative decimal number.",
-    "url": "Enter an http or https URL."
+    "url": "Enter an http or https URL.",
+    "priceDigits": "Too many decimal places for this currency."
   }
 }

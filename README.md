@@ -66,10 +66,12 @@ Integration tests create and drop throwaway databases named `ph_test_*` on the s
 | `OIDC_ISSUER_URL` | yes | — | OIDC issuer (e.g. a Keycloak realm URL) |
 | `OIDC_AUDIENCE` | yes | — | Value that must be present in the access token `aud` |
 | `OIDC_GROUPS_CLAIM` / `OIDC_ROLES_CLAIM` | no | `groups` / `realm_access.roles` | Dot paths into the access token |
-| `OIDC_ADMIN_ROLE` | no | `system-admin` | Role value granting system admin |
+| `OIDC_ADMIN_ROLE` | no | `system-admin` | Role(s) granting system admin, comma-separated; any match is enough. A bare name is a Keycloak **realm role** (`realm_access.roles`); `<client id>:<role>` is a **client role** (`resource_access.<client id>.roles`) — the same notation as oauth2-proxy's `--allowed-role` |
 | `ROLE_MAPPINGS_FILE` | no | — | YAML file of managed role-mapping rules |
 
 The full list (SMTP, lookup provider, digest window, …) is in the specification; a dedicated `docs/configuration.md` will follow with the release milestone.
+
+Examples: `OIDC_ADMIN_ROLE=system-admin` (realm role), `OIDC_ADMIN_ROLE=procurement-hub:admin` (client role), `OIDC_ADMIN_ROLE=system-admin,procurement-hub:admin` (either). The role must be present in the **access token**: with Keycloak's default `roles` client scope this requires "Full scope allowed" on the client, or a client-roles mapper. Role names containing `:` cannot be used as realm roles.
 
 Role-mapping rules map token claim values to team roles. Example `ROLE_MAPPINGS_FILE`:
 
@@ -95,9 +97,9 @@ The built SPA contains no environment-specific values. At startup it fetches `/c
 
 `npm run build` writes `dist/config.json` and `dist/_headers` (including a Content-Security-Policy) when `APP_API_URL`, `APP_OIDC_AUTHORITY` and `APP_OIDC_CLIENT_ID` (and optionally `APP_OIDC_SCOPE`) are set. Otherwise only `_headers` is written with `connect-src 'self'`; supply `config.json` yourself and adjust the CSP `connect-src` to include your API and OIDC origins.
 
-Set `APP_COMMIT` (or build from a Git checkout) so the SPA can detect a backend update: it compares its embedded commit with the backend's `X-App-Commit` header and blocks writes until the page is reloaded. Without a known commit the check is skipped.
+The SPA detects a backend update by comparing its embedded commit with the backend's `X-App-Commit` header and blocks writes until the page is reloaded. The commit comes from the first available of `APP_COMMIT`, `CF_PAGES_COMMIT_SHA`, `WORKERS_CI_COMMIT_SHA`, or `git rev-parse HEAD`. In local development an unknown commit just skips the check, but a **production build (`NODE_ENV=production` or `CI=true`) fails when no commit can be determined**.
 
-For silent token renewal the OIDC client must issue refresh tokens (for example by including the `offline_access` scope), and the host must serve `index.html` for unknown paths (client-side routing).
+Silent token renewal uses the refresh token Keycloak issues for the Authorization Code flow (client setting *Use refresh tokens*, on by default). Do **not** request `offline_access`; see [docs/keycloak.md](docs/keycloak.md). The host must serve `index.html` for unknown paths (client-side routing).
 
 ## Repository layout
 

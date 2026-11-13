@@ -94,16 +94,68 @@ func fail(w http.ResponseWriter, err error) {
 	}
 }
 
-// page is the cursor-paginated list envelope (spec §16.1). Collections that
-// are small and bounded are returned whole with a null cursor.
+// page is the cursor-paginated list envelope for lists that grow without
+// bound (spec §16.1): batches, audit timelines, notifications.
 type page[T any] struct {
 	Items      []T     `json:"items"`
 	NextCursor *string `json:"nextCursor"`
 }
 
-func wholePage[T any](items []T) page[T] {
+func newPage[T any](items []T, next *bson.ObjectID) page[T] {
 	if items == nil {
 		items = []T{}
 	}
-	return page[T]{Items: items}
+	p := page[T]{Items: items}
+	if next != nil {
+		c := next.Hex()
+		p.NextCursor = &c
+	}
+	return p
+}
+
+// list is the envelope of naturally bounded lists: no limit, cursor or nextCursor.
+type list[T any] struct {
+	Items []T `json:"items"`
+}
+
+func wholeList[T any](items []T) list[T] {
+	if items == nil {
+		items = []T{}
+	}
+	return list[T]{Items: items}
+}
+
+const (
+	defaultLimit = 50
+	maxLimit     = 100
+)
+
+// parseLimit implements spec §16.1: default 50, values above 100 clamp to 100,
+// non-numeric or < 1 is 400 INVALID_LIMIT.
+func parseLimit(r *http.Request) (int, *APIError) {
+	v := r.URL.Query().Get("limit")
+	if v == "" {
+		return defaultLimit, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil || n < 1 {
+		return 0, NewError(http.StatusBadRequest, "INVALID_LIMIT", "limit must be a positive integer.")
+	}
+	if n > maxLimit {
+		n = maxLimit
+	}
+	return n, nil
+}
+
+// parseCursor reads the optional ?cursor= (an opaque object id).
+func parseCursor(r *http.Request) (bson.ObjectID, error) {
+	v := r.URL.Query().Get("cursor")
+	if v == "" {
+		return bson.ObjectID{}, nil
+	}
+	id, err := bson.ObjectIDFromHex(v)
+	if err != nil {
+		return id, service.Invalid("cursor", "invalid cursor")
+	}
+	return id, nil
 }

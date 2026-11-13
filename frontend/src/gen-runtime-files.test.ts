@@ -2,7 +2,7 @@ import { mkdtempSync, existsSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { buildConfig, buildCsp, buildHeaders, generate, resolveCommit } from '../scripts/gen-runtime-files.mjs';
+import { buildConfig, buildCsp, buildHeaders, generate, requiresCommit, resolveCommit, resolveCommitStrict } from '../scripts/gen-runtime-files.mjs';
 
 const full = {
   APP_API_URL: 'https://api.example.org/base',
@@ -77,5 +77,36 @@ describe('generate', () => {
     } finally {
       rmSync(path.dirname(dir), { recursive: true, force: true });
     }
+  });
+});
+
+describe('production commit requirement (spec §6.3)', () => {
+  it('detects production builds from NODE_ENV or CI', () => {
+    expect(requiresCommit({})).toBe(false);
+    expect(requiresCommit({ NODE_ENV: 'development' })).toBe(false);
+    expect(requiresCommit({ NODE_ENV: 'test' })).toBe(false);
+    expect(requiresCommit({ CI: 'false' })).toBe(false);
+    expect(requiresCommit({ CI: '' })).toBe(false);
+    expect(requiresCommit({ NODE_ENV: 'production' })).toBe(true);
+    expect(requiresCommit({ CI: 'true' })).toBe(true);
+    expect(requiresCommit({ CI: 'TRUE' })).toBe(true);
+    expect(requiresCommit({ CI: '1' })).toBe(true);
+  });
+  it('fails a production build with no commit and names all four sources', () => {
+    for (const env of [{ NODE_ENV: 'production' }, { CI: 'true' }, { CI: '1' }]) {
+      expect(() => resolveCommitStrict(env, () => '')).toThrow(
+        /APP_COMMIT.*CF_PAGES_COMMIT_SHA.*WORKERS_CI_COMMIT_SHA.*git rev-parse HEAD/,
+      );
+    }
+    expect(() => resolveCommitStrict({}, () => '', true)).toThrow();
+  });
+  it('still succeeds in production when any source yields a commit', () => {
+    expect(resolveCommitStrict({ CI: 'true', APP_COMMIT: 'abc' }, () => '')).toBe('abc');
+    expect(resolveCommitStrict({ NODE_ENV: 'production' }, () => 'gitsha')).toBe('gitsha');
+    expect(resolveCommitStrict({ CI: 'true', WORKERS_CI_COMMIT_SHA: 'w' }, () => '')).toBe('w');
+  });
+  it('keeps "unknown" for local development and tests', () => {
+    expect(resolveCommitStrict({}, () => '')).toBe('unknown');
+    expect(resolveCommitStrict({ NODE_ENV: 'test' }, () => '')).toBe('unknown');
   });
 });

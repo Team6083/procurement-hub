@@ -2,7 +2,7 @@ import { Button, Group, Modal, Select, Stack, Switch, Text, Textarea, TextInput 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useCreateRoleMapping, usePatchRoleMapping } from '../../api/roleMappings';
+import { useCreateRoleMapping, usePutRoleMapping } from '../../api/roleMappings';
 import type { RoleMapping } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { roleMappingSchema, type RoleMappingForm } from '../teams/schemas';
@@ -12,17 +12,17 @@ const EMPTY: RoleMappingForm = { claim: 'groups', pattern: '', team: '', role: '
 function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => void }) {
   const { t } = useTranslation('admin');
   const create = useCreateRoleMapping();
-  const patch = usePatchRoleMapping();
+  const put = usePutRoleMapping();
   const form = useForm<RoleMappingForm>({
     resolver: zodResolver(roleMappingSchema),
     defaultValues: rule
       ? { claim: rule.claim as 'groups' | 'roles', pattern: rule.pattern, team: rule.team, role: rule.role, enabled: rule.enabled, description: rule.description }
       : EMPTY,
   });
-  const mutation = rule ? patch : create;
+  const mutation = rule ? put : create;
   const done = { onSuccess: onClose };
   const submit = form.handleSubmit((v) => {
-    if (rule) patch.mutate({ id: rule.id, patch: v }, done);
+    if (rule) put.mutate({ rule, body: v }, done);
     else create.mutate(v, done);
   });
   const err = form.formState.errors;

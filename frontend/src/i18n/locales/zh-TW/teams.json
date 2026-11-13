@@ -23,7 +23,8 @@
   "validation": {
     "slug": "請使用小寫字母與數字，並以單一連字號分隔。",
     "rate": "請輸入大於零的十進位數字。",
-    "duplicateCurrency": "此幣別已在清單中。"
+    "duplicateCurrency": "此幣別已在清單中。",
+    "rateDigits": "小數位數最多 6 位。"
   },
   "role": {
     "member": "成員",

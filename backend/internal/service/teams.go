@@ -312,8 +312,11 @@ func (s *Teams) ReplaceReferenceRates(ctx context.Context, actor authz.Actor, te
 		if err != nil || !d.IsPositive() {
 			return nil, Invalid("rateToBase", "must be a positive decimal string")
 		}
-		rate := domain.ReferenceRate{Currency: cur, RateToBase: d.String(), UpdatedAt: now, UpdatedBy: actor.UserID.Hex()}
-		if p, ok := prev[cur]; ok && p.RateToBase == rate.RateToBase {
+		if !domain.FitsDigits(d, domain.MaxRateDigits) {
+			return nil, Invalid("rateToBase", "at most 6 fractional digits")
+		}
+		rate := domain.ReferenceRate{Currency: cur, RateToBase: domain.Decimal{Decimal: d}, UpdatedAt: now, UpdatedBy: actor.UserID.Hex()}
+		if p, ok := prev[cur]; ok && p.RateToBase.Equal(d) {
 			rate.UpdatedAt, rate.UpdatedBy = p.UpdatedAt, p.UpdatedBy // unchanged
 		}
 		rates = append(rates, rate)

@@ -1,4 +1,4 @@
-import { Loader, Stack, Text, Timeline } from '@mantine/core';
+import { Button, Group, Loader, Stack, Text, Timeline } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { useBatchAudit } from '../../api/batches';
 import type { AuditEvent } from '../../api/types';
@@ -17,9 +17,11 @@ export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id:
   const audit = useBatchAudit(batchId);
   if (audit.isPending) return <Loader />;
   if (audit.error) return <ErrorAlert error={audit.error} />;
-  if (audit.data.length === 0) return <Text c="dimmed">{t('timeline.empty')}</Text>;
-  const events = [...audit.data].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
+  // The server returns the batch timeline oldest-first; keep its order across pages.
+  const events = audit.data.pages.flatMap((p) => p.items);
+  if (events.length === 0) return <Text c="dimmed">{t('timeline.empty')}</Text>;
   return (
+    <Stack>
     <Timeline bulletSize={14} lineWidth={2}>
       {events.map((ev) => {
         const sc = statusChange(ev, t);
@@ -35,5 +37,11 @@ export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id:
         );
       })}
     </Timeline>
+    {audit.hasNextPage && (
+      <Group>
+        <Button variant="default" loading={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>{t('list.loadMore')}</Button>
+      </Group>
+    )}
+    </Stack>
   );
 }

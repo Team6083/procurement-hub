@@ -75,7 +75,7 @@ export function RoleMappingsPage() {
           <ErrorAlert error={del.error} />
           <Group justify="flex-end">
             <Button variant="default" onClick={() => setToDelete(null)}>{t('common:actions.cancel')}</Button>
-            <Button color="red" loading={del.isPending} onClick={() => toDelete && del.mutate(toDelete.id, { onSuccess: () => setToDelete(null) })}>
+            <Button color="red" loading={del.isPending} onClick={() => toDelete && del.mutate(toDelete, { onSuccess: () => setToDelete(null) })}>
               {t('common:actions.delete')}
             </Button>
           </Group>

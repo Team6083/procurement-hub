@@ -11,10 +11,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/prometheus/client_golang/prometheus"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/OWNER/procurement-hub/internal/app"
 	"github.com/OWNER/procurement-hub/internal/auth"
 	"github.com/OWNER/procurement-hub/internal/config"
 	"github.com/OWNER/procurement-hub/internal/httpapi"
@@ -65,7 +65,7 @@ func run() error {
 	}
 	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuerURL, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
-		RolesClaim: cfg.OIDCRolesClaim, AdminRole: cfg.OIDCAdminRole, ClockSkew: cfg.OIDCClockSkew,
+		RolesClaim: cfg.OIDCRolesClaim, AdminRoles: cfg.OIDCAdminRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		return err
@@ -74,12 +74,10 @@ func run() error {
 	reg := prometheus.NewRegistry()
 	metrics := httpapi.NewMetrics(reg)
 
-	r := chi.NewRouter()
-	r.Use(httpapi.VersionHeaders(httpapi.Version{Version: version, Commit: commit}))
-	r.Use(httpapi.CORS(cfg.FrontendOrigins))
-	r.Use(metrics.Instrument)
-	r.Use(httpapi.MaxBody(1 << 20))
-	batches := mountAPI(r, cfg, st, verifier, rm)
+	handler, batches := app.NewHandler(app.Deps{
+		Config: cfg, Store: st, Verifier: verifier, RoleMappings: rm,
+		Version: httpapi.Version{Version: version, Commit: commit}, Metrics: metrics,
+	})
 
 	host, _ := os.Hostname()
 	runner := jobs.New(st, jobs.Options{Owner: fmt.Sprintf("%s-%d", host, os.Getpid())}, reg)
@@ -95,7 +93,7 @@ func run() error {
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })
 	go runner.Run(ctx)
 
-	api := &http.Server{Addr: cfg.HTTPAddr, Handler: r, ReadHeaderTimeout: 10 * time.Second}
+	api := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
 	ops := &http.Server{
 		Addr: cfg.MetricsAddr, ReadHeaderTimeout: 10 * time.Second,
 		Handler: httpapi.OpsHandler(reg, map[string]httpapi.ReadyCheck{

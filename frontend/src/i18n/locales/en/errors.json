@@ -31,6 +31,8 @@
     "REASON_REQUIRED": "A reason is required.",
     "ITEM_NOT_EDITABLE": "This item can no longer be edited or withdrawn.",
     "ITEM_NOT_EDITED": "Edit the item before resubmitting it.",
-    "ITEM_NOT_REVIEWABLE": "One of the items can no longer be reviewed (it may have been decided already)."
+    "ITEM_NOT_REVIEWABLE": "One of the items can no longer be reviewed (it may have been decided already).",
+    "INVALID_LIMIT": "The page size must be a positive whole number.",
+    "BATCH_ITEM_LIMIT": "This batch has reached the maximum number of items (5000)."
   }
 }

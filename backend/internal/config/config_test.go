@@ -61,3 +61,26 @@ func TestLoadErrors(t *testing.T) {
 		})
 	}
 }
+
+func TestAdminRoleNotation(t *testing.T) {
+	load := func(v string) (*Config, error) {
+		m := validEnv()
+		if v != "" {
+			m["OIDC_ADMIN_ROLE"] = v
+		}
+		return Load(env(m))
+	}
+	c, err := load("")
+	if err != nil || len(c.OIDCAdminRoles) != 1 || c.OIDCAdminRoles[0] != "system-admin" {
+		t.Fatalf("default: %v %v", c, err)
+	}
+	c, err = load(" realm-admin , procurement-hub:admin ")
+	if err != nil || len(c.OIDCAdminRoles) != 2 || c.OIDCAdminRoles[1] != "procurement-hub:admin" {
+		t.Fatalf("list: %v %v", c, err)
+	}
+	for _, bad := range []string{":admin", "client:", ",,"} {
+		if _, err := load(bad); err == nil {
+			t.Errorf("%q should be rejected", bad)
+		}
+	}
+}

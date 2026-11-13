@@ -29,7 +29,7 @@ type Config struct {
 	OIDCAudience         string
 	OIDCGroupsClaim      string
 	OIDCRolesClaim       string
-	OIDCAdminRole        string
+	OIDCAdminRoles       []string
 	OIDCClockSkew        time.Duration
 	RoleMappingsFile     string
 	LookupProvider       string
@@ -90,7 +90,6 @@ func Load(getenv func(string) string) (*Config, error) {
 		OIDCAudience:        required("OIDC_AUDIENCE"),
 		OIDCGroupsClaim:     str("OIDC_GROUPS_CLAIM", "groups"),
 		OIDCRolesClaim:      str("OIDC_ROLES_CLAIM", "realm_access.roles"),
-		OIDCAdminRole:       str("OIDC_ADMIN_ROLE", "system-admin"),
 		OIDCClockSkew:       dur("OIDC_CLOCK_SKEW", "60s"),
 		RoleMappingsFile:    str("ROLE_MAPPINGS_FILE", ""),
 		LookupProvider:      str("LOOKUP_PROVIDER", "none"),
@@ -147,6 +146,23 @@ func Load(getenv func(string) string) (*Config, error) {
 			errs = append(errs, errors.New("APP_ENCRYPTION_KEY must be a base64-encoded 32-byte key"))
 		}
 		c.EncryptionKey = key
+	}
+
+	// OIDC_ADMIN_ROLE follows oauth2-proxy's --allowed-role notation:
+	// "<realm role>" or "<client id>:<client role>", comma-separated for several.
+	for _, r := range strings.Split(str("OIDC_ADMIN_ROLE", "system-admin"), ",") {
+		r = strings.TrimSpace(r)
+		if r == "" {
+			continue
+		}
+		if i := strings.Index(r, ":"); i == 0 || i == len(r)-1 {
+			errs = append(errs, fmt.Errorf("OIDC_ADMIN_ROLE: %q must be \"<realm role>\" or \"<client id>:<client role>\"", r))
+			continue
+		}
+		c.OIDCAdminRoles = append(c.OIDCAdminRoles, r)
+	}
+	if len(c.OIDCAdminRoles) == 0 {
+		errs = append(errs, errors.New("OIDC_ADMIN_ROLE must name at least one role"))
 	}
 
 	switch c.LookupProvider {

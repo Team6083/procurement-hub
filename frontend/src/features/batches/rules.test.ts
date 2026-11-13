@@ -52,13 +52,15 @@ describe('item permissions mirror backend canModify', () => {
     expect(canModifyItem(item({ status: 'returned' }), batch({ status: 'collecting' }), c)).toBe(false);
     expect(canModifyItem(item({ status: 'approved' }), batch({ status: 'collecting' }), c)).toBe(false);
   });
-  it('others cannot; team admin only while collecting for pending/returned', () => {
+  it('others cannot; admins (team or system) only while collecting for pending/returned', () => {
     expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller())).toBe(false);
     const a = caller({ teamRole: 'admin' });
     expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), a)).toBe(true);
     expect(canModifyItem(item({ requesterId: 'x', status: 'returned' }), batch({ status: 'collecting' }), a)).toBe(true);
     expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'reviewing' }), a)).toBe(false);
-    expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
+    expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(true);
+    expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'reviewing' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
+    expect(canModifyItem(item({ requesterId: 'x', status: 'approved' }), batch({ status: 'collecting' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
   });
   it('adding items: proposer while proposed, members while collecting', () => {
     expect(canAddItem(batch({ status: 'proposed', createdBy: 'u1' }), caller())).toBe(true);

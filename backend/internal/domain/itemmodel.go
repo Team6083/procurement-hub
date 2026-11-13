@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"net/url"
 	"strings"
 	"time"
@@ -72,8 +73,9 @@ type ItemFields struct {
 }
 
 // ValidateItemFields checks required fields and formats, returning field → message.
-// supportedCurrencies bounds the price currency.
-func ValidateItemFields(f ItemFields, supportedCurrencies []string) map[string]string {
+// supportedCurrencies bounds the price currency; cur gives the allowed number
+// of fractional digits per currency (spec §9).
+func ValidateItemFields(f ItemFields, supportedCurrencies []string, cur Currencies) map[string]string {
 	errs := map[string]string{}
 	name := strings.TrimSpace(f.Name)
 	if name == "" || utf8.RuneCountInString(name) > 300 {
@@ -101,6 +103,8 @@ func ValidateItemFields(f ItemFields, supportedCurrencies []string) map[string]s
 		}
 		if !ok {
 			errs["estimatedUnitPrice"] = "unsupported currency " + f.EstimatedUnitPrice.Currency
+		} else if n := cur.Digits(f.EstimatedUnitPrice.Currency); !FitsDigits(f.EstimatedUnitPrice.Amount.Decimal, n) {
+			errs["estimatedUnitPrice"] = fmt.Sprintf("at most %d fractional digits for %s", n, f.EstimatedUnitPrice.Currency)
 		}
 	}
 	if f.ProductURL != "" {

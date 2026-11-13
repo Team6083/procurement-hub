@@ -54,13 +54,31 @@ export function useItems(batchId: string | undefined) {
   });
 }
 
+export const AUDIT_PAGE_SIZE = 50;
+
+/** Batch timeline (includes item events), oldest first, cursor-paginated. */
 export function useBatchAudit(batchId: string | undefined) {
   const api = useApi();
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: auditKey(batchId),
     enabled: !!batchId,
-    queryFn: async ({ signal }) =>
-      (await api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'batch', objectId: batchId }, signal })).items,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'batch', objectId: batchId, limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/** Team-wide audit log (team/system admins), newest first, cursor-paginated. */
+export function useTeamAudit(teamId: string | undefined, enabled = true) {
+  const api = useApi();
+  return useInfiniteQuery({
+    queryKey: ['team', teamId, 'audit'],
+    enabled: !!teamId && enabled,
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam, signal }) =>
+      api.get<Page<AuditEvent>>(`/teams/${teamId}/audit`, { query: { limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
 
@@ -121,10 +139,10 @@ export function useAddItem(batchId: string) {
   });
 }
 
-export function usePatchItem(batchId: string) {
+export function usePutItem(batchId: string) {
   const api = useApi();
   return useGuardedMutation<{ item: Item; body: ItemRequest }, Item>({
-    mutationFn: ({ item, body }) => api.patch<Item>(`/items/${item.id}`, body, { headers: ifMatchHeader(item.version) }),
+    mutationFn: ({ item, body }) => api.put<Item>(`/items/${item.id}`, body, { headers: ifMatchHeader(item.version) }),
     ...useItemsChanged(batchId),
   });
 }
