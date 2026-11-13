@@ -13,12 +13,18 @@ interface Props {
   error?: string;
   /** Users to hide (e.g. existing members). */
   excludeIds?: string[];
+  /**
+   * Render the suggestions inside the component instead of portalling them to <body>. Required
+   * inside a modal dialog, which hides everything outside itself from assistive technology
+   * (aria-hidden) and so would hide the options too.
+   */
+  inDialog?: boolean;
 }
 
 const userLabel = (u: User) => `${u.displayName || u.username} (${u.email || u.username})`;
 
 /** Searchable user picker backed by GET /users?q= (needs at least 2 characters). */
-export function UserSearchSelect({ value, onChange, label, error, excludeIds = [] }: Props) {
+export function UserSearchSelect({ value, onChange, label, error, excludeIds = [], inDialog = false }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search, 250);
@@ -53,7 +59,7 @@ export function UserSearchSelect({ value, onChange, label, error, excludeIds = [
             <Combobox.Trigger />
           </Combobox.IndicatorGroup>
         </Combobox.Control>
-        <Portal>
+        <Portal disabled={inDialog}>
           <Combobox.Positioner>
             <Combobox.Content>
               <Combobox.Empty>{empty}</Combobox.Empty>

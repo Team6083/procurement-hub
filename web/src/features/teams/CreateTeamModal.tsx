@@ -53,6 +53,7 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
             name="firstAdminUserId"
             render={({ field }) => (
               <UserSearchSelect
+                inDialog
                 label={t('createTeam.firstAdmin')}
                 value={field.value || null}
                 onChange={(v) => field.onChange(v ?? '')}
