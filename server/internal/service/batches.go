@@ -68,7 +68,7 @@ func (s *Batches) Create(ctx context.Context, actor authz.Actor, teamID bson.Obj
 		return nil, mapStore(err)
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	title := strings.TrimSpace(in.Title)
 	if title == "" || len([]rune(title)) > 200 {
@@ -202,10 +202,10 @@ func (s *Batches) Update(ctx context.Context, actor authz.Actor, id bson.ObjectI
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if isClosedStatus(b.Status) {
-		return nil, Rule("BATCH_CLOSED", "This batch can no longer be edited.")
+		return nil, Rule("batch_closed", "This batch can no longer be edited.")
 	}
 	var set bson.D
 	var changes []domain.AuditChange
@@ -296,10 +296,10 @@ func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if isClosedStatus(b.Status) {
-		return nil, Rule("BATCH_CLOSED", "This batch can no longer be edited.")
+		return nil, Rule("batch_closed", "This batch can no longer be edited.")
 	}
 	next := domain.Assignments{Approvers: dedupe(in.Approvers), Purchasers: dedupe(in.Purchasers), Receivers: dedupe(in.Receivers)}
 	members, err := s.st.MembershipsByTeam(ctx, t.ID)
@@ -345,7 +345,7 @@ func (s *Batches) Transition(ctx context.Context, actor authz.Actor, id bson.Obj
 		return nil, err
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	isProposer := b.CreatedBy == actor.UserID && b.Origin == "proposed"
 	switch in.Action {
@@ -509,7 +509,7 @@ func (s *Batches) CloseDue(ctx context.Context, batchID bson.ObjectID) error {
 func ruleFromDomain(err error) error {
 	switch {
 	case errors.Is(err, domain.ErrInvalidTransition):
-		return Rule("INVALID_TRANSITION", "%s", err.Error())
+		return Rule("invalid_transition", "%s", err.Error())
 	case errors.Is(err, domain.ErrAssignmentsIncomplete):
 		return Rule(err.Error(), "Approvers, purchasers and receivers must each have at least one assignee.")
 	case errors.Is(err, domain.ErrDeadlineRequired):

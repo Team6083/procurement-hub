@@ -2,12 +2,12 @@ import { Alert, List } from '@mantine/core';
 import { useTranslation } from 'react-i18next';
 import { ApiError, errorMessage } from '../api/errors';
 
-/** Localized error box. For VALIDATION_ERROR the per-field server messages are listed too. */
+/** Localized error box. For invalid_request the per-field server messages are listed too. */
 export function ErrorAlert({ error }: { error: unknown }) {
   const { t } = useTranslation();
   if (!error) return null;
   const fields =
-    error instanceof ApiError && error.code === 'VALIDATION_ERROR'
+    error instanceof ApiError && error.code === 'invalid_request'
       ? Object.entries((error.details.fields ?? {}) as Record<string, unknown>)
       : [];
   return (

@@ -15,11 +15,11 @@ export function ifMatchHeader(version: number | undefined): Record<string, strin
 }
 
 export function isVersionConflict(err: unknown): boolean {
-  return err instanceof ApiError && err.status === 409 && err.code === 'VERSION_CONFLICT';
+  return err instanceof ApiError && err.status === 409 && err.code === 'version_conflict';
 }
 
 /**
- * Error handler for versioned mutations: on 409 VERSION_CONFLICT the cached copies
+ * Error handler for versioned mutations: on 409 version_conflict the cached copies
  * are stale, so they are refetched. Returns true when a refetch was triggered.
  */
 export function refetchOnConflict(qc: Pick<QueryClient, 'invalidateQueries'>, err: unknown, keys: QueryKey[]): boolean {

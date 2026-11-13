@@ -95,7 +95,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	switch b.Status {
 	case domain.BatchProposed:
@@ -104,7 +104,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		}
 	case domain.BatchCollecting:
 	default:
-		return nil, Rule("BATCH_NOT_COLLECTING", "Batch is not accepting items.")
+		return nil, Rule("batch_not_collecting", "Batch is not accepting items.")
 	}
 	in.Name, in.Purpose = strings.TrimSpace(in.Name), strings.TrimSpace(in.Purpose)
 	if in.SubgroupID == "" {
@@ -137,7 +137,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 			total += n
 		}
 		if total >= MaxItemsPerBatch {
-			return Rule("BATCH_ITEM_LIMIT", "A batch holds at most %d items.", MaxItemsPerBatch)
+			return Rule("batch_item_limit", "A batch holds at most %d items.", MaxItemsPerBatch)
 		}
 		seq, err := s.st.NextItemSeq(ctx, b.ID)
 		if err != nil {
@@ -191,11 +191,11 @@ func (s *Items) Update(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 		return nil, err
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if !canModify(actor, it, b) {
 		if it.RequesterID == actor.UserID || actor.CanAdminTeam(b.TeamID) {
-			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be edited.")
+			return nil, Rule("item_not_editable", "This item can no longer be edited.")
 		}
 		return nil, ErrForbidden
 	}
@@ -272,11 +272,11 @@ func (s *Items) Withdraw(ctx context.Context, actor authz.Actor, id bson.ObjectI
 		return nil, err
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if !canModify(actor, it, b) {
 		if it.RequesterID == actor.UserID || actor.CanAdminTeam(b.TeamID) {
-			return nil, Rule("ITEM_NOT_EDITABLE", "This item can no longer be withdrawn.")
+			return nil, Rule("item_not_editable", "This item can no longer be withdrawn.")
 		}
 		return nil, ErrForbidden
 	}
@@ -291,16 +291,16 @@ func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectI
 		return nil, err
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if it.RequesterID != actor.UserID {
 		return nil, ErrForbidden
 	}
 	if b.Status != domain.BatchReviewing || it.Status != domain.ItemReturned {
-		return nil, Rule("INVALID_TRANSITION", "Only returned items in a batch under review can be resubmitted.")
+		return nil, Rule("invalid_transition", "Only returned items in a batch under review can be resubmitted.")
 	}
 	if it.Review != nil && it.Version <= it.Review.AtVersion {
-		return nil, Rule("ITEM_NOT_EDITED", "Edit the item before resubmitting it.")
+		return nil, Rule("item_not_edited", "Edit the item before resubmitting it.")
 	}
 	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvResubmit, "item.resubmitted", "", nil)
 }
@@ -367,10 +367,10 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if b.Status != domain.BatchReviewing {
-		return nil, Rule("BATCH_NOT_REVIEWING", "Batch is not under review.")
+		return nil, Rule("batch_not_reviewing", "Batch is not under review.")
 	}
 	if len(decisions) == 0 || len(decisions) > 1000 {
 		return nil, Invalid("decisions", "between 1 and 1000 decisions are required")
@@ -402,7 +402,7 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 			meta := decisionEvent[d.Decision]
 			to, err := domain.NextItemStatus(it.Status, meta.ev, it.ReceivedQuantity)
 			if err != nil {
-				return Rule("ITEM_NOT_REVIEWABLE", "Item #%d is %s and cannot be %s.", it.SeqNo, it.Status, meta.recorded)
+				return Rule("item_not_reviewable", "Item #%d is %s and cannot be %s.", it.SeqNo, it.Status, meta.recorded)
 			}
 			comment := strings.TrimSpace(d.Comment)
 			ni, err := s.st.UpdateItem(ctx, it.ID, it.Version, bson.D{
@@ -442,10 +442,10 @@ func (s *Items) ForceReject(ctx context.Context, actor authz.Actor, id bson.Obje
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if b.Status != domain.BatchReviewing {
-		return nil, Rule("BATCH_NOT_REVIEWING", "Batch is not under review.")
+		return nil, Rule("batch_not_reviewing", "Batch is not under review.")
 	}
 	reason = strings.TrimSpace(reason)
 	if reason == "" {

@@ -52,7 +52,7 @@ export interface paths {
         /**
          * Search users who have logged in at least once
          * @description Only system admins and members of at least one team may search (otherwise 403).
-         *     `q` must contain at least 2 characters after trimming (otherwise 400 `VALIDATION_ERROR`).
+         *     `q` must contain at least 2 characters after trimming (otherwise 400 `invalid_request`).
          *     At most 20 users are returned. Not paginated: the response is `{items}` only.
          */
         get: operations["searchUsers"];
@@ -93,7 +93,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -115,7 +115,7 @@ export interface paths {
          * Update team settings, or archive/unarchive (system admin)
          * @description Team admins (and system admins) may change `name`, `description`, `visibility`, `locale` and
          *     `priorityLabels`. `archived` is system-admin only and must not be combined with other fields
-         *     (400 `VALIDATION_ERROR`). Archived teams reject other edits with 422 `TEAM_ARCHIVED`.
+         *     (400 `invalid_request`). Archived teams reject other edits with 422 `team_archived`.
          *     `priorityLabels` keys must be "1" to "5"; labels are at most 200 characters; the map replaces the stored one.
          */
         patch: operations["patchTeam"];
@@ -126,7 +126,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -152,9 +152,9 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
-                /** @description User id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description User id (24-hex). A malformed id yields 404 `not_found`. */
                 userId: components["parameters"]["UserId"];
             };
             cookie?: never;
@@ -165,7 +165,7 @@ export interface paths {
         /**
          * Clear the manual role; delete the membership if no SSO role remains (team admin)
          * @description `If-Match` is the membership `version`. If the membership has no manual role the call fails with
-         *     422 `MEMBER_MANAGED_BY_SSO`. If an SSO role remains, the membership stays (and the call still returns 204).
+         *     422 `member_managed_by_sso`. If an SSO role remains, the membership stays (and the call still returns 204).
          */
         delete: operations["removeTeamMember"];
         options?: never;
@@ -175,7 +175,7 @@ export interface paths {
          * @description `manualRole`: "member" or "admin" sets it, JSON `null` clears it, absent leaves it unchanged.
          *     Role changes are team-admin only. `defaultSubgroupId`: "" clears it; it must reference an
          *     active subgroup. Team admins may set it for anyone; a member may set only their own.
-         *     Clearing the manual role of a member without an SSO role fails with 422 `MEMBER_NO_ROLE_SOURCE`.
+         *     Clearing the manual role of a member without an SSO role fails with 422 `member_no_role_source`.
          *     `If-Match` is the membership `version` (from `GET members` or the previous response).
          */
         patch: operations["patchTeamMember"];
@@ -186,7 +186,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -195,7 +195,7 @@ export interface paths {
         put?: never;
         /**
          * Add a subgroup (team admin)
-         * @description Returns the whole updated team. 422 `SUBGROUP_EXISTS` when the name exists (case-insensitive); 422 `TEAM_ARCHIVED` for archived teams.
+         * @description Returns the whole updated team. 422 `subgroup_exists` when the name exists (case-insensitive); 422 `team_archived` for archived teams.
          */
         post: operations["addSubgroup"];
         delete?: never;
@@ -209,7 +209,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
                 /** @description Subgroup id (a string inside `Team.subgroups`). */
                 id: string;
@@ -231,7 +231,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -240,7 +240,7 @@ export interface paths {
         /**
          * Replace the team's reference rate list (team admin)
          * @description Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
-         *     currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `VALIDATION_ERROR`, field `rateToBase`).
+         *     currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `invalid_request`, field `rateToBase`).
          */
         put: operations["replaceReferenceRates"];
         post?: never;
@@ -284,13 +284,13 @@ export interface paths {
         /**
          * Replace a UI-managed rule (system admin only)
          * @description Full replacement of all editable fields; omitted fields are cleared (`enabled` false, `description` empty).
-         *     `If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+         *     `If-Match` is the rule `version`. Managed rules fail with 422 `role_mapping_managed`.
          */
         put: operations["putRoleMapping"];
         post?: never;
         /**
          * Delete a UI-managed rule (system admin only)
-         * @description `If-Match` is the rule `version`. Managed rules fail with 422 `ROLE_MAPPING_MANAGED`.
+         * @description `If-Match` is the rule `version`. Managed rules fail with 422 `role_mapping_managed`.
          */
         delete: operations["deleteRoleMapping"];
         options?: never;
@@ -308,8 +308,8 @@ export interface paths {
         /**
          * List batches the caller can read, newest first
          * @description Cursor-paginated (spec §16.1). `nextCursor` is null on the last page. `limit` defaults to 50 and values
-         *     above 100 clamp to 100; a non-numeric or < 1 `limit` yields 400 `INVALID_LIMIT`. A malformed `teamId` or
-         *     `cursor` yields 400 `VALIDATION_ERROR`. The cursor is opaque. `status` is passed through unvalidated (unknown values match nothing).
+         *     above 100 clamp to 100; a non-numeric or < 1 `limit` yields 400 `invalid_request`. A malformed `teamId` or
+         *     `cursor` yields 400 `invalid_request`. The cursor is opaque. `status` is passed through unvalidated (unknown values match nothing).
          */
         get: operations["listBatches"];
         put?: never;
@@ -325,7 +325,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -335,7 +335,7 @@ export interface paths {
         /**
          * Create a draft batch (team admin, propose=false) or propose one (any member)
          * @description A team admin with `propose=false` creates a `draft`; otherwise a team member creates a `proposed`
-         *     batch. Non-members get 403. Archived teams get 422 `TEAM_ARCHIVED`. `title` is required, at most 200 characters.
+         *     batch. Non-members get 403. Archived teams get 422 `team_archived`. `title` is required, at most 200 characters.
          */
         post: operations["createBatch"];
         delete?: never;
@@ -364,8 +364,8 @@ export interface paths {
          * Edit title, description, deadline, visibility override (team admin)
          * @description `deadline` and `visibilityOverride` accept an explicit JSON `null` to clear them; absent leaves
          *     them unchanged. While `collecting`, a changed deadline must be in the future
-         *     (422 `DEADLINE_NOT_IN_FUTURE`). Closed batches (completed, cancelled, proposal_rejected) fail with
-         *     422 `BATCH_CLOSED`; archived teams with 422 `TEAM_ARCHIVED`.
+         *     (422 `deadline_not_in_future`). Closed batches (completed, cancelled, proposal_rejected) fail with
+         *     422 `batch_closed`; archived teams with 422 `team_archived`.
          */
         patch: operations["patchBatch"];
         trace?: never;
@@ -382,7 +382,7 @@ export interface paths {
         get?: never;
         /**
          * Replace approvers, purchasers and receivers (team admin)
-         * @description Every assignee must be a member of the batch's team (otherwise 400 `VALIDATION_ERROR` on that field). Duplicates are removed. 422 `BATCH_CLOSED` / `TEAM_ARCHIVED`.
+         * @description Every assignee must be a member of the batch's team (otherwise 400 `invalid_request` on that field). Duplicates are removed. 422 `batch_closed` / `team_archived`.
          */
         put: operations["setBatchAssignments"];
         post?: never;
@@ -407,14 +407,14 @@ export interface paths {
          * Manual lifecycle action
          * @description Permissions: `withdraw_proposal` only by the proposer (batch origin `proposed`, `createdBy` = caller);
          *     every other action by team admins and system admins. Guards:
-         *     `open` (from proposed/draft) needs complete assignments (422 `ASSIGNMENTS_INCOMPLETE`) and a future
-         *     deadline, taken from the body or else the batch (`DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`);
-         *     `start_review` (proposed/draft) needs complete assignments and at least one pending item (`NO_PENDING_ITEMS`);
+         *     `open` (from proposed/draft) needs complete assignments (422 `assignments_incomplete`) and a future
+         *     deadline, taken from the body or else the batch (`deadline_required`, `deadline_not_in_future`);
+         *     `start_review` (proposed/draft) needs complete assignments and at least one pending item (`no_pending_items`);
          *     `close` (collecting) moves to reviewing, or cancels the batch itself when no pending/returned items exist;
          *     `reopen` (reviewing) needs a future `deadline`;
-         *     `cancel` (draft/collecting/reviewing) needs `reason` (`REASON_REQUIRED`);
+         *     `cancel` (draft/collecting/reviewing) needs `reason` (`reason_required`);
          *     `reject_proposal` (proposed) needs `reason`;
-         *     `withdraw_proposal` (proposed). A wrong source state yields 409 `INVALID_TRANSITION`.
+         *     `withdraw_proposal` (proposed). A wrong source state yields 409 `invalid_transition`.
          *     The batch may also advance automatically (reviewing -> ordering/completed) after the action; the response is the final state.
          */
         post: operations["transitionBatch"];
@@ -441,8 +441,8 @@ export interface paths {
         put?: never;
         /**
          * Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
-         * @description Other batch statuses fail with 422 `BATCH_NOT_COLLECTING`; non-members get 403; archived teams 422 `TEAM_ARCHIVED`.
-         *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `VALIDATION_ERROR`
+         * @description Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
+         *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `invalid_request`
          *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
          *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
          *     ISO 4217, or the server's BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
@@ -470,8 +470,8 @@ export interface paths {
         /**
          * Apply review decisions atomically (approvers and team admins, batch `reviewing`)
          * @description 1 to 1000 decisions, no duplicate items. `return` and `reject` require a non-blank comment
-         *     (400 `VALIDATION_ERROR` on `decisions`). A decision on an item that is not pending fails with
-         *     422 `ITEM_NOT_REVIEWABLE`; a batch not under review with 422 `BATCH_NOT_REVIEWING`.
+         *     (400 `invalid_request` on `decisions`). A decision on an item that is not pending fails with
+         *     422 `item_not_reviewable`; a batch not under review with 422 `batch_not_reviewing`.
          *     The batch may advance automatically (e.g. to `ordering`); the returned batch is the final state and
          *     `ETag` is its version. This endpoint does not use `If-Match`; item versions are checked internally (409 possible).
          */
@@ -496,7 +496,7 @@ export interface paths {
          * Replace an item's editable fields
          * @description Full replacement (same validation as create); omitted optional fields are cleared. Allowed for the requester
          *     while the item is `pending` in a `proposed`/`collecting` batch or `returned` in a `reviewing` batch, and for
-         *     team admins and system admins while the batch is `collecting` and the item is pending/returned. Other callers with a relation to the item get 422 `ITEM_NOT_EDITABLE`; strangers 403.
+         *     team admins and system admins while the batch is `collecting` and the item is pending/returned. Other callers with a relation to the item get 422 `item_not_editable`; strangers 403.
          *     `autoFilledFields` / `lookupProvider` are accepted but ignored on update.
          */
         put: operations["putItem"];
@@ -520,7 +520,7 @@ export interface paths {
         put?: never;
         /**
          * Withdraw an item (same permission rule as editing)
-         * @description 422 `ITEM_NOT_EDITABLE` when the caller is related to the item but it can no longer be withdrawn. No request body.
+         * @description 422 `item_not_editable` when the caller is related to the item but it can no longer be withdrawn. No request body.
          */
         post: operations["withdrawItem"];
         delete?: never;
@@ -542,8 +542,8 @@ export interface paths {
         put?: never;
         /**
          * Send a returned item back to review (requester only)
-         * @description Requires a `returned` item in a `reviewing` batch (else 409 `INVALID_TRANSITION`), and that the item was edited after it was returned
-         *     (`item.updatedAt` after `item.review.at`, else 422 `ITEM_NOT_EDITED`). No request body.
+         * @description Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and that the item was edited after it was returned
+         *     (`item.updatedAt` after `item.review.at`, else 422 `item_not_edited`). No request body.
          */
         post: operations["resubmitItem"];
         delete?: never;
@@ -565,7 +565,7 @@ export interface paths {
         put?: never;
         /**
          * Reject a pending or returned item during review (team admin)
-         * @description Requires the batch to be `reviewing` (422 `BATCH_NOT_REVIEWING`) and a non-blank `reason` (400 `VALIDATION_ERROR`).
+         * @description Requires the batch to be `reviewing` (422 `batch_not_reviewing`) and a non-blank `reason` (400 `invalid_request`).
          */
         post: operations["forceRejectItem"];
         delete?: never;
@@ -603,7 +603,7 @@ export interface paths {
         };
         /**
          * Timeline of a batch (including its items' events) or of an item
-         * @description Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `INVALID_LIMIT`.
+         * @description Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
          */
         get: operations["getAudit"];
         put?: never;
@@ -619,7 +619,7 @@ export interface paths {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1066,18 +1066,28 @@ export interface components {
         };
         Error: {
             error: {
-                code: string;
+                code: components["schemas"]["ErrorCode"];
+                /** @description English fallback text; clients localize by `code`. */
                 message: string;
                 details?: {
                     [key: string]: unknown;
                 };
             };
         };
+        /**
+         * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
+         *     401 `unauthenticated`; 403 `forbidden`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`;
+         *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
+         *     422 for every other (business-rule) code.
+         * @enum {string}
+         */
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable";
     };
     responses: {
         /**
-         * @description Validation or malformed request. Codes: `VALIDATION_ERROR` (with `details.fields`, a map of field to message),
-         *     `INVALID_BODY`, `INVALID_IF_MATCH`, `INVALID_LIMIT`.
+         * @description Validation or malformed request. Codes: `invalid_request` (malformed or missing body, invalid parameters
+         *     such as `limit` or `cursor`, or field validation; field errors are in `details.fields`, a map of field to
+         *     message) and `invalid_if_match`.
          */
         BadRequest: {
             headers: {
@@ -1087,7 +1097,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description Missing, invalid or expired token (`UNAUTHENTICATED`). */
+        /** @description Missing, invalid or expired token (`unauthenticated`). */
         Unauthorized: {
             headers: {
                 [name: string]: unknown;
@@ -1096,7 +1106,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description `FORBIDDEN` */
+        /** @description `forbidden` */
         Forbidden: {
             headers: {
                 [name: string]: unknown;
@@ -1105,7 +1115,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description `NOT_FOUND` (also returned for malformed ids) */
+        /** @description `not_found` (also returned for malformed ids) */
         NotFound: {
             headers: {
                 [name: string]: unknown;
@@ -1114,7 +1124,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description `VERSION_CONFLICT`: the If-Match version is stale; refetch and retry. */
+        /** @description `version_conflict`: the If-Match version is stale; refetch and retry. */
         VersionConflict: {
             headers: {
                 [name: string]: unknown;
@@ -1123,7 +1133,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description `BODY_TOO_LARGE` */
+        /** @description `payload_too_large` */
         PayloadTooLarge: {
             headers: {
                 [name: string]: unknown;
@@ -1132,7 +1142,7 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description `IF_MATCH_REQUIRED` */
+        /** @description `if_match_required` */
         IfMatchRequired: {
             headers: {
                 [name: string]: unknown;
@@ -1142,11 +1152,11 @@ export interface components {
             };
         };
         /**
-         * @description Business-rule violation. Codes: `TEAM_SLUG_TAKEN`, `TEAM_ARCHIVED`, `SUBGROUP_EXISTS`,
-         *     `MEMBER_NO_ROLE_SOURCE`, `MEMBER_MANAGED_BY_SSO`, `ROLE_MAPPING_MANAGED`, `BATCH_NOT_COLLECTING`,
-         *     `BATCH_NOT_REVIEWING`, `BATCH_CLOSED`, `ASSIGNMENTS_INCOMPLETE`, `DEADLINE_REQUIRED`, `DEADLINE_NOT_IN_FUTURE`,
-         *     `NO_PENDING_ITEMS`, `REASON_REQUIRED`, `ITEM_NOT_EDITABLE`, `ITEM_NOT_EDITED`, `ITEM_NOT_REVIEWABLE`, `BATCH_ITEM_LIMIT` (more than 5000 non-withdrawn items in a batch).
-         *     (`INVALID_TRANSITION` is a business rule too but is returned as HTTP 409.)
+         * @description Business-rule violation. Codes: `team_slug_taken`, `team_archived`, `subgroup_exists`,
+         *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
+         *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
+         *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch).
+         *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
             headers: {
@@ -1158,20 +1168,20 @@ export interface components {
         };
     };
     parameters: {
-        /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+        /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
         TeamId: string;
-        /** @description User id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+        /** @description User id (24-hex). A malformed id yields 404 `not_found`. */
         UserId: string;
-        /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+        /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
         Limit: number;
-        /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+        /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
         Cursor: string;
         BatchId: string;
         ItemId: string;
         /**
          * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-         *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-         *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+         *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+         *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
          */
         IfMatch: string;
     };
@@ -1232,8 +1242,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -1344,7 +1354,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1372,13 +1382,13 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1414,7 +1424,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1439,7 +1449,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1484,15 +1494,15 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
-                /** @description User id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description User id (24-hex). A malformed id yields 404 `not_found`. */
                 userId: components["parameters"]["UserId"];
             };
             cookie?: never;
@@ -1520,15 +1530,15 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
-                /** @description User id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description User id (24-hex). A malformed id yields 404 `not_found`. */
                 userId: components["parameters"]["UserId"];
             };
             cookie?: never;
@@ -1565,13 +1575,13 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1608,13 +1618,13 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
                 /** @description Subgroup id (a string inside `Team.subgroups`). */
                 id: string;
@@ -1653,13 +1663,13 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1747,8 +1757,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -1789,8 +1799,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -1823,9 +1833,9 @@ export interface operations {
                 status?: components["schemas"]["BatchStatus"];
                 /** @description Free-text search. */
                 q?: string;
-                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];
-                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
                 cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
@@ -1852,7 +1862,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;
@@ -1912,8 +1922,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -1954,8 +1964,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -1996,8 +2006,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -2026,7 +2036,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `VERSION_CONFLICT` (stale If-Match) or `INVALID_TRANSITION` (action not allowed in the current status). */
+            /** @description `version_conflict` (stale If-Match) or `invalid_transition` (action not allowed in the current status). */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2137,8 +2147,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -2179,8 +2189,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -2215,8 +2225,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -2240,7 +2250,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `VERSION_CONFLICT` or `INVALID_TRANSITION`. */
+            /** @description `version_conflict` or `invalid_transition`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2259,8 +2269,8 @@ export interface operations {
             header: {
                 /**
                  * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `IF_MATCH_REQUIRED`; a non-numeric or < 1 value yields 400 `INVALID_IF_MATCH`;
-                 *     a stale version yields 409 `VERSION_CONFLICT`. (The handlers never return 412.)
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
                  */
                 "If-Match": components["parameters"]["IfMatch"];
             };
@@ -2289,7 +2299,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `VERSION_CONFLICT` or `INVALID_TRANSITION`. */
+            /** @description `version_conflict` or `invalid_transition`. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -2327,9 +2337,9 @@ export interface operations {
     getAudit: {
         parameters: {
             query: {
-                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];
-                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
                 cursor?: components["parameters"]["Cursor"];
                 objectType: "batch" | "item";
                 objectId: string;
@@ -2357,14 +2367,14 @@ export interface operations {
     getTeamAudit: {
         parameters: {
             query?: {
-                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `INVALID_LIMIT`. */
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];
-                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `VALIDATION_ERROR`. */
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
                 cursor?: components["parameters"]["Cursor"];
             };
             header?: never;
             path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `NOT_FOUND`. */
+                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
                 teamId: components["parameters"]["TeamId"];
             };
             cookie?: never;

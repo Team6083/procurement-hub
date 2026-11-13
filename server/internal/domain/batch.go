@@ -102,12 +102,12 @@ type ActionResult struct {
 
 // Sentinel business-rule errors with stable codes for the API layer.
 var (
-	ErrAssignmentsIncomplete = errors.New("ASSIGNMENTS_INCOMPLETE")
-	ErrDeadlineRequired      = errors.New("DEADLINE_REQUIRED")
-	ErrDeadlinePast          = errors.New("DEADLINE_NOT_IN_FUTURE")
-	ErrNoPendingItems        = errors.New("NO_PENDING_ITEMS")
-	ErrReasonRequired        = errors.New("REASON_REQUIRED")
-	ErrNotProposer           = errors.New("NOT_PROPOSER")
+	ErrAssignmentsIncomplete = errors.New("assignments_incomplete")
+	ErrDeadlineRequired      = errors.New("deadline_required")
+	ErrDeadlinePast          = errors.New("deadline_not_in_future")
+	ErrNoPendingItems        = errors.New("no_pending_items")
+	ErrReasonRequired        = errors.New("reason_required")
+	ErrNotProposer           = errors.New("not_proposer")
 )
 
 // ApplyAction evaluates a manual batch transition (spec §10.1). Permission

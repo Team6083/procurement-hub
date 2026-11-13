@@ -17,19 +17,19 @@ function setup(mutationFn: () => Promise<string>) {
 }
 
 describe('useGuardedMutation', () => {
-  it('on VERSION_CONFLICT surfaces the error and refetches stale queries', async () => {
-    const { hook, spy } = setup(() => Promise.reject(new ApiError(409, 'VERSION_CONFLICT', 'x')));
+  it('on version_conflict surfaces the error and refetches stale queries', async () => {
+    const { hook, spy } = setup(() => Promise.reject(new ApiError(409, 'version_conflict', 'x')));
     await act(async () => {
       hook.result.current.mutate();
     });
     await waitFor(() => expect(hook.result.current.isError).toBe(true));
-    expect((hook.result.current.error as ApiError).code).toBe('VERSION_CONFLICT');
+    expect((hook.result.current.error as ApiError).code).toBe('version_conflict');
     expect(spy).toHaveBeenCalledWith({ queryKey: ['members'] });
     expect(spy).toHaveBeenCalledWith({ queryKey: ['team', '1'] });
   });
 
   it('does not refetch on other errors', async () => {
-    const { hook, spy } = setup(() => Promise.reject(new ApiError(422, 'TEAM_ARCHIVED', 'x')));
+    const { hook, spy } = setup(() => Promise.reject(new ApiError(422, 'team_archived', 'x')));
     await act(async () => {
       hook.result.current.mutate();
     });

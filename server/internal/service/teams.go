@@ -83,7 +83,7 @@ func (s *Teams) Create(ctx context.Context, actor authz.Actor, in CreateTeamInpu
 	err := s.st.WithTx(ctx, func(ctx context.Context) error {
 		if err := s.st.CreateTeam(ctx, t); err != nil {
 			if errors.Is(err, store.ErrDuplicate) {
-				return Rule("TEAM_SLUG_TAKEN", "A team with slug %q already exists.", in.Slug)
+				return Rule("team_slug_taken", "A team with slug %q already exists.", in.Slug)
 			}
 			return err
 		}
@@ -136,7 +136,7 @@ func (s *Teams) Update(ctx context.Context, actor authz.Actor, teamID bson.Objec
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	var set bson.D
 	var changes []domain.AuditChange
@@ -228,7 +228,7 @@ func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.
 	}
 	for _, g := range t.Subgroups {
 		if strings.EqualFold(g.Name, name) {
-			return nil, Rule("SUBGROUP_EXISTS", "A subgroup named %q already exists.", name)
+			return nil, Rule("subgroup_exists", "A subgroup named %q already exists.", name)
 		}
 	}
 	sgs := append(append([]domain.Subgroup{}, t.Subgroups...), domain.Subgroup{ID: bson.NewObjectID().Hex(), Name: name, Active: true})
@@ -260,7 +260,7 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 		}
 		for i, g := range sgs {
 			if i != idx && strings.EqualFold(g.Name, n) {
-				return nil, Rule("SUBGROUP_EXISTS", "A subgroup named %q already exists.", n)
+				return nil, Rule("subgroup_exists", "A subgroup named %q already exists.", n)
 			}
 		}
 		changes = append(changes, domain.AuditChange{Field: "subgroup.name", From: sgs[idx].Name, To: n})
@@ -334,7 +334,7 @@ func (s *Teams) writableTeamAdmin(ctx context.Context, actor authz.Actor, teamID
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	return t, nil
 }

@@ -30,7 +30,7 @@ export const itemFormSchema = z.object({
     .trim()
     .refine((v) => v === '' || safeHttpUrl(v) !== undefined, 'batches:validation.url'),
 }).superRefine((v, ctx) => {
-  // Client-side hint only; the server's field error (VALIDATION_ERROR) is authoritative.
+  // Client-side hint only; the server's field error (invalid_request) is authoritative.
   const max = currencyFractionDigits(v.currency);
   if (max !== undefined && fractionDigits(v.unitPrice) > max) {
     ctx.addIssue({ code: 'custom', path: ['unitPrice'], message: 'batches:validation.priceDigits' });

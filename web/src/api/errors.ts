@@ -41,7 +41,7 @@ export async function parseApiError(res: Response): Promise<ApiError> {
   } catch {
     /* not JSON */
   }
-  return new ApiError(res.status, 'UNKNOWN', res.statusText || `HTTP ${res.status}`);
+  return new ApiError(res.status, 'unknown', res.statusText || `HTTP ${res.status}`);
 }
 
 /** Localized text for an error: by API code, else the English server message, else generic. */

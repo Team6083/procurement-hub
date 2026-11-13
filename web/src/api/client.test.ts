@@ -56,14 +56,14 @@ describe('api client', () => {
   });
 
   it('parses the error envelope', async () => {
-    const { client } = setup([json(409, { error: { code: 'VERSION_CONFLICT', message: 'm', details: { a: 1 } } })]);
+    const { client } = setup([json(409, { error: { code: 'version_conflict', message: 'm', details: { a: 1 } } })]);
     const err = await client.get('/x').catch((e) => e);
     expect(err).toBeInstanceOf(ApiError);
-    expect(err).toMatchObject({ status: 409, code: 'VERSION_CONFLICT', message: 'm', details: { a: 1 } });
+    expect(err).toMatchObject({ status: 409, code: 'version_conflict', message: 'm', details: { a: 1 } });
   });
 
   it('renews once on 401 and retries', async () => {
-    const { client, renew, fetchImpl, onAuthFailure } = setup([json(401, { error: { code: 'UNAUTHENTICATED', message: 'x' } }), json(200, { ok: true })]);
+    const { client, renew, fetchImpl, onAuthFailure } = setup([json(401, { error: { code: 'unauthenticated', message: 'x' } }), json(200, { ok: true })]);
     await expect(client.get('/x')).resolves.toEqual({ ok: true });
     expect(renew).toHaveBeenCalledTimes(1);
     expect((fetchImpl.mock.calls[1]![1].headers as Record<string, string>).Authorization).toBe('Bearer new-token');
@@ -71,7 +71,7 @@ describe('api client', () => {
   });
 
   it('signs in again when retry still 401', async () => {
-    const e = { error: { code: 'UNAUTHENTICATED', message: 'x' } };
+    const e = { error: { code: 'unauthenticated', message: 'x' } };
     const { client, fetchImpl, onAuthFailure } = setup([json(401, e), json(401, e)]);
     await expect(client.get('/x')).rejects.toBeInstanceOf(ApiError);
     expect(fetchImpl).toHaveBeenCalledTimes(2);
@@ -79,7 +79,7 @@ describe('api client', () => {
   });
 
   it('signs in again when renewal fails', async () => {
-    const { client, renew, onAuthFailure, fetchImpl } = setup([json(401, { error: { code: 'UNAUTHENTICATED', message: 'x' } })]);
+    const { client, renew, onAuthFailure, fetchImpl } = setup([json(401, { error: { code: 'unauthenticated', message: 'x' } })]);
     renew.mockResolvedValueOnce(undefined);
     await expect(client.get('/x')).rejects.toBeInstanceOf(ApiError);
     expect(fetchImpl).toHaveBeenCalledTimes(1);

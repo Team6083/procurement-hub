@@ -22,12 +22,12 @@ func decode(r *http.Request, v any) *APIError {
 	if err := dec.Decode(v); err != nil {
 		var mbe *http.MaxBytesError
 		if errors.As(err, &mbe) {
-			return NewError(http.StatusRequestEntityTooLarge, "BODY_TOO_LARGE", "Request body too large.")
+			return NewError(http.StatusRequestEntityTooLarge, "payload_too_large", "Request body too large.")
 		}
 		if errors.Is(err, io.EOF) {
-			return NewError(http.StatusBadRequest, "INVALID_BODY", "Request body is required.")
+			return NewError(http.StatusBadRequest, "invalid_request", "Request body is required.")
 		}
-		return NewError(http.StatusBadRequest, "INVALID_BODY", "Malformed JSON body.")
+		return NewError(http.StatusBadRequest, "invalid_request", "Malformed JSON body.")
 	}
 	return nil
 }
@@ -36,12 +36,12 @@ func decode(r *http.Request, v any) *APIError {
 func ifMatch(r *http.Request) (int64, *APIError) {
 	h := strings.TrimSpace(r.Header.Get("If-Match"))
 	if h == "" {
-		return 0, NewError(http.StatusPreconditionRequired, "IF_MATCH_REQUIRED", "If-Match header is required.")
+		return 0, NewError(http.StatusPreconditionRequired, "if_match_required", "If-Match header is required.")
 	}
 	h = strings.Trim(strings.TrimPrefix(h, "W/"), `"`)
 	v, err := strconv.ParseInt(h, 10, 64)
 	if err != nil || v < 1 {
-		return 0, NewError(http.StatusBadRequest, "INVALID_IF_MATCH", "If-Match must be a resource version.")
+		return 0, NewError(http.StatusBadRequest, "invalid_if_match", "If-Match must be a resource version.")
 	}
 	return v, nil
 }
@@ -53,7 +53,7 @@ func setETag(w http.ResponseWriter, version int64) {
 func objectID(s string) (bson.ObjectID, *APIError) {
 	id, err := bson.ObjectIDFromHex(s)
 	if err != nil {
-		return id, NewError(http.StatusNotFound, "NOT_FOUND", "Resource not found.")
+		return id, NewError(http.StatusNotFound, "not_found", "Resource not found.")
 	}
 	return id, nil
 }
@@ -73,24 +73,24 @@ func fail(w http.ResponseWriter, err error) {
 		for k, v := range ve.Fields {
 			fields[k] = v
 		}
-		e := NewError(http.StatusBadRequest, "VALIDATION_ERROR", "Validation failed.")
+		e := NewError(http.StatusBadRequest, "invalid_request", "Validation failed.")
 		e.Details = map[string]any{"fields": fields}
 		WriteError(w, e)
 	case errors.As(err, &re):
 		status := http.StatusUnprocessableEntity
-		if re.Code == "INVALID_TRANSITION" {
+		if re.Code == "invalid_transition" {
 			status = http.StatusConflict // spec §16.1
 		}
 		WriteError(w, NewError(status, re.Code, re.Message))
 	case errors.Is(err, service.ErrForbidden):
-		WriteError(w, NewError(http.StatusForbidden, "FORBIDDEN", "You are not allowed to do this."))
+		WriteError(w, NewError(http.StatusForbidden, "forbidden", "You are not allowed to do this."))
 	case errors.Is(err, service.ErrNotFound):
-		WriteError(w, NewError(http.StatusNotFound, "NOT_FOUND", "Resource not found."))
+		WriteError(w, NewError(http.StatusNotFound, "not_found", "Resource not found."))
 	case errors.Is(err, service.ErrVersionConflict):
-		WriteError(w, NewError(http.StatusConflict, "VERSION_CONFLICT", "The resource was modified by someone else."))
+		WriteError(w, NewError(http.StatusConflict, "version_conflict", "The resource was modified by someone else."))
 	default:
 		slog.Error("unhandled error", "error", err)
-		WriteError(w, NewError(http.StatusInternalServerError, "INTERNAL", "Internal error."))
+		WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 	}
 }
 
@@ -131,7 +131,7 @@ const (
 )
 
 // parseLimit implements spec §16.1: default 50, values above 100 clamp to 100,
-// non-numeric or < 1 is 400 INVALID_LIMIT.
+// non-numeric or < 1 is 400 invalid_request with details.fields.limit.
 func parseLimit(r *http.Request) (int, *APIError) {
 	v := r.URL.Query().Get("limit")
 	if v == "" {
@@ -139,7 +139,9 @@ func parseLimit(r *http.Request) (int, *APIError) {
 	}
 	n, err := strconv.Atoi(v)
 	if err != nil || n < 1 {
-		return 0, NewError(http.StatusBadRequest, "INVALID_LIMIT", "limit must be a positive integer.")
+		e := NewError(http.StatusBadRequest, "invalid_request", "Validation failed.")
+		e.Details = map[string]any{"fields": map[string]any{"limit": "must be a positive integer"}}
+		return 0, e
 	}
 	if n > maxLimit {
 		n = maxLimit

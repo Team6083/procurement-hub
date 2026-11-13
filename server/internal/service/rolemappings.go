@@ -112,7 +112,7 @@ func (s *RoleMappings) Replace(ctx context.Context, actor authz.Actor, id string
 		return nil, mapStore(err)
 	}
 	if cur.Managed {
-		return nil, Rule("ROLE_MAPPING_MANAGED", "Managed rules are read-only.")
+		return nil, Rule("role_mapping_managed", "Managed rules are read-only.")
 	}
 	in.ID, in.Managed = id, false
 	if err := in.Validate(); err != nil {
@@ -131,7 +131,7 @@ func (s *RoleMappings) Delete(ctx context.Context, actor authz.Actor, id string,
 		return mapStore(err)
 	}
 	if m.Managed {
-		return Rule("ROLE_MAPPING_MANAGED", "Managed rules are read-only.")
+		return Rule("role_mapping_managed", "Managed rules are read-only.")
 	}
 	return mapStore(s.st.DeleteRoleMappingVersioned(ctx, id, version))
 }

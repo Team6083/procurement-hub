@@ -80,7 +80,7 @@ export function canModifyItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<
   return canAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
 }
 
-/** Resubmit only after an edit since the return: item.version above review.atVersion (backend ITEM_NOT_EDITED). */
+/** Resubmit only after an edit since the return: item.version above review.atVersion (backend item_not_edited). */
 export function isEditedSinceReturn(it: Pick<Item, 'version' | 'review'>): boolean {
   if (!it.review) return true;
   return it.version > it.review.atVersion;

@@ -78,7 +78,7 @@ func TestHTTPAuthentication(t *testing.T) {
 	me := func(tok string) *result { return e.do(t, call{token: tok, method: "GET", path: "/api/v1/me"}) }
 
 	e.do(t, call{method: "GET", path: "/api/v1/meta"}).expect(200) // public
-	me("").expect(401, "UNAUTHENTICATED")
+	me("").expect(401, "unauthenticated")
 	me(e.user(t, "ok", false)).expect(200)
 	me(e.user(t, "admin", true)).expect(200)
 	if !me(e.user(t, "admin", true)).JSON()["isSystemAdmin"].(bool) {
@@ -99,7 +99,7 @@ func TestHTTPAuthentication(t *testing.T) {
 		"garbage":                  "not.a.jwt",
 	}
 	for name, tok := range bad {
-		t.Run(name, func(t *testing.T) { me(tok).expect(401, "UNAUTHENTICATED") })
+		t.Run(name, func(t *testing.T) { me(tok).expect(401, "unauthenticated") })
 	}
 
 	// A token for client role "admin" of a *different* client must not grant admin.
@@ -131,23 +131,23 @@ func TestHTTPTeams(t *testing.T) {
 
 	// Creating teams: system admins only; slug conflicts are business errors.
 	w.do(t, call{token: w.adm, method: "POST", path: "/api/v1/teams", body: map[string]any{
-		"slug": "beta", "name": "Beta", "firstAdminUserId": w.admID}}).expect(403, "FORBIDDEN")
+		"slug": "beta", "name": "Beta", "firstAdminUserId": w.admID}}).expect(403, "forbidden")
 	w.do(t, call{token: w.root, method: "POST", path: "/api/v1/teams", body: map[string]any{
-		"slug": "alpha", "name": "Dup", "firstAdminUserId": w.admID}}).expect(422, "TEAM_SLUG_TAKEN")
+		"slug": "alpha", "name": "Dup", "firstAdminUserId": w.admID}}).expect(422, "team_slug_taken")
 
 	// PATCH is partial; If-Match is mandatory; stale versions conflict.
-	w.do(t, call{token: w.adm, method: "PATCH", path: team, body: map[string]any{"name": "Alpha 2"}, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
-	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: "abc", body: map[string]any{"name": "x"}, skipRequestValidation: true}).expect(400, "INVALID_IF_MATCH")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team, body: map[string]any{"name": "Alpha 2"}, skipRequestValidation: true}).expect(428, "if_match_required")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: "abc", body: map[string]any{"name": "x"}, skipRequestValidation: true}).expect(400, "invalid_if_match")
 	upd := w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: full.ETag(), body: map[string]any{"name": "Alpha 2"}}).expect(200)
 	if upd.String("name") != "Alpha 2" || upd.String("description") != "first team" {
 		t.Errorf("partial update changed other fields: %s", upd.Body)
 	}
-	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: full.ETag(), body: map[string]any{"name": "Alpha 3"}}).expect(409, "VERSION_CONFLICT")
-	w.do(t, call{token: w.mem, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"name": "Hacked"}}).expect(403, "FORBIDDEN")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: full.ETag(), body: map[string]any{"name": "Alpha 3"}}).expect(409, "version_conflict")
+	w.do(t, call{token: w.mem, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"name": "Hacked"}}).expect(403, "forbidden")
 
 	// Archiving: system admin only, and not combined with other fields.
-	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"archived": true}}).expect(403, "FORBIDDEN")
-	w.do(t, call{token: w.root, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"archived": true, "name": "x"}}).expect(400, "VALIDATION_ERROR")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"archived": true}}).expect(403, "forbidden")
+	w.do(t, call{token: w.root, method: "PATCH", path: team, ifMatch: upd.ETag(), body: map[string]any{"archived": true, "name": "x"}}).expect(400, "invalid_request")
 
 	// Members: 201 on create, 200 on update, responses match the list shape.
 	members := w.path("/teams/{}/members", w.teamID)
@@ -160,13 +160,13 @@ func TestHTTPTeams(t *testing.T) {
 		t.Errorf("manual admin role not effective: %s", again.Body)
 	}
 	memPath := w.path("/teams/{}/members/{}", w.teamID, w.memID)
-	w.do(t, call{token: w.adm, method: "PATCH", path: memPath, body: map[string]any{"manualRole": "member"}, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
+	w.do(t, call{token: w.adm, method: "PATCH", path: memPath, body: map[string]any{"manualRole": "member"}, skipRequestValidation: true}).expect(428, "if_match_required")
 	back := w.do(t, call{token: w.adm, method: "PATCH", path: memPath, ifMatch: again.ETag(), body: map[string]any{"manualRole": "member"}}).expect(200)
-	w.do(t, call{token: w.adm, method: "PATCH", path: memPath, ifMatch: again.ETag(), body: map[string]any{"manualRole": "admin"}}).expect(409, "VERSION_CONFLICT")
+	w.do(t, call{token: w.adm, method: "PATCH", path: memPath, ifMatch: again.ETag(), body: map[string]any{"manualRole": "admin"}}).expect(409, "version_conflict")
 	// A manual-only member can be removed; SSO-managed ones cannot (covered in service tests).
-	w.do(t, call{token: w.adm, method: "DELETE", path: memPath, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
+	w.do(t, call{token: w.adm, method: "DELETE", path: memPath, skipRequestValidation: true}).expect(428, "if_match_required")
 	w.do(t, call{token: w.adm, method: "DELETE", path: memPath, ifMatch: back.ETag()}).expect(204)
-	w.do(t, call{token: w.mem, method: "GET", path: members}).expect(403, "FORBIDDEN") // no longer a member
+	w.do(t, call{token: w.mem, method: "GET", path: members}).expect(403, "forbidden") // no longer a member
 	w.do(t, call{token: w.adm, method: "POST", path: members, body: map[string]any{"userId": w.memID, "role": "member"}}).expect(201)
 
 	// Subgroups and reference rates.
@@ -174,7 +174,7 @@ func TestHTTPTeams(t *testing.T) {
 	sg := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: cur.ETag(), body: map[string]any{"name": "Hardware"}}).expect(200)
 	sgID := sg.JSON()["subgroups"].([]any)[0].(map[string]any)["id"].(string)
 	sg = w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: sg.ETag(), body: map[string]any{"active": false}}).expect(200)
-	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(422, "SUBGROUP_EXISTS")
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(422, "subgroup_exists")
 
 	rates := w.do(t, call{token: w.adm, method: "PUT", path: team + "/reference-rates", ifMatch: sg.ETag(), body: map[string]any{
 		"rates": []any{map[string]any{"currency": "TWD", "rateToBase": "0.031"}}}}).expect(200)
@@ -190,20 +190,20 @@ func TestHTTPTeams(t *testing.T) {
 	} {
 		t.Run("rate "+name, func(t *testing.T) {
 			w.do(t, call{token: w.adm, method: "PUT", path: team + "/reference-rates", ifMatch: rates.ETag(),
-				body: map[string]any{"rates": []any{body}}}).expect(400, "VALIDATION_ERROR")
+				body: map[string]any{"rates": []any{body}}}).expect(400, "invalid_request")
 		})
 	}
 
 	// User search.
 	w.do(t, call{token: w.adm, method: "GET", path: "/api/v1/users?q=ap"}).expect(200)
-	w.do(t, call{token: w.adm, method: "GET", path: "/api/v1/users?q=a", skipRequestValidation: true}).expect(400, "VALIDATION_ERROR")
+	w.do(t, call{token: w.adm, method: "GET", path: "/api/v1/users?q=a", skipRequestValidation: true}).expect(400, "invalid_request")
 	if n := len(w.do(t, call{token: w.adm, method: "GET", path: "/api/v1/users?q=ap"}).Items()); n != 1 {
 		t.Errorf("search results = %d", n)
 	}
 
 	// /me: partial update with If-Match.
 	me := w.do(t, call{token: w.mem, method: "GET", path: "/api/v1/me"}).expect(200)
-	w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", body: map[string]any{"locale": "zh-TW"}, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
+	w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", body: map[string]any{"locale": "zh-TW"}, skipRequestValidation: true}).expect(428, "if_match_required")
 	if got := w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", ifMatch: me.ETag(), body: map[string]any{"locale": "zh-TW"}}).expect(200); got.String("locale") != "zh-TW" {
 		t.Errorf("locale: %s", got.Body)
 	}
@@ -214,32 +214,32 @@ func TestHTTPRoleMappings(t *testing.T) {
 	base := "/api/v1/admin/role-mappings"
 	rule := map[string]any{"claim": "groups", "pattern": "/teams/*/members", "team": "$1", "role": "member", "enabled": true, "description": "all members"}
 
-	w.do(t, call{token: w.adm, method: "GET", path: base}).expect(403, "FORBIDDEN")
-	w.do(t, call{token: w.adm, method: "POST", path: base, body: rule}).expect(403, "FORBIDDEN")
+	w.do(t, call{token: w.adm, method: "GET", path: base}).expect(403, "forbidden")
+	w.do(t, call{token: w.adm, method: "POST", path: base, body: rule}).expect(403, "forbidden")
 	created := w.do(t, call{token: w.root, method: "POST", path: base, body: rule}).expect(201)
 	id := created.String("id")
 	if v, _ := created.JSON()["version"].(float64); v != 1 {
 		t.Errorf("new rule version = %v", v)
 	}
 	w.do(t, call{token: w.root, method: "POST", path: base, body: map[string]any{
-		"claim": "groups", "pattern": "/a*b", "team": "x", "role": "member", "enabled": true, "description": ""}}).expect(400, "VALIDATION_ERROR")
+		"claim": "groups", "pattern": "/a*b", "team": "x", "role": "member", "enabled": true, "description": ""}}).expect(400, "invalid_request")
 
 	// PUT replaces everything (omitted description is cleared) and needs If-Match.
 	path := base + "/" + id
 	put := map[string]any{"claim": "groups", "pattern": "/teams/*/admins", "team": "$1", "role": "admin", "enabled": false}
-	w.do(t, call{token: w.root, method: "PUT", path: path, body: put, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
+	w.do(t, call{token: w.root, method: "PUT", path: path, body: put, skipRequestValidation: true}).expect(428, "if_match_required")
 	upd := w.do(t, call{token: w.root, method: "PUT", path: path, ifMatch: created.ETag(), body: put}).expect(200)
 	if upd.String("description") != "" || upd.JSON()["enabled"] != false || upd.String("role") != "admin" {
 		t.Errorf("PUT did not fully replace: %s", upd.Body)
 	}
-	w.do(t, call{token: w.root, method: "PUT", path: path, ifMatch: created.ETag(), body: put}).expect(409, "VERSION_CONFLICT")
+	w.do(t, call{token: w.root, method: "PUT", path: path, ifMatch: created.ETag(), body: put}).expect(409, "version_conflict")
 	if n := len(w.do(t, call{token: w.root, method: "GET", path: base}).expect(200).Items()); n != 1 {
 		t.Errorf("rules = %d", n)
 	}
-	w.do(t, call{token: w.root, method: "DELETE", path: path, skipRequestValidation: true}).expect(428, "IF_MATCH_REQUIRED")
-	w.do(t, call{token: w.root, method: "DELETE", path: path, ifMatch: created.ETag()}).expect(409, "VERSION_CONFLICT")
+	w.do(t, call{token: w.root, method: "DELETE", path: path, skipRequestValidation: true}).expect(428, "if_match_required")
+	w.do(t, call{token: w.root, method: "DELETE", path: path, ifMatch: created.ETag()}).expect(409, "version_conflict")
 	w.do(t, call{token: w.root, method: "DELETE", path: path, ifMatch: upd.ETag()}).expect(204)
-	w.do(t, call{token: w.root, method: "DELETE", path: path, ifMatch: upd.ETag()}).expect(404, "NOT_FOUND")
+	w.do(t, call{token: w.root, method: "DELETE", path: path, ifMatch: upd.ETag()}).expect(404, "not_found")
 
 	// Managed rules (from ROLE_MAPPINGS_FILE) are read-only and versioned by content.
 	if err := w.st.SyncManagedRoleMappings(t.Context(), mustParse(t, "rules:\n  - {id: file-rule, claim: groups, pattern: /ops, team: ops, role: member}\n")); err != nil {
@@ -249,8 +249,8 @@ func TestHTTPRoleMappings(t *testing.T) {
 	if len(managed) != 1 || managed[0].(map[string]any)["managed"] != true {
 		t.Fatalf("managed rule missing: %v", managed)
 	}
-	w.do(t, call{token: w.root, method: "PUT", path: base + "/file-rule", ifMatch: `"1"`, body: put}).expect(422, "ROLE_MAPPING_MANAGED")
-	w.do(t, call{token: w.root, method: "DELETE", path: base + "/file-rule", ifMatch: `"1"`}).expect(422, "ROLE_MAPPING_MANAGED")
+	w.do(t, call{token: w.root, method: "PUT", path: base + "/file-rule", ifMatch: `"1"`, body: put}).expect(422, "role_mapping_managed")
+	w.do(t, call{token: w.root, method: "DELETE", path: base + "/file-rule", ifMatch: `"1"`}).expect(422, "role_mapping_managed")
 }
 
 func mustParse(t *testing.T, doc string) []domain.RoleMapping {

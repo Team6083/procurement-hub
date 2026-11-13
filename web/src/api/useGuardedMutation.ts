@@ -3,7 +3,7 @@ import { refetchOnConflict } from './versioned';
 
 interface Options<TVars, TData> {
   mutationFn: (vars: TVars) => Promise<TData>;
-  /** Queries to refetch after success and on a 409 VERSION_CONFLICT. */
+  /** Queries to refetch after success and on a 409 version_conflict. */
   invalidate?: QueryKey[];
   /** Queries refetched only on a conflict (e.g. ones already updated from the response on success). */
   conflictKeys?: QueryKey[];

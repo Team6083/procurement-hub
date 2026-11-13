@@ -34,7 +34,7 @@ export function useTeam(id: string | undefined) {
 
 /**
  * Mutation against a team resource: sends If-Match from the cached ETag, replaces the
- * cache with the response (new ETag), and refetches on VERSION_CONFLICT.
+ * cache with the response (new ETag), and refetches on version_conflict.
  */
 export function useTeamMutation<TVars>(
   teamId: string,

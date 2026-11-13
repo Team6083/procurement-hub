@@ -47,7 +47,7 @@ func Authenticate(v TokenVerifier, prov Provisioner, ml MembershipLoader) func(h
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw, ok := bearer(r)
 			if !ok {
-				WriteError(w, NewError(http.StatusUnauthorized, "UNAUTHENTICATED", "Missing bearer token."))
+				WriteError(w, NewError(http.StatusUnauthorized, "unauthenticated", "Missing bearer token."))
 				return
 			}
 			p, err := v.Verify(r.Context(), raw)
@@ -55,19 +55,19 @@ func Authenticate(v TokenVerifier, prov Provisioner, ml MembershipLoader) func(h
 				if !errors.Is(err, auth.ErrInvalidToken) {
 					slog.Error("token verification failed", "error", err)
 				}
-				WriteError(w, NewError(http.StatusUnauthorized, "UNAUTHENTICATED", "Invalid or expired token."))
+				WriteError(w, NewError(http.StatusUnauthorized, "unauthenticated", "Invalid or expired token."))
 				return
 			}
 			u, err := prov.Provision(r.Context(), p)
 			if err != nil {
 				slog.Error("provisioning failed", "error", err)
-				WriteError(w, NewError(http.StatusInternalServerError, "INTERNAL", "Internal error."))
+				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 				return
 			}
 			actor, err := ml.ActorFor(r.Context(), u, p.IsSystemAdmin)
 			if err != nil {
 				slog.Error("loading memberships failed", "error", err)
-				WriteError(w, NewError(http.StatusInternalServerError, "INTERNAL", "Internal error."))
+				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 				return
 			}
 			ctx := context.WithValue(r.Context(), reqCtxKey{}, &Caller{User: u, Actor: actor})

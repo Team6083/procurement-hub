@@ -24,10 +24,10 @@ describe('SSO lock and member actions', () => {
   });
   it('allows clearing the manual role only when an SSO role remains', () => {
     expect(canClearManualRole({ ssoRole: 'member', manualRole: 'admin' })).toBe(true);
-    expect(canClearManualRole({ ssoRole: '', manualRole: 'admin' })).toBe(false); // MEMBER_NO_ROLE_SOURCE
+    expect(canClearManualRole({ ssoRole: '', manualRole: 'admin' })).toBe(false); // member_no_role_source
     expect(canClearManualRole({ ssoRole: 'member', manualRole: '' })).toBe(false);
   });
-  it('allows removal only when there is a manual role (else MEMBER_MANAGED_BY_SSO)', () => {
+  it('allows removal only when there is a manual role (else member_managed_by_sso)', () => {
     expect(canRemoveMember({ ssoRole: '', manualRole: 'member' })).toBe(true);
     expect(canRemoveMember({ ssoRole: 'admin', manualRole: 'member' })).toBe(true);
     expect(canRemoveMember({ ssoRole: 'admin', manualRole: '' })).toBe(false);

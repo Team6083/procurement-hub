@@ -110,7 +110,7 @@ func (s *Teams) UpdateMember(ctx context.Context, actor authz.Actor, teamID, use
 		return nil, ErrForbidden
 	}
 	if t.Archived {
-		return nil, Rule("TEAM_ARCHIVED", "Archived teams are read-only.")
+		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
 	if p.ManualRole != nil && !p.ManualRole.Valid() {
 		return nil, Invalid("manualRole", "must be member or admin")
@@ -144,7 +144,7 @@ func (s *Teams) UpdateMember(ctx context.Context, actor authz.Actor, teamID, use
 			}
 			if newManual != m.ManualRole {
 				if newManual == domain.RoleNone && m.SSORole == domain.RoleNone {
-					return Rule("MEMBER_NO_ROLE_SOURCE", "Use DELETE to remove a member with no SSO role.")
+					return Rule("member_no_role_source", "Use DELETE to remove a member with no SSO role.")
 				}
 				if err := s.st.SetMembershipRoles(ctx, m.ID, m.SSORole, newManual); err != nil {
 					return err
@@ -193,7 +193,7 @@ func (s *Teams) RemoveMember(ctx context.Context, actor authz.Actor, teamID, use
 			return ErrVersionConflict
 		}
 		if m.ManualRole == domain.RoleNone {
-			return Rule("MEMBER_MANAGED_BY_SSO", "This membership is managed by SSO and cannot be removed here.")
+			return Rule("member_managed_by_sso", "This membership is managed by SSO and cannot be removed here.")
 		}
 		if m.SSORole == domain.RoleNone {
 			if err := s.st.DeleteMembership(ctx, m.ID); err != nil {

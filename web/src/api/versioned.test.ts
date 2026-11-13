@@ -22,12 +22,12 @@ describe('ifMatchHeader', () => {
   it('omits the header without a version (server answers 428)', () => expect(ifMatchHeader(undefined)).toEqual({}));
 });
 
-describe('409 VERSION_CONFLICT flow', () => {
-  const conflict = new ApiError(409, 'VERSION_CONFLICT', 'x');
+describe('409 version_conflict flow', () => {
+  const conflict = new ApiError(409, 'version_conflict', 'x');
   it('detects only version conflicts', () => {
     expect(isVersionConflict(conflict)).toBe(true);
-    expect(isVersionConflict(new ApiError(409, 'INVALID_TRANSITION', 'x'))).toBe(false);
-    expect(isVersionConflict(new ApiError(422, 'TEAM_ARCHIVED', 'x'))).toBe(false);
+    expect(isVersionConflict(new ApiError(409, 'invalid_transition', 'x'))).toBe(false);
+    expect(isVersionConflict(new ApiError(422, 'team_archived', 'x'))).toBe(false);
     expect(isVersionConflict(new Error('x'))).toBe(false);
   });
   it('refetches every given query on conflict', () => {
@@ -38,7 +38,7 @@ describe('409 VERSION_CONFLICT flow', () => {
   });
   it('does nothing for other errors', () => {
     const qc = { invalidateQueries: vi.fn() };
-    expect(refetchOnConflict(qc, new ApiError(403, 'FORBIDDEN', 'x'), [['team', '1']])).toBe(false);
+    expect(refetchOnConflict(qc, new ApiError(403, 'forbidden', 'x'), [['team', '1']])).toBe(false);
     expect(qc.invalidateQueries).not.toHaveBeenCalled();
   });
 });
