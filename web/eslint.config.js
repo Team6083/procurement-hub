@@ -5,7 +5,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-  globalIgnores(['dist', 'node_modules', 'src/api/schema.d.ts']),
+  globalIgnores(['dist', 'node_modules', 'src/api/schema.d.ts', 'playwright-report', 'test-results']),
   js.configs.recommended,
   tseslint.configs.recommended,
   {
@@ -18,7 +18,7 @@ export default defineConfig(
     },
   },
   {
-    files: ['scripts/**/*.{mjs,ts}', 'vite.config.ts', 'eslint.config.js'],
+    files: ['scripts/**/*.{mjs,ts}', 'e2e/**/*.ts', 'vite.config.ts', 'playwright.config.ts', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 );

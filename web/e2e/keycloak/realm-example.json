@@ -1,0 +1,156 @@
+{
+  "realm": "example",
+  "displayName": "procurement-hub e2e",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "accessTokenLifespan": 300,
+  "revokeRefreshToken": true,
+  "refreshTokenMaxReuse": 0,
+  "ssoSessionIdleTimeout": 1800,
+  "ssoSessionMaxLifespan": 36000,
+  "roles": {
+    "client": {
+      "procurement-hub-api": [
+        { "name": "admin", "description": "System admin (ADMIN_ROLES=procurement-hub-api:admin)" },
+        { "name": "user", "description": "May use the service (ALLOWED_ROLES=procurement-hub-api:user)" }
+      ]
+    }
+  },
+  "groups": [{ "name": "teams", "path": "/teams" }],
+  "clients": [
+    {
+      "clientId": "procurement-hub-api",
+      "name": "procurement-hub API (audience and client roles only)",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": [],
+      "webOrigins": []
+    },
+    {
+      "clientId": "procurement-hub-web",
+      "name": "procurement-hub SPA",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "fullScopeAllowed": false,
+      "redirectUris": ["http://localhost:18173/auth/callback"],
+      "webOrigins": ["http://localhost:18173"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:18173/",
+        "use.refresh.tokens": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "procurement-hub-api audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "procurement-hub-api",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "claim.name": "groups",
+            "full.path": "true",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clientScopeMappings": {
+    "procurement-hub-api": [{ "client": "procurement-hub-web", "roles": ["admin", "user"] }]
+  },
+  "users": [
+    {
+      "username": "sysadmin",
+      "email": "sysadmin@example.org",
+      "emailVerified": true,
+      "firstName": "Sam",
+      "lastName": "Sysadmin",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["admin"] }
+    },
+    {
+      "username": "tara",
+      "email": "tara@example.org",
+      "emailVerified": true,
+      "firstName": "Tara",
+      "lastName": "Teamadmin",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "alice",
+      "email": "alice@example.org",
+      "emailVerified": true,
+      "firstName": "Alice",
+      "lastName": "Member",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "bob",
+      "email": "bob@example.org",
+      "emailVerified": true,
+      "firstName": "Bob",
+      "lastName": "Member",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "carol",
+      "email": "carol@example.org",
+      "emailVerified": true,
+      "firstName": "Carol",
+      "lastName": "Reviewer",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "oscar",
+      "email": "oscar@example.org",
+      "emailVerified": true,
+      "firstName": "Oscar",
+      "lastName": "Outsider",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "nora",
+      "email": "nora@example.org",
+      "emailVerified": true,
+      "firstName": "Nora",
+      "lastName": "Norole",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }]
+    }
+  ]
+}

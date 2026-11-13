@@ -34,7 +34,38 @@ npm run typecheck
 npm run lint              # ESLint + typescript-eslint + react-hooks
 npm test                  # Vitest
 npm run gen:api           # regenerate src/api/schema.d.ts from ../api/openapi.yaml
+npm run e2e:ci            # end-to-end tests: start the environment, run Playwright, tear it down
 ```
+
+## End-to-end tests
+
+`e2e/` holds Playwright tests (Chromium, desktop and a Pixel 7 phone viewport) that drive the production build against real services, all started by [`e2e/docker-compose.yml`](e2e/docker-compose.yml):
+
+| Service | Address | What it is |
+| --- | --- | --- |
+| `keycloak` | `http://keycloak:18180` | Keycloak (dev mode) with the realm `example` imported from [`e2e/keycloak/realm-example.json`](e2e/keycloak/realm-example.json), set up as in [`docs/keycloak.md`](../docs/keycloak.md), plus test users |
+| `mongo` | (internal) | Single-node replica set, data in tmpfs |
+| `migrate`, `serve` | `http://localhost:18080` | The image built from `../server`, with `ADMIN_ROLES`, `ALLOWED_ROLES` and the role-mapping rules in [`e2e/role-mappings.yaml`](e2e/role-mappings.yaml) |
+| `serve-next` | `http://localhost:18081` | The same server built with another commit, for the update banner (spec section 21.8) |
+| `web` | `http://localhost:18173` | nginx serving `dist/` with SPA fallback and [`e2e/config.json`](e2e/config.json) |
+
+```sh
+npx playwright install chromium   # once (CI adds --with-deps for the system libraries)
+npm run e2e:ci                    # build, start, test, tear down; extra arguments go to Playwright
+# or step by step:
+npm run e2e:up                    # npm run build + docker compose up (images built from the working tree)
+npm run e2e                       # playwright test; repeatable against the same environment
+npm run e2e:down                  # stop and delete everything
+```
+
+The SPA and both server images embed `E2E_COMMIT` (default `git rev-parse HEAD`; `serve-next` gets `<commit>-next`). After changing SPA code, `npm run build` is enough (nginx serves `dist/` directly); after changing server code, run `npm run e2e:up` again. Failures leave a trace and screenshot in `test-results/` and an HTML report in `playwright-report/` (`npx playwright show-report`).
+
+Notes on the setup:
+
+- Everything is plain `http` on localhost. The issuer `http://keycloak:18180/realms/example` must be the same URL for the browser and the server containers, so the containers use Docker's DNS name and Chromium maps `keycloak` to `127.0.0.1` (`--host-resolver-rules` in `playwright.config.ts`).
+- `scripts/write-config.mjs` only accepts `https` origins for the CSP, so it is not used here: nginx serves the committed `e2e/config.json` (and no CSP headers). Production validation is unchanged.
+- `e2e/auth.setup.ts` signs every test user in once through the Keycloak form and stores only Keycloak's SSO cookie; each test then starts with the silent sign-in redirect, since the app keeps tokens in memory. Team memberships come from Keycloak groups `/teams/<slug>/members` that the tests create through the Keycloak admin API. Names are unique per run, so the suite can run repeatedly against one environment.
+- Test users (password `e2e-password`): `sysadmin` (system admin), `tara`, `alice`, `bob`, `carol`, `oscar` (allowed users) and `nora` (no allowed role). The Keycloak admin console is at `http://localhost:18180` (`admin`/`admin`).
 
 A production build (`NODE_ENV=production`, `CI=true`, or any `vite build`) fails when no commit SHA can be found. The SHA is embedded for the frontend/backend version check and comes from the first of `APP_COMMIT`, `CF_PAGES_COMMIT_SHA`, `WORKERS_CI_COMMIT_SHA` and `git rev-parse HEAD`. When building from a source archive without `.git`, set `APP_COMMIT`.
 

@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "http://localhost:18080",
+  "oidc": {
+    "authority": "http://keycloak:18180/realms/example",
+    "clientId": "procurement-hub-web",
+    "scope": "openid profile email"
+  }
+}

@@ -1,0 +1,15 @@
+# Managed role-mapping rules for the e2e environment (spec section 7.4). The
+# tests create Keycloak groups /teams/<slug>/members and /teams/<slug>/admins.
+rules:
+  - id: e2e-team-members
+    claim: groups
+    pattern: /teams/*/members
+    team: $1
+    role: member
+    description: Members of /teams/<slug>/members are team members
+  - id: e2e-team-admins
+    claim: groups
+    pattern: /teams/*/admins
+    team: $1
+    role: admin
+    description: Members of /teams/<slug>/admins are team admins

@@ -8,3 +8,7 @@ web/wrangler.generated.jsonc
 *.env
 .env*
 !.env.example
+# Playwright e2e output (web/e2e)
+web/e2e/.auth/
+web/playwright-report/
+web/test-results/
