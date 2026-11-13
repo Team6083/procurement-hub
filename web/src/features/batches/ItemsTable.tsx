@@ -1,4 +1,4 @@
-import { Badge, Checkbox, Group, Table, Text, Tooltip, UnstyledButton } from '@mantine/core';
+import { Badge, Box, Button, Checkbox, HStack, Link, Table, Text } from '@chakra-ui/react';
 import {
   createSortedRowModel, createColumnHelper, rowSelectionFeature, rowSortingFeature, sortFn_basic, sortFn_text, tableFeatures, useTable,
   type RowSelectionState, type SortingState,
@@ -6,6 +6,8 @@ import {
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Team } from '../../api/types';
+import { TableShell } from '../../components/ui/table';
+import { Tooltip } from '../../components/ui/tooltip';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
 import { format, parseDecSafe } from './decimal';
 import { lineTotal } from './estimates';
@@ -48,15 +50,19 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
             const it = c.row.original;
             const url = safeHttpUrl(it.productUrl);
             return (
-              <div>
-                {url ? <a href={url} target="_blank" rel="noopener noreferrer">{it.name}</a> : <Text span>{it.name}</Text>}
+              <Box>
+                {url ? (
+                  <Link href={url} target="_blank" rel="noopener noreferrer" color="brand.fg">{it.name}</Link>
+                ) : (
+                  <Text as="span">{it.name}</Text>
+                )}
                 {it.status === 'returned' && it.review?.comment && (
-                  <Text size="xs" c="orange">{t('item.returnedComment', { comment: it.review.comment })}</Text>
+                  <Text fontSize="xs" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
                 )}
                 {it.status === 'rejected' && it.review?.comment && (
-                  <Text size="xs" c="red">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
+                  <Text fontSize="xs" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
                 )}
-              </div>
+              </Box>
             );
           },
         }),
@@ -64,7 +70,11 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
         helper.accessor((r) => nameOf(r.requesterId), { id: 'requester', header: t('item.requester'), sortFn: 'text' }),
         helper.accessor('priority', {
           id: 'priority', header: t('item.priority'), sortFn: 'basic',
-          cell: (c) => <Tooltip label={prio(c.getValue())}><Badge variant="outline">{c.getValue()}</Badge></Tooltip>,
+          cell: (c) => (
+            <Tooltip content={prio(c.getValue())}>
+              <Badge variant="outline" tabIndex={0}>{c.getValue()}</Badge>
+            </Tooltip>
+          ),
         }),
         helper.accessor('quantity', { id: 'quantity', header: t('item.quantity'), sortFn: 'basic' }),
         helper.accessor((r) => Number(r.estimatedUnitPrice.amount), {
@@ -86,53 +96,61 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
     features, columns, data: items,
     getRowId: (r) => r.id,
     enableRowSelection: selectable,
+    // Like a spreadsheet: the first click sorts ascending for text and numbers alike.
+    sortDescFirst: false,
     state: { sorting, rowSelection: selection },
     onSortingChange: setSorting,
     onRowSelectionChange: (u) => onSelectionChange(typeof u === 'function' ? u(selection) : u),
   });
+  const all = table.getIsAllRowsSelected();
+  const some = table.getIsSomeRowsSelected();
 
   return (
-    <Table.ScrollContainer minWidth={900}>
-      <Table highlightOnHover>
-        <Table.Thead>
-          <Table.Tr>
+    <TableShell minW="900px" interactive>
+      <Table.Header>
+        <Table.Row>
+          {selectable && (
+            <Table.ColumnHeader w="8">
+              <Checkbox.Root size="sm" checked={all ? true : some ? 'indeterminate' : false} onCheckedChange={(e) => table.toggleAllRowsSelected(!!e.checked)}>
+                <Checkbox.HiddenInput aria-label={t('item.selectAll')} />
+                <Checkbox.Control />
+              </Checkbox.Root>
+            </Table.ColumnHeader>
+          )}
+          {table.getHeaderGroups()[0]?.headers.map((h) => {
+            const dir = h.column.getIsSorted();
+            return (
+              <Table.ColumnHeader key={h.id} aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}>
+                <Button variant="plain" size="xs" px="0" h="auto" fontWeight="semibold" onClick={h.column.getToggleSortingHandler()}>
+                  <HStack gap="1">
+                    <table.FlexRender header={h} />
+                    <span aria-hidden>{dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}</span>
+                  </HStack>
+                </Button>
+              </Table.ColumnHeader>
+            );
+          })}
+          {actions && <Table.ColumnHeader />}
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {table.getRowModel().rows.map((row) => (
+          <Table.Row key={row.id} bg={row.getIsSelected() ? 'row.selected' : undefined} aria-selected={selectable ? row.getIsSelected() : undefined}>
             {selectable && (
-              <Table.Th w={32}>
-                <Checkbox aria-label={t('item.selectAll')} checked={table.getIsAllRowsSelected()} indeterminate={table.getIsSomeRowsSelected()} onChange={table.getToggleAllRowsSelectedHandler()} />
-              </Table.Th>
+              <Table.Cell>
+                <Checkbox.Root size="sm" checked={row.getIsSelected()} onCheckedChange={(e) => row.toggleSelected(!!e.checked)}>
+                  <Checkbox.HiddenInput aria-label={t('item.selectRow')} />
+                  <Checkbox.Control />
+                </Checkbox.Root>
+              </Table.Cell>
             )}
-            {table.getHeaderGroups()[0]?.headers.map((h) => {
-              const dir = h.column.getIsSorted();
-              return (
-                <Table.Th key={h.id} aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}>
-                  <UnstyledButton onClick={h.column.getToggleSortingHandler()} fw={600} fz="sm">
-                    <Group gap={4} wrap="nowrap">
-                      <table.FlexRender header={h} />
-                      <span aria-hidden>{dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}</span>
-                    </Group>
-                  </UnstyledButton>
-                </Table.Th>
-              );
-            })}
-            {actions && <Table.Th />}
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {table.getRowModel().rows.map((row) => (
-            <Table.Tr key={row.id} bg={row.getIsSelected() ? 'var(--mantine-primary-color-light)' : undefined}>
-              {selectable && (
-                <Table.Td>
-                  <Checkbox aria-label={t('item.selectRow')} checked={row.getIsSelected()} onChange={row.getToggleSelectedHandler()} />
-                </Table.Td>
-              )}
-              {row.getAllCells().map((cell) => (
-                <Table.Td key={cell.id}><table.FlexRender cell={cell} /></Table.Td>
-              ))}
-              {actions && <Table.Td><Group gap="xs" wrap="nowrap">{actions(row.original)}</Group></Table.Td>}
-            </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
-    </Table.ScrollContainer>
+            {row.getAllCells().map((cell) => (
+              <Table.Cell key={cell.id}><table.FlexRender cell={cell} /></Table.Cell>
+            ))}
+            {actions && <Table.Cell><HStack gap="2">{actions(row.original)}</HStack></Table.Cell>}
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </TableShell>
   );
 }

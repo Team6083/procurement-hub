@@ -1,12 +1,13 @@
-import { Badge, Group, Tooltip } from '@mantine/core';
+import { Badge, HStack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import type { RoleOrNone } from '../../api/types';
+import { Tooltip } from '../../components/ui/tooltip';
 import { showSsoLock, type RoleSources } from './roles';
 
 export function RoleBadge({ role }: { role: RoleOrNone | null | undefined }) {
   const { t } = useTranslation('teams');
   return (
-    <Badge color={role === 'admin' ? 'grape' : role === 'member' ? 'blue' : 'gray'} variant="light">
+    <Badge colorPalette={role === 'admin' ? 'purple' : role === 'member' ? 'blue' : 'gray'} variant="subtle">
       {t(`role.${role || 'none'}`)}
     </Badge>
   );
@@ -17,8 +18,9 @@ export function SsoBadge({ sources }: { sources: RoleSources }) {
   const { t } = useTranslation('teams');
   if (!showSsoLock(sources)) return null;
   return (
-    <Tooltip label={t('ssoBadgeHint')}>
-      <Badge color="gray" variant="outline" leftSection={<span aria-hidden>🔒</span>}>
+    <Tooltip content={t('ssoBadgeHint')}>
+      <Badge colorPalette="gray" variant="outline" tabIndex={0}>
+        <span aria-hidden>🔒</span>
         {t('ssoBadge')}
       </Badge>
     </Tooltip>
@@ -27,9 +29,9 @@ export function SsoBadge({ sources }: { sources: RoleSources }) {
 
 export function RoleCell({ sources, effective }: { sources: RoleSources; effective: RoleOrNone }) {
   return (
-    <Group gap="xs">
+    <HStack gap="2" wrap="wrap">
       <RoleBadge role={effective} />
       <SsoBadge sources={sources} />
-    </Group>
+    </HStack>
   );
 }

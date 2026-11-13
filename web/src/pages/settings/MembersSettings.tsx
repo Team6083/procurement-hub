@@ -1,10 +1,13 @@
-import { Button, Group, Loader, Modal, Select, Stack, Table, Text, Title } from '@mantine/core';
+import { Button, Flex, Heading, HStack, Spinner, Stack, Table, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAddMember, useMembers, usePatchMember, useRemoveMember } from '../../api/members';
 import type { Role, Team, TeamMember } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { ReasonModal } from '../../components/ReasonModal';
 import { UserSearchSelect } from '../../components/UserSearchSelect';
+import { SelectField } from '../../components/ui/select';
+import { TableShell } from '../../components/ui/table';
 import { DefaultSubgroupSelect } from '../../features/teams/DefaultSubgroupSelect';
 import { RoleCell } from '../../features/teams/RoleBadges';
 import { useTeamCtx } from '../../features/teams/TeamContext';
@@ -16,26 +19,26 @@ function AddMember({ team, existing }: { team: Team; existing: string[] }) {
   const [role, setRole] = useState<Role>('member');
   const add = useAddMember(team.id);
   return (
-    <Stack gap="xs" maw={560}>
-      <Text fw={600}>{t('members.add')}</Text>
+    <Stack gap="2" maxW="560px">
+      <Text fontWeight="semibold">{t('members.add')}</Text>
       <UserSearchSelect label={t('members.user')} value={userId} onChange={setUserId} excludeIds={existing} />
-      <Group align="flex-end">
-        <Select
+      <Flex align="flex-end" gap="3" wrap="wrap">
+        <SelectField
           label={t('members.role')}
-          w={160}
-          allowDeselect={false}
+          w="160px"
           value={role}
           onChange={(v) => v && setRole(v as Role)}
-          data={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
+          options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
         />
         <Button
+          size="sm"
           disabled={!userId || team.archived}
           loading={add.isPending}
           onClick={() => userId && add.mutate({ userId, role }, { onSuccess: () => setUserId(null) })}
         >
           {t('members.addButton')}
         </Button>
-      </Group>
+      </Flex>
       <ErrorAlert error={add.error} />
     </Stack>
   );
@@ -45,46 +48,45 @@ function MemberRow({ team, member, onRemove }: { team: Team; member: TeamMember;
   const { t } = useTranslation('teams');
   const patch = usePatchMember(team.id);
   return (
-    <Table.Tr>
-      <Table.Td>
-        <Text size="sm" fw={500}>{member.displayName || member.username}</Text>
-        <Text size="xs" c="dimmed">{member.email}</Text>
-      </Table.Td>
-      <Table.Td>
+    <Table.Row>
+      <Table.Cell>
+        <Text fontSize="sm" fontWeight="medium">{member.displayName || member.username}</Text>
+        <Text fontSize="xs" color="fg.muted">{member.email}</Text>
+      </Table.Cell>
+      <Table.Cell>
         <RoleCell sources={member} effective={member.effectiveRole} />
-      </Table.Td>
-      <Table.Td>
-        <Select
+      </Table.Cell>
+      <Table.Cell>
+        <SelectField
           aria-label={t('members.manualRole')}
           size="xs"
-          w={130}
-          placeholder={t('members.noManual')}
-          allowDeselect={false}
+          w="130px"
+          placeholder={member.manualRole ? undefined : t('members.noManual')}
           disabled={team.archived || patch.isPending}
-          value={member.manualRole || null}
-          data={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
+          value={member.manualRole || ''}
+          options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
           onChange={(v) => v && v !== member.manualRole && patch.mutate({ member, patch: { manualRole: v as Role } })}
         />
-      </Table.Td>
-      <Table.Td>
+      </Table.Cell>
+      <Table.Cell>
         <DefaultSubgroupSelect team={team} member={member} disabled={team.archived} />
-      </Table.Td>
-      <Table.Td>
-        <Group gap="xs" wrap="nowrap">
+      </Table.Cell>
+      <Table.Cell>
+        <HStack gap="2">
           {canClearManualRole(member) && (
-            <Button size="xs" variant="default" disabled={team.archived} loading={patch.isPending} onClick={() => patch.mutate({ member, patch: { manualRole: null } })}>
+            <Button size="xs" variant="outline" disabled={team.archived} loading={patch.isPending} onClick={() => patch.mutate({ member, patch: { manualRole: null } })}>
               {t('members.clearManual')}
             </Button>
           )}
           {canRemoveMember(member) && (
-            <Button size="xs" color="red" variant="light" disabled={team.archived} onClick={() => onRemove(member)}>
+            <Button size="xs" colorPalette="red" variant="subtle" disabled={team.archived} onClick={() => onRemove(member)}>
               {t('members.remove')}
             </Button>
           )}
-        </Group>
+        </HStack>
         <ErrorAlert error={patch.error} />
-      </Table.Td>
-    </Table.Tr>
+      </Table.Cell>
+    </Table.Row>
   );
 }
 
@@ -96,44 +98,45 @@ export function MembersSettings() {
   const [toRemove, setToRemove] = useState<TeamMember | null>(null);
   if (!full) return null;
   return (
-    <Stack>
-      <Title order={3}>{t('settings.nav.members')}</Title>
+    <Stack gap="4">
+      <Heading as="h3" size="lg">{t('settings.nav.members')}</Heading>
       <AddMember team={full} existing={(members.data ?? []).map((m) => m.userId)} />
-      {members.isPending && <Loader />}
+      {members.isPending && <Spinner />}
       {members.error && <ErrorAlert error={members.error} />}
       {members.data && (
-        <Table.ScrollContainer minWidth={760}>
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>{t('members.user')}</Table.Th>
-                <Table.Th>{t('members.effective')}</Table.Th>
-                <Table.Th>{t('members.manualRole')}</Table.Th>
-                <Table.Th>{t('members.defaultSubgroup')}</Table.Th>
-                <Table.Th>{t('members.actions')}</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {members.data.map((m) => (
-                <MemberRow key={m.userId} team={full} member={m} onRemove={(x) => { remove.reset(); setToRemove(x); }} />
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+        <TableShell minW="760px">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>{t('members.user')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('members.effective')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('members.manualRole')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('members.defaultSubgroup')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('members.actions')}</Table.ColumnHeader>
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {members.data.map((m) => (
+              <MemberRow key={m.userId} team={full} member={m} onRemove={(x) => { remove.reset(); setToRemove(x); }} />
+            ))}
+          </Table.Body>
+        </TableShell>
       )}
-      <Modal opened={!!toRemove} onClose={() => setToRemove(null)} title={t('members.removeTitle')}>
-        <Stack>
-          <Text>{t('members.removeConfirm', { name: toRemove?.displayName || toRemove?.username })}</Text>
-          <Text size="sm" c="dimmed">{t('members.removeNote')}</Text>
-          <ErrorAlert error={remove.error} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setToRemove(null)}>{t('common:actions.cancel')}</Button>
-            <Button color="red" loading={remove.isPending} onClick={() => toRemove && remove.mutate(toRemove, { onSuccess: () => setToRemove(null) })}>
-              {t('members.remove')}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <ReasonModal
+        opened={!!toRemove}
+        title={t('members.removeTitle')}
+        body={
+          <>
+            {t('members.removeConfirm', { name: toRemove?.displayName || toRemove?.username })}
+            <Text as="span" display="block" mt="2" color="fg.muted">{t('members.removeNote')}</Text>
+          </>
+        }
+        confirmLabel={t('members.remove')}
+        danger
+        loading={remove.isPending}
+        error={remove.error}
+        onClose={() => setToRemove(null)}
+        onConfirm={() => toRemove && remove.mutate(toRemove, { onSuccess: () => setToRemove(null) })}
+      />
     </Stack>
   );
 }

@@ -1,4 +1,4 @@
-import { Button, Group, Modal, Stack, Textarea, TextInput } from '@mantine/core';
+import { Button, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,8 @@ import type { Team } from '../../api/types';
 import { useGuardedMutation } from '../../api/useGuardedMutation';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { UserSearchSelect } from '../../components/UserSearchSelect';
+import { AppDialog } from '../../components/ui/dialog';
+import { FormField } from '../../components/ui/field';
 import { paths } from '../../paths';
 import { createTeamSchema, type CreateTeamForm } from './schemas';
 
@@ -34,12 +36,18 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
   const err = form.formState.errors;
   const msg = (m: string | undefined) => (m ? t(m) : undefined);
   return (
-    <Modal opened={opened} onClose={onClose} title={t('createTeam.title')}>
+    <AppDialog open={opened} onClose={onClose} title={t('createTeam.title')}>
       <form onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
-        <Stack>
-          <TextInput label={t('createTeam.slug')} description={t('createTeam.slugHelp')} error={msg(err.slug?.message)} {...form.register('slug')} />
-          <TextInput label={t('createTeam.name')} error={msg(err.name?.message)} {...form.register('name')} />
-          <Textarea label={t('createTeam.description')} {...form.register('description')} />
+        <Stack gap="4">
+          <FormField label={t('createTeam.slug')} helperText={t('createTeam.slugHelp')} errorText={msg(err.slug?.message)}>
+            <Input autoCapitalize="none" {...form.register('slug')} />
+          </FormField>
+          <FormField label={t('createTeam.name')} errorText={msg(err.name?.message)}>
+            <Input {...form.register('name')} />
+          </FormField>
+          <FormField label={t('createTeam.description')}>
+            <Textarea {...form.register('description')} />
+          </FormField>
           <Controller
             control={form.control}
             name="firstAdminUserId"
@@ -53,12 +61,12 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
             )}
           />
           <ErrorAlert error={create.error} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={onClose}>{t('common:actions.cancel')}</Button>
+          <HStack justify="flex-end">
+            <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
             <Button type="submit" loading={create.isPending}>{t('createTeam.submit')}</Button>
-          </Group>
+          </HStack>
         </Stack>
       </form>
-    </Modal>
+    </AppDialog>
   );
 }

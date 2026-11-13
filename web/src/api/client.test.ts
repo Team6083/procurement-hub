@@ -15,16 +15,18 @@ function setup(responses: Response[], commit = 'abc') {
   }) as unknown as typeof fetch & ReturnType<typeof vi.fn>;
   const onAuthFailure = vi.fn();
   const renew = vi.fn(async () => 'new-token' as string | undefined);
+  const onMissingRole = vi.fn();
   const client = createApiClient({
     baseUrl: 'https://api.example.org',
     getToken: () => 'old-token',
     renew,
     onAuthFailure,
+    onMissingRole,
     appCommit: commit,
     store,
     fetchImpl,
   });
-  return { client, store, fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>, renew, onAuthFailure };
+  return { client, store, fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>, renew, onAuthFailure, onMissingRole };
 }
 
 describe('checkCommit', () => {
@@ -113,5 +115,18 @@ describe('api client', () => {
     const r = await client.full.delete('/x', { headers: { 'If-Match': '"2"' } });
     expect(r).toEqual({ data: undefined, etag: undefined, status: 204 });
     expect((fetchImpl.mock.calls[0]![1].headers as Record<string, string>)['If-Match']).toBe('"2"');
+  });
+
+  it('reports 403 missing_role (and only that 403) as denied access', async () => {
+    const { client, onMissingRole } = setup([
+      json(403, { error: { code: 'forbidden', message: 'no' } }),
+      json(403, { error: { code: 'missing_role', message: 'no' } }),
+    ]);
+    const first = await client.get('/teams/1').catch((e) => e);
+    expect(first).toBeInstanceOf(ApiError);
+    expect(onMissingRole).not.toHaveBeenCalled();
+    const second = await client.get('/me').catch((e) => e);
+    expect((second as ApiError).code).toBe('missing_role');
+    expect(onMissingRole).toHaveBeenCalledTimes(1);
   });
 });

@@ -63,6 +63,11 @@ Other static hosts: run `npm run build`, put your `config.json` in `dist/`, serv
 - Tokens are renewed in the background with the refresh token (`automaticSilentRenew`); the iframe fallback is disabled. A failed renew starts a new sign-in.
 - The API client sends `Authorization: Bearer <access token>`. On `401` it renews once and retries once; if that still fails it starts a new sign-in. A second such failure within a minute shows a "session not accepted" page instead of redirecting again, so a misconfigured API cannot cause a redirect loop.
 - Sign-out calls `signoutRedirect` with `post_logout_redirect_uri` set to the app root.
+- When any API call answers `403 missing_role` (in practice `GET /me` right after sign-in), the whole app is replaced by a "no access" page with only a sign-out button (`src/auth/AccessGate.tsx`).
+
+## UI
+
+Components are Chakra UI v3. `src/components/ui/` holds the theme (`theme.ts`: a `brand` palette and a few semantic tokens), the provider and small wrappers used across pages (dialog, form field, native select, checkbox list, table shell, tooltip). Light/dark mode follows the operating system (`color-mode.ts` sets the `light`/`dark` class on `<html>`; there is no inline script, so the CSP needs no script hash). No web fonts are loaded. Component tests render through `src/test/render.tsx` (`renderUI`) or `src/test/fakeApi.tsx` (`renderWithApi`, a real API client over a fake `fetch`).
 
 ## Routing
 

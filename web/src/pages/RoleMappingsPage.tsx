@@ -1,10 +1,12 @@
-import { Alert, Badge, Button, Group, Loader, Modal, Stack, Table, Text, Title } from '@mantine/core';
+import { Badge, Button, Flex, Heading, HStack, Spinner, Stack, Table, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
 import { useDeleteRoleMapping, useRoleMappings } from '../api/roleMappings';
 import type { RoleMapping } from '../api/types';
-import { ErrorAlert } from '../components/ErrorAlert';
+import { ErrorAlert, Notice } from '../components/ErrorAlert';
+import { ReasonModal } from '../components/ReasonModal';
+import { TableShell } from '../components/ui/table';
 import { RoleMappingModal } from '../features/admin/RoleMappingModal';
 
 export function RoleMappingsPage() {
@@ -16,71 +18,68 @@ export function RoleMappingsPage() {
   const [creating, setCreating] = useState(false);
   const [toDelete, setToDelete] = useState<RoleMapping | null>(null);
 
-  if (isPending) return <Loader />;
-  if (!isSystemAdmin) return <Alert color="gray">{t('forbidden')}</Alert>;
+  if (isPending) return <Spinner />;
+  if (!isSystemAdmin) return <Notice>{t('forbidden')}</Notice>;
 
   return (
-    <Stack>
-      <Group justify="space-between">
-        <Title order={2}>{t('title')}</Title>
+    <Stack gap="4">
+      <Flex justify="space-between" align="center" gap="3" wrap="wrap">
+        <Heading as="h2" size="xl">{t('title')}</Heading>
         <Button onClick={() => setCreating(true)}>{t('create')}</Button>
-      </Group>
-      <Text c="dimmed" size="sm">{t('intro')}</Text>
-      {rules.isPending && <Loader />}
+      </Flex>
+      <Text color="fg.muted" fontSize="sm">{t('intro')}</Text>
+      {rules.isPending && <Spinner />}
       {rules.error && <ErrorAlert error={rules.error} />}
-      {rules.data?.length === 0 && <Text c="dimmed">{t('empty')}</Text>}
+      {rules.data?.length === 0 && <Text color="fg.muted">{t('empty')}</Text>}
       {rules.data && rules.data.length > 0 && (
-        <Table.ScrollContainer minWidth={760}>
-          <Table>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>{t('form.claim')}</Table.Th>
-                <Table.Th>{t('form.pattern')}</Table.Th>
-                <Table.Th>{t('form.team')}</Table.Th>
-                <Table.Th>{t('form.role')}</Table.Th>
-                <Table.Th>{t('form.enabled')}</Table.Th>
-                <Table.Th>{t('form.description')}</Table.Th>
-                <Table.Th />
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rules.data.map((r) => (
-                <Table.Tr key={r.id}>
-                  <Table.Td>{t(`claim.${r.claim}`)}</Table.Td>
-                  <Table.Td><Text ff="monospace" size="sm">{r.pattern}</Text></Table.Td>
-                  <Table.Td><Text ff="monospace" size="sm">{r.team}</Text></Table.Td>
-                  <Table.Td>{t(`teams:role.${r.role}`)}</Table.Td>
-                  <Table.Td>{r.enabled ? t('on') : t('off')}</Table.Td>
-                  <Table.Td>{r.description}</Table.Td>
-                  <Table.Td>
-                    {r.managed ? (
-                      <Badge color="gray" variant="outline">{t('managed')}</Badge>
-                    ) : (
-                      <Group gap="xs" wrap="nowrap">
-                        <Button size="xs" variant="default" onClick={() => setEditing(r)}>{t('common:actions.edit')}</Button>
-                        <Button size="xs" color="red" variant="light" onClick={() => { del.reset(); setToDelete(r); }}>{t('common:actions.delete')}</Button>
-                      </Group>
-                    )}
-                  </Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
+        <TableShell minW="760px">
+          <Table.Header>
+            <Table.Row>
+              <Table.ColumnHeader>{t('form.claim')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('form.pattern')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('form.team')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('form.role')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('form.enabled')}</Table.ColumnHeader>
+              <Table.ColumnHeader>{t('form.description')}</Table.ColumnHeader>
+              <Table.ColumnHeader />
+            </Table.Row>
+          </Table.Header>
+          <Table.Body>
+            {rules.data.map((r) => (
+              <Table.Row key={r.id}>
+                <Table.Cell>{t(`claim.${r.claim}`)}</Table.Cell>
+                <Table.Cell><Text fontFamily="mono" fontSize="sm">{r.pattern}</Text></Table.Cell>
+                <Table.Cell><Text fontFamily="mono" fontSize="sm">{r.team}</Text></Table.Cell>
+                <Table.Cell>{t(`teams:role.${r.role}`)}</Table.Cell>
+                <Table.Cell>{r.enabled ? t('on') : t('off')}</Table.Cell>
+                <Table.Cell>{r.description}</Table.Cell>
+                <Table.Cell>
+                  {r.managed ? (
+                    <Badge colorPalette="gray" variant="outline">{t('managed')}</Badge>
+                  ) : (
+                    <HStack gap="2">
+                      <Button size="xs" variant="outline" onClick={() => setEditing(r)}>{t('common:actions.edit')}</Button>
+                      <Button size="xs" colorPalette="red" variant="subtle" onClick={() => { del.reset(); setToDelete(r); }}>{t('common:actions.delete')}</Button>
+                    </HStack>
+                  )}
+                </Table.Cell>
+              </Table.Row>
+            ))}
+          </Table.Body>
+        </TableShell>
       )}
       <RoleMappingModal opened={creating || !!editing} rule={editing} onClose={() => { setCreating(false); setEditing(null); }} />
-      <Modal opened={!!toDelete} onClose={() => setToDelete(null)} title={t('deleteTitle')}>
-        <Stack>
-          <Text>{t('deleteConfirm', { pattern: toDelete?.pattern })}</Text>
-          <ErrorAlert error={del.error} />
-          <Group justify="flex-end">
-            <Button variant="default" onClick={() => setToDelete(null)}>{t('common:actions.cancel')}</Button>
-            <Button color="red" loading={del.isPending} onClick={() => toDelete && del.mutate(toDelete, { onSuccess: () => setToDelete(null) })}>
-              {t('common:actions.delete')}
-            </Button>
-          </Group>
-        </Stack>
-      </Modal>
+      <ReasonModal
+        opened={!!toDelete}
+        title={t('deleteTitle')}
+        body={t('deleteConfirm', { pattern: toDelete?.pattern })}
+        confirmLabel={t('common:actions.delete')}
+        danger
+        loading={del.isPending}
+        error={del.error}
+        onClose={() => setToDelete(null)}
+        onConfirm={() => toDelete && del.mutate(toDelete, { onSuccess: () => setToDelete(null) })}
+      />
     </Stack>
   );
 }

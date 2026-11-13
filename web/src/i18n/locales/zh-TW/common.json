@@ -8,7 +8,8 @@
     "reports": "報表",
     "settings": "設定",
     "admin": "角色對應",
-    "teams": "團隊"
+    "teams": "團隊",
+    "menu": "選單"
   },
   "language": {
     "label": "語言",
@@ -55,7 +56,8 @@
     "cancel": "取消",
     "delete": "刪除",
     "edit": "編輯",
-    "saved": "已儲存。"
+    "saved": "已儲存。",
+    "close": "關閉"
   },
   "validation": {
     "required": "此欄位為必填。",

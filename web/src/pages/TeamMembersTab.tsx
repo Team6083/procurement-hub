@@ -1,8 +1,9 @@
-import { Alert, Loader, Stack, Table, Text } from '@mantine/core';
+import { Spinner, Table, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
 import { useMembers } from '../api/members';
-import { ErrorAlert } from '../components/ErrorAlert';
+import { ErrorAlert, Notice } from '../components/ErrorAlert';
+import { TableShell } from '../components/ui/table';
 import { DefaultSubgroupSelect } from '../features/teams/DefaultSubgroupSelect';
 import { RoleCell } from '../features/teams/RoleBadges';
 import { useTeamCtx } from '../features/teams/TeamContext';
@@ -13,38 +14,34 @@ export function TeamMembersTab() {
   const { teamId, full, isMember } = useTeamCtx();
   const { me } = useMe();
   const members = useMembers(teamId, isMember);
-  if (!full || !isMember) return <Alert color="gray">{t('settings.forbidden')}</Alert>;
-  if (members.isPending) return <Loader />;
+  if (!full || !isMember) return <Notice>{t('settings.forbidden')}</Notice>;
+  if (members.isPending) return <Spinner />;
   if (members.error) return <ErrorAlert error={members.error} />;
   return (
-    <Stack>
-      <Table.ScrollContainer minWidth={520}>
-        <Table>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>{t('members.user')}</Table.Th>
-              <Table.Th>{t('members.effective')}</Table.Th>
-              <Table.Th>{t('members.defaultSubgroup')}</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {members.data.map((m) => (
-              <Table.Tr key={m.userId}>
-                <Table.Td>
-                  <Text size="sm" fw={500}>{m.displayName || m.username}</Text>
-                  <Text size="xs" c="dimmed">{m.email}</Text>
-                </Table.Td>
-                <Table.Td>
-                  <RoleCell sources={m} effective={m.effectiveRole} />
-                </Table.Td>
-                <Table.Td>
-                  <DefaultSubgroupSelect team={full} member={m} disabled={m.userId !== me?.id || full.archived} />
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      </Table.ScrollContainer>
-    </Stack>
+    <TableShell minW="520px">
+      <Table.Header>
+        <Table.Row>
+          <Table.ColumnHeader>{t('members.user')}</Table.ColumnHeader>
+          <Table.ColumnHeader>{t('members.effective')}</Table.ColumnHeader>
+          <Table.ColumnHeader>{t('members.defaultSubgroup')}</Table.ColumnHeader>
+        </Table.Row>
+      </Table.Header>
+      <Table.Body>
+        {members.data.map((m) => (
+          <Table.Row key={m.userId}>
+            <Table.Cell>
+              <Text fontSize="sm" fontWeight="medium">{m.displayName || m.username}</Text>
+              <Text fontSize="xs" color="fg.muted">{m.email}</Text>
+            </Table.Cell>
+            <Table.Cell>
+              <RoleCell sources={m} effective={m.effectiveRole} />
+            </Table.Cell>
+            <Table.Cell>
+              <DefaultSubgroupSelect team={full} member={m} disabled={m.userId !== me?.id || full.archived} />
+            </Table.Cell>
+          </Table.Row>
+        ))}
+      </Table.Body>
+    </TableShell>
   );
 }

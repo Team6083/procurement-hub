@@ -1,4 +1,4 @@
-import { Button, Group, Stack, Text } from '@mantine/core';
+import { Button, Flex, HStack, Stack, Text } from '@chakra-ui/react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,13 +32,13 @@ export function ReviewTab({ batch, team, caller, items, nameOf }: { batch: Batch
       { onSuccess: () => { setSelection({}); setDialog(null); } },
     );
 
-  if (batch.status !== 'reviewing' && pending.length === 0 && returned.length === 0) return <Text c="dimmed">{t('review.notReviewing')}</Text>;
+  if (batch.status !== 'reviewing' && pending.length === 0 && returned.length === 0) return <Text color="fg.muted">{t('review.notReviewing')}</Text>;
 
   return (
-    <Stack>
-      {!reviewer && <Text c="dimmed" size="sm">{t('review.readOnly')}</Text>}
-      <Text fw={600}>{t('review.pending', { count: pending.length })}</Text>
-      {pending.length === 0 ? <Text c="dimmed">{t('review.nonePending')}</Text> : (
+    <Stack gap="4">
+      {!reviewer && <Text color="fg.muted" fontSize="sm">{t('review.readOnly')}</Text>}
+      <Text fontWeight="semibold">{t('review.pending', { count: pending.length })}</Text>
+      {pending.length === 0 ? <Text color="fg.muted">{t('review.nonePending')}</Text> : (
         <ItemsTable
           items={pending}
           team={team}
@@ -47,26 +47,26 @@ export function ReviewTab({ batch, team, caller, items, nameOf }: { batch: Batch
           selection={selection}
           onSelectionChange={setSelection}
           actions={(it) => canForceReject(it, batch, caller) ? (
-            <Button size="compact-xs" color="red" variant="light" onClick={() => { itemAction.reset(); setForceTarget(it); setDialog('force'); }}>{t('review.forceReject')}</Button>
+            <Button size="2xs" colorPalette="red" variant="subtle" onClick={() => { itemAction.reset(); setForceTarget(it); setDialog('force'); }}>{t('review.forceReject')}</Button>
           ) : null}
         />
       )}
       {reviewer && (
-        <Group>
+        <HStack wrap="wrap">
           <Button disabled={selected.length === 0} loading={review.isPending && review.variables?.decisions[0]?.decision === 'approve'} onClick={() => decide('approve')}>{t('review.approve', { count: selected.length })}</Button>
-          <Button variant="light" color="orange" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('return'); }}>{t('review.return')}</Button>
-          <Button variant="light" color="red" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('reject'); }}>{t('review.reject')}</Button>
-        </Group>
+          <Button variant="subtle" colorPalette="orange" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('return'); }}>{t('review.return')}</Button>
+          <Button variant="subtle" colorPalette="red" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('reject'); }}>{t('review.reject')}</Button>
+        </HStack>
       )}
       {dialog === null && <ErrorAlert error={review.error} />}
-      <Group align="flex-start" gap="xl">
+      <Flex align="flex-start" gap="8" wrap="wrap">
         <EstimateSummary items={pending} rates={rates} label={t('totals.pending')} />
         {selected.length > 0 && <EstimateSummary items={selected} rates={rates} label={t('totals.selected', { count: selected.length })} />}
-      </Group>
+      </Flex>
 
       {returned.length > 0 && (
         <>
-          <Text fw={600}>{t('review.returned', { count: returned.length })}</Text>
+          <Text fontWeight="semibold">{t('review.returned', { count: returned.length })}</Text>
           <ItemsTable
             items={returned}
             team={team}
@@ -75,7 +75,7 @@ export function ReviewTab({ batch, team, caller, items, nameOf }: { batch: Batch
             selection={{}}
             onSelectionChange={() => undefined}
             actions={(it) => canForceReject(it, batch, caller) ? (
-              <Button size="compact-xs" color="red" variant="light" onClick={() => { itemAction.reset(); setForceTarget(it); setDialog('force'); }}>{t('review.forceReject')}</Button>
+              <Button size="2xs" colorPalette="red" variant="subtle" onClick={() => { itemAction.reset(); setForceTarget(it); setDialog('force'); }}>{t('review.forceReject')}</Button>
             ) : null}
           />
         </>

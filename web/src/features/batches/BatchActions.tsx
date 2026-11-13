@@ -1,9 +1,10 @@
-import { Button, Group, Tooltip } from '@mantine/core';
+import { Box, Button, HStack } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTransition } from '../../api/batches';
 import type { Batch, BatchAction } from '../../api/types';
 import { ReasonModal } from '../../components/ReasonModal';
+import { Tooltip } from '../../components/ui/tooltip';
 import { availableActions, type Caller } from './rules';
 import { DeadlineModal } from './DeadlineModal';
 
@@ -24,17 +25,23 @@ export function BatchActions({ batch, caller, pendingItems }: { batch: Batch; ca
 
   return (
     <>
-      <Group gap="xs">
+      <HStack gap="2" wrap="wrap">
         {actions.map(({ action, disabled }) => (
-          <Tooltip key={action} label={disabled ? t(`actions.disabled.${disabled}`) : ''} disabled={!disabled}>
-            <span>
-              <Button size="xs" variant={DANGER.includes(action) ? 'light' : 'filled'} color={DANGER.includes(action) ? 'red' : undefined} disabled={!!disabled} onClick={() => { transition.reset(); setActive(action); }}>
+          <Tooltip key={action} content={disabled ? t(`actions.disabled.${disabled}`) : ''} disabled={!disabled}>
+            <Box as="span" display="inline-block" tabIndex={disabled ? 0 : undefined}>
+              <Button
+                size="xs"
+                variant={DANGER.includes(action) ? 'subtle' : 'solid'}
+                colorPalette={DANGER.includes(action) ? 'red' : undefined}
+                disabled={!!disabled}
+                onClick={() => { transition.reset(); setActive(action); }}
+              >
                 {t(`actions.${action}`)}
               </Button>
-            </span>
+            </Box>
           </Tooltip>
         ))}
-      </Group>
+      </HStack>
       {active && NEEDS_DEADLINE.includes(active) && (
         <DeadlineModal
           opened

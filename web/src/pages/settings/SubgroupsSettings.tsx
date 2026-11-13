@@ -1,9 +1,11 @@
-import { Badge, Button, Group, Stack, Table, Text, TextInput, Title } from '@mantine/core';
+import { Badge, Button, Flex, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeamMutation } from '../../api/teams';
 import type { Subgroup, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { FormField } from '../../components/ui/field';
+import { TableShell } from '../../components/ui/table';
 import { useTeamCtx } from '../../features/teams/TeamContext';
 
 function AddSubgroup({ team }: { team: Team }) {
@@ -19,11 +21,13 @@ function AddSubgroup({ team }: { team: Team }) {
         if (name.trim()) add.mutate(name.trim(), { onSuccess: () => setName('') });
       }}
     >
-      <Stack gap="xs" maw={480}>
-        <Group align="flex-end" wrap="nowrap">
-          <TextInput style={{ flex: 1 }} label={t('subgroups.name')} value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
-          <Button type="submit" loading={add.isPending} disabled={!name.trim() || team.archived}>{t('subgroups.add')}</Button>
-        </Group>
+      <Stack gap="2" maxW="480px">
+        <Flex align="flex-end" gap="2">
+          <FormField flex="1" label={t('subgroups.name')}>
+            <Input size="sm" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
+          </FormField>
+          <Button size="sm" type="submit" loading={add.isPending} disabled={!name.trim() || team.archived}>{t('subgroups.add')}</Button>
+        </Flex>
         <ErrorAlert error={add.error} />
       </Stack>
     </form>
@@ -43,34 +47,34 @@ function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
     patch.mutate({ name: n }, { onSuccess: () => setEditing(false) });
   };
   return (
-    <Table.Tr>
-      <Table.Td>
+    <Table.Row>
+      <Table.Cell>
         {editing ? (
-          <Stack gap={4}>
-            <TextInput aria-label={t('subgroups.name')} value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} size="xs" />
+          <Stack gap="1">
+            <Input size="xs" aria-label={t('subgroups.name')} value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
             <ErrorAlert error={patch.error} />
           </Stack>
         ) : (
-          <Group gap="xs">
-            <Text size="sm" c={group.active ? undefined : 'dimmed'}>{group.name}</Text>
-            {!group.active && <Badge color="gray">{t('subgroups.inactive')}</Badge>}
-          </Group>
+          <HStack gap="2">
+            <Text fontSize="sm" color={group.active ? undefined : 'fg.muted'}>{group.name}</Text>
+            {!group.active && <Badge colorPalette="gray">{t('subgroups.inactive')}</Badge>}
+          </HStack>
         )}
-      </Table.Td>
-      <Table.Td>
-        <Group gap="xs" justify="flex-end" wrap="nowrap">
+      </Table.Cell>
+      <Table.Cell>
+        <HStack gap="2" justify="flex-end">
           {editing ? (
             <>
               <Button size="xs" loading={patch.isPending} onClick={rename}>{t('common:actions.save')}</Button>
-              <Button size="xs" variant="default" onClick={() => { setEditing(false); setName(group.name); }}>{t('common:actions.cancel')}</Button>
+              <Button size="xs" variant="outline" onClick={() => { setEditing(false); setName(group.name); }}>{t('common:actions.cancel')}</Button>
             </>
           ) : (
             <>
-              <Button size="xs" variant="default" disabled={team.archived} onClick={() => setEditing(true)}>{t('subgroups.rename')}</Button>
+              <Button size="xs" variant="outline" disabled={team.archived} onClick={() => setEditing(true)}>{t('subgroups.rename')}</Button>
               <Button
                 size="xs"
-                variant="light"
-                color={group.active ? 'red' : 'blue'}
+                variant="subtle"
+                colorPalette={group.active ? 'red' : 'brand'}
                 disabled={team.archived}
                 loading={patch.isPending}
                 onClick={() => patch.mutate({ active: !group.active })}
@@ -79,10 +83,10 @@ function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
               </Button>
             </>
           )}
-        </Group>
+        </HStack>
         {!editing && <ErrorAlert error={patch.error} />}
-      </Table.Td>
-    </Table.Tr>
+      </Table.Cell>
+    </Table.Row>
   );
 }
 
@@ -91,19 +95,19 @@ export function SubgroupsSettings() {
   const { full } = useTeamCtx();
   if (!full) return null;
   return (
-    <Stack>
-      <Title order={3}>{t('settings.nav.subgroups')}</Title>
+    <Stack gap="4">
+      <Heading as="h3" size="lg">{t('settings.nav.subgroups')}</Heading>
       <AddSubgroup key={`add-${full.version}`} team={full} />
       {full.subgroups.length === 0 ? (
-        <Text c="dimmed">{t('subgroups.empty')}</Text>
+        <Text color="fg.muted">{t('subgroups.empty')}</Text>
       ) : (
-        <Table maw={640}>
-          <Table.Tbody>
+        <TableShell maxW="640px">
+          <Table.Body>
             {full.subgroups.map((g) => (
               <SubgroupRow key={g.id} team={full} group={g} />
             ))}
-          </Table.Tbody>
-        </Table>
+          </Table.Body>
+        </TableShell>
       )}
     </Stack>
   );

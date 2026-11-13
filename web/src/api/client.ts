@@ -11,6 +11,8 @@ export interface ApiClientOptions {
   renew: () => Promise<string | undefined>;
   /** Called when authentication cannot be recovered (starts signinRedirect). */
   onAuthFailure: () => void | Promise<void>;
+  /** Called when the API answers 403 missing_role: the user lacks ALLOWED_ROLES (spec section 7.1). */
+  onMissingRole?: () => void;
   appCommit?: string;
   store?: ReturnType<typeof createVersionStore>;
   fetchImpl?: typeof fetch;
@@ -73,7 +75,11 @@ export function createApiClient(opts: ApiClientOptions) {
         throw await parseApiError(res);
       }
     }
-    if (!res.ok) throw await parseApiError(res);
+    if (!res.ok) {
+      const err = await parseApiError(res);
+      if (err.status === 403 && err.code === 'missing_role') opts.onMissingRole?.();
+      throw err;
+    }
     const etag = parseEtag(res.headers.get('ETag'));
     if (res.status === 204) return { data: undefined as T, etag, status: res.status };
     return { data: (await res.json()) as T, etag, status: res.status };

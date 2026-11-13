@@ -1,8 +1,9 @@
-import { Button, Center, Code, Loader, Stack, Text, Title } from '@mantine/core';
+import { Button, Center, Spinner, Stack, Text } from '@chakra-ui/react';
 import type { User, UserManager } from 'oidc-client-ts';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from 'react-oidc-context';
+import { StatusPage } from '../components/StatusPage';
 import { withBase } from '../config';
 import { isCallbackPath, returnToFromState } from './oidc';
 import type { Session } from './session';
@@ -69,28 +70,15 @@ function AuthGate({ session, children }: { session: Session; children: ReactNode
   }
   if (!auth.isAuthenticated) {
     return (
-      <Center mih="100vh">
+      <Center minH="100vh">
         <Stack align="center">
-          <Loader />
+          <Spinner />
           <Text>{t('signingIn')}</Text>
         </Stack>
       </Center>
     );
   }
   return <>{children}</>;
-}
-
-function StatusPage({ title, body, details, children }: { title: string; body: string; details?: string; children: ReactNode }) {
-  return (
-    <Center mih="100vh" p="md">
-      <Stack align="center" maw={480}>
-        <Title order={2}>{title}</Title>
-        <Text>{body}</Text>
-        {details && <Code block>{details}</Code>}
-        {children}
-      </Stack>
-    </Center>
-  );
 }
 
 /** The signed-in user and sign-out, for components rendered inside the gate. */

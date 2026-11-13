@@ -8,7 +8,8 @@
     "reports": "Reports",
     "settings": "Settings",
     "admin": "Role mappings",
-    "teams": "Teams"
+    "teams": "Teams",
+    "menu": "Menu"
   },
   "language": {
     "label": "Language",
@@ -55,7 +56,8 @@
     "cancel": "Cancel",
     "delete": "Delete",
     "edit": "Edit",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "close": "Close"
   },
   "validation": {
     "required": "This field is required.",

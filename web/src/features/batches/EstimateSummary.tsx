@@ -1,4 +1,4 @@
-import { Group, Stack, Text } from '@mantine/core';
+import { HStack, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useMeta } from '../../api/meta';
 import type { Item, ReferenceRate } from '../../api/types';
@@ -11,18 +11,18 @@ export function EstimateSummary({ items, rates, label }: { items: Item[]; rates:
   const base = meta.data?.baseCurrency ?? '';
   const e = estimate(items, rates, base);
   return (
-    <Stack gap={2}>
-      {label && <Text size="sm" fw={600}>{label}</Text>}
+    <Stack gap="0.5">
+      {label && <Text fontSize="sm" fontWeight="semibold">{label}</Text>}
       {e.byCurrency.length === 0 ? (
-        <Text size="sm" c="dimmed">{t('totals.none')}</Text>
+        <Text fontSize="sm" color="fg.muted">{t('totals.none')}</Text>
       ) : (
         <>
-          <Group gap="md">
-            {e.byCurrency.map((c) => <Text key={c.currency} size="sm">{c.amount} {c.currency}</Text>)}
-          </Group>
-          <Text size="sm" fw={600}>{t('totals.base', { amount: e.base, currency: base })}</Text>
+          <HStack gap="4" wrap="wrap">
+            {e.byCurrency.map((c) => <Text key={c.currency} fontSize="sm">{c.amount} {c.currency}</Text>)}
+          </HStack>
+          <Text fontSize="sm" fontWeight="semibold">{t('totals.base', { amount: e.base, currency: base })}</Text>
           {e.noRate.length > 0 && (
-            <Text size="sm" c="orange">
+            <Text fontSize="sm" color="fg.warning">
               {t('totals.noRate')}: {e.noRate.map((c) => `${c.amount} ${c.currency}`).join(', ')}
             </Text>
           )}

@@ -1,11 +1,13 @@
-import { Alert, Button, Divider, Group, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Button, Heading, HStack, Input, Separator, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../../api/me';
 import { useTeamMutation } from '../../api/teams';
 import type { PatchTeamRequest, Team } from '../../api/types';
-import { ErrorAlert } from '../../components/ErrorAlert';
+import { ErrorAlert, Notice } from '../../components/ErrorAlert';
+import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
 import { useTeamCtx } from '../../features/teams/TeamContext';
 import { diffGeneral, toForm } from '../../features/teams/general';
 import { PRIORITIES, type PriorityKey } from '../../features/teams/priority';
@@ -25,19 +27,25 @@ function GeneralForm_({ team }: { team: Team }) {
   });
   return (
     <form onSubmit={submit} noValidate>
-      <fieldset disabled={team.archived} style={{ border: 0, padding: 0, margin: 0 }}>
-        <Stack maw={640}>
-          <TextInput label={t('general.name')} error={msg(err.name?.message)} {...form.register('name')} />
-          <Textarea label={t('general.description')} autosize minRows={2} {...form.register('description')} />
+      <fieldset disabled={team.archived} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+        <Stack maxW="640px" gap="4">
+          <FormField label={t('general.name')} errorText={msg(err.name?.message)}>
+            <Input {...form.register('name')} />
+          </FormField>
+          <FormField label={t('general.description')}>
+            <Textarea autoresize rows={2} {...form.register('description')} />
+          </FormField>
           <Controller
             control={form.control}
             name="visibility"
             render={({ field }) => (
-              <Select
+              <SelectField
                 label={t('general.visibility')}
-                allowDeselect={false}
-                data={(['public', 'members'] as const).map((v) => ({ value: v, label: t(`team.visibility.${v}`) }))}
-                {...field}
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                options={(['public', 'members'] as const).map((v) => ({ value: v, label: t(`team.visibility.${v}`) }))}
               />
             )}
           />
@@ -45,32 +53,30 @@ function GeneralForm_({ team }: { team: Team }) {
             control={form.control}
             name="locale"
             render={({ field }) => (
-              <Select
+              <SelectField
                 label={t('general.locale')}
-                description={t('general.localeHelp')}
-                allowDeselect={false}
-                data={(['en', 'zh-TW'] as const).map((l) => ({ value: l, label: t(`common:language.${l}`) }))}
-                {...field}
+                helperText={t('general.localeHelp')}
+                name={field.name}
+                value={field.value}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                options={(['en', 'zh-TW'] as const).map((l) => ({ value: l, label: t(`common:language.${l}`) }))}
               />
             )}
           />
-          <Divider />
-          <Text fw={600}>{t('general.priorityLabels')}</Text>
-          <Text size="sm" c="dimmed">{t('general.priorityHelp')}</Text>
+          <Separator />
+          <Text fontWeight="semibold">{t('general.priorityLabels')}</Text>
+          <Text fontSize="sm" color="fg.muted">{t('general.priorityHelp')}</Text>
           {PRIORITIES.map((k: PriorityKey) => (
-            <TextInput
-              key={k}
-              label={t('priority.level', { n: k })}
-              placeholder={t(`priority.default.${k}`)}
-              error={msg(err.priority?.[k]?.message)}
-              {...form.register(`priority.${k}`)}
-            />
+            <FormField key={k} label={t('priority.level', { n: k })} errorText={msg(err.priority?.[k]?.message)}>
+              <Input placeholder={t(`priority.default.${k}`)} {...form.register(`priority.${k}`)} />
+            </FormField>
           ))}
           <ErrorAlert error={save.error} />
-          {save.isSuccess && !form.formState.isDirty && <Text size="sm" c="green">{t('common:actions.saved')}</Text>}
-          <Group>
+          {save.isSuccess && !form.formState.isDirty && <Text fontSize="sm" color="fg.success">{t('common:actions.saved')}</Text>}
+          <HStack>
             <Button type="submit" loading={save.isPending} disabled={!form.formState.isDirty}>{t('common:actions.save')}</Button>
-          </Group>
+          </HStack>
         </Stack>
       </fieldset>
     </form>
@@ -83,15 +89,15 @@ function ArchiveControl({ team }: { team: Team }) {
     api.full.patch<Team>(`/teams/${team.id}`, { archived }, { headers }),
   );
   return (
-    <Stack gap="xs" maw={640}>
-      <Divider />
-      <Text fw={600}>{t('general.archive.title')}</Text>
-      <Text size="sm" c="dimmed">{t('general.archive.help')}</Text>
-      <Group>
-        <Button color={team.archived ? 'blue' : 'red'} variant="light" loading={toggle.isPending} onClick={() => toggle.mutate(!team.archived)}>
+    <Stack gap="2" maxW="640px">
+      <Separator />
+      <Text fontWeight="semibold">{t('general.archive.title')}</Text>
+      <Text fontSize="sm" color="fg.muted">{t('general.archive.help')}</Text>
+      <HStack>
+        <Button colorPalette={team.archived ? 'brand' : 'red'} variant="subtle" loading={toggle.isPending} onClick={() => toggle.mutate(!team.archived)}>
           {team.archived ? t('general.archive.unarchive') : t('general.archive.archive')}
         </Button>
-      </Group>
+      </HStack>
       <ErrorAlert error={toggle.error} />
     </Stack>
   );
@@ -101,10 +107,10 @@ export function GeneralSettings() {
   const { t } = useTranslation('teams');
   const { full } = useTeamCtx();
   const { isSystemAdmin } = useMe();
-  if (!full) return <Alert color="gray">{t('settings.forbidden')}</Alert>;
+  if (!full) return <Notice>{t('settings.forbidden')}</Notice>;
   return (
-    <Stack>
-      <Title order={3}>{t('settings.nav.general')}</Title>
+    <Stack gap="4">
+      <Heading as="h3" size="lg">{t('settings.nav.general')}</Heading>
       {/* Remount when the server version changes (after save or a conflict refetch). */}
       <GeneralForm_ key={full.version} team={full} />
       {isSystemAdmin && <ArchiveControl team={full} />}

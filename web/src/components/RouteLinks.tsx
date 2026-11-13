@@ -1,23 +1,23 @@
-import { Anchor, Button, type AnchorProps, type ButtonProps } from '@mantine/core';
+import { Button, Link as ChakraLink, type ButtonProps, type LinkProps } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 
 /**
- * Mantine anchor/button that navigate client-side. `to` is an app path ("/batches/1");
+ * Chakra link/button that navigate client-side. `to` is an app path ("/batches/1");
  * react-router prepends the basename to the rendered href and to the navigation.
  */
-export function RouteAnchor({ to, children, ...rest }: AnchorProps & { to: string; children: ReactNode }) {
+export function RouteAnchor({ to, children, ...rest }: Omit<LinkProps, 'href' | 'asChild'> & { to: string; children: ReactNode }) {
   return (
-    <Anchor component={Link} to={to} {...rest}>
-      {children}
-    </Anchor>
+    <ChakraLink colorPalette="brand" color="colorPalette.fg" {...rest} asChild>
+      <Link to={to}>{children}</Link>
+    </ChakraLink>
   );
 }
 
-export function RouteButton({ to, children, ...rest }: ButtonProps & { to: string; children: ReactNode }) {
+export function RouteButton({ to, children, ...rest }: Omit<ButtonProps, 'asChild'> & { to: string; children: ReactNode }) {
   return (
-    <Button component={Link} to={to} {...rest}>
-      {children}
+    <Button {...rest} asChild>
+      <Link to={to}>{children}</Link>
     </Button>
   );
 }

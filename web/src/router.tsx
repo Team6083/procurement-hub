@@ -1,4 +1,4 @@
-import { Container, Loader, Stack } from '@mantine/core';
+import { Box, Container, Spinner, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
@@ -23,14 +23,14 @@ import { TeamShell } from './pages/TeamShell';
 
 function Layout() {
   return (
-    <Stack gap={0}>
+    <Box minH="100vh">
       <UpdateBanner />
       <Header />
       <LocaleSync />
-      <Container size="xl" w="100%" py="md">
+      <Container as="main" maxW="7xl" px={{ base: '3', md: '6' }} py="4">
         <Outlet />
       </Container>
-    </Stack>
+    </Box>
   );
 }
 
@@ -43,7 +43,7 @@ function Callback() {
   const { t } = useTranslation('auth');
   return (
     <Stack align="center">
-      <Loader />
+      <Spinner />
       {t('signingIn')}
     </Stack>
   );

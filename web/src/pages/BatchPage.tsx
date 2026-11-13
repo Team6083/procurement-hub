@@ -1,12 +1,12 @@
-import { Alert, Badge, Button, Card, Group, Loader, Stack, Tabs, Text, Title } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { Badge, Box, Button, Card, Flex, Heading, HStack, SimpleGrid, Spinner, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useBatch, useItems } from '../api/batches';
 import { useMe } from '../api/me';
 import { useTeam } from '../api/teams';
 import { isFullTeam } from '../api/types';
-import { ErrorAlert } from '../components/ErrorAlert';
+import { ErrorAlert, Notice } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { paths } from '../paths';
 import { BatchActions } from '../features/batches/BatchActions';
@@ -17,6 +17,15 @@ import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
+
+function Fact({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <Box>
+      <Text fontSize="xs" color="fg.muted">{label}</Text>
+      <Text fontSize="sm">{children}</Text>
+    </Box>
+  );
+}
 
 export function BatchPage() {
   const { t } = useTranslation('batches');
@@ -31,9 +40,9 @@ export function BatchPage() {
   const caller = callerFor(me, batch?.teamId ?? '', teamData?.archived ?? false);
   const internals = isMember(caller) || caller.isSystemAdmin;
   const names = useNames(batch?.teamId, internals);
-  const [editing, { open, close }] = useDisclosure(false);
+  const { open: editing, onOpen: open, onClose: close } = useDisclosure();
 
-  if (batchQ.isPending) return <Loader />;
+  if (batchQ.isPending) return <Spinner />;
   if (batchQ.error || !batch) return <ErrorAlert error={batchQ.error} />;
 
   const list = items.data ?? [];
@@ -43,59 +52,55 @@ export function BatchPage() {
   const defaultSubgroupId = me?.memberships.find((m) => m.teamId === batch.teamId)?.defaultSubgroupId ?? '';
 
   return (
-    <Stack>
-      <Group justify="space-between" align="flex-start">
-        <Stack gap={4}>
-          <Group>
-            <Title order={2}>#{batch.number} {batch.title}</Title>
+    <Stack gap="4">
+      <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
+        <Stack gap="1">
+          <HStack wrap="wrap">
+            <Heading as="h2" size="xl">#{batch.number} {batch.title}</Heading>
             <BatchStatusBadge status={batch.status} />
-          </Group>
-          {teamData && <RouteAnchor to={paths.team(teamData.slug)} size="sm">{teamData.name}</RouteAnchor>}
+          </HStack>
+          {teamData && <RouteAnchor to={paths.team(teamData.slug)} fontSize="sm">{teamData.name}</RouteAnchor>}
         </Stack>
-        <Group>
-          {canEditBatch(batch, caller) && <Button size="xs" variant="default" onClick={open}>{t('edit.button')}</Button>}
+        <HStack wrap="wrap">
+          {canEditBatch(batch, caller) && <Button size="xs" variant="outline" onClick={open}>{t('edit.button')}</Button>}
           <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} />
-        </Group>
-      </Group>
-      {batch.description && <Text>{batch.description}</Text>}
-      {batch.statusReason && <Alert color="gray">{t('header.reason', { reason: batch.statusReason })}</Alert>}
-      <Card withBorder>
-        <Group gap="xl" align="flex-start">
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">{t('header.deadline')}</Text>
-            <Text size="sm">{batch.deadline ? new Date(batch.deadline).toLocaleString() : '—'}</Text>
-          </Stack>
-          <Stack gap={0}>
-            <Text size="xs" c="dimmed">{t('header.visibility')}</Text>
-            <Text size="sm">{visibility ? t(`visibility.${visibility}`) : '—'}</Text>
-          </Stack>
-          <Stack gap={0}><Text size="xs" c="dimmed">{t('assignments.approvers')}</Text><Text size="sm">{who(batch.assignments.approvers)}</Text></Stack>
-          <Stack gap={0}><Text size="xs" c="dimmed">{t('assignments.purchasers')}</Text><Text size="sm">{who(batch.assignments.purchasers)}</Text></Stack>
-          <Stack gap={0}><Text size="xs" c="dimmed">{t('assignments.receivers')}</Text><Text size="sm">{who(batch.assignments.receivers)}</Text></Stack>
-          {batch.origin === 'proposed' && <Badge variant="outline">{t('header.proposed')}</Badge>}
-        </Group>
-      </Card>
+        </HStack>
+      </Flex>
+      {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
+      {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
+      <Card.Root variant="outline">
+        <Card.Body p="4">
+          <SimpleGrid columns={{ base: 2, md: 3, lg: 6 }} gap="4" alignItems="start">
+            <Fact label={t('header.deadline')}>{batch.deadline ? new Date(batch.deadline).toLocaleString() : '—'}</Fact>
+            <Fact label={t('header.visibility')}>{visibility ? t(`visibility.${visibility}`) : '—'}</Fact>
+            <Fact label={t('assignments.approvers')}>{who(batch.assignments.approvers)}</Fact>
+            <Fact label={t('assignments.purchasers')}>{who(batch.assignments.purchasers)}</Fact>
+            <Fact label={t('assignments.receivers')}>{who(batch.assignments.receivers)}</Fact>
+            {batch.origin === 'proposed' && <Box><Badge variant="outline">{t('header.proposed')}</Badge></Box>}
+          </SimpleGrid>
+        </Card.Body>
+      </Card.Root>
 
-      <Tabs defaultValue="items" keepMounted={false}>
+      <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
         <Tabs.List>
-          <Tabs.Tab value="items">{t('tabs.items')}</Tabs.Tab>
-          {internals && <Tabs.Tab value="review">{t('tabs.review')}</Tabs.Tab>}
-          <Tabs.Tab value="timeline">{t('tabs.timeline')}</Tabs.Tab>
+          <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
+          {internals && <Tabs.Trigger value="review">{t('tabs.review')}</Tabs.Trigger>}
+          <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
-        <Tabs.Panel value="items" pt="md">
-          {items.isPending && <Loader />}
+        <Tabs.Content value="items">
+          {items.isPending && <Spinner />}
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
-        </Tabs.Panel>
+        </Tabs.Content>
         {internals && (
-          <Tabs.Panel value="review" pt="md">
+          <Tabs.Content value="review">
             {items.data && <ReviewTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
-          </Tabs.Panel>
+          </Tabs.Content>
         )}
-        <Tabs.Panel value="timeline" pt="md">
+        <Tabs.Content value="timeline">
           <TimelineTab batchId={batch.id} nameOf={names.name} />
-        </Tabs.Panel>
-      </Tabs>
+        </Tabs.Content>
+      </Tabs.Root>
       {canEditBatch(batch, caller) && <EditBatchModal opened={editing} batch={batch} members={names.members} onClose={close} />}
     </Stack>
   );

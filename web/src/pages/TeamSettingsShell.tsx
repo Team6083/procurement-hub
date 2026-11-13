@@ -1,6 +1,7 @@
-import { Alert, Group, Stack } from '@mantine/core';
+import { HStack, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router';
+import { Notice } from '../components/ErrorAlert';
 import { RouteButton } from '../components/RouteLinks';
 import { useTeamCtx } from '../features/teams/TeamContext';
 import { paths } from '../paths';
@@ -9,18 +10,27 @@ export function TeamSettingsShell() {
   const { t } = useTranslation('teams');
   const { slug, canAdmin, team } = useTeamCtx();
   const { pathname } = useLocation();
-  if (!canAdmin) return <Alert color="gray">{t('settings.forbidden')}</Alert>;
-  const variant = (suffix: string) =>
-    (suffix === '' ? pathname.replace(/\/$/, '').endsWith('/settings') : pathname.endsWith(suffix)) ? 'filled' : 'light';
+  if (!canAdmin) return <Notice>{t('settings.forbidden')}</Notice>;
+  const isActive = (suffix: string) => (suffix === '' ? pathname.replace(/\/$/, '').endsWith('/settings') : pathname.endsWith(suffix));
+  const nav = (suffix: string, label: string) => (
+    <RouteButton
+      to={paths.team(slug, `settings${suffix}`)}
+      variant={isActive(suffix) ? 'solid' : 'subtle'}
+      size="xs"
+      aria-current={isActive(suffix) ? 'page' : undefined}
+    >
+      {label}
+    </RouteButton>
+  );
   return (
-    <Stack>
-      {team.archived && <Alert color="yellow">{t('settings.archivedNotice')}</Alert>}
-      <Group gap="xs">
-        <RouteButton to={paths.team(slug, 'settings')} variant={variant('')} size="xs">{t('settings.nav.general')}</RouteButton>
-        <RouteButton to={paths.team(slug, 'settings/subgroups')} variant={variant('/subgroups')} size="xs">{t('settings.nav.subgroups')}</RouteButton>
-        <RouteButton to={paths.team(slug, 'settings/reference-rates')} variant={variant('/reference-rates')} size="xs">{t('settings.nav.rates')}</RouteButton>
-        <RouteButton to={paths.team(slug, 'settings/members')} variant={variant('/members')} size="xs">{t('settings.nav.members')}</RouteButton>
-      </Group>
+    <Stack gap="4">
+      {team.archived && <Notice status="warning">{t('settings.archivedNotice')}</Notice>}
+      <HStack gap="2" wrap="wrap" as="nav">
+        {nav('', t('settings.nav.general'))}
+        {nav('/subgroups', t('settings.nav.subgroups'))}
+        {nav('/reference-rates', t('settings.nav.rates'))}
+        {nav('/members', t('settings.nav.members'))}
+      </HStack>
       <Outlet />
     </Stack>
   );

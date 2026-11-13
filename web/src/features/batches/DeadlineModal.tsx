@@ -1,16 +1,10 @@
-import { Button, Group, Modal, Stack, TextInput } from '@mantine/core';
+import { Button, HStack, Input, Stack } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ErrorAlert } from '../../components/ErrorAlert';
-
-const pad = (n: number) => String(n).padStart(2, '0');
-/** ISO timestamp -> value for <input type="datetime-local"> in local time. */
-export function toLocalInput(iso: string | null | undefined): string {
-  if (!iso) return '';
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-}
+import { AppDialog } from '../../components/ui/dialog';
+import { FormField } from '../../components/ui/field';
+import { fromLocalInput, toLocalInput } from './datetime';
 
 interface Props {
   opened: boolean;
@@ -24,21 +18,29 @@ interface Props {
   onConfirm: (deadline: string | undefined) => void;
 }
 
-export function DeadlineModal({ opened, title, required, initial, loading, error, onClose, onConfirm }: Props) {
+function Inner({ title, required, initial, loading, error, onClose, onConfirm }: Omit<Props, 'opened'>) {
   const { t } = useTranslation('batches');
   const [value, setValue] = useState(toLocalInput(initial));
-  const parsed = value ? new Date(value) : undefined;
-  const valid = parsed ? !Number.isNaN(parsed.getTime()) : !required;
+  const parsed = fromLocalInput(value);
+  const valid = parsed === null ? !required : parsed !== undefined;
   return (
-    <Modal opened={opened} onClose={onClose} title={title}>
-      <Stack>
-        <TextInput type="datetime-local" label={t('header.deadline')} description={required ? t('actions.deadlineRequired') : t('actions.deadlineOptional')} value={value} onChange={(e) => setValue(e.currentTarget.value)} data-autofocus />
-        <ErrorAlert error={error} />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common:actions.cancel')}</Button>
-          <Button loading={loading} disabled={!valid} onClick={() => onConfirm(parsed ? parsed.toISOString() : undefined)}>{title}</Button>
-        </Group>
-      </Stack>
-    </Modal>
+    <Stack gap="4">
+      <FormField label={t('header.deadline')} helperText={required ? t('actions.deadlineRequired') : t('actions.deadlineOptional')}>
+        <Input type="datetime-local" value={value} onChange={(e) => setValue(e.currentTarget.value)} />
+      </FormField>
+      <ErrorAlert error={error} />
+      <HStack justify="flex-end">
+        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <Button loading={loading} disabled={!valid} onClick={() => onConfirm(parsed ?? undefined)}>{title}</Button>
+      </HStack>
+    </Stack>
+  );
+}
+
+export function DeadlineModal({ opened, ...rest }: Props) {
+  return (
+    <AppDialog open={opened} onClose={rest.onClose} title={rest.title}>
+      <Inner {...rest} />
+    </AppDialog>
   );
 }

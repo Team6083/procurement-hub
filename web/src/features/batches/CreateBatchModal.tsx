@@ -1,10 +1,13 @@
-import { Button, Group, Modal, Select, Stack, Switch, Textarea, TextInput } from '@mantine/core';
+import { Button, HStack, Input, Stack, Switch, Text, Textarea } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useCreateBatch } from '../../api/batches';
 import type { MyMembership } from '../../api/types';
-import { ErrorAlert } from '../../components/ErrorAlert';
+import { ErrorAlert, Notice } from '../../components/ErrorAlert';
+import { AppDialog } from '../../components/ui/dialog';
+import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
 import { paths } from '../../paths';
 
 function Inner({ team, onClose }: { team: MyMembership; onClose: () => void }) {
@@ -25,21 +28,32 @@ function Inner({ team, onClose }: { team: MyMembership; onClose: () => void }) {
         );
       }}
     >
-      <Stack>
-        <TextInput label={t('create.title')} value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} required data-autofocus />
-        <Textarea label={t('create.description')} value={description} onChange={(e) => setDescription(e.currentTarget.value)} autosize minRows={2} />
+      <Stack gap="4">
+        <FormField label={t('create.title')} required>
+          <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
+        </FormField>
+        <FormField label={t('create.description')}>
+          <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
+        </FormField>
         {admin ? (
-          <Switch label={t('create.proposeInstead')} description={t('create.proposeHelp')} checked={propose} onChange={(e) => setPropose(e.currentTarget.checked)} />
+          <Stack gap="1">
+            <Switch.Root checked={propose} onCheckedChange={(e) => setPropose(e.checked)}>
+              <Switch.HiddenInput />
+              <Switch.Control />
+              <Switch.Label>{t('create.proposeInstead')}</Switch.Label>
+            </Switch.Root>
+            <Text fontSize="sm" color="fg.muted">{t('create.proposeHelp')}</Text>
+          </Stack>
         ) : (
-          <TextInput readOnly variant="filled" value={t('create.memberNote')} aria-label={t('create.memberNote')} />
+          <Notice status="info">{t('create.memberNote')}</Notice>
         )}
         <ErrorAlert error={create.error} />
-        <Group justify="flex-end">
-          <Button variant="default" onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <HStack justify="flex-end">
+          <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
           <Button type="submit" loading={create.isPending} disabled={!title.trim()}>
             {admin && !propose ? t('create.submitDraft') : t('create.submitPropose')}
           </Button>
-        </Group>
+        </HStack>
       </Stack>
     </form>
   );
@@ -52,17 +66,16 @@ export function CreateBatchModal({ opened, onClose, teams, defaultTeamId }: { op
   const teamId = picked ?? defaultTeamId ?? teams[0]?.teamId ?? null;
   const team = teams.find((m) => m.teamId === teamId);
   return (
-    <Modal opened={opened} onClose={onClose} title={t('create.dialogTitle')}>
-      <Stack>
-        <Select
+    <AppDialog open={opened} onClose={onClose} title={t('create.dialogTitle')}>
+      <Stack gap="4">
+        <SelectField
           label={t('filters.team')}
-          allowDeselect={false}
           value={teamId}
-          onChange={setTeamId}
-          data={teams.map((m) => ({ value: m.teamId, label: m.name }))}
+          onChange={(v) => v && setTeamId(v)}
+          options={teams.map((m) => ({ value: m.teamId, label: m.name }))}
         />
         {team && <Inner key={team.teamId} team={team} onClose={onClose} />}
       </Stack>
-    </Modal>
+    </AppDialog>
   );
 }

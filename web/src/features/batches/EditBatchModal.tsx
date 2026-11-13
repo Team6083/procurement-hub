@@ -1,10 +1,14 @@
-import { Button, Group, Modal, MultiSelect, Select, Stack, Textarea, TextInput } from '@mantine/core';
+import { Button, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePatchBatch, useSetAssignments } from '../../api/batches';
 import type { Batch, PatchBatchRequest, TeamMember } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { toLocalInput } from './DeadlineModal';
+import { Checklist } from '../../components/ui/checklist';
+import { AppDialog } from '../../components/ui/dialog';
+import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
+import { deadlineChange, fromLocalInput, toLocalInput } from './datetime';
 
 function sameIds(a: string[], b: string[]) {
   return a.length === b.length && [...a].sort().join() === [...b].sort().join();
@@ -21,16 +25,17 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
   const [a, setA] = useState(batch.assignments.approvers);
   const [p, setP] = useState(batch.assignments.purchasers);
   const [r, setR] = useState(batch.assignments.receivers);
-  const data = members.map((m) => ({ value: m.userId, label: m.displayName || m.username }));
+  const options = members.map((m) => ({ value: m.userId, label: m.displayName || m.username }));
+  const newDeadline = fromLocalInput(deadline);
 
   const save = async () => {
+    if (newDeadline === undefined) return;
     // Sequential: each call returns the new version, which the next call reads from the cache.
     const body: PatchBatchRequest = {};
     if (title.trim() !== batch.title) body.title = title.trim();
     if (description !== batch.description) body.description = description;
-    const newDeadline = deadline ? new Date(deadline).toISOString() : null;
-    const oldDeadline = batch.deadline ? new Date(batch.deadline).toISOString() : null;
-    if (newDeadline !== oldDeadline) body.deadline = newDeadline;
+    const changed = deadlineChange(batch.deadline, deadline);
+    if (changed !== undefined) body.deadline = changed;
     const newOverride = override === 'inherit' ? '' : override;
     if (newOverride !== batch.visibilityOverride) body.visibilityOverride = newOverride === '' ? null : (newOverride as 'public' | 'members');
     try {
@@ -46,25 +51,30 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
   };
 
   return (
-    <Stack>
-      <TextInput label={t('create.title')} value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
-      <Textarea label={t('create.description')} value={description} onChange={(e) => setDescription(e.currentTarget.value)} autosize minRows={2} />
-      <TextInput type="datetime-local" label={t('header.deadline')} value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
-      <Select
+    <Stack gap="4">
+      <FormField label={t('create.title')}>
+        <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
+      </FormField>
+      <FormField label={t('create.description')}>
+        <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
+      </FormField>
+      <FormField label={t('header.deadline')}>
+        <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
+      </FormField>
+      <SelectField
         label={t('header.visibility')}
-        allowDeselect={false}
         value={override}
         onChange={(v) => v && setOverride(v)}
-        data={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
+        options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
       />
-      <MultiSelect label={t('assignments.approvers')} data={data} value={a} onChange={setA} searchable />
-      <MultiSelect label={t('assignments.purchasers')} data={data} value={p} onChange={setP} searchable />
-      <MultiSelect label={t('assignments.receivers')} data={data} value={r} onChange={setR} searchable />
+      <Checklist label={t('assignments.approvers')} options={options} value={a} onChange={setA} />
+      <Checklist label={t('assignments.purchasers')} options={options} value={p} onChange={setP} />
+      <Checklist label={t('assignments.receivers')} options={options} value={r} onChange={setR} />
       <ErrorAlert error={patch.error ?? assign.error} />
-      <Group justify="flex-end">
-        <Button variant="default" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button loading={patch.isPending || assign.isPending} disabled={!title.trim()} onClick={() => void save()}>{t('common:actions.save')}</Button>
-      </Group>
+      <HStack justify="flex-end">
+        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
+        <Button loading={patch.isPending || assign.isPending} disabled={!title.trim() || newDeadline === undefined} onClick={() => void save()}>{t('common:actions.save')}</Button>
+      </HStack>
     </Stack>
   );
 }
@@ -73,8 +83,8 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
 export function EditBatchModal({ opened, batch, members, onClose }: { opened: boolean; batch: Batch; members: TeamMember[]; onClose: () => void }) {
   const { t } = useTranslation('batches');
   return (
-    <Modal opened={opened} onClose={onClose} title={t('edit.title')}>
-      {opened && <Inner batch={batch} members={members} onClose={onClose} />}
-    </Modal>
+    <AppDialog open={opened} onClose={onClose} title={t('edit.title')}>
+      <Inner batch={batch} members={members} onClose={onClose} />
+    </AppDialog>
   );
 }

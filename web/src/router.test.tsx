@@ -1,9 +1,9 @@
-import { MantineProvider } from '@mantine/core';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { RouterProvider, createMemoryRouter, useLocation, useParams } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { RouteAnchor } from './components/RouteLinks';
+import { Provider } from './components/ui/provider';
 import i18n from './i18n';
 import { paths } from './paths';
 import { createAppRouter, routes, toBasename } from './router';
@@ -43,16 +43,6 @@ vi.mock('./pages/settings/ReferenceRatesSettings', () => ({ ReferenceRatesSettin
 vi.mock('./pages/settings/MembersSettings', () => ({ MembersSettings: stub('settings-members') }));
 
 beforeAll(() => {
-  window.matchMedia ??= ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as typeof window.matchMedia;
   void i18n.changeLanguage('en');
 });
 
@@ -65,9 +55,9 @@ function renderAt(entry: string, basename = '/') {
   const router = createMemoryRouter(routes, { basename, initialEntries: [entry] });
   render(
     <I18nextProvider i18n={i18n}>
-      <MantineProvider>
+      <Provider>
         <RouterProvider router={router} />
-      </MantineProvider>
+      </Provider>
     </I18nextProvider>,
   );
   return router;
@@ -147,9 +137,9 @@ describe('RouteAnchor', () => {
   it('leaves modified clicks to the browser', () => {
     const router = createMemoryRouter([{ path: '*', element: <RouteAnchor to="/x">x</RouteAnchor> }], { initialEntries: ['/'] });
     render(
-      <MantineProvider>
+      <Provider>
         <RouterProvider router={router} />
-      </MantineProvider>,
+      </Provider>,
     );
     fireEvent.click(screen.getByRole('link', { name: 'x' }), { ctrlKey: true });
     expect(router.state.location.pathname).toBe('/');

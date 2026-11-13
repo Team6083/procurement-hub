@@ -1,0 +1,109 @@
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { RouterProvider, createMemoryRouter } from 'react-router';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import i18n from '../i18n';
+import { routes } from '../router';
+import { batch, item, me, member, renderWithApi, team, type Routes } from '../test/fakeApi';
+
+// Logged-in pages with the real layout and a fake API (no identity provider in tests).
+vi.mock('../auth/AuthGate', () => ({
+  useSession: () => ({ user: { profile: { name: 'Alice Example' } }, logout: vi.fn() }),
+}));
+
+const tz = process.env.TZ;
+beforeAll(() => {
+  process.env.TZ = 'Asia/Taipei';
+  void i18n.changeLanguage('en');
+});
+afterAll(() => {
+  process.env.TZ = tz;
+});
+afterEach(cleanup);
+
+const base: Routes = {
+  'GET /meta': { version: '1', commit: 'unknown', baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled: false, emailEnabled: false },
+  'GET /me': me(),
+  'GET /teams': { items: [{ id: 't1', slug: 'robotics', name: 'Robotics', description: 'Robot team', archived: false }], nextCursor: null },
+  'GET /teams/t1': team(),
+  'GET /teams/t1/members': { items: [member('u1', 'Alice'), member('u2', 'Bob')], nextCursor: null },
+  'GET /me/tasks': { proposalsToHandle: [], itemsToReview: [{ Batch: batch(), Count: 2 }], returnedItems: [] },
+  'GET /batches': { items: [batch()], nextCursor: null },
+  'GET /batches/b1': batch(),
+  'GET /batches/b1/items': {
+    items: [item(1, { name: 'Servo', productUrl: 'https://shop.example.org/servo' }), item(2, { name: 'Wheel', requesterId: 'u2', priority: 5 })],
+    nextCursor: null,
+  },
+  'GET /audit': { items: [], nextCursor: null },
+};
+
+function open(path: string, extra: Routes = {}) {
+  const router = createMemoryRouter(routes, { initialEntries: [path] });
+  return { router, ...renderWithApi(<RouterProvider router={router} />, { ...base, ...extra }) };
+}
+
+describe('logged-in pages render with Chakra and API data', () => {
+  it('home: my tasks and teams', async () => {
+    open('/');
+    expect(await screen.findByRole('link', { name: /#7 Spring order \(2 pending\)/ })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: 'Robotics' })).toBeTruthy();
+    // Desktop nav and the narrow-screen menu button both exist; CSS decides which shows.
+    expect(screen.getByRole('button', { name: 'Menu' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'User menu' }).textContent).toBe('Alice Example');
+  });
+
+  it('batches list with filters', async () => {
+    open('/batches');
+    expect(await screen.findByRole('link', { name: 'Spring order' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Team' })).toBeTruthy();
+    expect(screen.getByRole('combobox', { name: 'Status' })).toBeTruthy();
+  });
+
+  it('batch: header, items, review and edit dialog with local deadline', async () => {
+    open('/batches/b1');
+    expect(await screen.findByRole('heading', { name: '#7 Spring order' })).toBeTruthy();
+    expect(screen.getByText('Parts for the arm')).toBeTruthy();
+    // 2026-03-01T16:30Z in UTC+8
+    expect(screen.getByText(new Date('2026-03-01T16:30:00Z').toLocaleString())).toBeTruthy();
+    const servo = await screen.findByRole('link', { name: 'Servo' });
+    expect(servo.getAttribute('rel')).toBe('noopener noreferrer');
+    expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('tab', { name: 'Review' }));
+    });
+    expect(await screen.findByText('Pending items (2)')).toBeTruthy();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    });
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Edit batch' })).toBeTruthy();
+    expect((within(dialog).getByLabelText('Deadline') as HTMLInputElement).value).toBe('2026-03-02T00:30');
+    expect(within(dialog).getAllByRole('checkbox', { name: 'Alice' })[0]).toHaveProperty('checked', true);
+  });
+
+  it('batch: changing the deadline sends UTC', async () => {
+    const { calls } = open('/batches/b1', { 'PATCH /batches/b1': (body: unknown) => ({ ...batch(), ...(body as object), version: 3 }) });
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Edit' }));
+    });
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.change(within(dialog).getByLabelText('Deadline'), { target: { value: '2026-03-10T09:00' } });
+    await act(async () => {
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Save' }));
+    });
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ deadline: '2026-03-10T01:00:00.000Z' }));
+  });
+
+  it('team members tab and settings shell', async () => {
+    open('/teams/robotics/members');
+    expect(await screen.findByRole('heading', { name: 'Robotics' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Members' }).getAttribute('aria-selected')).toBe('true');
+    expect(await screen.findByText('Bob')).toBeTruthy();
+    cleanup();
+    open('/teams/robotics/settings/subgroups');
+    expect(await screen.findByRole('heading', { name: 'Subgroups' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Subgroups' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByText('Mechanical')).toBeTruthy();
+  });
+});

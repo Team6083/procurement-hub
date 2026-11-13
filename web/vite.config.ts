@@ -11,11 +11,12 @@ export default defineConfig(({ command, mode }) => ({
     __APP_COMMIT__: JSON.stringify(resolveCommitStrict(process.env, undefined, command === 'build' && mode === 'production')),
   },
   build: {
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 1300,
   },
   test: {
     environment: 'jsdom',
     globals: false,
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.ts'],
+    setupFiles: ['src/test/setup.ts'],
   },
 }));

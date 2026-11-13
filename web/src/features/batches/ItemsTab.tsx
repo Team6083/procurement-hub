@@ -1,4 +1,4 @@
-import { Button, Group, Select, Stack, Text, Tooltip } from '@mantine/core';
+import { Box, Button, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,8 @@ import { useItemAction } from '../../api/batches';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
+import { SelectField } from '../../components/ui/select';
+import { Tooltip } from '../../components/ui/tooltip';
 import { EstimateSummary } from './EstimateSummary';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
@@ -34,29 +36,28 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const visible = useMemo(() => filterItems(items, filters), [items, filters]);
   const selected = visible.filter((i) => selection[i.id]);
   const rates = team?.referenceRates ?? [];
-  const set = (k: keyof ItemFilters) => (v: string | null) => setFilters((f) => ({ ...f, [k]: v ?? undefined }));
-  const opts = (xs: { value: string; label: string }[]) => xs;
+  const set = (k: keyof ItemFilters) => (v: string) => setFilters((f) => ({ ...f, [k]: v || undefined }));
 
   return (
-    <Stack>
-      <Group justify="space-between" align="flex-end">
-        <Group align="flex-end" gap="xs">
-          <Select size="xs" label={t('item.subgroup')} clearable placeholder={t('filters.all')} value={filters.subgroup ?? null} onChange={set('subgroup')}
-            data={opts(distinct(items.map((i) => i.subgroupId)).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? id })))} />
-          <Select size="xs" label={t('item.requester')} clearable placeholder={t('filters.all')} value={filters.requester ?? null} onChange={set('requester')}
-            data={opts(distinct(items.map((i) => i.requesterId)).map((id) => ({ value: id, label: nameOf(id) })))} />
-          <Select size="xs" label={t('item.priority')} clearable placeholder={t('filters.all')} value={filters.priority ?? null} onChange={set('priority')}
-            data={['5', '4', '3', '2', '1']} />
-          <Select size="xs" label={t('item.status')} clearable placeholder={t('filters.all')} value={filters.status ?? null} onChange={set('status')}
-            data={opts(distinct(items.map((i) => i.status)).map((s) => ({ value: s, label: t(`itemStatus.${s}`, { defaultValue: s }) })))} />
-          <Select size="xs" label={t('item.vendor')} clearable placeholder={t('filters.all')} value={filters.vendor ?? null} onChange={set('vendor')}
-            data={distinct(items.map((i) => i.vendor))} />
-        </Group>
-        {canAddItem(batch, caller) && <Button onClick={() => setEditing('new')}>{t('item.add')}</Button>}
-      </Group>
+    <Stack gap="4">
+      <Flex justify="space-between" align="flex-end" gap="3" wrap="wrap">
+        <SimpleGrid columns={{ base: 2, md: 5 }} gap="2" flex="1" maxW={{ md: '4xl' }}>
+          <SelectField size="xs" label={t('item.subgroup')} placeholder={t('filters.all')} value={filters.subgroup} onChange={set('subgroup')}
+            options={distinct(items.map((i) => i.subgroupId)).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? id }))} />
+          <SelectField size="xs" label={t('item.requester')} placeholder={t('filters.all')} value={filters.requester} onChange={set('requester')}
+            options={distinct(items.map((i) => i.requesterId)).map((id) => ({ value: id, label: nameOf(id) }))} />
+          <SelectField size="xs" label={t('item.priority')} placeholder={t('filters.all')} value={filters.priority} onChange={set('priority')}
+            options={['5', '4', '3', '2', '1']} />
+          <SelectField size="xs" label={t('item.status')} placeholder={t('filters.all')} value={filters.status} onChange={set('status')}
+            options={distinct(items.map((i) => i.status)).map((s) => ({ value: s, label: t(`itemStatus.${s}`, { defaultValue: s }) }))} />
+          <SelectField size="xs" label={t('item.vendor')} placeholder={t('filters.all')} value={filters.vendor} onChange={set('vendor')}
+            options={distinct(items.map((i) => i.vendor))} />
+        </SimpleGrid>
+        {canAddItem(batch, caller) && <Button size="sm" onClick={() => setEditing('new')}>{t('item.add')}</Button>}
+      </Flex>
 
       {items.length === 0 ? (
-        <Text c="dimmed">{t('item.empty')}</Text>
+        <Text color="fg.muted">{t('item.empty')}</Text>
       ) : (
         <ItemsTable
           items={visible}
@@ -66,16 +67,16 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
           onSelectionChange={setSelection}
           actions={(it) => (
             <>
-              {canModifyItem(it, batch, caller) && <Button size="compact-xs" variant="default" onClick={() => setEditing(it)}>{t('common:actions.edit')}</Button>}
-              {canModifyItem(it, batch, caller) && <Button size="compact-xs" variant="light" color="red" onClick={() => { action.reset(); setWithdrawing(it); }}>{t('item.withdraw')}</Button>}
+              {canModifyItem(it, batch, caller) && <Button size="2xs" variant="outline" onClick={() => setEditing(it)}>{t('common:actions.edit')}</Button>}
+              {canModifyItem(it, batch, caller) && <Button size="2xs" variant="subtle" colorPalette="red" onClick={() => { action.reset(); setWithdrawing(it); }}>{t('item.withdraw')}</Button>}
               {showResubmit(it, batch, caller) && (
-                <Tooltip label={t('item.resubmitNeedsEdit')} disabled={canResubmitItem(it, batch, caller)}>
-                  <span>
-                    <Button size="compact-xs" disabled={!canResubmitItem(it, batch, caller)} loading={action.isPending && action.variables?.item.id === it.id}
+                <Tooltip content={t('item.resubmitNeedsEdit')} disabled={canResubmitItem(it, batch, caller)}>
+                  <Box as="span" display="inline-block">
+                    <Button size="2xs" disabled={!canResubmitItem(it, batch, caller)} loading={action.isPending && action.variables?.item.id === it.id}
                       onClick={() => action.mutate({ item: it, action: 'resubmit' })}>
                       {t('item.resubmit')}
                     </Button>
-                  </span>
+                  </Box>
                 </Tooltip>
               )}
             </>
@@ -84,10 +85,10 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       )}
       <ErrorAlert error={action.variables?.action === 'resubmit' ? action.error : null} />
 
-      <Group align="flex-start" gap="xl">
+      <Flex align="flex-start" gap="8" wrap="wrap">
         <EstimateSummary items={visible.filter(countsTowardEstimate)} rates={rates} label={t('totals.visible')} />
         {selected.length > 0 && <EstimateSummary items={selected} rates={rates} label={t('totals.selected', { count: selected.length })} />}
-      </Group>
+      </Flex>
 
       <ItemFormModal opened={editing !== null} onClose={() => setEditing(null)} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} />
       <ReasonModal

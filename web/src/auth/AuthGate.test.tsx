@@ -1,7 +1,7 @@
-import { MantineProvider } from '@mantine/core';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { Provider } from '../components/ui/provider';
 import i18n from '../i18n';
 import { AppAuthProvider } from './AuthGate';
 import { createUserManager } from './oidc';
@@ -13,17 +13,6 @@ const config = {
 };
 
 beforeAll(() => {
-  // Mantine needs matchMedia, which jsdom lacks.
-  window.matchMedia ??= ((query: string) => ({
-    matches: false,
-    media: query,
-    onchange: null,
-    addEventListener: () => undefined,
-    removeEventListener: () => undefined,
-    addListener: () => undefined,
-    removeListener: () => undefined,
-    dispatchEvent: () => false,
-  })) as typeof window.matchMedia;
   void i18n.changeLanguage('en');
 });
 
@@ -38,11 +27,11 @@ function mount(signinRedirect: () => Promise<void>) {
   const redirect = vi.spyOn(manager, 'signinRedirect').mockImplementation(signinRedirect);
   render(
     <I18nextProvider i18n={i18n}>
-      <MantineProvider>
+      <Provider>
         <AppAuthProvider manager={manager} session={session}>
           <p>secret app</p>
         </AppAuthProvider>
-      </MantineProvider>
+      </Provider>
     </I18nextProvider>,
   );
   return { redirect };

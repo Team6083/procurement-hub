@@ -1,36 +1,41 @@
-import { Card, List, Stack, Text } from '@mantine/core';
+import { Card, List, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useTeamCtx } from '../features/teams/TeamContext';
 
 export function TeamOverview() {
   const { t } = useTranslation('teams');
   const { team, full } = useTeamCtx();
+  const active = full?.subgroups.filter((g) => g.active) ?? [];
   return (
-    <Stack>
-      {team.description ? <Text>{team.description}</Text> : <Text c="dimmed">{t('team.noDescription')}</Text>}
+    <Stack gap="4">
+      {team.description ? <Text whiteSpace="pre-wrap">{team.description}</Text> : <Text color="fg.muted">{t('team.noDescription')}</Text>}
       {full && (
-        <Card withBorder>
-          <Stack gap="xs">
-            <Text size="sm">
-              {t('general.visibility')}: {t(`team.visibility.${full.visibility}`)}
-            </Text>
-            <Text size="sm">
-              {t('general.locale')}: {t(`common:language.${full.locale}`)}
-            </Text>
-            <Text fw={600} size="sm">{t('team.subgroups')}</Text>
-            {full.subgroups.filter((g) => g.active).length === 0 ? (
-              <Text size="sm" c="dimmed">{t('team.noSubgroups')}</Text>
-            ) : (
-              <List size="sm">
-                {full.subgroups.filter((g) => g.active).map((g) => <List.Item key={g.id}>{g.name}</List.Item>)}
-              </List>
-            )}
-          </Stack>
-        </Card>
+        <Card.Root variant="outline">
+          <Card.Body p="4">
+            <Stack gap="2">
+              <Text fontSize="sm">
+                {t('general.visibility')}: {t(`team.visibility.${full.visibility}`)}
+              </Text>
+              <Text fontSize="sm">
+                {t('general.locale')}: {t(`common:language.${full.locale}`)}
+              </Text>
+              <Text fontWeight="semibold" fontSize="sm">{t('team.subgroups')}</Text>
+              {active.length === 0 ? (
+                <Text fontSize="sm" color="fg.muted">{t('team.noSubgroups')}</Text>
+              ) : (
+                <List.Root fontSize="sm" ps="4">
+                  {active.map((g) => <List.Item key={g.id}>{g.name}</List.Item>)}
+                </List.Root>
+              )}
+            </Stack>
+          </Card.Body>
+        </Card.Root>
       )}
-      <Card withBorder>
-        <Text c="dimmed">{t('team.batchesPlaceholder')}</Text>
-      </Card>
+      <Card.Root variant="outline">
+        <Card.Body p="4">
+          <Text color="fg.muted">{t('team.batchesPlaceholder')}</Text>
+        </Card.Body>
+      </Card.Root>
     </Stack>
   );
 }
