@@ -21,12 +21,13 @@ Prerequisites: Go (see `server/go.mod`), Node.js 22+, a MongoDB replica set, and
 ```sh
 # Backend
 cd server
-export APP_FRONTEND_ORIGINS=http://localhost:5173
-export APP_FRONTEND_URL=http://localhost:5173
-export APP_ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)
-export MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0'
-export OIDC_ISSUER_URL=https://sso.example.org/realms/example
-export OIDC_AUDIENCE=procurement-hub
+export CORS_ALLOWED_ORIGINS=http://localhost:5173
+export FRONTEND_URL=http://localhost:5173
+export WEBHOOK_ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)
+export MONGO_URI='mongodb://localhost:27017/procurement_hub?replicaSet=rs0'
+export OIDC_ISSUER=https://sso.example.org/realms/example
+export OIDC_AUDIENCE=procurement-hub-api
+export ADMIN_ROLES=procurement-hub-api:admin
 go run ./cmd/procurement-hub   # subcommands: serve (default), migrate
 
 # Frontend (separate terminal)
@@ -60,26 +61,9 @@ The image runs `serve` by default; pass `migrate` as the container command to ru
 
 ### Backend (environment variables)
 
-| Variable | Required | Default | Description |
-|---|---|---|---|
-| `APP_HTTP_ADDR` | no | `:8080` | API listen address |
-| `APP_METRICS_ADDR` | no | `:9090` | Metrics and health listen address |
-| `APP_FRONTEND_ORIGINS` | yes | — | Comma-separated exact origins allowed by CORS |
-| `APP_FRONTEND_URL` | yes | — | Base URL used to build links in notifications |
-| `APP_BASE_CURRENCY` | no | `USD` | ISO 4217 code for actual costs |
-| `APP_SUPPORTED_CURRENCIES` | no | base currency | Currencies allowed for estimates |
-| `APP_ENCRYPTION_KEY` | yes | — | Base64 32-byte key (AES-256-GCM for secrets in the DB) |
-| `MONGODB_URI` | yes | — | Must point to a replica set |
-| `MONGODB_DATABASE` | no | `procurement_hub` | |
-| `OIDC_ISSUER_URL` | yes | — | OIDC issuer (e.g. a Keycloak realm URL) |
-| `OIDC_AUDIENCE` | yes | — | Value that must be present in the access token `aud` |
-| `OIDC_GROUPS_CLAIM` / `OIDC_ROLES_CLAIM` | no | `groups` / `realm_access.roles` | Dot paths into the access token |
-| `OIDC_ADMIN_ROLE` | no | `system-admin` | Role(s) granting system admin, comma-separated; any match is enough. A bare name is a Keycloak **realm role** (`realm_access.roles`); `<client id>:<role>` is a **client role** (`resource_access.<client id>.roles`) — the same notation as oauth2-proxy's `--allowed-role` |
-| `ROLE_MAPPINGS_FILE` | no | — | YAML file of managed role-mapping rules |
+The backend is configured only through environment variables. [`docs/configuration.md`](docs/configuration.md) lists every variable with its default and format rules, and [`server/.env.example`](server/.env.example) is a starting point. Required: `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`, `MONGO_URI` (the database name is the URI path), `OIDC_ISSUER`, `OIDC_AUDIENCE`, `ADMIN_ROLES` and `WEBHOOK_ENCRYPTION_KEY`. Invalid settings are all reported at once and the process exits with status 1; on success one log line shows the effective configuration with secrets masked.
 
-The full list (SMTP, lookup provider, digest window, …) is in the specification; a dedicated `docs/configuration.md` will follow with the release milestone.
-
-Examples: `OIDC_ADMIN_ROLE=system-admin` (realm role), `OIDC_ADMIN_ROLE=procurement-hub:admin` (client role), `OIDC_ADMIN_ROLE=system-admin,procurement-hub:admin` (either). The role must be present in the **access token**: with Keycloak's default `roles` client scope this requires "Full scope allowed" on the client, or a client-roles mapper. Role names containing `:` cannot be used as realm roles.
+`ADMIN_ROLES` and `ALLOWED_ROLES` use oauth2-proxy's `--allowed-role` notation: a bare name is a Keycloak **realm role**, `<client id>:<role>` is a **client role**, and any match in the comma-separated list is enough. Examples: `ADMIN_ROLES=system-admin` (realm role), `ADMIN_ROLES=procurement-hub-api:admin` (client role), `ADMIN_ROLES=system-admin,procurement-hub-api:admin` (either). The role must be present in the **access token**; see [`docs/keycloak.md`](docs/keycloak.md).
 
 Role-mapping rules map token claim values to team roles. Example `ROLE_MAPPINGS_FILE`:
 

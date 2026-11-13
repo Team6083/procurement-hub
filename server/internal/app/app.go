@@ -31,7 +31,7 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 	cfg, st := d.Config, d.Store
 	r := chi.NewRouter()
 	r.Use(httpapi.VersionHeaders(d.Version))
-	r.Use(httpapi.CORS(cfg.FrontendOrigins))
+	r.Use(httpapi.CORS(cfg.CORSAllowedOrigins))
 	if d.Metrics != nil {
 		r.Use(d.Metrics.Instrument)
 	}

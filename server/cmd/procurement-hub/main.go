@@ -70,6 +70,16 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if err := cmd(stdout); err != nil {
+		var cerr *config.Error
+		if errors.As(err, &cerr) {
+			// Print every configuration problem on its own line, not one
+			// escaped log value, so operators can read the list at once.
+			_, _ = fmt.Fprintln(stderr, "procurement-hub: invalid configuration:")
+			for _, p := range cerr.Problems {
+				_, _ = fmt.Fprintf(stderr, "  - %v\n", p)
+			}
+			return 1
+		}
 		slog.Error("fatal", "command", name, "error", err)
 		return 1
 	}
@@ -90,11 +100,8 @@ func serve() error {
 	if err != nil {
 		return err
 	}
-	var lvl slog.Level
-	if err := lvl.UnmarshalText([]byte(cfg.LogLevel)); err != nil {
-		lvl = slog.LevelInfo
-	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})))
+	slog.Info("effective configuration", "config", cfg) // secrets masked by Config.LogValue
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
@@ -113,8 +120,8 @@ func serve() error {
 		return err
 	}
 	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
-		IssuerURL: cfg.OIDCIssuerURL, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
-		RolesClaim: cfg.OIDCRolesClaim, AdminRoles: cfg.OIDCAdminRoles, ClockSkew: cfg.OIDCClockSkew,
+		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
+		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		return err
@@ -142,16 +149,19 @@ func serve() error {
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })
 	go runner.Run(ctx)
 
-	api := &http.Server{Addr: cfg.HTTPAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	ops := &http.Server{
-		Addr: cfg.MetricsAddr, ReadHeaderTimeout: 10 * time.Second,
-		Handler: httpapi.OpsHandler(reg, map[string]httpapi.ReadyCheck{
-			"mongodb": st.CheckReplicaSet,
-		}),
+	api := &http.Server{Addr: cfg.ListenAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
+	servers := []*http.Server{api}
+	if cfg.MetricsListenAddr != "" { // empty when METRICS_LISTEN_ADDR=off
+		servers = append(servers, &http.Server{
+			Addr: cfg.MetricsListenAddr, ReadHeaderTimeout: 10 * time.Second,
+			Handler: httpapi.OpsHandler(reg, map[string]httpapi.ReadyCheck{
+				"mongodb": st.CheckReplicaSet,
+			}),
+		})
 	}
 
-	errc := make(chan error, 2)
-	for _, s := range []*http.Server{api, ops} {
+	errc := make(chan error, len(servers))
+	for _, s := range servers {
 		go func() {
 			slog.Info("listening", "addr", s.Addr)
 			if err := s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
@@ -164,9 +174,10 @@ func serve() error {
 	case err := <-errc:
 		return err
 	}
-	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	shutdown, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 	defer cancel()
-	_ = api.Shutdown(shutdown)
-	_ = ops.Shutdown(shutdown)
+	for _, s := range servers {
+		_ = s.Shutdown(shutdown)
+	}
 	return nil
 }

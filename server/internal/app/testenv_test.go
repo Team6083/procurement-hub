@@ -115,18 +115,19 @@ func newEnv(t *testing.T) *env {
 	p := newIDP(t)
 
 	vals := map[string]string{
-		"APP_FRONTEND_ORIGINS": "https://app.example.org", "APP_FRONTEND_URL": "https://app.example.org",
-		"APP_ENCRYPTION_KEY": "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
-		"MONGODB_URI":        uri, "OIDC_ISSUER_URL": p.srv.URL, "OIDC_AUDIENCE": testAudience,
+		"CORS_ALLOWED_ORIGINS": "https://app.example.org", "FRONTEND_URL": "https://app.example.org",
+		"WEBHOOK_ENCRYPTION_KEY": "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
+		"MONGO_URI":              withDatabase(uri, fmt.Sprintf("ph_http_%d", time.Now().UnixNano())),
+		"OIDC_ISSUER":            p.srv.URL, "OIDC_AUDIENCE": testAudience,
 		// Admins are identified by a *client* role, exercising the oauth2-proxy-style notation.
-		"OIDC_ADMIN_ROLE":          testClientID + ":admin",
-		"APP_SUPPORTED_CURRENCIES": "USD,TWD,JPY", "APP_BASE_CURRENCY": "USD",
+		"ADMIN_ROLES":          testClientID + ":admin",
+		"SUPPORTED_CURRENCIES": "USD,TWD,JPY", "BASE_CURRENCY": "USD",
 	}
 	cfg, err := config.Load(func(k string) string { return vals[k] })
 	if err != nil {
 		t.Fatal(err)
 	}
-	st, err := store.Connect(ctx, uri, fmt.Sprintf("ph_http_%d", time.Now().UnixNano()))
+	st, err := store.Connect(ctx, cfg.MongoURI, cfg.MongoDatabase)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,8 +137,8 @@ func newEnv(t *testing.T) *env {
 	t.Cleanup(func() { _ = st.DB.Drop(ctx); _ = st.Close(ctx) })
 
 	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
-		IssuerURL: cfg.OIDCIssuerURL, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
-		RolesClaim: cfg.OIDCRolesClaim, AdminRoles: cfg.OIDCAdminRoles, ClockSkew: cfg.OIDCClockSkew,
+		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
+		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -308,3 +309,16 @@ func (r *result) expect(status int, errCode ...string) *result {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
+
+// withDatabase puts a database name into the path of a MongoDB URI such as
+// TEST_MONGODB_URI, which usually has none ("mongodb://host/?replicaSet=rs0").
+func withDatabase(uri, db string) string {
+	base, query, hasQuery := strings.Cut(uri, "?")
+	scheme, rest, _ := strings.Cut(base, "://")
+	hosts, _, _ := strings.Cut(rest, "/")
+	out := scheme + "://" + hosts + "/" + db
+	if hasQuery {
+		out += "?" + query
+	}
+	return out
+}

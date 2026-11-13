@@ -18,7 +18,7 @@ var isoMinorUnits = map[string]int{
 }
 
 // Currencies resolves the number of fractional digits allowed per currency
-// (spec §9): the base currency uses APP_BASE_CURRENCY_DECIMALS when set,
+// (spec §9): the base currency uses BASE_CURRENCY_DECIMALS when set,
 // everything else uses ISO 4217.
 type Currencies struct {
 	Base         string

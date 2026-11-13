@@ -47,3 +47,24 @@ func TestDefaultCommandIsServe(t *testing.T) {
 		t.Fatalf("run(nil) = %d, serve called = %v", code, called)
 	}
 }
+
+func TestServeConfigErrorsListedOnStderr(t *testing.T) {
+	for _, k := range []string{"CORS_ALLOWED_ORIGINS", "FRONTEND_URL", "MONGO_URI", "OIDC_ISSUER", "OIDC_AUDIENCE",
+		"ADMIN_ROLES", "WEBHOOK_ENCRYPTION_KEY"} {
+		t.Setenv(k, "")
+	}
+	t.Setenv("LOG_LEVEL", "loud")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"serve"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	out := stderr.String()
+	if !strings.HasPrefix(out, "procurement-hub: invalid configuration:\n") {
+		t.Fatalf("stderr = %q", out)
+	}
+	for _, want := range []string{"  - MONGO_URI is required\n", "  - ADMIN_ROLES is required\n", "  - LOG_LEVEL:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stderr lacks %q: %s", want, out)
+		}
+	}
+}

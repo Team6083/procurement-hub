@@ -37,18 +37,18 @@ func TestPrincipalFromClaims(t *testing.T) {
 		"groups":       []any{"/teams/a/members"},
 		"realm_access": map[string]any{"roles": []any{"system-admin"}},
 	}
-	p, err := PrincipalFromClaims(claims, "groups", "realm_access.roles", []string{"system-admin"})
+	p, err := PrincipalFromClaims(claims, "groups", []string{"system-admin"})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !p.IsSystemAdmin || p.Sub != "u1" || len(p.Groups) != 1 || p.IssuedAt.Unix() != 1700000000 {
 		t.Fatalf("unexpected principal: %+v", p)
 	}
-	p, _ = PrincipalFromClaims(claims, "groups", "realm_access.roles", []string{"other-role"})
+	p, _ = PrincipalFromClaims(claims, "groups", []string{"other-role"})
 	if p.IsSystemAdmin {
 		t.Fatal("admin granted without matching role")
 	}
-	if _, err := PrincipalFromClaims(map[string]any{}, "groups", "roles", []string{"x"}); err == nil {
+	if _, err := PrincipalFromClaims(map[string]any{}, "groups", []string{"x"}); err == nil {
 		t.Fatal("expected error for missing sub")
 	}
 }
@@ -98,7 +98,7 @@ func TestSystemAdminFromRealmOrClientRole(t *testing.T) {
 		{"empty list grants nothing", nil, false},
 	}
 	for _, tt := range tests {
-		p, err := PrincipalFromClaims(claims, "groups", "realm_access.roles", tt.admin)
+		p, err := PrincipalFromClaims(claims, "groups", tt.admin)
 		if err != nil {
 			t.Fatal(err)
 		}

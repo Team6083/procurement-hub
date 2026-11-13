@@ -6,7 +6,7 @@ export function fractionDigits(s: string): number {
 
 /**
  * Minor-unit digits of a currency as the browser knows them (ISO 4217 via Intl). A client-side hint only:
- * the server may use a different value for the base currency (APP_BASE_CURRENCY_DECIMALS) and stays authoritative.
+ * the server may use a different value for the base currency (BASE_CURRENCY_DECIMALS) and stays authoritative.
  */
 export function currencyFractionDigits(currency: string): number | undefined {
   try {

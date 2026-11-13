@@ -41,7 +41,7 @@ Role-mapping rules (`ROLE_MAPPINGS_FILE` or the admin UI) turn token claims into
 
 ### System admins (realm role or client role)
 
-`OIDC_ADMIN_ROLE` follows the notation of oauth2-proxy's `--allowed-role` for the Keycloak provider:
+`ADMIN_ROLES` follows the notation of oauth2-proxy's `--allowed-role` for the Keycloak provider:
 
 | Value | Meaning |
 |---|---|
@@ -51,7 +51,7 @@ Role-mapping rules (`ROLE_MAPPINGS_FILE` or the admin UI) turn token claims into
 
 The first colon separates client ID from role, so a realm role name cannot contain `:`. A bare name never matches a client role and vice versa.
 
-The role must be present in the **access token**. With Keycloak's default `roles` client scope this requires the client's **Full scope allowed** setting (*Client → Client scopes → dedicated scope → Scope*), or a *User Client Role* / *User Realm Role* mapper. Realm roles are read from `OIDC_ROLES_CLAIM` (default `realm_access.roles`); client roles are always read from `resource_access`.
+The role must be present in the **access token**. With Keycloak's default `roles` client scope this requires the client's **Full scope allowed** setting (*Client → Client scopes → dedicated scope → Scope*), or a *User Client Role* / *User Realm Role* mapper. Realm roles are read from `realm_access.roles`; client roles from `resource_access`.
 
 System admins can administer every team (see the specification, §8.1) but are not implicitly team members and hold no batch roles.
 
@@ -62,4 +62,4 @@ System admins can administer every team (see the specification, §8.1) but are n
 - [ ] Short access-token lifespan (~5 minutes); SSO Session Idle/Max set to the idle time you accept
 - [ ] `aud` in the access token contains `OIDC_AUDIENCE`
 - [ ] Groups mapper adds the `groups` claim to the access token
-- [ ] The admin role (realm or client role) appears in the access token and is listed in `OIDC_ADMIN_ROLE`
+- [ ] The admin role (realm or client role) appears in the access token and is listed in `ADMIN_ROLES`

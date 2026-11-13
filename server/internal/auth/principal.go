@@ -86,10 +86,10 @@ func ClientRoles(claims map[string]any) []string {
 }
 
 // PrincipalFromClaims builds a Principal from decoded claims. Roles holds the
-// realm roles (bare names, read from rolesClaim) followed by client roles
-// ("<client id>:<role>"). The principal is a system admin if any adminRoles
-// entry is among them.
-func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim string, adminRoles []string) (*Principal, error) {
+// realm roles (bare names, from realm_access.roles) followed by client roles
+// ("<client id>:<role>", spec §7.3). The principal is a system admin if any
+// adminRoles entry is among them.
+func PrincipalFromClaims(claims map[string]any, groupsClaim string, adminRoles []string) (*Principal, error) {
 	str := func(k string) string { s, _ := claims[k].(string); return s }
 	sub := str("sub")
 	if sub == "" {
@@ -101,7 +101,7 @@ func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim string, 
 		Email:             str("email"),
 		Name:              str("name"),
 		Groups:            StringsAtPath(claims, groupsClaim),
-		Roles:             append(StringsAtPath(claims, rolesClaim), ClientRoles(claims)...),
+		Roles:             append(StringsAtPath(claims, "realm_access.roles"), ClientRoles(claims)...),
 	}
 	if iat, ok := claims["iat"].(float64); ok {
 		p.IssuedAt = time.Unix(int64(iat), 0).UTC()
@@ -116,12 +116,11 @@ func PrincipalFromClaims(claims map[string]any, groupsClaim, rolesClaim string, 
 	return p, nil
 }
 
-// VerifierConfig mirrors the OIDC_* settings.
+// VerifierConfig mirrors the OIDC_* and ADMIN_ROLES settings.
 type VerifierConfig struct {
 	IssuerURL   string
 	Audience    string
 	GroupsClaim string
-	RolesClaim  string
 	AdminRoles  []string // realm role, or "<client id>:<client role>"; any match grants system admin
 	ClockSkew   time.Duration
 }
@@ -170,7 +169,7 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	if !hasAudience(tok.Audience, v.cfg.Audience) {
 		return nil, fmt.Errorf("%w: audience mismatch", ErrInvalidToken)
 	}
-	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.RolesClaim, v.cfg.AdminRoles)
+	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.AdminRoles)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}

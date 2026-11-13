@@ -445,7 +445,7 @@ export interface paths {
          *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `VALIDATION_ERROR`
          *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
          *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
-         *     ISO 4217, or the server's APP_BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
+         *     ISO 4217, or the server's BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
          *     `autoFilledFields` and `lookupProvider` record product-lookup provenance and are only honoured on create.
          *     No `If-Match`; the new item's version is in `ETag`.
          */
