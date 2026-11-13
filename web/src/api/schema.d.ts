@@ -671,7 +671,11 @@ export interface components {
             username: string;
             email: string;
             displayName: string;
-            locale: components["schemas"]["Locale"];
+            /**
+             * @description The locale the user chose, or null if they never chose one; the client then follows the browser
+             *     language (falling back to `en`). Set it with `PATCH /me`.
+             */
+            locale: components["schemas"]["Locale"] | null;
             notificationPrefs: {
                 [key: string]: components["schemas"]["NotificationPref"];
             } | null;
@@ -685,6 +689,7 @@ export interface components {
             isSystemAdmin: boolean;
         };
         PatchMeRequest: {
+            /** @description Saves the user's choice. It cannot be cleared back to null. */
             locale?: components["schemas"]["Locale"];
             /** @description Replaces the stored map. Keys are event types (1 to 100 characters). */
             notificationPrefs?: {
@@ -1078,10 +1083,11 @@ export interface components {
          * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
          *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`;
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
+         *     503 `upstream_unavailable`;
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable";
     };
     responses: {
         /**
@@ -1154,6 +1160,20 @@ export interface components {
         };
         /** @description `if_match_required` */
         IfMatchRequired: {
+            headers: {
+                "X-Request-ID": components["headers"]["XRequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /**
+         * @description `upstream_unavailable`: a dependency is unavailable. Authenticated operations return it while the OIDC
+         *     discovery document has not been loaded yet (the IdP was unreachable at startup; the server keeps retrying
+         *     and `/readyz` reports the `oidc` check as failing). Retry later; this is not a token problem.
+         */
+        ServiceUnavailable: {
             headers: {
                 "X-Request-ID": components["headers"]["XRequestID"];
                 [name: string]: unknown;
@@ -1252,6 +1272,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     patchMe: {
@@ -1290,6 +1311,7 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             413: components["responses"]["PayloadTooLarge"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     searchUsers: {
@@ -1315,6 +1337,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listTeams: {
@@ -1337,6 +1360,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createTeam: {
@@ -1367,6 +1391,7 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getTeam: {
@@ -1395,6 +1420,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     patchTeam: {
@@ -1438,6 +1464,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listTeamMembers: {
@@ -1463,6 +1490,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     addTeamMember: {
@@ -1507,6 +1535,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     removeTeamMember: {
@@ -1543,6 +1572,7 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     patchTeamMember: {
@@ -1588,6 +1618,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     addSubgroup: {
@@ -1631,6 +1662,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     patchSubgroup: {
@@ -1676,6 +1708,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     replaceReferenceRates: {
@@ -1719,6 +1752,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listRoleMappings: {
@@ -1741,6 +1775,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createRoleMapping: {
@@ -1770,6 +1805,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             413: components["responses"]["PayloadTooLarge"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     putRoleMapping: {
@@ -1812,6 +1848,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     deleteRoleMapping: {
@@ -1845,6 +1882,7 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listBatches: {
@@ -1877,6 +1915,7 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     createBatch: {
@@ -1911,6 +1950,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getBatch: {
@@ -1937,6 +1977,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     patchBatch: {
@@ -1979,6 +2020,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     setBatchAssignments: {
@@ -2021,6 +2063,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     transitionBatch: {
@@ -2072,6 +2115,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     listBatchItems: {
@@ -2097,6 +2141,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     addBatchItem: {
@@ -2130,6 +2175,7 @@ export interface operations {
             404: components["responses"]["NotFound"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     reviewItems: {
@@ -2164,6 +2210,7 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     putItem: {
@@ -2206,6 +2253,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     withdrawItem: {
@@ -2242,6 +2290,7 @@ export interface operations {
             409: components["responses"]["VersionConflict"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     resubmitItem: {
@@ -2287,6 +2336,7 @@ export interface operations {
             };
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     forceRejectItem: {
@@ -2338,6 +2388,7 @@ export interface operations {
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getMyTasks: {
@@ -2360,6 +2411,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getAudit: {
@@ -2391,6 +2443,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
     getTeamAudit: {
@@ -2423,6 +2476,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
         };
     };
 }

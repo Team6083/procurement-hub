@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"strings"
@@ -71,4 +72,23 @@ func TestHTTPCommonHeadersOnPreflight(t *testing.T) {
 		h.Get("Access-Control-Expose-Headers") != "X-App-Version, X-App-Commit, X-Request-ID, ETag" {
 		t.Fatalf("preflight: %d %v", rec.Code, h)
 	}
+}
+
+// Spec §18.2: until OIDC discovery loads, authenticated operations answer
+// 503 upstream_unavailable (not 401, which would make the SPA re-login), a
+// missing token is still 401, and /meta needs no IdP. Once discovery loads
+// the same token works.
+func TestHTTPAuthBeforeDiscovery(t *testing.T) {
+	e := newEnvOpts(t, nil, true)
+	tok := e.user(t, "early", false)
+	e.do(t, call{token: tok, method: "GET", path: "/api/v1/me"}).expect(503, "upstream_unavailable")
+	e.do(t, call{method: "GET", path: "/api/v1/me"}).expect(401, "unauthenticated")
+	e.do(t, call{method: "GET", path: "/api/v1/meta"}).expect(200)
+	if err := e.verifier.Ready(context.Background()); err == nil {
+		t.Fatal("verifier ready before discovery")
+	}
+	if err := e.verifier.Discover(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	e.do(t, call{token: tok, method: "GET", path: "/api/v1/me"}).expect(200)
 }

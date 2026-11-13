@@ -66,4 +66,4 @@ Other static hosts: run `npm run build`, put your `config.json` in `dist/`, serv
 
 ## Language
 
-The UI is available in English (`en`) and Traditional Chinese (`zh-TW`). The first language comes from the browser's preferences (`zh*` gives `zh-TW`, `en*` gives `en`, anything else `en`). Choosing a language in the app saves it to `/me`, and the saved choice then wins over the browser's preferences. Because the server stores `en` until the user chooses, a saved `en` is only applied in browsers where a choice has already been made (or seen); a saved `zh-TW` is applied everywhere. `src/i18n/locales.test.ts` checks that both languages have the same keys.
+The UI is available in English (`en`) and Traditional Chinese (`zh-TW`). The first language comes from the browser's preferences (`zh*` gives `zh-TW`, `en*` gives `en`, anything else `en`). Choosing a language in the app saves it to `/me`, and the saved choice then wins over the browser's preferences. `/me` returns `locale: null` until the user chooses, so an unchosen profile never overrides the browser. `src/i18n/locales.test.ts` checks that both languages have the same keys.

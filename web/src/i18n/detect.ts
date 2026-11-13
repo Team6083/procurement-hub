@@ -1,6 +1,6 @@
 // Language selection rules (spec section 0): the browser's preferences pick the initial
 // language (zh* -> zh-TW, en* -> en, otherwise en); once the user has chosen a language and it
-// is saved to /me, that choice wins on every device.
+// is saved to /me (a non-null `locale`), that choice wins on every device.
 
 export const SUPPORTED_LANGUAGES = ['en', 'zh-TW'] as const;
 export type Language = (typeof SUPPORTED_LANGUAGES)[number];
@@ -20,19 +20,10 @@ export function detectLanguage(preferences: readonly string[] | undefined): Lang
   return DEFAULT_LANGUAGE;
 }
 
-/** Language to start with: an explicit choice remembered by this browser, else detection. */
-export function initialLanguage(stored: unknown, preferences: readonly string[] | undefined): Language {
-  return isLanguage(stored) ? stored : detectLanguage(preferences);
-}
-
 /**
- * Whether the /me locale should override the current language. The server stores `en` until the
- * user picks something, so `en` alone cannot be told apart from "never chosen": it is adopted
- * only once this browser has seen an explicit choice (made here, or adopted from /me before).
- * A non-default locale can only come from a choice and always wins.
+ * The language saved to /me, if the user ever chose one. `null` (never chosen) or anything
+ * unknown leaves the browser-detected language in place.
  */
-export function profileLanguage(meLocale: unknown, browserHasChoice: boolean): Language | null {
-  if (!isLanguage(meLocale)) return null;
-  if (meLocale !== DEFAULT_LANGUAGE || browserHasChoice) return meLocale;
-  return null;
+export function profileLanguage(meLocale: unknown): Language | null {
+  return isLanguage(meLocale) ? meLocale : null;
 }

@@ -11,6 +11,7 @@
     "invalid_transition": "目前狀態下不允許此操作。已重新載入最新狀態。",
     "rate_limited": "請求過於頻繁，請稍後再試。",
     "internal_error": "發生內部錯誤。",
+    "upstream_unavailable": "系統依賴的服務暫時無法使用，請稍後再試。",
     "team_slug_taken": "已有使用此代稱的團隊。",
     "team_archived": "此團隊已封存，僅供檢視。",
     "subgroup_exists": "已有同名的子群組。",

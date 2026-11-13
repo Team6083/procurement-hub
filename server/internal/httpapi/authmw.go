@@ -41,7 +41,8 @@ func CallerFrom(ctx context.Context) *Caller {
 }
 
 // Authenticate requires a valid bearer token on every request that reaches it.
-// System admin status is read from the current token on each request (§7.3).
+// While OIDC discovery has not loaded, requests with a bearer token get 503
+// upstream_unavailable. System admin status is read from the current token on each request (§7.3).
 // When allowedRoles (ALLOWED_ROLES) is non-empty, callers that are neither a
 // system admin nor hold one of those roles get 403 missing_role before any
 // user record is created or role mappings are synced.
@@ -54,6 +55,13 @@ func Authenticate(v TokenVerifier, allowedRoles []string, prov Provisioner, ml M
 				return
 			}
 			p, err := v.Verify(r.Context(), raw)
+			if errors.Is(err, auth.ErrNotReady) {
+				// The IdP's discovery has not loaded yet: the token cannot be
+				// judged, so this is a dependency failure, not a bad token
+				// (a 401 would send the SPA into a sign-in redirect loop).
+				WriteError(w, NewError(http.StatusServiceUnavailable, "upstream_unavailable", "Identity provider is not available yet."))
+				return
+			}
 			if err != nil {
 				if !errors.Is(err, auth.ErrInvalidToken) {
 					slog.ErrorContext(r.Context(), "token verification failed", "error", err)

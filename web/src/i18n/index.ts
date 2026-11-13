@@ -1,6 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
-import { initialLanguage, isLanguage, type Language } from './detect';
+import { detectLanguage, type Language } from './detect';
 import enAuth from './locales/en/auth.json';
 import enAdmin from './locales/en/admin.json';
 import enBatches from './locales/en/batches.json';
@@ -16,22 +16,6 @@ import zhTeams from './locales/zh-TW/teams.json';
 
 export { SUPPORTED_LANGUAGES, type Language } from './detect';
 
-// Remembers that the user (here or on another device, via /me) explicitly chose a language.
-const STORAGE_KEY = 'ph.lang';
-
-function storedLanguage(): string | null {
-  try {
-    return localStorage.getItem(STORAGE_KEY);
-  } catch {
-    return null; // storage unavailable
-  }
-}
-
-/** True when this browser has seen an explicit language choice. */
-export function hasStoredLanguage(): boolean {
-  return isLanguage(storedLanguage());
-}
-
 export const resources = {
   en: { common: enCommon, errors: enErrors, auth: enAuth, teams: enTeams, admin: enAdmin, batches: enBatches },
   'zh-TW': { common: zhCommon, errors: zhErrors, auth: zhAuth, teams: zhTeams, admin: zhAdmin, batches: zhBatches },
@@ -39,7 +23,8 @@ export const resources = {
 
 void i18n.use(initReactI18next).init({
   resources,
-  lng: initialLanguage(storedLanguage(), typeof navigator === 'undefined' ? undefined : navigator.languages),
+  // The browser picks the language until /me says the user chose one (LocaleSync).
+  lng: detectLanguage(typeof navigator === 'undefined' ? undefined : navigator.languages),
   fallbackLng: 'en',
   defaultNS: 'common',
   ns: ['common', 'errors', 'auth', 'teams', 'admin', 'batches'],
@@ -53,13 +38,8 @@ if (typeof document !== 'undefined') {
   });
 }
 
-/** Switches the UI language and remembers it as an explicit choice. */
+/** Switches the UI language. Saving the choice is PATCH /me's job (useChangeLanguage). */
 export function setLanguage(lang: Language): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, lang);
-  } catch {
-    /* storage unavailable */
-  }
   void i18n.changeLanguage(lang);
 }
 

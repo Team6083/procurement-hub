@@ -11,6 +11,7 @@
     "invalid_transition": "This action is not allowed in the current state. The latest state has been reloaded.",
     "rate_limited": "Too many requests. Please try again shortly.",
     "internal_error": "An internal error occurred.",
+    "upstream_unavailable": "A service this app depends on is temporarily unavailable. Please try again shortly.",
     "team_slug_taken": "A team with this slug already exists.",
     "team_archived": "This team is archived and read-only.",
     "subgroup_exists": "A subgroup with this name already exists.",

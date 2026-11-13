@@ -66,7 +66,7 @@ func (s *Store) UpsertUser(ctx context.Context, sub, username, email, displayNam
 		bson.D{{Key: "sub", Value: sub}},
 		bson.D{{Key: "$setOnInsert", Value: bson.D{
 			{Key: "sub", Value: sub}, {Key: "username", Value: username}, {Key: "email", Value: email},
-			{Key: "displayName", Value: displayName}, {Key: "locale", Value: domain.LocaleEN},
+			{Key: "displayName", Value: displayName},
 			{Key: "lastSyncedTokenIat", Value: time.Time{}},
 			{Key: "createdAt", Value: now}, {Key: "updatedAt", Value: now}, {Key: "version", Value: int64(1)},
 		}}},

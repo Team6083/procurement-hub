@@ -60,7 +60,7 @@ At startup the service checks every variable. If anything is wrong it prints **a
 
 Examples: `ADMIN_ROLES=procurement-hub-api:admin`, `ALLOWED_ROLES=staff,procurement-hub-api:user`. Roles are read from the current access token on every request. See [`keycloak.md`](keycloak.md) for getting the roles into the token.
 
-**Token validation.** Every `/api/v1` request except `GET /api/v1/meta` needs a bearer access token. The signature is verified against the issuer's JWKS with a fixed allowlist of `RS256` (the token header never widens it; `none` and HS* are always rejected). `iss` must equal `OIDC_ISSUER`, `aud` must contain `OIDC_AUDIENCE`, `exp` (required) and `nbf` are checked with `OIDC_CLOCK_SKEW`, `sub` is required and `typ` must be `Bearer`, so ID and refresh tokens are rejected. Any failure returns `401 unauthenticated`.
+**Token validation.** Every `/api/v1` request except `GET /api/v1/meta` needs a bearer access token. The signature is verified against the issuer's JWKS with a fixed allowlist of `RS256` (the token header never widens it; `none` and HS* are always rejected). `iss` must equal `OIDC_ISSUER`, `aud` must contain `OIDC_AUDIENCE`, `exp` (required) and `nbf` are checked with `OIDC_CLOCK_SKEW`, `sub` is required and `typ` must be `Bearer`, so ID and refresh tokens are rejected. Any failure returns `401 unauthenticated`. The OIDC discovery document is loaded in the background at startup and retried with backoff (1s doubling up to 30s) while the issuer is unreachable; until it has loaded, `/readyz` reports the `oidc` check as failing and requests with a bearer token get `503 upstream_unavailable` rather than `401`, since the token cannot be judged yet.
 
 ### Secrets
 

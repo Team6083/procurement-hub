@@ -6,8 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"sort"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -183,44 +185,94 @@ func signingAlgs(cfg []string) ([]string, error) {
 	return cfg, nil
 }
 
-// Verifier validates access tokens against the issuer's JWKS.
+// Verifier validates access tokens against the issuer's JWKS. It is created
+// before OIDC discovery has succeeded: until Discover (or Run) loads the
+// discovery document, Verify returns ErrNotReady and Ready fails, so an
+// unreachable IdP makes the service unready rather than stopping it
+// (spec §18.2).
 type Verifier struct {
-	cfg VerifierConfig
-	v   *oidc.IDTokenVerifier
-	now func() time.Time
+	cfg  VerifierConfig
+	algs []string
+	v    atomic.Pointer[oidc.IDTokenVerifier]
+	now  func() time.Time
 }
 
-// NewVerifier performs OIDC discovery (failing fast if unreachable).
-func NewVerifier(ctx context.Context, cfg VerifierConfig) (*Verifier, error) {
+// NewVerifier validates the configuration; it does not contact the issuer.
+func NewVerifier(cfg VerifierConfig) (*Verifier, error) {
 	algs, err := signingAlgs(cfg.SigningAlgs)
 	if err != nil {
 		return nil, err
 	}
-	prov, err := oidc.NewProvider(ctx, cfg.IssuerURL) // also checks the discovered issuer matches exactly
-	if err != nil {
-		return nil, fmt.Errorf("oidc discovery: %w", err)
+	return &Verifier{cfg: cfg, algs: algs, now: time.Now}, nil
+}
+
+// Discover performs OIDC discovery once. On success the verifier is ready;
+// a later call is a no-op.
+func (v *Verifier) Discover(ctx context.Context) error {
+	if v.v.Load() != nil {
+		return nil
 	}
-	return newVerifier(cfg, prov.Verifier(&oidc.Config{
+	prov, err := oidc.NewProvider(ctx, v.cfg.IssuerURL) // also checks the discovered issuer matches exactly
+	if err != nil {
+		return fmt.Errorf("oidc discovery: %w", err)
+	}
+	v.v.Store(prov.Verifier(&oidc.Config{
 		SkipClientIDCheck: true, // audience is checked manually
 		// A fixed allowlist: go-jose rejects any token whose header alg is
 		// not listed, so "none" and HS* never reach signature verification.
-		SupportedSigningAlgs: algs,
+		SupportedSigningAlgs: v.algs,
 		// go-oidc has no skew option (and a fixed 5-minute nbf leeway), so
 		// exp and nbf are checked by checkTimes with OIDC_CLOCK_SKEW instead.
 		SkipExpiryCheck: true,
-	})), nil
+	}))
+	return nil
 }
 
-func newVerifier(cfg VerifierConfig, v *oidc.IDTokenVerifier) *Verifier {
-	return &Verifier{cfg: cfg, v: v, now: time.Now}
+// Discovery retry backoff: doubles from the first delay up to the cap.
+const (
+	discoveryAttemptTimeout = 10 * time.Second
+	discoveryFirstBackoff   = time.Second
+	discoveryMaxBackoff     = 30 * time.Second
+)
+
+// Run retries Discover with exponential backoff until it succeeds or ctx is
+// cancelled. It is meant to run in the background for the life of serve.
+func (v *Verifier) Run(ctx context.Context) {
+	delay := discoveryFirstBackoff
+	for {
+		actx, cancel := context.WithTimeout(ctx, discoveryAttemptTimeout)
+		err := v.Discover(actx)
+		cancel()
+		if err == nil {
+			slog.Info("oidc discovery loaded", "issuer", v.cfg.IssuerURL)
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		slog.Warn("oidc discovery failed; retrying", "issuer", v.cfg.IssuerURL, "retry_in", delay.String(), "error", err)
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+		delay = min(delay*2, discoveryMaxBackoff)
+	}
 }
+
+// ErrNotReady is returned by Verify while OIDC discovery has not loaded.
+var ErrNotReady = errors.New("oidc discovery not loaded")
 
 var ErrInvalidToken = errors.New("invalid token")
 
 // Verify checks signature (alg allowlist), iss, exp, nbf (with clock skew),
 // aud, typ and sub.
 func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
-	tok, err := v.v.Verify(ctx, raw)
+	iv := v.v.Load()
+	if iv == nil {
+		return nil, ErrNotReady
+	}
+	tok, err := iv.Verify(ctx, raw)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
@@ -287,11 +339,10 @@ func checkTimes(claims map[string]any, now time.Time, skew time.Duration) error 
 	return nil
 }
 
-// Ready is a readiness check: it fails unless OIDC discovery has been loaded
-// (NewVerifier only returns a Verifier after discovery succeeded).
+// Ready is a readiness check: it fails until OIDC discovery has loaded.
 func (v *Verifier) Ready(context.Context) error {
-	if v == nil || v.v == nil {
-		return errors.New("oidc discovery not loaded")
+	if v == nil || v.v.Load() == nil {
+		return ErrNotReady
 	}
 	return nil
 }

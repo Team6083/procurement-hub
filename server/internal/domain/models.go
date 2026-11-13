@@ -26,12 +26,15 @@ const (
 func (l Locale) Valid() bool { return l == LocaleEN || l == LocaleZHTW }
 
 type User struct {
-	ID                 bson.ObjectID               `bson:"_id,omitempty" json:"id"`
-	Sub                string                      `bson:"sub" json:"-"`
-	Username           string                      `bson:"username" json:"username"`
-	Email              string                      `bson:"email" json:"email"`
-	DisplayName        string                      `bson:"displayName" json:"displayName"`
-	Locale             Locale                      `bson:"locale" json:"locale"`
+	ID          bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	Sub         string        `bson:"sub" json:"-"`
+	Username    string        `bson:"username" json:"username"`
+	Email       string        `bson:"email" json:"email"`
+	DisplayName string        `bson:"displayName" json:"displayName"`
+	// Locale is nil until the user chooses one (spec §0): clients then follow
+	// the browser language; server-side rendering (notifications) must fall
+	// back to the team locale or en.
+	Locale             *Locale                     `bson:"locale,omitempty" json:"locale"`
 	NotificationPrefs  map[string]NotificationPref `bson:"notificationPrefs,omitempty" json:"notificationPrefs"`
 	LastSyncedTokenIat time.Time                   `bson:"lastSyncedTokenIat" json:"-"`
 	ExternalAccounts   map[string]any              `bson:"externalAccounts,omitempty" json:"-"` // Reserved

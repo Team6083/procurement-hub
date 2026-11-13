@@ -42,6 +42,7 @@ paths:
               schema: { $ref: "#/components/schemas/Me" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       operationId: patchMe
       summary: Update locale and/or notification preferences
@@ -66,6 +67,7 @@ paths:
         "409": { $ref: "#/components/responses/VersionConflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /users:
     get:
       operationId: searchUsers
@@ -88,6 +90,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams:
     get:
       operationId: listTeams
@@ -101,6 +104,7 @@ paths:
               schema: { $ref: "#/components/schemas/TeamSummaryList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       operationId: createTeam
       summary: Create a team (system admin only)
@@ -123,6 +127,7 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -150,6 +155,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       operationId: patchTeam
       summary: Update team settings, or archive/unarchive (system admin)
@@ -181,6 +187,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/members:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -195,6 +202,7 @@ paths:
               schema: { $ref: "#/components/schemas/TeamMemberList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       operationId: addTeamMember
       summary: Grant a manual role to a user, creating the membership if needed (team admin)
@@ -228,6 +236,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/members/{userId}:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -264,6 +273,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       operationId: removeTeamMember
       summary: Clear the manual role; delete the membership if no SSO role remains (team admin)
@@ -280,6 +290,7 @@ paths:
         "409": { $ref: "#/components/responses/VersionConflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/subgroups:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -310,6 +321,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/subgroups/{id}:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -344,6 +356,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/reference-rates:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -376,6 +389,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /admin/role-mappings:
     get:
       operationId: listRoleMappings
@@ -388,6 +402,7 @@ paths:
               schema: { $ref: "#/components/schemas/RoleMappingList" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       operationId: createRoleMapping
       summary: Create a UI-managed rule (system admin only)
@@ -409,6 +424,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /admin/role-mappings/{id}:
     parameters:
       - name: id
@@ -444,6 +460,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     delete:
       operationId: deleteRoleMapping
       summary: Delete a UI-managed rule (system admin only)
@@ -458,6 +475,7 @@ paths:
         "409": { $ref: "#/components/responses/VersionConflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches:
     get:
       operationId: listBatches
@@ -481,6 +499,7 @@ paths:
         "400": { $ref: "#/components/responses/BadRequest" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/batches:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -509,6 +528,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches/{id}:
     parameters:
       - $ref: "#/components/parameters/BatchId"
@@ -526,6 +546,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     patch:
       operationId: patchBatch
       summary: Edit title, description, deadline, visibility override (team admin)
@@ -557,6 +578,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches/{id}/assignments:
     parameters:
       - $ref: "#/components/parameters/BatchId"
@@ -587,6 +609,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches/{id}/transitions:
     parameters:
       - $ref: "#/components/parameters/BatchId"
@@ -634,6 +657,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches/{id}/items:
     parameters:
       - $ref: "#/components/parameters/BatchId"
@@ -650,6 +674,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
     post:
       operationId: addBatchItem
       summary: Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
@@ -680,6 +705,7 @@ paths:
         "404": { $ref: "#/components/responses/NotFound" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /batches/{id}/reviews:
     parameters:
       - $ref: "#/components/parameters/BatchId"
@@ -712,6 +738,7 @@ paths:
         "409": { $ref: "#/components/responses/VersionConflict" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /items/{id}:
     parameters:
       - $ref: "#/components/parameters/ItemId"
@@ -746,6 +773,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /items/{id}/withdraw:
     parameters:
       - $ref: "#/components/parameters/ItemId"
@@ -769,6 +797,7 @@ paths:
         "409": { $ref: "#/components/responses/VersionConflict" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /items/{id}/resubmit:
     parameters:
       - $ref: "#/components/parameters/ItemId"
@@ -800,6 +829,7 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /items/{id}/force-reject:
     parameters:
       - $ref: "#/components/parameters/ItemId"
@@ -836,6 +866,7 @@ paths:
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /me/tasks:
     get:
       operationId: getMyTasks
@@ -850,6 +881,7 @@ paths:
               schema: { $ref: "#/components/schemas/MyTasks" }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /audit:
     get:
       operationId: getAudit
@@ -870,6 +902,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams/{teamId}/audit:
     parameters:
       - $ref: "#/components/parameters/TeamId"
@@ -890,6 +923,7 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1003,6 +1037,16 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    ServiceUnavailable:
+      description: |
+        `upstream_unavailable`: a dependency is unavailable. Authenticated operations return it while the OIDC
+        discovery document has not been loaded yet (the IdP was unreachable at startup; the server keeps retrying
+        and `/readyz` reports the `oidc` check as failing). Retry later; this is not a token problem.
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     Unprocessable:
       description: |
         Business-rule violation. Codes: `team_slug_taken`, `team_archived`, `subgroup_exists`,
@@ -1053,7 +1097,11 @@ components:
         username: { type: string }
         email: { type: string }
         displayName: { type: string }
-        locale: { $ref: "#/components/schemas/Locale" }
+        locale:
+          description: |
+            The locale the user chose, or null if they never chose one; the client then follows the browser
+            language (falling back to `en`). Set it with `PATCH /me`.
+          oneOf: [{ $ref: "#/components/schemas/Locale" }, { type: "null" }]
         notificationPrefs:
           type: [object, "null"]
           additionalProperties: { $ref: "#/components/schemas/NotificationPref" }
@@ -1068,7 +1116,9 @@ components:
       type: object
       additionalProperties: false
       properties:
-        locale: { $ref: "#/components/schemas/Locale" }
+        locale:
+          $ref: "#/components/schemas/Locale"
+          description: Saves the user's choice. It cannot be cleared back to null.
         notificationPrefs:
           type: object
           description: Replaces the stored map. Keys are event types (1 to 100 characters).
@@ -1530,6 +1580,7 @@ components:
         Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
         401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`;
         413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
+        503 `upstream_unavailable`;
         422 for every other (business-rule) code.
       enum:
         - invalid_request
@@ -1543,6 +1594,7 @@ components:
         - payload_too_large
         - if_match_required
         - internal_error
+        - upstream_unavailable
         - team_slug_taken
         - team_archived
         - subgroup_exists

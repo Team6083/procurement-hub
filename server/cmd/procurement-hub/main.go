@@ -149,7 +149,9 @@ func serve() error {
 	if err := rm.LoadFile(ctx, cfg.RoleMappingsFile); err != nil {
 		return err
 	}
-	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
+	// Discovery runs in the background with retries: an unreachable IdP keeps
+	// /readyz at 503 (check "oidc") instead of stopping serve (spec §18.2).
+	verifier, err := auth.NewVerifier(auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
 		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
@@ -176,8 +178,7 @@ func serve() error {
 	// job is consumed so it does not linger.
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })
 
-	// Readiness checks (spec §18.2). Discovery already succeeded above (the
-	// verifier fails fast otherwise).
+	// Readiness checks (spec §18.2).
 	ready := ops.NewReadiness()
 	ready.Add("mongodb", st.CheckReplicaSet)
 	ready.Add("oidc", verifier.Ready)
@@ -192,6 +193,6 @@ func serve() error {
 		Ops:             opsServer,
 		Readiness:       ready,
 		ShutdownTimeout: cfg.ShutdownTimeout,
-		Background:      []func(context.Context){runner.Run},
+		Background:      []func(context.Context){verifier.Run, runner.Run},
 	})
 }

@@ -26,7 +26,7 @@ cp .env.example .env   # set OIDC_ISSUER, ADMIN_ROLES, WEBHOOK_ENCRYPTION_KEY, .
 docker compose up -d
 ```
 
-`serve` starts only after `migrate` has exited successfully. It loads the OIDC discovery document at startup and exits if the issuer is unreachable, so `OIDC_ISSUER` must point at a running provider (for example a Keycloak realm set up as in [`docs/keycloak.md`](docs/keycloak.md)); no provider is bundled. The API listens on `127.0.0.1:8080` and the health and metrics endpoints on `127.0.0.1:9090`. Set `PROCUREMENT_HUB_IMAGE` to use a locally built image. The example MongoDB has no authentication and is meant for local trials only.
+`serve` starts only after `migrate` has exited successfully. `OIDC_ISSUER` must point at a running provider (for example a Keycloak realm set up as in [`docs/keycloak.md`](docs/keycloak.md)); no provider is bundled. If the issuer is unreachable, `serve` keeps running and retries OIDC discovery in the background: until it succeeds, `/readyz` answers 503 with `"check":"oidc"` and authenticated API requests get `503 upstream_unavailable`. The API listens on `127.0.0.1:8080` and the health and metrics endpoints on `127.0.0.1:9090`. Set `PROCUREMENT_HUB_IMAGE` to use a locally built image. The example MongoDB has no authentication and is meant for local trials only.
 
 ### Development
 

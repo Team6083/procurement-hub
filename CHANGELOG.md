@@ -23,5 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Access tokens are checked against an RS256 allowlist and must have `typ` `Bearer` and an expiry.
 - API error codes are lowercase `snake_case` and listed in the OpenAPI `ErrorCode` enum.
 - The SPA requires Node.js 26 (`engines`) and production builds fail without a commit SHA.
+- `serve` no longer exits when OIDC discovery fails at startup: it retries in the background, `/readyz` stays 503 (`oidc`) and authenticated requests get `503 upstream_unavailable` until discovery loads.
+- `GET /me` returns `locale: null` until the user chooses a language; the SPA then follows the browser language.
 
 [Unreleased]: https://github.com/team6083/procurement-hub/commits/main

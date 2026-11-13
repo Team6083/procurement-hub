@@ -115,11 +115,12 @@ func (p *idp) tokenWithAlg(t *testing.T, alg jose.SignatureAlgorithm, key any, c
 // env is a running application wired exactly like production, backed by a
 // throwaway MongoDB database and the test IDP.
 type env struct {
-	idp     *idp
-	handler http.Handler
-	st      *store.Store
-	router  routers.Router
-	logs    *syncBuffer // access log output
+	idp      *idp
+	handler  http.Handler
+	st       *store.Store
+	router   routers.Router
+	logs     *syncBuffer // access log output
+	verifier *auth.Verifier
 }
 
 // syncBuffer is a goroutine-safe log sink.
@@ -147,6 +148,14 @@ func newEnv(t *testing.T) *env {
 
 // newEnvWith is newEnv with extra or overridden environment variables.
 func newEnvWith(t *testing.T, overrides map[string]string) *env {
+	t.Helper()
+	return newEnvOpts(t, overrides, false)
+}
+
+// newEnvOpts is newEnvWith; undiscovered leaves OIDC discovery unloaded (as
+// when the IdP was unreachable at startup) until the test calls
+// e.verifier.Discover.
+func newEnvOpts(t *testing.T, overrides map[string]string, undiscovered bool) *env {
 	t.Helper()
 	uri := mongotest.URI(t)
 	ctx := context.Background()
@@ -177,12 +186,17 @@ func newEnvWith(t *testing.T, overrides map[string]string) *env {
 		t.Fatal(err)
 	}
 
-	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
+	verifier, err := auth.NewVerifier(auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
 		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !undiscovered {
+		if err := verifier.Discover(ctx); err != nil {
+			t.Fatal(err)
+		}
 	}
 	logs := &syncBuffer{}
 	h, _ := NewHandler(Deps{
@@ -202,7 +216,7 @@ func newEnvWith(t *testing.T, overrides map[string]string) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{idp: p, handler: h, st: st, router: router, logs: logs}
+	return &env{idp: p, handler: h, st: st, router: router, logs: logs, verifier: verifier}
 }
 
 // user returns a bearer token for a user; admin grants the system-admin client role.

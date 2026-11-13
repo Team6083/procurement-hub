@@ -288,12 +288,27 @@ func TestHTTPTeams(t *testing.T) {
 		t.Errorf("search results = %d", n)
 	}
 
-	// /me: partial update with If-Match.
+	// /me: locale is null until chosen (spec §0); partial update with If-Match.
 	me := w.do(t, call{token: w.mem, method: "GET", path: "/api/v1/me"}).expect(200)
+	if loc, ok := me.JSON()["locale"]; !ok || loc != nil {
+		t.Errorf("new user locale = %v (present %v), want null", loc, ok)
+	}
 	w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", body: map[string]any{"locale": "zh-TW"}, skipRequestValidation: true}).expect(428, "if_match_required")
 	if got := w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", ifMatch: me.ETag(), body: map[string]any{"locale": "zh-TW"}}).expect(200); got.String("locale") != "zh-TW" {
 		t.Errorf("locale: %s", got.Body)
 	}
+	// Once chosen it is returned as-is, and an unrelated PATCH keeps it.
+	me = w.do(t, call{token: w.mem, method: "GET", path: "/api/v1/me"}).expect(200)
+	if me.String("locale") != "zh-TW" {
+		t.Errorf("GET /me locale after PATCH: %s", me.Body)
+	}
+	got := w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", ifMatch: me.ETag(),
+		body: map[string]any{"notificationPrefs": map[string]any{}}}).expect(200)
+	if got.String("locale") != "zh-TW" {
+		t.Errorf("locale after notificationPrefs PATCH: %s", got.Body)
+	}
+	w.do(t, call{token: w.mem, method: "PATCH", path: "/api/v1/me", ifMatch: got.ETag(), body: map[string]any{"locale": "fr"},
+		skipRequestValidation: true}).expect(400, "invalid_request")
 }
 
 func TestHTTPRoleMappings(t *testing.T) {
