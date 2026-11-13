@@ -75,11 +75,15 @@ Roles are read from the current access token on every request and never stored, 
 
 ## 5. Post-logout redirect URI
 
-Sign-out sends the user to Keycloak's end-session endpoint with `post_logout_redirect_uri` set to the SPA origin. Register it on `procurement-hub-web`:
+Sign-out sends the user to Keycloak's end-session endpoint with `post_logout_redirect_uri` set to the SPA root: the origin plus the base path, **with the trailing slash** (`https://app.example.org/`, or `https://app.example.org/procurement/` under `VITE_BASE_PATH=/procurement/`). Register exactly that value on `procurement-hub-web`; Keycloak compares it literally, so `https://app.example.org` without the slash fails sign-out with "Invalid redirect uri":
 
 | Setting | Value |
 |---|---|
-| Valid post logout redirect URIs | `https://app.example.org` (add `http://localhost:5173` for local development) |
+| Valid post logout redirect URIs | `https://app.example.org/` (add `http://localhost:5173/` for local development) |
+
+## Reference realm
+
+The end-to-end tests import a realm configured exactly as above: [`web/e2e/keycloak/realm-example.json`](../web/e2e/keycloak/realm-example.json) (Keycloak's realm export format, for plain-http localhost origins and with test users). It shows the settings as JSON keys: `fullScopeAllowed: false`, the two mappers under the client's `protocolMappers` (its dedicated scope), the role assignments to the dedicated scope under `clientScopeMappings`, `pkce.code.challenge.method` and `post.logout.redirect.uris` under `attributes`, and `accessTokenLifespan`, `revokeRefreshToken` and `refreshTokenMaxReuse` on the realm.
 
 ## Checklist
 
@@ -90,4 +94,4 @@ Sign-out sends the user to Keycloak's end-session endpoint with `post_logout_red
 - [ ] Group Membership mapper adds `groups` to the access token (if role-mapping rules use groups)
 - [ ] `ADMIN_ROLES` (and optionally `ALLOWED_ROLES`) name roles that appear in the access token
 - [ ] Access token lifespan 5 minutes; refresh token rotation on; **no** `offline_access`
-- [ ] Post-logout redirect URI registered
+- [ ] Post-logout redirect URI registered, with the trailing slash
