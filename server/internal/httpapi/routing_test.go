@@ -42,7 +42,7 @@ func TestCORSPreflight(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != 204 || rec.Header().Get("Access-Control-Allow-Origin") != "https://app.example.org" ||
-		rec.Header().Get("Access-Control-Allow-Headers") != "Authorization, Content-Type, If-Match" ||
+		rec.Header().Get("Access-Control-Allow-Headers") != "Authorization, Content-Type, If-Match, X-Request-ID" ||
 		rec.Header().Get("Access-Control-Max-Age") != "600" || rec.Header().Get("Access-Control-Allow-Credentials") != "" {
 		t.Fatalf("preflight: %d %v", rec.Code, rec.Header())
 	}

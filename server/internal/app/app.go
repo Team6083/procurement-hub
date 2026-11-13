@@ -3,6 +3,7 @@
 package app
 
 import (
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -11,6 +12,7 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/config"
 	"github.com/team6083/procurement-hub/server/internal/domain"
 	"github.com/team6083/procurement-hub/server/internal/httpapi"
+	"github.com/team6083/procurement-hub/server/internal/ops"
 	"github.com/team6083/procurement-hub/server/internal/service"
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
@@ -22,7 +24,8 @@ type Deps struct {
 	Verifier     httpapi.TokenVerifier
 	RoleMappings *service.RoleMappings
 	Version      httpapi.Version
-	Metrics      *httpapi.Metrics // optional
+	Metrics      *ops.HTTPMetrics // optional
+	Logger       *slog.Logger     // access log; nil means slog.Default()
 }
 
 // NewHandler builds the API router. It also returns the batch service so
@@ -30,11 +33,14 @@ type Deps struct {
 func NewHandler(d Deps) (http.Handler, *service.Batches) {
 	cfg, st := d.Config, d.Store
 	r := chi.NewRouter()
+	// Order matters: common headers first so every response (errors and
+	// CORS preflights included) carries them; Instrument wraps everything
+	// below so the access log sees the final status.
+	r.Use(ops.NoSniff)
+	r.Use(ops.RequestID)
 	r.Use(httpapi.VersionHeaders(d.Version))
+	r.Use(ops.Instrument(ops.InstrumentOptions{Metrics: d.Metrics, Logger: d.Logger}))
 	r.Use(httpapi.CORS(cfg.CORSAllowedOrigins))
-	if d.Metrics != nil {
-		r.Use(d.Metrics.Instrument)
-	}
 	r.Use(httpapi.MaxBody(1 << 20))
 
 	httpapi.MountMeta(r, httpapi.MetaInfo{

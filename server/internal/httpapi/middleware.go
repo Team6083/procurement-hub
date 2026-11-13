@@ -1,14 +1,9 @@
-// Package httpapi contains HTTP glue: middleware, router, operational endpoints.
+// Package httpapi contains the API handlers and API-specific middleware.
+// Operational concerns (request ids, access log, metrics, health) live in
+// package ops.
 package httpapi
 
-import (
-	"net/http"
-	"strconv"
-	"time"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/prometheus/client_golang/prometheus"
-)
+import "net/http"
 
 // Version identifies the running build (spec §6.3).
 type Version struct {
@@ -40,10 +35,10 @@ func CORS(origins []string) func(http.Handler) http.Handler {
 				h := w.Header()
 				h.Set("Access-Control-Allow-Origin", o)
 				h.Add("Vary", "Origin")
-				h.Set("Access-Control-Expose-Headers", "X-App-Version, X-App-Commit, ETag")
+				h.Set("Access-Control-Expose-Headers", "X-App-Version, X-App-Commit, X-Request-ID, ETag")
 				if r.Method == http.MethodOptions && r.Header.Get("Access-Control-Request-Method") != "" {
 					h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
-					h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match")
+					h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, If-Match, X-Request-ID")
 					h.Set("Access-Control-Max-Age", "600")
 					w.WriteHeader(http.StatusNoContent)
 					return
@@ -62,45 +57,4 @@ func MaxBody(n int64) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 		})
 	}
-}
-
-type Metrics struct {
-	Requests *prometheus.CounterVec
-	Latency  *prometheus.HistogramVec
-}
-
-func NewMetrics(reg prometheus.Registerer) *Metrics {
-	m := &Metrics{
-		Requests: prometheus.NewCounterVec(prometheus.CounterOpts{
-			Name: "http_requests_total", Help: "HTTP requests by route, method and status.",
-		}, []string{"route", "method", "status"}),
-		Latency: prometheus.NewHistogramVec(prometheus.HistogramOpts{
-			Name: "http_request_duration_seconds", Help: "HTTP request latency by route.",
-			Buckets: prometheus.DefBuckets,
-		}, []string{"route", "method"}),
-	}
-	reg.MustRegister(m.Requests, m.Latency)
-	return m
-}
-
-type statusWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (s *statusWriter) WriteHeader(c int) { s.status = c; s.ResponseWriter.WriteHeader(c) }
-
-// Instrument records request counts and latency labelled by route pattern.
-func (m *Metrics) Instrument(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		start := time.Now()
-		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-		next.ServeHTTP(sw, r)
-		route := "unmatched"
-		if rc := chi.RouteContext(r.Context()); rc != nil && rc.RoutePattern() != "" {
-			route = rc.RoutePattern()
-		}
-		m.Requests.WithLabelValues(route, r.Method, strconv.Itoa(sw.status)).Inc()
-		m.Latency.WithLabelValues(route, r.Method).Observe(time.Since(start).Seconds())
-	})
 }

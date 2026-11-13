@@ -59,7 +59,7 @@ func objectID(s string) (bson.ObjectID, *APIError) {
 }
 
 // fail maps service errors to the API error envelope.
-func fail(w http.ResponseWriter, err error) {
+func fail(w http.ResponseWriter, r *http.Request, err error) {
 	var (
 		ve *service.ValidationError
 		re *service.RuleError
@@ -89,7 +89,7 @@ func fail(w http.ResponseWriter, err error) {
 	case errors.Is(err, service.ErrVersionConflict):
 		WriteError(w, NewError(http.StatusConflict, "version_conflict", "The resource was modified by someone else."))
 	default:
-		slog.Error("unhandled error", "error", err)
+		slog.ErrorContext(r.Context(), "unhandled error", "error", err)
 		WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 	}
 }

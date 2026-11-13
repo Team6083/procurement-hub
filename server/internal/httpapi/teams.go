@@ -52,7 +52,7 @@ func (a *TeamsAPI) teamParam(w http.ResponseWriter, r *http.Request) (bson.Objec
 func (a *TeamsAPI) list(w http.ResponseWriter, r *http.Request) {
 	ts, err := a.Teams.List(r.Context())
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	out := make([]teamSummary, 0, len(ts))
@@ -77,14 +77,14 @@ func (a *TeamsAPI) create(w http.ResponseWriter, r *http.Request) {
 	}
 	adminID, e := bson.ObjectIDFromHex(req.FirstAdminUserID)
 	if e != nil {
-		fail(w, service.Invalid("firstAdminUserId", "must be a user id"))
+		fail(w, r, service.Invalid("firstAdminUserId", "must be a user id"))
 		return
 	}
 	t, err := a.Teams.Create(r.Context(), CallerFrom(r.Context()).Actor, service.CreateTeamInput{
 		Slug: req.Slug, Name: req.Name, Description: req.Description, FirstAdminID: adminID,
 	})
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, t.Version)
@@ -99,7 +99,7 @@ func (a *TeamsAPI) get(w http.ResponseWriter, r *http.Request) {
 	}
 	t, err := a.Teams.GetByID(r.Context(), id)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	if !CallerFrom(r.Context()).Actor.CanSeeTeamInternals(t.ID) {
@@ -140,7 +140,7 @@ func (a *TeamsAPI) patch(w http.ResponseWriter, r *http.Request) {
 	if req.Archived != nil {
 		// Archive state is a system-admin action and cannot be mixed with other edits.
 		if req.Name != nil || req.Description != nil || req.Visibility != nil || req.Locale != nil || req.PriorityLabels != nil {
-			fail(w, service.Invalid("archived", "cannot be combined with other fields"))
+			fail(w, r, service.Invalid("archived", "cannot be combined with other fields"))
 			return
 		}
 		t, err = a.Teams.SetArchived(r.Context(), actor, id, ver, *req.Archived)
@@ -150,12 +150,12 @@ func (a *TeamsAPI) patch(w http.ResponseWriter, r *http.Request) {
 			Locale: req.Locale, PriorityLabels: req.PriorityLabels,
 		})
 	}
-	a.respondTeam(w, t, err)
+	a.respondTeam(w, r, t, err)
 }
 
-func (a *TeamsAPI) respondTeam(w http.ResponseWriter, t *domain.Team, err error) {
+func (a *TeamsAPI) respondTeam(w http.ResponseWriter, r *http.Request, t *domain.Team, err error) {
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, t.Version)
@@ -185,7 +185,7 @@ func toMemberResp(m service.MemberView) memberResp {
 func (a *TeamsAPI) respondMember(w http.ResponseWriter, r *http.Request, status int, teamID, userID bson.ObjectID) {
 	mv, err := a.Teams.GetMemberView(r.Context(), teamID, userID)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, mv.Membership.Version)
@@ -199,7 +199,7 @@ func (a *TeamsAPI) listMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	ms, err := a.Teams.ListMembers(r.Context(), CallerFrom(r.Context()).Actor, id)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	out := make([]memberResp, 0, len(ms))
@@ -226,12 +226,12 @@ func (a *TeamsAPI) addMember(w http.ResponseWriter, r *http.Request) {
 	}
 	uid, err := bson.ObjectIDFromHex(req.UserID)
 	if err != nil {
-		fail(w, service.Invalid("userId", "must be a user id"))
+		fail(w, r, service.Invalid("userId", "must be a user id"))
 		return
 	}
 	_, created, err := a.Teams.AddMember(r.Context(), CallerFrom(r.Context()).Actor, id, uid, req.Role)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	status := http.StatusOK
@@ -277,7 +277,7 @@ func (a *TeamsAPI) patchMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if _, err := a.Teams.UpdateMember(r.Context(), CallerFrom(r.Context()).Actor, id, uid, ver, p); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	a.respondMember(w, r, http.StatusOK, id, uid)
@@ -299,7 +299,7 @@ func (a *TeamsAPI) removeMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.Teams.RemoveMember(r.Context(), CallerFrom(r.Context()).Actor, id, uid, ver); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -323,7 +323,7 @@ func (a *TeamsAPI) addSubgroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := a.Teams.AddSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, req.Name)
-	a.respondTeam(w, t, err)
+	a.respondTeam(w, r, t, err)
 }
 
 func (a *TeamsAPI) patchSubgroup(w http.ResponseWriter, r *http.Request) {
@@ -345,7 +345,7 @@ func (a *TeamsAPI) patchSubgroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := a.Teams.UpdateSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, chi.URLParam(r, "id"), req.Name, req.Active)
-	a.respondTeam(w, t, err)
+	a.respondTeam(w, r, t, err)
 }
 
 func (a *TeamsAPI) putRates(w http.ResponseWriter, r *http.Request) {
@@ -373,5 +373,5 @@ func (a *TeamsAPI) putRates(w http.ResponseWriter, r *http.Request) {
 		in = append(in, service.RateInput{Currency: x.Currency, RateToBase: x.RateToBase})
 	}
 	t, err := a.Teams.ReplaceReferenceRates(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
-	a.respondTeam(w, t, err)
+	a.respondTeam(w, r, t, err)
 }

@@ -56,7 +56,7 @@ func Authenticate(v TokenVerifier, allowedRoles []string, prov Provisioner, ml M
 			p, err := v.Verify(r.Context(), raw)
 			if err != nil {
 				if !errors.Is(err, auth.ErrInvalidToken) {
-					slog.Error("token verification failed", "error", err)
+					slog.ErrorContext(r.Context(), "token verification failed", "error", err)
 				}
 				WriteError(w, NewError(http.StatusUnauthorized, "unauthenticated", "Invalid or expired token."))
 				return
@@ -67,13 +67,13 @@ func Authenticate(v TokenVerifier, allowedRoles []string, prov Provisioner, ml M
 			}
 			u, err := prov.Provision(r.Context(), p)
 			if err != nil {
-				slog.Error("provisioning failed", "error", err)
+				slog.ErrorContext(r.Context(), "provisioning failed", "error", err)
 				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 				return
 			}
 			actor, err := ml.ActorFor(r.Context(), u, p.IsSystemAdmin)
 			if err != nil {
-				slog.Error("loading memberships failed", "error", err)
+				slog.ErrorContext(r.Context(), "loading memberships failed", "error", err)
 				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 				return
 			}

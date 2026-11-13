@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -117,6 +119,25 @@ type env struct {
 	handler http.Handler
 	st      *store.Store
 	router  routers.Router
+	logs    *syncBuffer // access log output
+}
+
+// syncBuffer is a goroutine-safe log sink.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func newEnv(t *testing.T) *env {
@@ -166,9 +187,11 @@ func newEnvWith(t *testing.T, overrides map[string]string) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
+	logs := &syncBuffer{}
 	h, _ := NewHandler(Deps{
 		Config: cfg, Store: st, Verifier: verifier, RoleMappings: service.NewRoleMappings(st),
 		Version: httpapi.Version{Version: "test", Commit: "abc123"},
+		Logger:  slog.New(slog.NewJSONHandler(logs, nil)),
 	})
 
 	doc, err := openapi3.NewLoader().LoadFromFile("../../../api/openapi.yaml")
@@ -182,7 +205,7 @@ func newEnvWith(t *testing.T, overrides map[string]string) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return &env{idp: p, handler: h, st: st, router: router}
+	return &env{idp: p, handler: h, st: st, router: router, logs: logs}
 }
 
 // user returns a bearer token for a user; admin grants the system-admin client role.
@@ -311,6 +334,11 @@ func (e *env) do(t *testing.T, c call) *result {
 		Options: &openapi3filter.Options{IncludeResponseStatus: true},
 	}
 	resp.SetBodyBytes(body)
+	// Common headers on every response (spec §16.1, §18.2).
+	if rec.Header().Get("X-Content-Type-Options") != "nosniff" || rec.Header().Get("X-Request-ID") == "" ||
+		rec.Header().Get("X-App-Version") == "" {
+		t.Fatalf("response to %s %s (status %d) lacks common headers: %v", c.method, c.path, rec.Code, rec.Header())
+	}
 	if err := openapi3filter.ValidateResponse(ctx, resp); err != nil {
 		t.Fatalf("response to %s %s (status %d) violates api/openapi.yaml: %v\nbody: %s", c.method, c.path, rec.Code, err, body)
 	}

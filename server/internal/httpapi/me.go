@@ -46,7 +46,7 @@ func (a *MeAPI) respondMe(w http.ResponseWriter, r *http.Request, status int, u 
 	c := CallerFrom(r.Context())
 	ms, err := a.Users.Memberships(r.Context(), u.ID)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	out := make([]membershipResp, 0, len(ms))
@@ -78,7 +78,7 @@ func (a *MeAPI) patchMe(w http.ResponseWriter, r *http.Request) {
 	u, err := a.Users.UpdateProfile(r.Context(), CallerFrom(r.Context()).User.ID, ver,
 		service.ProfilePatch{Locale: req.Locale, NotificationPrefs: req.NotificationPrefs})
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	a.respondMe(w, r, http.StatusOK, u)
@@ -94,7 +94,7 @@ type userResp struct {
 func (a *MeAPI) users(w http.ResponseWriter, r *http.Request) {
 	us, err := a.Users.Search(r.Context(), CallerFrom(r.Context()).Actor, r.URL.Query().Get("q"))
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	out := make([]userResp, 0, len(us))
@@ -107,7 +107,7 @@ func (a *MeAPI) users(w http.ResponseWriter, r *http.Request) {
 func (a *MeAPI) listRules(w http.ResponseWriter, r *http.Request) {
 	rs, err := a.RoleMappings.List(r.Context(), CallerFrom(r.Context()).Actor)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, wholeList(rs))
@@ -130,7 +130,7 @@ func (a *MeAPI) createRule(w http.ResponseWriter, r *http.Request) {
 	}
 	m, err := a.RoleMappings.Create(r.Context(), CallerFrom(r.Context()).Actor, req.mapping())
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, m.Version)
@@ -155,7 +155,7 @@ func (a *MeAPI) putRule(w http.ResponseWriter, r *http.Request) {
 	}
 	m, err := a.RoleMappings.Replace(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id"), ver, req.mapping())
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, m.Version)
@@ -169,7 +169,7 @@ func (a *MeAPI) deleteRule(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := a.RoleMappings.Delete(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "id"), ver); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

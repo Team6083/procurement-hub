@@ -286,3 +286,12 @@ func checkTimes(claims map[string]any, now time.Time, skew time.Duration) error 
 	}
 	return nil
 }
+
+// Ready is a readiness check: it fails unless OIDC discovery has been loaded
+// (NewVerifier only returns a Verifier after discovery succeeded).
+func (v *Verifier) Ready(context.Context) error {
+	if v == nil || v.v == nil {
+		return errors.New("oidc discovery not loaded")
+	}
+	return nil
+}

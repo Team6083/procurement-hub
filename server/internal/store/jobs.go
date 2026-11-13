@@ -89,3 +89,16 @@ func (s *Store) ReleaseJob(ctx context.Context, id bson.ObjectID, owner string, 
 		})
 	return err
 }
+
+// AbandonJob returns a job interrupted by shutdown to pending without delay
+// and without counting the attempt, so another replica can take it at once.
+func (s *Store) AbandonJob(ctx context.Context, id bson.ObjectID, owner string) error {
+	_, err := s.c("jobs").UpdateOne(ctx,
+		bson.D{{Key: "_id", Value: id}, {Key: "leaseOwner", Value: owner}, {Key: "status", Value: JobRunning}},
+		bson.D{
+			{Key: "$set", Value: bson.D{{Key: "status", Value: JobPending}}},
+			{Key: "$unset", Value: bson.D{{Key: "leaseOwner", Value: ""}, {Key: "leaseUntil", Value: ""}}},
+			{Key: "$inc", Value: bson.D{{Key: "attempts", Value: -1}}},
+		})
+	return err
+}

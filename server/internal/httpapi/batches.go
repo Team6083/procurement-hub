@@ -50,9 +50,9 @@ func idParam(w http.ResponseWriter, r *http.Request, name string) (bson.ObjectID
 
 func (a *BatchesAPI) actor(r *http.Request) *Caller { return CallerFrom(r.Context()) }
 
-func respondBatch(w http.ResponseWriter, status int, b *domain.Batch, err error) {
+func respondBatch(w http.ResponseWriter, r *http.Request, status int, b *domain.Batch, err error) {
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, b.Version)
@@ -68,21 +68,21 @@ func (a *BatchesAPI) list(w http.ResponseWriter, r *http.Request) {
 	}
 	cursor, err := parseCursor(r)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	in := service.ListBatchesInput{Status: domain.BatchStatus(q.Get("status")), Query: q.Get("q"), Cursor: cursor, Limit: limit}
 	if v := q.Get("teamId"); v != "" {
 		id, e := bson.ObjectIDFromHex(v)
 		if e != nil {
-			fail(w, service.Invalid("teamId", "must be a team id"))
+			fail(w, r, service.Invalid("teamId", "must be a team id"))
 			return
 		}
 		in.TeamID = id
 	}
 	p, err := a.Batches.List(r.Context(), a.actor(r).Actor, in)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, newPage(p.Items, p.NextCursor))
@@ -105,7 +105,7 @@ func (a *BatchesAPI) create(w http.ResponseWriter, r *http.Request) {
 	b, err := a.Batches.Create(r.Context(), a.actor(r).Actor, teamID, service.CreateBatchInput{
 		Title: req.Title, Description: req.Description, Propose: req.Propose,
 	})
-	respondBatch(w, http.StatusCreated, b, err)
+	respondBatch(w, r, http.StatusCreated, b, err)
 }
 
 func (a *BatchesAPI) get(w http.ResponseWriter, r *http.Request) {
@@ -114,7 +114,7 @@ func (a *BatchesAPI) get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	b, _, err := a.Batches.Get(r.Context(), a.actor(r).Actor, id)
-	respondBatch(w, http.StatusOK, b, err)
+	respondBatch(w, r, http.StatusOK, b, err)
 }
 
 func (a *BatchesAPI) patch(w http.ResponseWriter, r *http.Request) {
@@ -142,7 +142,7 @@ func (a *BatchesAPI) patch(w http.ResponseWriter, r *http.Request) {
 		DeadlineSet: req.Deadline.Set, Deadline: req.Deadline.Value,
 		VisibilitySet: req.VisibilityOverride.Set, VisibilityOverride: domain.Visibility(req.VisibilityOverride.Value),
 	})
-	respondBatch(w, http.StatusOK, b, err)
+	respondBatch(w, r, http.StatusOK, b, err)
 }
 
 func (a *BatchesAPI) assignments(w http.ResponseWriter, r *http.Request) {
@@ -178,19 +178,19 @@ func (a *BatchesAPI) assignments(w http.ResponseWriter, r *http.Request) {
 	var in service.AssignmentsInput
 	var err error
 	if in.Approvers, err = parse("approvers", req.Approvers); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	if in.Purchasers, err = parse("purchasers", req.Purchasers); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	if in.Receivers, err = parse("receivers", req.Receivers); err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	b, err := a.Batches.SetAssignments(r.Context(), a.actor(r).Actor, id, ver, in)
-	respondBatch(w, http.StatusOK, b, err)
+	respondBatch(w, r, http.StatusOK, b, err)
 }
 
 func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
@@ -219,7 +219,7 @@ func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
 	b, err := a.Batches.Transition(r.Context(), a.actor(r).Actor, id, ver, service.TransitionInput{
 		Action: req.Action, Reason: req.Reason, Deadline: req.Deadline,
 	})
-	respondBatch(w, http.StatusOK, b, err)
+	respondBatch(w, r, http.StatusOK, b, err)
 }
 
 // ---- items ----
@@ -247,9 +247,9 @@ func (q itemReq) input() service.ItemInput {
 	}
 }
 
-func respondItem(w http.ResponseWriter, status int, it *domain.Item, err error) {
+func respondItem(w http.ResponseWriter, r *http.Request, status int, it *domain.Item, err error) {
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, it.Version)
@@ -263,7 +263,7 @@ func (a *BatchesAPI) listItems(w http.ResponseWriter, r *http.Request) {
 	}
 	items, err := a.Items.List(r.Context(), a.actor(r).Actor, id)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, wholeList(items))
@@ -280,7 +280,7 @@ func (a *BatchesAPI) addItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.Add(r.Context(), a.actor(r).Actor, id, req.input())
-	respondItem(w, http.StatusCreated, it, err)
+	respondItem(w, r, http.StatusCreated, it, err)
 }
 
 func (a *BatchesAPI) putItem(w http.ResponseWriter, r *http.Request) {
@@ -299,7 +299,7 @@ func (a *BatchesAPI) putItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.Update(r.Context(), a.actor(r).Actor, id, ver, req.input())
-	respondItem(w, http.StatusOK, it, err)
+	respondItem(w, r, http.StatusOK, it, err)
 }
 
 func (a *BatchesAPI) withdrawItem(w http.ResponseWriter, r *http.Request) {
@@ -313,7 +313,7 @@ func (a *BatchesAPI) withdrawItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.Withdraw(r.Context(), a.actor(r).Actor, id, ver)
-	respondItem(w, http.StatusOK, it, err)
+	respondItem(w, r, http.StatusOK, it, err)
 }
 
 func (a *BatchesAPI) resubmitItem(w http.ResponseWriter, r *http.Request) {
@@ -327,7 +327,7 @@ func (a *BatchesAPI) resubmitItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.Resubmit(r.Context(), a.actor(r).Actor, id, ver)
-	respondItem(w, http.StatusOK, it, err)
+	respondItem(w, r, http.StatusOK, it, err)
 }
 
 func (a *BatchesAPI) forceReject(w http.ResponseWriter, r *http.Request) {
@@ -348,7 +348,7 @@ func (a *BatchesAPI) forceReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.ForceReject(r.Context(), a.actor(r).Actor, id, ver, req.Reason)
-	respondItem(w, http.StatusOK, it, err)
+	respondItem(w, r, http.StatusOK, it, err)
 }
 
 func (a *BatchesAPI) review(w http.ResponseWriter, r *http.Request) {
@@ -371,14 +371,14 @@ func (a *BatchesAPI) review(w http.ResponseWriter, r *http.Request) {
 	for _, d := range req.Decisions {
 		oid, err := bson.ObjectIDFromHex(d.ItemID)
 		if err != nil {
-			fail(w, service.Invalid("decisions", "invalid item id"))
+			fail(w, r, service.Invalid("decisions", "invalid item id"))
 			return
 		}
 		ds = append(ds, service.Decision{ItemID: oid, Decision: d.Decision, Comment: d.Comment})
 	}
 	res, err := a.Items.Review(r.Context(), a.actor(r).Actor, id, ds)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	setETag(w, res.Batch.Version)
@@ -390,7 +390,7 @@ func (a *BatchesAPI) review(w http.ResponseWriter, r *http.Request) {
 func (a *BatchesAPI) tasks(w http.ResponseWriter, r *http.Request) {
 	t, err := a.Tasks.For(r.Context(), a.actor(r).Actor)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, map[string]any{
@@ -413,7 +413,7 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 	}
 	cursor, err := parseCursor(r)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	var pg *audit.Page
@@ -423,11 +423,11 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 	case "item":
 		pg, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	default:
-		fail(w, service.Invalid("objectType", "must be batch or item"))
+		fail(w, r, service.Invalid("objectType", "must be batch or item"))
 		return
 	}
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, newPage(pg.Events, pg.NextCursor))
@@ -445,12 +445,12 @@ func (a *BatchesAPI) teamAudit(w http.ResponseWriter, r *http.Request) {
 	}
 	cursor, err := parseCursor(r)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	pg, err := a.Timeline.ForTeam(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	if err != nil {
-		fail(w, err)
+		fail(w, r, err)
 		return
 	}
 	WriteJSON(w, http.StatusOK, newPage(pg.Events, pg.NextCursor))

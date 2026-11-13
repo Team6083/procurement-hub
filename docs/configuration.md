@@ -22,7 +22,7 @@ At startup the service checks every variable. If anything is wrong it prints **a
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `LISTEN_ADDR` | no | `:8080` | Listen address of the business API. |
-| `METRICS_LISTEN_ADDR` | no | `:9090` | Listen address of `/healthz`, `/readyz` and `/metrics`. Keep it off the ingress. `off` disables this server. |
+| `METRICS_LISTEN_ADDR` | no | `:9090` | Listen address of `/healthz`, `/readyz` and `/metrics`. Keep it off the ingress. `off` disables this server, leaving no health-check endpoints for probes. |
 | `LOG_LEVEL` | no | `info` | `debug`, `info`, `warn` or `error` (lowercase). Any other value stops startup. |
 | `SHUTDOWN_TIMEOUT` | no | `30s` | After SIGTERM, how long to wait for in-flight requests before exiting. |
 

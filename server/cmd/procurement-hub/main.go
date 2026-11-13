@@ -10,9 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
-	"github.com/prometheus/client_golang/prometheus"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/app"
@@ -20,6 +18,7 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/config"
 	"github.com/team6083/procurement-hub/server/internal/httpapi"
 	"github.com/team6083/procurement-hub/server/internal/jobs"
+	"github.com/team6083/procurement-hub/server/internal/ops"
 	"github.com/team6083/procurement-hub/server/internal/service"
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
@@ -94,13 +93,15 @@ func migrate(stdout io.Writer) error {
 	return err
 }
 
-// serve runs the API and ops servers until SIGINT/SIGTERM.
+// serve runs the API and ops servers until SIGINT/SIGTERM; the shutdown
+// sequence lives in ops.Serve.
 func serve() error {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
 		return err
 	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel})))
+	// ContextHandler adds request_id to logs written with a request context.
+	slog.SetDefault(slog.New(ops.NewContextHandler(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: cfg.LogLevel}))))
 	slog.Info("effective configuration", "config", cfg) // secrets masked by Config.LogValue
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -127,12 +128,10 @@ func serve() error {
 		return err
 	}
 
-	reg := prometheus.NewRegistry()
-	metrics := httpapi.NewMetrics(reg)
-
+	reg := ops.NewRegistry()
 	handler, batches := app.NewHandler(app.Deps{
 		Config: cfg, Store: st, Verifier: verifier, RoleMappings: rm,
-		Version: httpapi.Version{Version: version, Commit: commit}, Metrics: metrics,
+		Version: httpapi.Version{Version: version, Commit: commit}, Metrics: ops.NewHTTPMetrics(reg),
 	})
 
 	host, _ := os.Hostname()
@@ -147,37 +146,22 @@ func serve() error {
 	// Deadline reminders become notifications in milestone 6; until then the
 	// job is consumed so it does not linger.
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })
-	go runner.Run(ctx)
 
-	api := &http.Server{Addr: cfg.ListenAddr, Handler: handler, ReadHeaderTimeout: 10 * time.Second}
-	servers := []*http.Server{api}
+	// Readiness checks (spec §18.2). Discovery already succeeded above (the
+	// verifier fails fast otherwise); data migrations will add their check.
+	ready := ops.NewReadiness()
+	ready.Add("mongodb", st.CheckReplicaSet)
+	ready.Add("oidc", verifier.Ready)
+
+	var opsServer *http.Server
 	if cfg.MetricsListenAddr != "" { // empty when METRICS_LISTEN_ADDR=off
-		servers = append(servers, &http.Server{
-			Addr: cfg.MetricsListenAddr, ReadHeaderTimeout: 10 * time.Second,
-			Handler: httpapi.OpsHandler(reg, map[string]httpapi.ReadyCheck{
-				"mongodb": st.CheckReplicaSet,
-			}),
-		})
+		opsServer = ops.NewServer(cfg.MetricsListenAddr, ops.Handler(ops.HandlerOptions{Gatherer: reg, Readiness: ready}))
 	}
-
-	errc := make(chan error, len(servers))
-	for _, s := range servers {
-		go func() {
-			slog.Info("listening", "addr", s.Addr)
-			if err := s.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
-				errc <- err
-			}
-		}()
-	}
-	select {
-	case <-ctx.Done():
-	case err := <-errc:
-		return err
-	}
-	shutdown, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
-	defer cancel()
-	for _, s := range servers {
-		_ = s.Shutdown(shutdown)
-	}
-	return nil
+	return ops.Serve(ctx, ops.ServeConfig{
+		API:             ops.NewServer(cfg.ListenAddr, handler),
+		Ops:             opsServer,
+		Readiness:       ready,
+		ShutdownTimeout: cfg.ShutdownTimeout,
+		Background:      []func(context.Context){runner.Run},
+	})
 }
