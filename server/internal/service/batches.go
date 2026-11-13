@@ -171,7 +171,7 @@ func (s *Batches) List(ctx context.Context, actor authz.Actor, in ListBatchesInp
 			}
 			page.Items = append(page.Items, b)
 		}
-		if len(rows) < int(limit)*2 {
+		if len(rows) < limit*2 {
 			return page, nil
 		}
 		f.After = rows[len(rows)-1].ID

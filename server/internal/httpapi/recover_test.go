@@ -82,8 +82,8 @@ func TestRecoverRepanicsAbortHandler(t *testing.T) {
 		panic(http.ErrAbortHandler)
 	}))
 	defer func() {
-		if v := recover(); v != http.ErrAbortHandler {
-			t.Fatalf("recovered %v, want http.ErrAbortHandler", v)
+		if err, _ := recover().(error); !errors.Is(err, http.ErrAbortHandler) {
+			t.Fatalf("recovered %v, want http.ErrAbortHandler", err)
 		}
 	}()
 	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/", nil))

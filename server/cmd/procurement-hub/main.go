@@ -103,7 +103,7 @@ func migrate(stdout io.Writer) error {
 	if err != nil {
 		return err
 	}
-	defer st.Close(context.Background())
+	defer func() { _ = st.Close(context.Background()) }()
 
 	host, _ := os.Hostname()
 	r := migrations.NewRunner(st, fmt.Sprintf("%s-%d", host, os.Getpid()), version)
@@ -133,7 +133,7 @@ func serve() error {
 	if err != nil {
 		return err
 	}
-	defer st.Close(context.Background())
+	defer func() { _ = st.Close(context.Background()) }()
 
 	// serve never applies migrations (spec §13.2): until `migrate` has run,
 	// /readyz stays 503. The check re-reads the records on each probe, so the

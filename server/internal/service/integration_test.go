@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 	"time"
@@ -124,10 +125,10 @@ func TestTeamVersionConflictAndAdminCheck(t *testing.T) {
 	}
 	outsider := authz.Actor{UserID: other.ID}
 	n2 := "x"
-	if _, err := teams.Update(ctx, outsider, tm.ID, updated.Version, TeamPatch{Name: &n2}); err != ErrForbidden {
+	if _, err := teams.Update(ctx, outsider, tm.ID, updated.Version, TeamPatch{Name: &n2}); !errors.Is(err, ErrForbidden) {
 		t.Errorf("non-admin update: %v", err)
 	}
-	if _, err := teams.Create(ctx, adminActor, CreateTeamInput{Slug: "x", Name: "X", FirstAdminID: admin.ID}); err != ErrForbidden {
+	if _, err := teams.Create(ctx, adminActor, CreateTeamInput{Slug: "x", Name: "X", FirstAdminID: admin.ID}); !errors.Is(err, ErrForbidden) {
 		t.Errorf("non-sysadmin create: %v", err)
 	}
 }

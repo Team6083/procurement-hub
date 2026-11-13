@@ -39,7 +39,7 @@ func parseDuration(s string) (time.Duration, error) {
 		}
 		num := rest[:i]
 		j := i
-		for j < len(rest) && !(rest[j] >= '0' && rest[j] <= '9' || rest[j] == '.') {
+		for j < len(rest) && (rest[j] < '0' || rest[j] > '9') && rest[j] != '.' {
 			j++
 		}
 		unit := rest[i:j]

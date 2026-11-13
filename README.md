@@ -2,7 +2,7 @@
 
 A multi-team procurement management system. Members request items in a purchasing round (a *batch*), approvers review them, purchasers order them, and receivers check the goods on arrival — replacing shared spreadsheets with a structured, audited workflow.
 
-Licensed under the Apache License 2.0.
+Licensed under the [Apache License 2.0](LICENSE).
 
 > **Status:** under development. Implemented so far: skeleton, identity & teams, batches & items (review flow). Ordering, receiving, notifications, product lookup, CSV and reports are not built yet.
 
@@ -14,9 +14,23 @@ Licensed under the Apache License 2.0.
 
 Nothing in this repository is specific to an organization or deployment: every environment-specific value is supplied through configuration.
 
-## Quick start (development)
+## Quick start
 
-Prerequisites: Go (see `server/go.mod`), Node.js 22+, a MongoDB replica set, and an OIDC provider (e.g. Keycloak) with a public client for the SPA.
+### Try it with Docker Compose
+
+[`examples/docker-compose.yml`](examples/docker-compose.yml) runs a single-node MongoDB replica set, the one-off `migrate` job and the API server:
+
+```sh
+cd examples
+cp .env.example .env   # set OIDC_ISSUER, ADMIN_ROLES, WEBHOOK_ENCRYPTION_KEY, ...
+docker compose up -d
+```
+
+`serve` starts only after `migrate` has exited successfully. It loads the OIDC discovery document at startup and exits if the issuer is unreachable, so `OIDC_ISSUER` must point at a running provider (for example a Keycloak realm set up as in [`docs/keycloak.md`](docs/keycloak.md)); no provider is bundled. The API listens on `127.0.0.1:8080` and the health and metrics endpoints on `127.0.0.1:9090`. Set `PROCUREMENT_HUB_IMAGE` to use a locally built image. The example MongoDB has no authentication and is meant for local trials only.
+
+### Development
+
+Prerequisites: Go (the version in `server/go.mod`), Node.js (the version in `web/package.json` `engines`, currently 26), Docker (for the integration tests), a MongoDB replica set and an OIDC provider (e.g. Keycloak) with a public client for the SPA.
 
 ```sh
 # Backend
@@ -38,31 +52,57 @@ npm ci
 npm run dev
 ```
 
+## Running the server
+
+The binary (and the image) has two subcommands:
+
+| Command | Purpose |
+|---|---|
+| `procurement-hub serve` (default) | Runs the API on `LISTEN_ADDR` (`:8080`), `/healthz`, `/readyz` and `/metrics` on `METRICS_LISTEN_ADDR` (`:9090`), and the background jobs. Stops gracefully on SIGTERM. |
+| `procurement-hub migrate` | Applies pending data migrations and indexes, then exits 0 (or 1 naming the failed migration). Run it as a one-off job before rolling out a new version. |
+
 ### Data migrations
 
 Schema changes and index creation are versioned migrations (`server/internal/migrations`), applied by `procurement-hub migrate`, never by `serve`. `migrate` runs every migration not yet recorded in the `migrations` collection, in order, recording each one; it exits 0 when all are done and 1 naming the migration that failed. A MongoDB lease (`migrationLease` collection) lets only one `migrate` run at a time; a second one waits for it and then finds nothing to do. Every migration is safe to re-run after a failure. `migrate` reads only `MONGO_URI` and `LOG_LEVEL`.
 
 `serve` checks the records at startup and logs any pending migrations; until they are applied `/readyz` answers 503 with `"check":"migrations"`, and it turns ready on its own once `migrate` has run. Deploy a new version by running `migrate` as a one-off job with the new image, then rolling out `serve`.
 
-### Tests
+## Testing
 
 ```sh
-cd server && go vet ./... && go test -race ./...
-cd web && npm run typecheck && npm run lint && npm test && npm run build
+cd server
+gofmt -l . && go vet ./... && golangci-lint run ./...
+go test -race ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+
+cd web
+npm ci
+npm run gen:api && git diff --exit-code src/api   # generated types up to date
+npm run typecheck && npm run lint && npm test && npm run build
+npm audit --audit-level=high
 ```
 
-The server's integration tests need a MongoDB replica set. By default each test package starts one `mongo:8` container through [testcontainers-go](https://golang.testcontainers.org/), so **Docker must be running**; without it those tests fail with a message saying so. Two environment variables change this:
+The server's integration and HTTP contract tests need a MongoDB replica set. By default each test package starts one `mongo:8` container through [testcontainers-go](https://golang.testcontainers.org/), so **Docker must be running**; without it those tests fail with a message saying so. Two environment variables change this:
 
 - `TEST_MONGODB_URI` uses an existing replica set instead of a container, which is faster for repeated local runs, e.g. `TEST_MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true' go test ./...`. The tests create and drop throwaway databases named `ph_*` on that server.
 - `SKIP_INTEGRATION=1` skips the integration tests instead of failing them.
 
-### Container image
+`HTTP_COVERAGE_STRICT=1` (set in CI) fails the run when an OpenAPI operation has no HTTP-level test. See [CONTRIBUTING.md](CONTRIBUTING.md) for the lint setup and the API contract rules.
+
+## Container image
+
+Release images are published to `ghcr.io/team6083/procurement-hub` (linux/amd64): `main` and `sha-<7 chars>` for every push to `main`, and `X.Y.Z`, `X.Y` and `latest` for every `vX.Y.Z` tag. To build one locally:
 
 ```sh
-docker build -f server/Dockerfile server
+docker build -t procurement-hub:local \
+  --build-arg GO_VERSION="$(sed -n 's/^go //p' server/go.mod)" \
+  --build-arg VERSION=dev --build-arg COMMIT="$(git rev-parse HEAD)" \
+  server
 ```
 
-The image runs `serve` by default; pass `migrate` as the container command to run migrations as a one-off job.
+The image is distroless, runs as UID/GID `65532`, works with a read-only root filesystem, and exposes `8080` (API) and `9090` (health and metrics). It runs `serve` by default; pass `migrate` as the container command for the migration job. `VERSION` and `COMMIT` end up in the `X-App-Version` and `X-App-Commit` response headers. The Go version comes from `server/go.mod`; the Dockerfile's `GO_VERSION` default must match it, which CI checks.
+
+The repository ships no deployment manifests; [`examples/`](examples/) has a Docker Compose setup for local trials.
 
 ## Configuration
 
@@ -103,8 +143,48 @@ Silent token renewal uses the refresh token Keycloak issues for the Authorizatio
 ## Repository layout
 
 ```
-api/openapi.yaml        API contract (source of truth for generated frontend types)
-server/                 Go service (cmd/procurement-hub, internal/…)
-web/                    React SPA
-deploy/, docs/          Helm chart and operator docs (later milestones)
+api/openapi.yaml          API contract (OpenAPI 3.1); source of truth for handlers and frontend types
+server/                   Go module github.com/team6083/procurement-hub/server
+  cmd/procurement-hub/    entry point: serve (default) and migrate
+  internal/config/        environment variable parsing and validation
+  internal/auth/          JWT validation, principal, role matching and mapping sync
+  internal/authz/         permission checks
+  internal/domain/        entities, state machines, money (pure logic)
+  internal/store/         MongoDB repositories and transactions
+  internal/migrations/    versioned data migrations and indexes
+  internal/service/       use cases coordinating domain, store and audit
+  internal/httpapi/       hand-written chi handlers and middleware
+  internal/ops/           /healthz, /readyz, /metrics, access log, request id
+  internal/jobs/          lease-based background jobs
+  internal/audit/         audit records
+  Dockerfile, .env.example, .golangci.yml
+web/                      React SPA (Vite); src/api holds the generated API types
+examples/                 docker-compose.yml for a local trial
+docs/                     configuration.md, keycloak.md
+.github/                  CI, release and Dependabot configuration
 ```
+
+Notification, product lookup, CSV and outbound-HTTP packages arrive with later milestones.
+
+## 12-factor self-check
+
+The service follows the twelve-factor methodology with one exception, for the frontend: it reads a runtime `config.json` and is built once per environment, with no environment values in the bundle.
+
+| Factor | How procurement-hub meets it |
+|---|---|
+| I. Codebase | One repository; the backend image and the SPA are released from the same Git tag. |
+| II. Dependencies | `go.mod`/`go.sum` and `package-lock.json` pin every dependency; the image is a static binary on distroless. |
+| III. Config | The backend reads only environment variables, validated at startup; the SPA reads `/config.json` at runtime. |
+| IV. Backing services | MongoDB, the OIDC provider and the SMTP server are attached only through configuration. |
+| V. Build, release, run | CI builds one image per commit; configuration is supplied at run time. The SPA is built per environment (the exception above). |
+| VI. Processes | `serve` is stateless; the in-memory token-sync cache only saves reads and is rebuilt from MongoDB. |
+| VII. Port binding | The API binds `LISTEN_ADDR`, health and metrics bind `METRICS_LISTEN_ADDR`. |
+| VIII. Concurrency | Run more replicas; background jobs coordinate through MongoDB leases. |
+| IX. Disposability | On SIGTERM `/readyz` turns 503, in-flight requests finish within `SHUTDOWN_TIMEOUT`, job leases are released. |
+| X. Dev/prod parity | Tests, CI and the compose example all use `mongo:8` as a replica set, as in production. |
+| XI. Logs | One JSON object per line on stdout (`log/slog`). |
+| XII. Admin processes | Migrations run as `procurement-hub migrate`, a one-off job using the same image. |
+
+## Contributing and security
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development workflow and [SECURITY.md](SECURITY.md) to report a vulnerability. Notable changes are listed in [CHANGELOG.md](CHANGELOG.md).

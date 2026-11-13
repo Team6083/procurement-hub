@@ -1,0 +1,6 @@
+# Keep local secrets and editor/build leftovers out of the build context.
+.env
+*.env
+.golangci.yml
+*.test
+*.out

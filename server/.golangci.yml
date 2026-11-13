@@ -1,0 +1,30 @@
+# golangci-lint v2 configuration. CI pins the golangci-lint version in
+# .github/workflows/ci.yml; run the same version locally.
+version: "2"
+
+linters:
+  # "standard" = errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose
+    - errorlint
+    - misspell
+    - nilerr
+    - unconvert
+  settings:
+    staticcheck:
+      checks:
+        - all
+        # Package and exported-identifier comment style is not enforced.
+        - -ST1000
+        - -ST1020
+        - -ST1021
+        - -ST1022
+
+formatters:
+  enable:
+    - gofmt
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

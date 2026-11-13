@@ -33,7 +33,7 @@ func (w *world) openBatch(t *testing.T, title string) (id string, version *resul
 // The whole review flow over HTTP (acceptance criteria 2 and 3).
 func TestHTTPBatchLifecycle(t *testing.T) {
 	w := setup(t)
-	id, batch := w.openBatch(t, "Round 1")
+	id, _ := w.openBatch(t, "Round 1")
 	bp := w.path("/batches/{}", id)
 
 	// Adding items: members only; outsiders can read a public batch but not write.
@@ -80,7 +80,7 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 	w.do(t, call{token: w.appr, method: "PUT", path: ip, ifMatch: got.ETag(), body: edit}).expect(403, "forbidden")
 
 	// Close collection -> reviewing; adding is no longer possible.
-	batch = w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: w.do(t, call{token: w.adm, method: "GET", path: bp}).ETag(), body: map[string]any{"action": "close"}}).expect(200)
+	batch := w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: w.do(t, call{token: w.adm, method: "GET", path: bp}).ETag(), body: map[string]any{"action": "close"}}).expect(200)
 	if batch.String("status") != "reviewing" {
 		t.Fatalf("status = %s", batch.String("status"))
 	}

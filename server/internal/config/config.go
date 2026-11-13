@@ -283,7 +283,7 @@ func LoadMigrate(getenv func(string) string) (*MigrateConfig, error) {
 	if v := strings.TrimSpace(getenv("MONGO_URI")); v == "" {
 		errs = append(errs, errors.New("MONGO_URI is required"))
 	} else if c.MongoDatabase, err = mongoDatabase(v); err != nil {
-		errs = append(errs, fmt.Errorf("MONGO_URI: %v", err))
+		errs = append(errs, fmt.Errorf("MONGO_URI: %w", err))
 	} else {
 		c.MongoURI = v
 	}
@@ -378,7 +378,7 @@ func mongoDatabase(uri string) (string, error) {
 	}
 	db, err := url.PathUnescape(db)
 	if err != nil {
-		return "", fmt.Errorf("invalid database name: %v", err)
+		return "", fmt.Errorf("invalid database name: %w", err)
 	}
 	return db, nil
 }

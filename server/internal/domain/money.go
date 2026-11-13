@@ -24,7 +24,7 @@ func NewDecimal(s string) (Decimal, error) {
 }
 
 func (d Decimal) MarshalBSONValue() (byte, []byte, error) {
-	d128, err := bson.ParseDecimal128(d.Decimal.String())
+	d128, err := bson.ParseDecimal128(d.String())
 	if err != nil {
 		return 0, nil, fmt.Errorf("decimal128: %w", err)
 	}

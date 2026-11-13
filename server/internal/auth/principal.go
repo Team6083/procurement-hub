@@ -222,24 +222,24 @@ var ErrInvalidToken = errors.New("invalid token")
 func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	tok, err := v.v.Verify(ctx, raw)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	var claims map[string]any
 	if err := tok.Claims(&claims); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	if err := checkTimes(claims, v.now(), v.cfg.ClockSkew); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	if !hasAudience(tok.Audience, v.cfg.Audience) {
 		return nil, fmt.Errorf("%w: audience mismatch", ErrInvalidToken)
 	}
 	if err := checkType(claims); err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.AdminRoles)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
+		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
 	return p, nil
 }

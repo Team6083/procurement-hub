@@ -1,40 +1,119 @@
 name: ci
+
 on:
-  push:
   pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Run the same versions locally (see CONTRIBUTING.md).
+  GOLANGCI_LINT_VERSION: v2.15.0
+  GOVULNCHECK_VERSION: v1.9.0
+
 jobs:
   server:
+    name: server (Go)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: server
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
         with:
           go-version-file: server/go.mod
-      - uses: golangci/golangci-lint-action@v6
+          cache-dependency-path: server/go.sum
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "These files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v9
         with:
+          version: ${{ env.GOLANGCI_LINT_VERSION }}
           working-directory: server
-      - run: go vet ./...
-      - run: go test ./...
-      - run: go install golang.org/x/vuln/cmd/govulncheck@latest && govulncheck ./...
+      - name: go test
+        # Integration and HTTP contract tests start a mongo:8 replica set with
+        # testcontainers-go on the runner's Docker daemon; nothing is skipped.
+        env:
+          HTTP_COVERAGE_STRICT: "1"
+        run: go test -race -count=1 ./...
+      - name: govulncheck
+        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+
   web:
+    name: web (Node)
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: web
+    env:
+      # Production builds fail without a commit SHA (spec section 6.3).
+      APP_COMMIT: ${{ github.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
         with:
-          node-version: 22
+          persist-credentials: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/package.json
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - run: npm run gen:api && git diff --exit-code -- src/api/schema.d.ts
+      - name: generated API types are up to date
+        run: |
+          npm run gen:api
+          git diff --exit-code -- src/api || {
+            echo "src/api is stale: run 'npm run gen:api' in web/ and commit the result."
+            exit 1
+          }
       - run: npm run typecheck
       - run: npm run lint
-      - run: npm test
+      - run: npm test -- --run
       - run: npm run build
       - run: npm audit --audit-level=high
+
+  image:
+    name: container image (build only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Go version from go.mod
+        id: go
+        run: |
+          gomod="$(sed -n 's/^go //p' server/go.mod)"
+          dockerfile="$(sed -n 's/^ARG GO_VERSION=//p' server/Dockerfile)"
+          if [ "$gomod" != "$dockerfile" ]; then
+            echo "server/Dockerfile ARG GO_VERSION=$dockerfile does not match server/go.mod ($gomod)."
+            exit 1
+          fi
+          echo "version=$gomod" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
+        with:
+          context: server
+          platforms: linux/amd64
+          push: false
+          build-args: |
+            GO_VERSION=${{ steps.go.outputs.version }}
+            VERSION=ci
+            COMMIT=${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

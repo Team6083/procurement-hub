@@ -164,7 +164,7 @@ func (r *Runner) Run(ctx context.Context) ([]string, error) {
 		if !todo[m.ID] {
 			continue
 		}
-		if context.Cause(ctx) == errLeaseLost {
+		if errors.Is(context.Cause(ctx), errLeaseLost) {
 			return applied, &Error{ID: m.ID, Err: errLeaseLost}
 		}
 		log.Info("applying migration", "migration", m.ID)

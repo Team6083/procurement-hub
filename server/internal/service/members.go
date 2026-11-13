@@ -136,10 +136,8 @@ func (s *Teams) UpdateMember(ctx context.Context, actor authz.Actor, teamID, use
 			return ErrVersionConflict
 		}
 		if roleChange {
-			newManual := m.ManualRole
-			if p.ClearManualRole {
-				newManual = domain.RoleNone
-			} else {
+			newManual := domain.RoleNone
+			if !p.ClearManualRole {
 				newManual = *p.ManualRole
 			}
 			if newManual != m.ManualRole {

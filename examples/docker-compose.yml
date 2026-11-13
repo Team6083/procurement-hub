@@ -1,0 +1,77 @@
+# Local trial of procurement-hub: a single-node MongoDB replica set, the
+# one-off `migrate` job, and the API server (`serve`). Not a production setup:
+# MongoDB runs without authentication and its port is not published.
+#
+#   cp .env.example .env    # then edit .env
+#   docker compose up -d
+#
+# `serve` needs a reachable OIDC issuer (OIDC_ISSUER) at startup; see the
+# README in the repository root. The SPA is built and hosted separately.
+name: procurement-hub
+
+x-app: &app
+  image: ${PROCUREMENT_HUB_IMAGE:-ghcr.io/team6083/procurement-hub:latest}
+  read_only: true
+  user: "65532:65532"
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  environment:
+    MONGO_URI: mongodb://mongo:27017/procurement_hub?replicaSet=rs0
+
+services:
+  mongo:
+    image: mongo:8
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ulimits:
+      nofile:
+        soft: 64000
+        hard: 64000
+    volumes:
+      - mongo-data:/data/db
+    # Initiates the replica set on first start and reports healthy once this
+    # node is primary.
+    healthcheck:
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - >-
+          try { rs.status() } catch (e) {
+            rs.initiate({ _id: "rs0", members: [{ _id: 0, host: "mongo:27017" }] })
+          };
+          if (!db.hello().isWritablePrimary) { quit(1) }
+      interval: 5s
+      timeout: 10s
+      retries: 30
+      start_period: 10s
+      start_interval: 1s
+
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    restart: "no"
+    depends_on:
+      mongo:
+        condition: service_healthy
+
+  serve:
+    <<: *app
+    command: ["serve"]
+    restart: unless-stopped
+    env_file:
+      - path: .env
+        required: true
+    environment:
+      MONGO_URI: mongodb://mongo:27017/procurement_hub?replicaSet=rs0
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:9090:9090"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  mongo-data:
