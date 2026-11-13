@@ -3,7 +3,6 @@ package jobs
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -13,25 +12,15 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
+	"github.com/team6083/procurement-hub/server/internal/mongotest"
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
 
+func TestMain(m *testing.M) { os.Exit(mongotest.Main(m)) }
+
 func testStore(t *testing.T) *store.Store {
 	t.Helper()
-	uri := os.Getenv("TEST_MONGODB_URI")
-	if uri == "" {
-		t.Skip("TEST_MONGODB_URI not set")
-	}
-	ctx := context.Background()
-	st, err := store.Connect(ctx, uri, fmt.Sprintf("ph_jobs_%d", time.Now().UnixNano()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := st.EnsureIndexes(ctx); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = st.DB.Drop(ctx); _ = st.Close(ctx) })
-	return st
+	return mongotest.Store(t, "ph_jobs")
 }
 
 func loadJob(t *testing.T, st *store.Store, key string) *store.Job {

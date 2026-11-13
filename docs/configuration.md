@@ -15,6 +15,8 @@ The backend (`server/`) is configured only through environment variables. [`serv
 
 At startup the service checks every variable. If anything is wrong it prints **all** problems to stderr, one per line, and exits with status 1. On success it logs one `info` line, `effective configuration`, with the configuration in effect. Secrets are masked: the user info (and secret-bearing options) of `MONGO_URI`, `WEBHOOK_ENCRYPTION_KEY` and `SMTP_PASSWORD` show as `***`. When `ALLOWED_ROLES` is unset, the line shows `"ALLOWED_ROLES":"unrestricted"`.
 
+`procurement-hub migrate` reads only `MONGO_URI` and `LOG_LEVEL` and validates them the same way; it ignores every other variable, so it can run with the same environment as `serve` or a minimal one.
+
 ## Variables
 
 ### Server

@@ -15,7 +15,6 @@ func TestRunDispatch(t *testing.T) {
 		wantStdout string
 		wantStderr string
 	}{
-		{"migrate stub", []string{"migrate"}, 0, "no migrations registered", ""},
 		{"help", []string{"--help"}, 0, "usage: procurement-hub", ""},
 		{"unknown", []string{"bogus"}, 2, "", `unknown command "bogus"`},
 		{"extra args", []string{"migrate", "x"}, 2, "", "takes no arguments"},
@@ -45,6 +44,21 @@ func TestDefaultCommandIsServe(t *testing.T) {
 	commands["serve"] = func(_ io.Writer) error { called = true; return nil }
 	if code := run(nil, &bytes.Buffer{}, &bytes.Buffer{}); code != 0 || !called {
 		t.Fatalf("run(nil) = %d, serve called = %v", code, called)
+	}
+}
+
+func TestMigrateConfigErrorsListedOnStderr(t *testing.T) {
+	t.Setenv("MONGO_URI", "")
+	t.Setenv("LOG_LEVEL", "loud")
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"migrate"}, &stdout, &stderr); code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	out := stderr.String()
+	for _, want := range []string{"procurement-hub: invalid configuration:\n", "  - MONGO_URI is required\n", "  - LOG_LEVEL:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("stderr lacks %q: %s", want, out)
+		}
 	}
 }
 

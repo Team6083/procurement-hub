@@ -33,18 +33,6 @@ func (d Decimal) MarshalBSONValue() (byte, []byte, error) {
 }
 
 func (d *Decimal) UnmarshalBSONValue(t byte, data []byte) error {
-	if bson.Type(t) == bson.TypeString { // legacy rows written before Decimal128
-		str, _, ok := bsoncore.ReadString(data)
-		if !ok {
-			return fmt.Errorf("invalid string value")
-		}
-		v, err := decimal.NewFromString(str)
-		if err != nil {
-			return err
-		}
-		d.Decimal = v
-		return nil
-	}
 	if bson.Type(t) != bson.TypeDecimal128 {
 		return fmt.Errorf("cannot decode BSON type %v as decimal", bson.Type(t))
 	}

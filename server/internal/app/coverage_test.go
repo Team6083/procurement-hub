@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/getkin/kin-openapi/openapi3"
+
+	"github.com/team6083/procurement-hub/server/internal/mongotest"
 )
 
 var (
@@ -21,11 +23,11 @@ func recordHit(method, path string) {
 	hitMu.Unlock()
 }
 
-// TestMain reports which OpenAPI operations the HTTP-level tests exercised.
+// TestMain provides the MongoDB replica set (package mongotest) and reports which OpenAPI operations the HTTP-level tests exercised.
 // It is informational; set HTTP_COVERAGE_STRICT=1 to fail when any is missed.
 func TestMain(m *testing.M) {
-	code := m.Run()
-	if os.Getenv("TEST_MONGODB_URI") != "" && code == 0 {
+	code := mongotest.Main(m)
+	if mongotest.Used() && code == 0 {
 		doc, err := openapi3.NewLoader().LoadFromFile("../../../api/openapi.yaml")
 		if err == nil {
 			var missed []string

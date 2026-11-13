@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -13,31 +12,16 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/auth"
 	"github.com/team6083/procurement-hub/server/internal/authz"
 	"github.com/team6083/procurement-hub/server/internal/domain"
+	"github.com/team6083/procurement-hub/server/internal/mongotest"
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
 
-// testStore connects to TEST_MONGODB_URI (must be a replica set) using a
-// throwaway database, or skips the test when it is not set.
+func TestMain(m *testing.M) { os.Exit(mongotest.Main(m)) }
+
+// testStore returns a migrated throwaway database on the test replica set.
 func testStore(t *testing.T) *store.Store {
 	t.Helper()
-	uri := os.Getenv("TEST_MONGODB_URI")
-	if uri == "" {
-		t.Skip("TEST_MONGODB_URI not set")
-	}
-	ctx := context.Background()
-	db := fmt.Sprintf("ph_test_%d", time.Now().UnixNano())
-	st, err := store.Connect(ctx, uri, db)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := st.EnsureIndexes(ctx); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_ = st.DB.Drop(ctx)
-		_ = st.Close(ctx)
-	})
-	return st
+	return mongotest.Store(t, "ph_test")
 }
 
 // Acceptance criterion 1: a mapped group adds the membership automatically,

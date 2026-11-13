@@ -6,12 +6,10 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,6 +26,8 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/auth"
 	"github.com/team6083/procurement-hub/server/internal/config"
 	"github.com/team6083/procurement-hub/server/internal/httpapi"
+	"github.com/team6083/procurement-hub/server/internal/migrations"
+	"github.com/team6083/procurement-hub/server/internal/mongotest"
 	"github.com/team6083/procurement-hub/server/internal/service"
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
@@ -148,17 +148,14 @@ func newEnv(t *testing.T) *env {
 // newEnvWith is newEnv with extra or overridden environment variables.
 func newEnvWith(t *testing.T, overrides map[string]string) *env {
 	t.Helper()
-	uri := os.Getenv("TEST_MONGODB_URI")
-	if uri == "" {
-		t.Skip("TEST_MONGODB_URI not set")
-	}
+	uri := mongotest.URI(t)
 	ctx := context.Background()
 	p := newIDP(t)
 
 	vals := map[string]string{
 		"CORS_ALLOWED_ORIGINS": "https://app.example.org", "FRONTEND_URL": "https://app.example.org",
 		"WEBHOOK_ENCRYPTION_KEY": "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=",
-		"MONGO_URI":              withDatabase(uri, fmt.Sprintf("ph_http_%d", time.Now().UnixNano())),
+		"MONGO_URI":              mongotest.WithDatabase(uri, mongotest.DatabaseName("ph_http")),
 		"OIDC_ISSUER":            p.srv.URL, "OIDC_AUDIENCE": testAudience,
 		// Admins are identified by a *client* role, exercising the oauth2-proxy-style notation.
 		"ADMIN_ROLES":          testRoleClient + ":admin",
@@ -175,10 +172,10 @@ func newEnvWith(t *testing.T, overrides map[string]string) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := st.EnsureIndexes(ctx); err != nil {
+	t.Cleanup(func() { _ = st.DB.Drop(ctx); _ = st.Close(ctx) })
+	if _, err := (&migrations.Runner{DB: st.DB, Owner: "test"}).Run(ctx); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = st.DB.Drop(ctx); _ = st.Close(ctx) })
 
 	verifier, err := auth.NewVerifier(ctx, auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
@@ -360,16 +357,3 @@ func (r *result) expect(status int, errCode ...string) *result {
 }
 
 func itoa(i int) string { return strconv.Itoa(i) }
-
-// withDatabase puts a database name into the path of a MongoDB URI such as
-// TEST_MONGODB_URI, which usually has none ("mongodb://host/?replicaSet=rs0").
-func withDatabase(uri, db string) string {
-	base, query, hasQuery := strings.Cut(uri, "?")
-	scheme, rest, _ := strings.Cut(base, "://")
-	hosts, _, _ := strings.Cut(rest, "/")
-	out := scheme + "://" + hosts + "/" + db
-	if hasQuery {
-		out += "?" + query
-	}
-	return out
-}

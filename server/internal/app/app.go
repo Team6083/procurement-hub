@@ -40,6 +40,7 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 	r.Use(ops.RequestID)
 	r.Use(httpapi.VersionHeaders(d.Version))
 	r.Use(ops.Instrument(ops.InstrumentOptions{Metrics: d.Metrics, Logger: d.Logger}))
+	r.Use(httpapi.Recover(d.Logger))
 	r.Use(httpapi.CORS(cfg.CORSAllowedOrigins))
 	r.Use(httpapi.MaxBody(1 << 20))
 

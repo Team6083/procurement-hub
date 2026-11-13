@@ -148,17 +148,9 @@ func Load(getenv func(string) string) (*Config, error) {
 		c.MetricsListenAddr = addr("METRICS_LISTEN_ADDR", ":9090")
 	}
 
-	switch lvl := str("LOG_LEVEL", "info"); lvl {
-	case "debug":
-		c.LogLevel = slog.LevelDebug
-	case "info":
-		c.LogLevel = slog.LevelInfo
-	case "warn":
-		c.LogLevel = slog.LevelWarn
-	case "error":
-		c.LogLevel = slog.LevelError
-	default:
-		fail("LOG_LEVEL: %q is not one of debug, info, warn, error", lvl)
+	var lerr error
+	if c.LogLevel, lerr = parseLogLevel(str("LOG_LEVEL", "info")); lerr != nil {
+		errs = append(errs, lerr)
 	}
 
 	for _, o := range splitList(required("CORS_ALLOWED_ORIGINS")) {
@@ -254,7 +246,54 @@ func Load(getenv func(string) string) (*Config, error) {
 	return c, nil
 }
 
-// Error lists every configuration problem found by Load.
+func parseLogLevel(lvl string) (slog.Level, error) {
+	switch lvl {
+	case "debug":
+		return slog.LevelDebug, nil
+	case "info":
+		return slog.LevelInfo, nil
+	case "warn":
+		return slog.LevelWarn, nil
+	case "error":
+		return slog.LevelError, nil
+	}
+	return 0, fmt.Errorf("LOG_LEVEL: %q is not one of debug, info, warn, error", lvl)
+}
+
+// MigrateConfig is what `procurement-hub migrate` needs.
+type MigrateConfig struct {
+	MongoURI      string
+	MongoDatabase string
+	LogLevel      slog.Level
+}
+
+// LoadMigrate reads only MONGO_URI and LOG_LEVEL (same rules as Load), so the
+// migrate job can run with serve's environment or a minimal one.
+func LoadMigrate(getenv func(string) string) (*MigrateConfig, error) {
+	var errs []error
+	c := &MigrateConfig{}
+	lvl := strings.TrimSpace(getenv("LOG_LEVEL"))
+	if lvl == "" {
+		lvl = "info"
+	}
+	var err error
+	if c.LogLevel, err = parseLogLevel(lvl); err != nil {
+		errs = append(errs, err)
+	}
+	if v := strings.TrimSpace(getenv("MONGO_URI")); v == "" {
+		errs = append(errs, errors.New("MONGO_URI is required"))
+	} else if c.MongoDatabase, err = mongoDatabase(v); err != nil {
+		errs = append(errs, fmt.Errorf("MONGO_URI: %v", err))
+	} else {
+		c.MongoURI = v
+	}
+	if len(errs) > 0 {
+		return nil, &Error{Problems: errs}
+	}
+	return c, nil
+}
+
+// Error lists every configuration problem found by Load or LoadMigrate.
 type Error struct{ Problems []error }
 
 func (e *Error) Error() string {

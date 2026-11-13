@@ -28,7 +28,8 @@ export MONGO_URI='mongodb://localhost:27017/procurement_hub?replicaSet=rs0'
 export OIDC_ISSUER=https://sso.example.org/realms/example
 export OIDC_AUDIENCE=procurement-hub-api
 export ADMIN_ROLES=procurement-hub-api:admin
-go run ./cmd/procurement-hub   # subcommands: serve (default), migrate
+go run ./cmd/procurement-hub migrate   # apply data migrations and indexes first
+go run ./cmd/procurement-hub           # serve (the default subcommand)
 
 # Frontend (separate terminal)
 cd web
@@ -37,17 +38,23 @@ npm ci
 npm run dev
 ```
 
+### Data migrations
+
+Schema changes and index creation are versioned migrations (`server/internal/migrations`), applied by `procurement-hub migrate`, never by `serve`. `migrate` runs every migration not yet recorded in the `migrations` collection, in order, recording each one; it exits 0 when all are done and 1 naming the migration that failed. A MongoDB lease (`migrationLease` collection) lets only one `migrate` run at a time; a second one waits for it and then finds nothing to do. Every migration is safe to re-run after a failure. `migrate` reads only `MONGO_URI` and `LOG_LEVEL`.
+
+`serve` checks the records at startup and logs any pending migrations; until they are applied `/readyz` answers 503 with `"check":"migrations"`, and it turns ready on its own once `migrate` has run. Deploy a new version by running `migrate` as a one-off job with the new image, then rolling out `serve`.
+
 ### Tests
 
 ```sh
-cd server && go vet ./... && go test ./...
-# Integration tests need a MongoDB replica set and are skipped without it:
-TEST_MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0' go test ./...
-
+cd server && go vet ./... && go test -race ./...
 cd web && npm run typecheck && npm run lint && npm test && npm run build
 ```
 
-Integration tests create and drop throwaway databases named `ph_test_*` on the server you point them at.
+The server's integration tests need a MongoDB replica set. By default each test package starts one `mongo:8` container through [testcontainers-go](https://golang.testcontainers.org/), so **Docker must be running**; without it those tests fail with a message saying so. Two environment variables change this:
+
+- `TEST_MONGODB_URI` uses an existing replica set instead of a container, which is faster for repeated local runs, e.g. `TEST_MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0&directConnection=true' go test ./...`. The tests create and drop throwaway databases named `ph_*` on that server.
+- `SKIP_INTEGRATION=1` skips the integration tests instead of failing them.
 
 ### Container image
 

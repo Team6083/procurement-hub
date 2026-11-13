@@ -18,6 +18,7 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/config"
 	"github.com/team6083/procurement-hub/server/internal/httpapi"
 	"github.com/team6083/procurement-hub/server/internal/jobs"
+	"github.com/team6083/procurement-hub/server/internal/migrations"
 	"github.com/team6083/procurement-hub/server/internal/ops"
 	"github.com/team6083/procurement-hub/server/internal/service"
 	"github.com/team6083/procurement-hub/server/internal/store"
@@ -85,12 +86,33 @@ func run(args []string, stdout, stderr io.Writer) int {
 	return 0
 }
 
-// migrate is a placeholder until versioned migrations (spec §13.2) are
-// implemented; it registers nothing and always succeeds.
-// TODO(migrations): replace with the real migration runner.
+// migrate applies pending data migrations (spec §13.2) under a MongoDB lease
+// and exits; a failure names the migration and exits 1. It needs only
+// MONGO_URI (and optionally LOG_LEVEL), so a one-off Job can run it with
+// the same image and environment as serve.
 func migrate(stdout io.Writer) error {
-	_, err := fmt.Fprintln(stdout, "procurement-hub migrate: no migrations registered")
-	return err
+	cfg, err := config.LoadMigrate(os.Getenv)
+	if err != nil {
+		return err
+	}
+	slog.SetDefault(slog.New(slog.NewJSONHandler(stdout, &slog.HandlerOptions{Level: cfg.LogLevel})))
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	st, err := store.Connect(ctx, cfg.MongoURI, cfg.MongoDatabase)
+	if err != nil {
+		return err
+	}
+	defer st.Close(context.Background())
+
+	host, _ := os.Hostname()
+	r := migrations.NewRunner(st, fmt.Sprintf("%s-%d", host, os.Getpid()), version)
+	applied, err := r.Run(ctx)
+	if err != nil {
+		return err
+	}
+	slog.Info("migrations complete", "applied", len(applied), "registered", len(migrations.All()))
+	return nil
 }
 
 // serve runs the API and ops servers until SIGINT/SIGTERM; the shutdown
@@ -112,8 +134,15 @@ func serve() error {
 		return err
 	}
 	defer st.Close(context.Background())
-	if err := st.EnsureIndexes(ctx); err != nil {
+
+	// serve never applies migrations (spec §13.2): until `migrate` has run,
+	// /readyz stays 503. The check re-reads the records on each probe, so the
+	// process becomes ready without a restart once migrate finishes.
+	migrationCheck := migrations.NewCheck(st.DB)
+	if pending, err := migrationCheck.Pending(ctx); err != nil {
 		return err
+	} else if len(pending) > 0 {
+		slog.Warn("pending migrations; not ready until `procurement-hub migrate` runs", "pending", pending)
 	}
 
 	rm := service.NewRoleMappings(st)
@@ -148,10 +177,11 @@ func serve() error {
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })
 
 	// Readiness checks (spec §18.2). Discovery already succeeded above (the
-	// verifier fails fast otherwise); data migrations will add their check.
+	// verifier fails fast otherwise).
 	ready := ops.NewReadiness()
 	ready.Add("mongodb", st.CheckReplicaSet)
 	ready.Add("oidc", verifier.Ready)
+	ready.Add("migrations", migrationCheck.Ready)
 
 	var opsServer *http.Server
 	if cfg.MetricsListenAddr != "" { // empty when METRICS_LISTEN_ADDR=off
