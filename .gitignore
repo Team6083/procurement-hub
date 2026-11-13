@@ -1,7 +1,8 @@
 spec.md
 node_modules/
 dist/
-frontend/public/config.json
-frontend/public/_headers
+web/public/config.json
+web/public/_headers
 *.env
 .env*
+!.env.example

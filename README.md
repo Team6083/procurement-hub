@@ -16,21 +16,21 @@ Nothing in this repository is specific to an organization or deployment: every e
 
 ## Quick start (development)
 
-Prerequisites: Go (see `backend/go.mod`), Node.js 22+, a MongoDB replica set, and an OIDC provider (e.g. Keycloak) with a public client for the SPA.
+Prerequisites: Go (see `server/go.mod`), Node.js 22+, a MongoDB replica set, and an OIDC provider (e.g. Keycloak) with a public client for the SPA.
 
 ```sh
 # Backend
-cd backend
+cd server
 export APP_FRONTEND_ORIGINS=http://localhost:5173
 export APP_FRONTEND_URL=http://localhost:5173
 export APP_ENCRYPTION_KEY=$(head -c 32 /dev/urandom | base64)
 export MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0'
 export OIDC_ISSUER_URL=https://sso.example.org/realms/example
 export OIDC_AUDIENCE=procurement-hub
-go run ./cmd/server
+go run ./cmd/procurement-hub   # subcommands: serve (default), migrate
 
 # Frontend (separate terminal)
-cd frontend
+cd web
 npm ci
 # provide runtime config (see below), then:
 npm run dev
@@ -39,14 +39,22 @@ npm run dev
 ### Tests
 
 ```sh
-cd backend && go vet ./... && go test ./...
+cd server && go vet ./... && go test ./...
 # Integration tests need a MongoDB replica set and are skipped without it:
 TEST_MONGODB_URI='mongodb://localhost:27017/?replicaSet=rs0' go test ./...
 
-cd frontend && npm run typecheck && npm run lint && npm test && npm run build
+cd web && npm run typecheck && npm run lint && npm test && npm run build
 ```
 
 Integration tests create and drop throwaway databases named `ph_test_*` on the server you point them at.
+
+### Container image
+
+```sh
+docker build -f server/Dockerfile server
+```
+
+The image runs `serve` by default; pass `migrate` as the container command to run migrations as a one-off job.
 
 ## Configuration
 
@@ -105,7 +113,7 @@ Silent token renewal uses the refresh token Keycloak issues for the Authorizatio
 
 ```
 api/openapi.yaml        API contract (source of truth for generated frontend types)
-backend/                Go service (cmd/server, internal/…)
-frontend/               React SPA
+server/                 Go service (cmd/procurement-hub, internal/…)
+web/                    React SPA
 deploy/, docs/          Helm chart and operator docs (later milestones)
 ```
