@@ -5,7 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import { App } from './App';
 import { ConfigErrorPage } from './components/ConfigErrorPage';
-import { ConfigError, loadConfig, setConfig } from './config';
+import { ConfigError, loadConfig } from './config';
 import i18n from './i18n';
 
 async function bootstrap() {
@@ -13,7 +13,6 @@ async function bootstrap() {
   try {
     // Runtime config is fetched before anything else (auth, API, router) initializes.
     const config = await loadConfig();
-    setConfig(config);
     root.render(
       <StrictMode>
         <I18nextProvider i18n={i18n}>

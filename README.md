@@ -48,7 +48,7 @@ go run ./cmd/procurement-hub           # serve (the default subcommand)
 # Frontend (separate terminal)
 cd web
 npm ci
-# provide runtime config (see below), then:
+cp config.example.json public/config.json   # runtime config (gitignored); edit it, then:
 npm run dev
 ```
 
@@ -125,7 +125,7 @@ rules:
 
 ### Frontend (runtime configuration)
 
-The built SPA contains no environment-specific values. At startup it fetches `/config.json` from its own origin:
+The built SPA contains no environment-specific values. Before anything else it fetches `config.json` relative to its base path (with `cache: 'no-cache'`); when the file is missing or invalid it shows a configuration error page instead.
 
 ```json
 {
@@ -134,11 +134,11 @@ The built SPA contains no environment-specific values. At startup it fetches `/c
 }
 ```
 
-`npm run build` writes `dist/config.json` and `dist/_headers` (including a Content-Security-Policy) when `APP_API_URL`, `APP_OIDC_AUTHORITY` and `APP_OIDC_CLIENT_ID` (and optionally `APP_OIDC_SCOPE`) are set. Otherwise only `_headers` is written with `connect-src 'self'`; supply `config.json` yourself and adjust the CSP `connect-src` to include your API and OIDC origins.
+`oidc.scope` defaults to `openid profile email`. `npm run build` never writes `config.json`; provide it next to `index.html` yourself. For Cloudflare (Workers static assets or Pages), `npm run build:cloudflare` builds and then reads the whole config from the `APP_CONFIG` environment variable, validates it, and writes `dist/config.json`, `dist/_headers` (Content-Security-Policy and other security headers, with the API and OIDC origins derived from `APP_CONFIG`) and `wrangler.generated.jsonc`; an invalid `APP_CONFIG` fails the build. `VITE_BASE_PATH` is only needed for deployments under a sub-path. See [`web/README.md`](web/README.md).
 
 The SPA detects a backend update by comparing its embedded commit with the backend's `X-App-Commit` header and blocks writes until the page is reloaded. The commit comes from the first available of `APP_COMMIT`, `CF_PAGES_COMMIT_SHA`, `WORKERS_CI_COMMIT_SHA`, or `git rev-parse HEAD`. In local development an unknown commit just skips the check, but a **production build (`NODE_ENV=production` or `CI=true`) fails when no commit can be determined**.
 
-Silent token renewal uses the refresh token Keycloak issues for the Authorization Code flow (client setting *Use refresh tokens*, on by default). Do **not** request `offline_access`; see [docs/keycloak.md](docs/keycloak.md). The host must serve `index.html` for unknown paths (client-side routing).
+Silent token renewal uses the refresh token Keycloak issues for the Authorization Code flow (client setting *Use refresh tokens*, on by default). Do **not** request `offline_access`; see [docs/keycloak.md](docs/keycloak.md). The host must serve `index.html` for unknown paths (client-side routing); on Cloudflare this is `not_found_handling = "single-page-application"` (Workers) or the automatic SPA fallback (Pages), never a `_redirects` file.
 
 ## Repository layout
 
@@ -158,7 +158,7 @@ server/                   Go module github.com/team6083/procurement-hub/server
   internal/jobs/          lease-based background jobs
   internal/audit/         audit records
   Dockerfile, .env.example, .golangci.yml
-web/                      React SPA (Vite); src/api holds the generated API types
+web/                      React SPA (Vite); src/api holds the generated API types, see web/README.md
 examples/                 docker-compose.yml for a local trial
 docs/                     configuration.md, keycloak.md
 .github/                  CI, release and Dependabot configuration

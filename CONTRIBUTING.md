@@ -43,6 +43,8 @@ npm run build
 npm audit --audit-level=high
 ```
 
+`npm run build:cloudflare` additionally needs `APP_CONFIG` (see [`web/README.md`](web/README.md)). Lint is ESLint with typescript-eslint and the full `eslint-plugin-react-hooks` recommended set; `react-hooks/exhaustive-deps` is an error.
+
 A production build (`NODE_ENV=production` or `CI=true`) fails when no commit SHA can be found; it uses the first of `APP_COMMIT`, `CF_PAGES_COMMIT_SHA`, `WORKERS_CI_COMMIT_SHA` and `git rev-parse HEAD`.
 
 ### Image

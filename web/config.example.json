@@ -1,0 +1,8 @@
+{
+  "apiBaseUrl": "http://localhost:8080",
+  "oidc": {
+    "authority": "https://sso.example.org/realms/example",
+    "clientId": "procurement-hub-web",
+    "scope": "openid profile email"
+  }
+}

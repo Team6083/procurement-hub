@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig, parseConfig } from './config';
+import { describe, expect, it, vi } from 'vitest';
+import { ConfigError, loadConfig, parseConfig, withBase } from './config';
 
 const valid = {
   apiBaseUrl: 'https://api.example.org',
@@ -30,5 +30,32 @@ describe('loadConfig', () => {
   it('reports invalid on bad JSON or schema', async () => {
     await expect(loadConfig(respond(200, '<html>'))).rejects.toMatchObject({ kind: 'invalid' });
     await expect(loadConfig(respond(200, '{}'))).rejects.toMatchObject({ kind: 'invalid' });
+  });
+  it('fetches config.json relative to the base path, revalidating the cache', async () => {
+    const f = vi.fn(respond(200, JSON.stringify(valid)));
+    await loadConfig(f as typeof fetch, '/procurement/');
+    expect(f).toHaveBeenCalledWith('/procurement/config.json', { cache: 'no-cache' });
+    await loadConfig(f as typeof fetch, '/');
+    expect(f).toHaveBeenLastCalledWith('/config.json', { cache: 'no-cache' });
+  });
+  it('treats an SPA fallback (HTML) as missing', async () => {
+    const html = (async () =>
+      new Response('<!doctype html>', { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } })) as typeof fetch;
+    await expect(loadConfig(html)).rejects.toMatchObject({ kind: 'missing' });
+  });
+});
+
+describe('withBase', () => {
+  it('joins paths onto the base path', () => {
+    expect(withBase('/auth/callback', '/')).toBe('/auth/callback');
+    expect(withBase('/auth/callback', '/sub/')).toBe('/sub/auth/callback');
+    expect(withBase('x', '/sub')).toBe('/sub/x');
+  });
+});
+
+describe('parseConfig scope rules', () => {
+  it('rejects offline_access and unknown keys', () => {
+    expect(() => parseConfig({ ...valid, oidc: { ...valid.oidc, scope: 'openid offline_access' } })).toThrow(ConfigError);
+    expect(() => parseConfig({ ...valid, typo: true })).toThrow(ConfigError);
   });
 });

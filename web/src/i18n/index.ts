@@ -1,5 +1,6 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { initialLanguage, isLanguage, type Language } from './detect';
 import enAuth from './locales/en/auth.json';
 import enAdmin from './locales/en/admin.json';
 import enBatches from './locales/en/batches.json';
@@ -13,31 +14,22 @@ import zhCommon from './locales/zh-TW/common.json';
 import zhErrors from './locales/zh-TW/errors.json';
 import zhTeams from './locales/zh-TW/teams.json';
 
-export const SUPPORTED_LANGUAGES = ['en', 'zh-TW'] as const;
-export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+export { SUPPORTED_LANGUAGES, type Language } from './detect';
+
+// Remembers that the user (here or on another device, via /me) explicitly chose a language.
 const STORAGE_KEY = 'ph.lang';
 
-function isLanguage(v: unknown): v is Language {
-  return SUPPORTED_LANGUAGES.includes(v as Language);
-}
-
-function initialLanguage(): Language {
+function storedLanguage(): string | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (isLanguage(stored)) return stored;
+    return localStorage.getItem(STORAGE_KEY);
   } catch {
-    /* storage unavailable */
+    return null; // storage unavailable
   }
-  return 'en';
 }
 
-/** True when the user has already chosen a language on this device. */
+/** True when this browser has seen an explicit language choice. */
 export function hasStoredLanguage(): boolean {
-  try {
-    return isLanguage(localStorage.getItem(STORAGE_KEY));
-  } catch {
-    return false;
-  }
+  return isLanguage(storedLanguage());
 }
 
 export const resources = {
@@ -47,13 +39,21 @@ export const resources = {
 
 void i18n.use(initReactI18next).init({
   resources,
-  lng: initialLanguage(),
+  lng: initialLanguage(storedLanguage(), typeof navigator === 'undefined' ? undefined : navigator.languages),
   fallbackLng: 'en',
   defaultNS: 'common',
   ns: ['common', 'errors', 'auth', 'teams', 'admin', 'batches'],
   interpolation: { escapeValue: false },
 });
 
+if (typeof document !== 'undefined') {
+  document.documentElement.lang = i18n.language;
+  i18n.on('languageChanged', (lng) => {
+    document.documentElement.lang = lng;
+  });
+}
+
+/** Switches the UI language and remembers it as an explicit choice. */
 export function setLanguage(lang: Language): void {
   try {
     localStorage.setItem(STORAGE_KEY, lang);

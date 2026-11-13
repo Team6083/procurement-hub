@@ -2,14 +2,14 @@ import { Anchor, Group, Menu, Select, Text, UnstyledButton } from '@mantine/core
 import { useNavigate } from '@tanstack/react-router';
 import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../auth/AuthProvider';
+import { useSession } from '../auth/AuthGate';
 import { useMe } from '../api/me';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useChangeLanguage } from '../i18n/useLanguage';
 
 export function Header() {
   const { t, i18n } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout } = useSession();
   const { memberships, isSystemAdmin } = useMe();
   const { change } = useChangeLanguage();
   const navigate = useNavigate();

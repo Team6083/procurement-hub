@@ -42,11 +42,11 @@
   "config": {
     "missing": {
       "title": "找不到設定檔",
-      "body": "應用程式無法載入 /config.json，請聯絡管理員提供。"
+      "body": "應用程式無法載入 config.json，請聯絡管理員提供。"
     },
     "invalid": {
       "title": "設定檔無效",
-      "body": "已找到 /config.json，但內容不正確。"
+      "body": "已找到 config.json，但內容不正確。"
     },
     "details": "詳細資訊"
   },

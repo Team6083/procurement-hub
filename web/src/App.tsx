@@ -5,8 +5,9 @@ import { useMemo } from 'react';
 import { ApiContext } from './api/context';
 import { createApiClient } from './api/client';
 import { useMeta } from './api/meta';
-import { AuthProvider } from './auth/AuthProvider';
+import { AppAuthProvider } from './auth/AuthGate';
 import { createUserManager } from './auth/oidc';
+import { createSession } from './auth/session';
 import type { AppConfig } from './config';
 import { createAppRouter } from './router';
 
@@ -28,6 +29,7 @@ function AuthedApp() {
 
 export function App({ config }: { config: AppConfig }) {
   const manager = useMemo(() => createUserManager(config), [config]);
+  const session = useMemo(() => createSession(manager), [manager]);
   const queryClient = useMemo(
     () => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }),
     [],
@@ -36,22 +38,19 @@ export function App({ config }: { config: AppConfig }) {
     () =>
       createApiClient({
         baseUrl: config.apiBaseUrl,
-        getToken: async () => (await manager.getUser())?.access_token,
-        renew: async () => (await manager.signinSilent())?.access_token,
-        onAuthFailure: () =>
-          manager.signinRedirect({
-            state: { returnTo: `${window.location.pathname}${window.location.search}${window.location.hash}` },
-          }),
+        getToken: session.getToken,
+        renew: session.renew,
+        onAuthFailure: session.onAuthFailure,
       }),
-    [config, manager],
+    [config, session],
   );
   return (
     <MantineProvider defaultColorScheme="auto">
       <QueryClientProvider client={queryClient}>
         <ApiContext.Provider value={api}>
-          <AuthProvider manager={manager}>
+          <AppAuthProvider manager={manager} session={session}>
             <AuthedApp />
-          </AuthProvider>
+          </AppAuthProvider>
         </ApiContext.Provider>
       </QueryClientProvider>
     </MantineProvider>

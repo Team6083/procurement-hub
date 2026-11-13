@@ -18,6 +18,7 @@ import { TeamOverview } from './pages/TeamOverview';
 import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
 import { LocaleSync } from './components/LocaleSync';
+import { BASE_PATH } from './config';
 
 function Layout() {
   return (
@@ -79,7 +80,7 @@ const routeTree = rootRoute.addChildren([
 ]);
 
 export function createAppRouter() {
-  return createRouter({ routeTree });
+  return createRouter({ routeTree, basepath: BASE_PATH.replace(/\/+$/, '') || '/' });
 }
 
 declare module '@tanstack/react-router' {

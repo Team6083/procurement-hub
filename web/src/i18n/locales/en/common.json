@@ -42,11 +42,11 @@
   "config": {
     "missing": {
       "title": "Configuration not found",
-      "body": "The application could not load /config.json. Ask your administrator to provide it."
+      "body": "The application could not load config.json. Ask your administrator to provide it."
     },
     "invalid": {
       "title": "Configuration is invalid",
-      "body": "The file /config.json was found but its contents are not valid."
+      "body": "The file config.json was found but its contents are not valid."
     },
     "details": "Details"
   },
