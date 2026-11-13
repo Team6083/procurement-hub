@@ -1,10 +1,17 @@
 package app
 
 import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/x509"
 	"testing"
 	"time"
+
+	"github.com/go-jose/go-jose/v4"
+	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/domain"
 	"github.com/team6083/procurement-hub/server/internal/service"
@@ -89,14 +96,23 @@ func TestHTTPAuthentication(t *testing.T) {
 	}
 
 	other, _ := rsa.GenerateKey(rand.Reader, 2048)
+	ecKey, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// HS256 keyed with the IdP's public key: the classic algorithm-confusion attack.
+	pubDER, _ := x509.MarshalPKIXPublicKey(&e.idp.key.PublicKey)
 	bad := map[string]string{
-		"signed by an unknown key": e.idp.tokenWithKey(t, other, map[string]any{"sub": "x"}),
-		"wrong audience":           e.idp.token(t, map[string]any{"sub": "x", "aud": "someone-else"}),
-		"wrong issuer":             e.idp.token(t, map[string]any{"sub": "x", "iss": "https://evil.example.com"}),
-		"expired":                  e.idp.token(t, map[string]any{"sub": "x", "exp": time.Now().Add(-time.Hour).Unix()}),
-		"not yet valid":            e.idp.token(t, map[string]any{"sub": "x", "nbf": time.Now().Add(time.Hour).Unix()}),
-		"no subject":               e.idp.token(t, map[string]any{"sub": ""}),
-		"garbage":                  "not.a.jwt",
+		"id token (typ ID)":           e.idp.token(t, map[string]any{"sub": "x", "typ": "ID"}),
+		"refresh token (typ Refresh)": e.idp.token(t, map[string]any{"sub": "x", "typ": "Refresh"}),
+		"missing typ":                 e.idp.token(t, map[string]any{"sub": "x", "typ": nil}),
+		"ES256 (not allowed)":         e.idp.tokenWithAlg(t, jose.ES256, ecKey, map[string]any{"sub": "x"}),
+		"HS256 (not allowed)":         e.idp.tokenWithAlg(t, jose.HS256, pubDER, map[string]any{"sub": "x"}),
+		"missing exp":                 e.idp.token(t, map[string]any{"sub": "x", "exp": nil}),
+		"signed by an unknown key":    e.idp.tokenWithKey(t, other, map[string]any{"sub": "x"}),
+		"wrong audience":              e.idp.token(t, map[string]any{"sub": "x", "aud": "someone-else"}),
+		"wrong issuer":                e.idp.token(t, map[string]any{"sub": "x", "iss": "https://evil.example.com"}),
+		"expired":                     e.idp.token(t, map[string]any{"sub": "x", "exp": time.Now().Add(-time.Hour).Unix()}),
+		"not yet valid":               e.idp.token(t, map[string]any{"sub": "x", "nbf": time.Now().Add(time.Hour).Unix()}),
+		"no subject":                  e.idp.token(t, map[string]any{"sub": ""}),
+		"garbage":                     "not.a.jwt",
 	}
 	for name, tok := range bad {
 		t.Run(name, func(t *testing.T) { me(tok).expect(401, "unauthenticated") })
@@ -108,6 +124,77 @@ func TestHTTPAuthentication(t *testing.T) {
 	}})
 	if me(wrongClient).JSON()["isSystemAdmin"].(bool) {
 		t.Error("admin role of another client granted system admin")
+	}
+}
+
+// ALLOWED_ROLES (spec §7.3): checked after token validation and before the
+// user is provisioned or role mappings are synced.
+func TestHTTPAllowedRoles(t *testing.T) {
+	t.Run("unset allows everyone", func(t *testing.T) {
+		e := newEnv(t)
+		e.do(t, call{token: e.user(t, "plain", false), method: "GET", path: "/api/v1/me"}).expect(200)
+	})
+
+	e := newEnvWith(t, map[string]string{"ALLOWED_ROLES": "staff," + testRoleClient + ":user"})
+	me := func(tok string) *result { return e.do(t, call{token: tok, method: "GET", path: "/api/v1/me"}) }
+	userCount := func(sub string) int64 {
+		t.Helper()
+		n, err := e.st.DB.Collection("users").CountDocuments(context.Background(), bson.D{{Key: "sub", Value: sub}})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return n
+	}
+	tok := func(sub string, extra map[string]any) string {
+		claims := map[string]any{"sub": sub, "preferred_username": sub, "groups": []string{"/teams/alpha/members"}}
+		for k, v := range extra {
+			claims[k] = v
+		}
+		return e.idp.token(t, claims)
+	}
+
+	e.do(t, call{method: "GET", path: "/api/v1/meta"}).expect(200) // still public
+
+	denied := map[string]string{
+		"no roles": tok("sub-none", nil),
+		"realm role named like the client role": tok("sub-realm-user", map[string]any{
+			"realm_access": map[string]any{"roles": []string{"user"}}}),
+		"client role on another client": tok("sub-other-client", map[string]any{
+			"resource_access": map[string]any{"another-app": map[string]any{"roles": []string{"user"}}}}),
+		"bare realm name given as a client role": tok("sub-client-staff", map[string]any{
+			"resource_access": map[string]any{testRoleClient: map[string]any{"roles": []string{"staff"}}}}),
+	}
+	for name, token := range denied {
+		t.Run("denied/"+name, func(t *testing.T) {
+			me(token).expect(403, "missing_role")
+			e.do(t, call{token: token, method: "GET", path: "/api/v1/teams"}).expect(403, "missing_role")
+		})
+	}
+	for _, sub := range []string{"sub-none", "sub-realm-user", "sub-other-client", "sub-client-staff"} {
+		if n := userCount(sub); n != 0 {
+			t.Errorf("user %s was provisioned despite missing_role (%d records)", sub, n)
+		}
+	}
+	if n, _ := e.st.DB.Collection("memberships").CountDocuments(context.Background(), bson.D{}); n != 0 {
+		t.Errorf("memberships created for denied users: %d", n)
+	}
+
+	allowed := map[string]string{
+		"sub-staff": tok("sub-staff", map[string]any{"realm_access": map[string]any{"roles": []string{"staff"}}}),
+		"sub-client-user": tok("sub-client-user", map[string]any{
+			"resource_access": map[string]any{testRoleClient: map[string]any{"roles": []string{"user"}}}}),
+		"sub-root": e.user(t, "root", true), // system admin without any allowed role
+	}
+	for sub, token := range allowed {
+		t.Run("allowed/"+sub, func(t *testing.T) {
+			me(token).expect(200)
+			if n := userCount(sub); n != 1 {
+				t.Errorf("user %s not provisioned (%d records)", sub, n)
+			}
+		})
+	}
+	if !me(allowed["sub-root"]).JSON()["isSystemAdmin"].(bool) {
+		t.Error("admin should be a system admin")
 	}
 }
 

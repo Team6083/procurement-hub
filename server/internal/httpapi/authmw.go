@@ -42,7 +42,10 @@ func CallerFrom(ctx context.Context) *Caller {
 
 // Authenticate requires a valid bearer token on every request that reaches it.
 // System admin status is read from the current token on each request (§7.3).
-func Authenticate(v TokenVerifier, prov Provisioner, ml MembershipLoader) func(http.Handler) http.Handler {
+// When allowedRoles (ALLOWED_ROLES) is non-empty, callers that are neither a
+// system admin nor hold one of those roles get 403 missing_role before any
+// user record is created or role mappings are synced.
+func Authenticate(v TokenVerifier, allowedRoles []string, prov Provisioner, ml MembershipLoader) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			raw, ok := bearer(r)
@@ -56,6 +59,10 @@ func Authenticate(v TokenVerifier, prov Provisioner, ml MembershipLoader) func(h
 					slog.Error("token verification failed", "error", err)
 				}
 				WriteError(w, NewError(http.StatusUnauthorized, "unauthenticated", "Invalid or expired token."))
+				return
+			}
+			if !p.HasAccess(allowedRoles) {
+				WriteError(w, NewError(http.StatusForbidden, "missing_role", "You do not have access to this service."))
 				return
 			}
 			u, err := prov.Provision(r.Context(), p)

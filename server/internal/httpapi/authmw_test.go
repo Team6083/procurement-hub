@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/team6083/procurement-hub/server/internal/auth"
@@ -19,9 +20,12 @@ type fakeVerifier struct {
 
 func (f fakeVerifier) Verify(context.Context, string) (*auth.Principal, error) { return f.p, f.err }
 
-type fakeProv struct{}
+type fakeProv struct{ calls *int }
 
-func (fakeProv) Provision(context.Context, *auth.Principal) (*domain.User, error) {
+func (f fakeProv) Provision(context.Context, *auth.Principal) (*domain.User, error) {
+	if f.calls != nil {
+		*f.calls++
+	}
 	return &domain.User{Username: "kai"}, nil
 }
 
@@ -34,9 +38,10 @@ func (f fakeML) ActorFor(_ context.Context, _ *domain.User, admin bool) (authz.A
 
 func TestAuthenticate(t *testing.T) {
 	var sawAdmin bool
-	run := func(header string, v fakeVerifier) *httptest.ResponseRecorder {
+	var provisioned int
+	run := func(header string, v fakeVerifier, allowed ...string) *httptest.ResponseRecorder {
 		var called bool
-		h := Authenticate(v, fakeProv{}, fakeML{&sawAdmin})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := Authenticate(v, allowed, fakeProv{&provisioned}, fakeML{&sawAdmin})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			called = true
 			if CallerFrom(r.Context()) == nil {
 				t.Error("caller missing from context")
@@ -65,6 +70,22 @@ func TestAuthenticate(t *testing.T) {
 	}
 	if rec := run("bearer t", fakeVerifier{p: &auth.Principal{Sub: "s", IsSystemAdmin: true}}); rec.Code != 200 || !sawAdmin {
 		t.Errorf("valid token: code=%d admin=%v", rec.Code, sawAdmin)
+	}
+
+	// ALLOWED_ROLES: the check happens before provisioning.
+	provisioned = 0
+	plain := fakeVerifier{p: &auth.Principal{Sub: "s", Roles: []string{"staff"}}}
+	if rec := run("Bearer t", plain, "procurement-hub-api:user"); rec.Code != 403 || provisioned != 0 {
+		t.Errorf("missing role: code=%d provisioned=%d", rec.Code, provisioned)
+	} else if !strings.Contains(rec.Body.String(), `"missing_role"`) {
+		t.Errorf("missing role body: %s", rec.Body)
+	}
+	if rec := run("Bearer t", plain, "staff"); rec.Code != 200 || provisioned != 1 {
+		t.Errorf("allowed role: code=%d provisioned=%d", rec.Code, provisioned)
+	}
+	admin := fakeVerifier{p: &auth.Principal{Sub: "s", IsSystemAdmin: true}}
+	if rec := run("Bearer t", admin, "staff"); rec.Code != 200 {
+		t.Errorf("admin without allowed role: code=%d", rec.Code)
 	}
 }
 

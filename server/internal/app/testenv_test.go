@@ -31,8 +31,11 @@ import (
 )
 
 const (
-	testAudience = "procurement-hub"
-	testClientID = "procurement-hub"
+	// Keycloak naming (spec §7): the SPA is a public client, and an Audience
+	// mapper adds the API audience; roles live on the API client.
+	testAudience   = "procurement-hub-api"
+	testClientID   = "procurement-hub-web"
+	testRoleClient = testAudience
 )
 
 // idp is a minimal OIDC provider: discovery document plus a JWKS endpoint,
@@ -68,7 +71,8 @@ func newIDP(t *testing.T) *idp {
 	return p
 }
 
-// token signs an access token with the given extra claims.
+// token signs an access token with the given extra claims. A nil claim value
+// removes that claim from the defaults.
 func (p *idp) token(t *testing.T, claims map[string]any) string {
 	t.Helper()
 	return p.tokenWithKey(t, p.key, claims)
@@ -76,17 +80,27 @@ func (p *idp) token(t *testing.T, claims map[string]any) string {
 
 func (p *idp) tokenWithKey(t *testing.T, key *rsa.PrivateKey, claims map[string]any) string {
 	t.Helper()
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: key, KeyID: p.kid}},
+	return p.tokenWithAlg(t, jose.RS256, key, claims)
+}
+
+// tokenWithAlg signs with an arbitrary algorithm and key, under the IdP's kid.
+func (p *idp) tokenWithAlg(t *testing.T, alg jose.SignatureAlgorithm, key any, claims map[string]any) string {
+	t.Helper()
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: alg, Key: jose.JSONWebKey{Key: key, KeyID: p.kid}},
 		(&jose.SignerOptions{}).WithType("JWT"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	now := time.Now()
 	all := map[string]any{
-		"iss": p.srv.URL, "aud": testAudience, "iat": now.Unix(), "nbf": now.Add(-time.Minute).Unix(),
-		"exp": now.Add(5 * time.Minute).Unix(),
+		"iss": p.srv.URL, "aud": testAudience, "azp": testClientID, "typ": "Bearer",
+		"iat": now.Unix(), "nbf": now.Add(-time.Minute).Unix(), "exp": now.Add(5 * time.Minute).Unix(),
 	}
 	for k, v := range claims {
+		if v == nil {
+			delete(all, k)
+			continue
+		}
 		all[k] = v
 	}
 	s, err := jwt.Signed(signer).Claims(all).Serialize()
@@ -107,6 +121,12 @@ type env struct {
 
 func newEnv(t *testing.T) *env {
 	t.Helper()
+	return newEnvWith(t, nil)
+}
+
+// newEnvWith is newEnv with extra or overridden environment variables.
+func newEnvWith(t *testing.T, overrides map[string]string) *env {
+	t.Helper()
 	uri := os.Getenv("TEST_MONGODB_URI")
 	if uri == "" {
 		t.Skip("TEST_MONGODB_URI not set")
@@ -120,8 +140,11 @@ func newEnv(t *testing.T) *env {
 		"MONGO_URI":              withDatabase(uri, fmt.Sprintf("ph_http_%d", time.Now().UnixNano())),
 		"OIDC_ISSUER":            p.srv.URL, "OIDC_AUDIENCE": testAudience,
 		// Admins are identified by a *client* role, exercising the oauth2-proxy-style notation.
-		"ADMIN_ROLES":          testClientID + ":admin",
+		"ADMIN_ROLES":          testRoleClient + ":admin",
 		"SUPPORTED_CURRENCIES": "USD,TWD,JPY", "BASE_CURRENCY": "USD",
+	}
+	for k, v := range overrides {
+		vals[k] = v
 	}
 	cfg, err := config.Load(func(k string) string { return vals[k] })
 	if err != nil {
@@ -172,7 +195,7 @@ func (e *env) user(t *testing.T, name string, admin bool, groups ...string) stri
 		claims["groups"] = groups
 	}
 	if admin {
-		claims["resource_access"] = map[string]any{testClientID: map[string]any{"roles": []string{"admin"}}}
+		claims["resource_access"] = map[string]any{testRoleClient: map[string]any{"roles": []string{"admin"}}}
 	}
 	return e.idp.token(t, claims)
 }

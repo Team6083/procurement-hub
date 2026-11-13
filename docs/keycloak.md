@@ -1,65 +1,93 @@
 # Keycloak setup
 
-procurement-hub works with any OIDC provider; this guide uses Keycloak terms. Replace the example URLs with your own.
+procurement-hub works with any OIDC provider that issues JWT access tokens; this guide uses Keycloak terms. The example origins are `https://app.example.org` (SPA) and `https://sso.example.org/realms/example` (realm); replace them with your own.
 
-## 1. The SPA client
+Two clients are involved, named after the application:
 
-Create one **public** client (for example `procurement-hub`):
+| Client | Purpose |
+|---|---|
+| `procurement-hub-web` | The SPA. A public client that signs users in. |
+| `procurement-hub-api` | The API. It only serves as the token audience and holds the application's client roles (for example `admin`, `user`); nobody signs in with it. |
+
+The sections below follow a fixed order: client, mapper, roles, token lifetimes, post-logout redirect URI.
+
+## 1. Client
+
+Create the API client `procurement-hub-api` with every flow switched off (Client authentication off, Standard flow off, Direct access grants off). It needs no redirect URIs.
+
+Create the SPA client `procurement-hub-web`:
 
 | Setting | Value |
 |---|---|
 | Client authentication | Off (public client) |
 | Standard flow | On (Authorization Code) |
-| Direct access grants / implicit flow | Off |
+| Direct access grants, Implicit flow | Off |
 | Proof Key for Code Exchange (PKCE) method | `S256` |
 | Valid redirect URIs | `https://app.example.org/auth/callback` (add `http://localhost:5173/auth/callback` for local development) |
-| Valid post logout redirect URIs | `https://app.example.org` |
 | Web origins | `https://app.example.org` |
+| Use refresh tokens | On (the default) |
+| **Full scope allowed** | **Off** (*Client scopes → procurement-hub-web-dedicated → Scope*) |
 
-The SPA keeps tokens **in memory only**, so every full page load goes through a redirect to Keycloak. Keycloak's own SSO session makes this a fast bounce without a password prompt.
+With Full scope allowed off, the access token carries only the roles explicitly assigned to the client's dedicated scope (section 3), not every role the user has in the realm.
 
-## 2. Refresh tokens (silent renewal)
+The SPA keeps tokens **in memory only**, so every full page load goes through a redirect to Keycloak. Keycloak's own SSO session makes this a fast bounce without a password prompt. The SPA requests the scope `openid profile email` (configurable in `config.json`, but never add `offline_access`; see section 4).
 
-Access tokens are expected to be short-lived (about 5 minutes; *Realm settings → Tokens → Access Token Lifespan*). The SPA renews them in the background with a refresh token and no iframe.
+The backend accepts only **access tokens** for its API: it verifies the signature against the realm's JWKS with an asymmetric algorithm (RS256, the realm default; `none` and HS* are always rejected), and checks that `iss` equals `OIDC_ISSUER`, `aud` contains `OIDC_AUDIENCE`, `exp`/`nbf` are valid (within `OIDC_CLOCK_SKEW`), `sub` is present and `typ` is `Bearer`. ID tokens and refresh tokens are rejected.
 
-- Keycloak issues a refresh token for the Authorization Code flow by default. Keep the client setting **Use refresh tokens** switched **on** (it is on by default). No extra scope is needed.
-- Enable **refresh token rotation** (*Revoke Refresh Token* in the realm token settings, with *Refresh Token Max Reuse* = 0). The SPA always stores the newest refresh token.
-- **Do not request `offline_access`.** Offline tokens are not bound to the SSO session and are long-lived, which is unsuitable for a credential held by a browser. The default scope is `openid profile email`; it can be changed with `APP_OIDC_SCOPE` at build time or in `config.json`, but do not add `offline_access`.
-- How long a user may stay idle is governed by the realm's **SSO Session Idle** and **SSO Session Max** settings. When renewal fails (session expired or revoked) the SPA falls back to a normal sign-in redirect.
+## 2. Mapper
 
-## 3. Token contents
+Add these mappers to the dedicated scope of `procurement-hub-web` (*Client scopes → procurement-hub-web-dedicated → Mappers*):
 
-The backend verifies the **access token** (signature via JWKS, `iss`, `exp`, `nbf`, and `aud`) and reads identity and roles from it.
+| Mapper type | Settings |
+|---|---|
+| **Audience** | *Included Client Audience* = `procurement-hub-api`, *Add to access token* = on. This puts `procurement-hub-api` in `aud`; set `OIDC_AUDIENCE=procurement-hub-api`. |
+| **Group Membership** | *Token Claim Name* = `groups` (the same as `OIDC_GROUPS_CLAIM`), *Full group path* = on, *Add to access token* = on. Needed only if role-mapping rules match groups. |
 
-### Audience
+With *Full group path* on, a group `members` under `teams/alpha` appears as `/teams/alpha/members`, which matches the role-mapping pattern `/teams/*/members` (`ROLE_MAPPINGS_FILE` or the admin UI).
 
-`OIDC_AUDIENCE` must appear in the access token's `aud` claim. If the SPA client's own ID is the audience, add an **Audience** mapper to the client's dedicated scope (*Included Client Audience* = the SPA client, *Add to access token* = on). Otherwise use a separate audience client scope.
+Realm and client roles reach the access token through Keycloak's default `roles` client scope (`realm_access.roles` and `resource_access.<client id>.roles`); no extra role mapper is needed.
 
-### Groups (team membership)
+## 3. Roles
 
-Role-mapping rules (`ROLE_MAPPINGS_FILE` or the admin UI) turn token claims into team memberships. For groups, add a **Group Membership** mapper (token claim name `groups`, *Add to access token* = on). With *Full group path* on, a group `members` under `teams/alpha` appears as `/teams/alpha/members`, which matches the pattern `/teams/*/members`. Use the same claim name as `OIDC_GROUPS_CLAIM` (default `groups`).
+Create the application's client roles on `procurement-hub-api` (for example `admin` for system admins and `user` for people allowed to use the service). Then assign each role the token should carry to the **dedicated scope** of `procurement-hub-web` (*Client scopes → procurement-hub-web-dedicated → Scope → Assign role*). Because Full scope allowed is off, a role that is not assigned there never appears in the token, even if the user has it. Grant the roles to users or groups as usual.
 
-### System admins (realm role or client role)
-
-`ADMIN_ROLES` follows the notation of oauth2-proxy's `--allowed-role` for the Keycloak provider:
+`ADMIN_ROLES` and `ALLOWED_ROLES` use the notation of oauth2-proxy's `--allowed-role`:
 
 | Value | Meaning |
 |---|---|
-| `system-admin` | a **realm role** named `system-admin` (token claim `realm_access.roles`) |
-| `procurement-hub:admin` | the **client role** `admin` of client `procurement-hub` (token claim `resource_access.procurement-hub.roles`) |
-| `system-admin,procurement-hub:admin` | several values, comma-separated; **any** match grants system admin |
+| `system-admin` | a **realm role** named `system-admin` (`realm_access.roles`) |
+| `procurement-hub-api:admin` | the **client role** `admin` of client `procurement-hub-api` (`resource_access.procurement-hub-api.roles`) |
+| `system-admin,procurement-hub-api:admin` | several values, comma-separated; **any** match is enough |
 
-The first colon separates client ID from role, so a realm role name cannot contain `:`. A bare name never matches a client role and vice versa.
+The first colon separates client ID from role, so a realm role name cannot contain `:` (such realm roles are ignored). A bare name never matches a client role and vice versa.
 
-The role must be present in the **access token**. With Keycloak's default `roles` client scope this requires the client's **Full scope allowed** setting (*Client → Client scopes → dedicated scope → Scope*), or a *User Client Role* / *User Realm Role* mapper. Realm roles are read from `realm_access.roles`; client roles from `resource_access`.
+- `ADMIN_ROLES` (required), for example `procurement-hub-api:admin`: system admins can administer every team but are not implicitly team members and hold no batch roles.
+- `ALLOWED_ROLES` (optional), for example `procurement-hub-api:user`: who may use the service at all. When set, a caller who is neither a system admin nor holds one of these roles gets `403 missing_role` on every API call, and no user record is created for them. When unset, everyone who can sign in may use the service.
 
-System admins can administer every team (see the specification, §8.1) but are not implicitly team members and hold no batch roles.
+Roles are read from the current access token on every request and never stored, so a role change takes effect with the next access token.
 
-## 4. Checklist
+## 4. Token lifetimes
 
-- [ ] Public client, Standard flow, PKCE `S256`, correct redirect URIs and web origins
-- [ ] *Use refresh tokens* on, rotation enabled, **no** `offline_access`
-- [ ] Short access-token lifespan (~5 minutes); SSO Session Idle/Max set to the idle time you accept
-- [ ] `aud` in the access token contains `OIDC_AUDIENCE`
-- [ ] Groups mapper adds the `groups` claim to the access token
-- [ ] The admin role (realm or client role) appears in the access token and is listed in `ADMIN_ROLES`
+- **Access token lifespan: 5 minutes** (*Realm settings → Tokens → Access Token Lifespan*). The SPA renews tokens in the background with the refresh token (no iframe), and group changes reach the application within one token lifetime.
+- **Refresh token rotation on**: *Realm settings → Tokens → Revoke Refresh Token* on, *Refresh Token Max Reuse* = 0. The SPA always keeps the newest refresh token.
+- **No `offline_access`.** Do not request it and do not add it to the client's scopes. Offline tokens are long-lived and not bound to the SSO session, which is unsuitable for a credential held by a browser.
+- How long a user may stay idle is governed by the realm's **SSO Session Idle** and **SSO Session Max**. When renewal fails (session expired or revoked) the SPA falls back to a normal sign-in redirect.
+
+## 5. Post-logout redirect URI
+
+Sign-out sends the user to Keycloak's end-session endpoint with `post_logout_redirect_uri` set to the SPA origin. Register it on `procurement-hub-web`:
+
+| Setting | Value |
+|---|---|
+| Valid post logout redirect URIs | `https://app.example.org` (add `http://localhost:5173` for local development) |
+
+## Checklist
+
+- [ ] `procurement-hub-api` client exists (no flows) and holds the application's client roles
+- [ ] `procurement-hub-web`: public client, Standard flow, PKCE `S256`, redirect URIs and web origins set
+- [ ] Full scope allowed **off**; required roles assigned to the dedicated scope
+- [ ] Audience mapper adds `procurement-hub-api` to the access token; `OIDC_AUDIENCE=procurement-hub-api`
+- [ ] Group Membership mapper adds `groups` to the access token (if role-mapping rules use groups)
+- [ ] `ADMIN_ROLES` (and optionally `ALLOWED_ROLES`) name roles that appear in the access token
+- [ ] Access token lifespan 5 minutes; refresh token rotation on; **no** `offline_access`
+- [ ] Post-logout redirect URI registered

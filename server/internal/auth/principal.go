@@ -101,19 +101,48 @@ func PrincipalFromClaims(claims map[string]any, groupsClaim string, adminRoles [
 		Email:             str("email"),
 		Name:              str("name"),
 		Groups:            StringsAtPath(claims, groupsClaim),
-		Roles:             append(StringsAtPath(claims, "realm_access.roles"), ClientRoles(claims)...),
+		Roles:             append(realmRoles(claims), ClientRoles(claims)...),
 	}
 	if iat, ok := claims["iat"].(float64); ok {
 		p.IssuedAt = time.Unix(int64(iat), 0).UTC()
 	}
-	for _, r := range p.Roles {
-		for _, a := range adminRoles {
-			if r == a {
-				p.IsSystemAdmin = true
+	p.IsSystemAdmin = HasAnyRole(p.Roles, adminRoles)
+	return p, nil
+}
+
+// realmRoles returns realm_access.roles. Names containing ":" are dropped:
+// that notation is reserved for client roles (spec §7.3), so such a realm
+// role could otherwise be mistaken for "<client id>:<role>".
+func realmRoles(claims map[string]any) []string {
+	var out []string
+	for _, r := range StringsAtPath(claims, "realm_access.roles") {
+		if !strings.Contains(r, ":") {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// HasAnyRole reports whether roles (as built by PrincipalFromClaims) match any
+// entry of an ADMIN_ROLES / ALLOWED_ROLES list. An entry without ":" matches
+// a realm role; "<client id>:<role>" matches that client's role. Because
+// realm roles never contain ":", plain equality keeps the two kinds apart.
+func HasAnyRole(roles, entries []string) bool {
+	for _, e := range entries {
+		for _, r := range roles {
+			if r == e {
+				return true
 			}
 		}
 	}
-	return p, nil
+	return false
+}
+
+// HasAccess reports whether the principal may use the service at all
+// (ALLOWED_ROLES, spec §7.3): an empty list means unrestricted; otherwise a
+// system admin or anyone holding one of the allowed roles passes.
+func (p *Principal) HasAccess(allowedRoles []string) bool {
+	return len(allowedRoles) == 0 || p.IsSystemAdmin || HasAnyRole(p.Roles, allowedRoles)
 }
 
 // VerifierConfig mirrors the OIDC_* and ADMIN_ROLES settings.
@@ -123,6 +152,35 @@ type VerifierConfig struct {
 	GroupsClaim string
 	AdminRoles  []string // realm role, or "<client id>:<client role>"; any match grants system admin
 	ClockSkew   time.Duration
+	// SigningAlgs is the signature algorithm allowlist; empty means
+	// DefaultSigningAlgs. The token header never widens it (spec §7.2).
+	SigningAlgs []string
+}
+
+// DefaultSigningAlgs is what Keycloak realms sign access tokens with by default.
+var DefaultSigningAlgs = []string{"RS256"}
+
+// asymmetricAlgs are the JWS algorithms a verifier may be configured with.
+// "none" and the HS* (shared-secret) family are deliberately absent.
+var asymmetricAlgs = map[string]bool{
+	"RS256": true, "RS384": true, "RS512": true,
+	"PS256": true, "PS384": true, "PS512": true,
+	"ES256": true, "ES384": true, "ES512": true,
+	"EdDSA": true,
+}
+
+// signingAlgs returns the effective allowlist, rejecting anything that is not
+// an asymmetric signature algorithm.
+func signingAlgs(cfg []string) ([]string, error) {
+	if len(cfg) == 0 {
+		return DefaultSigningAlgs, nil
+	}
+	for _, a := range cfg {
+		if !asymmetricAlgs[a] {
+			return nil, fmt.Errorf("signing algorithm %q is not an allowed asymmetric algorithm", a)
+		}
+	}
+	return cfg, nil
 }
 
 // Verifier validates access tokens against the issuer's JWKS.
@@ -134,16 +192,22 @@ type Verifier struct {
 
 // NewVerifier performs OIDC discovery (failing fast if unreachable).
 func NewVerifier(ctx context.Context, cfg VerifierConfig) (*Verifier, error) {
-	prov, err := oidc.NewProvider(ctx, cfg.IssuerURL)
+	algs, err := signingAlgs(cfg.SigningAlgs)
+	if err != nil {
+		return nil, err
+	}
+	prov, err := oidc.NewProvider(ctx, cfg.IssuerURL) // also checks the discovered issuer matches exactly
 	if err != nil {
 		return nil, fmt.Errorf("oidc discovery: %w", err)
 	}
 	return newVerifier(cfg, prov.Verifier(&oidc.Config{
-		SkipClientIDCheck:    true, // audience is checked manually
-		SupportedSigningAlgs: []string{"RS256", "ES256", "PS256"},
-		// go-oidc has no skew option; shifting its clock back tolerates
-		// slightly expired tokens by the configured skew.
-		Now: func() time.Time { return time.Now().Add(-cfg.ClockSkew) },
+		SkipClientIDCheck: true, // audience is checked manually
+		// A fixed allowlist: go-jose rejects any token whose header alg is
+		// not listed, so "none" and HS* never reach signature verification.
+		SupportedSigningAlgs: algs,
+		// go-oidc has no skew option (and a fixed 5-minute nbf leeway), so
+		// exp and nbf are checked by checkTimes with OIDC_CLOCK_SKEW instead.
+		SkipExpiryCheck: true,
 	})), nil
 }
 
@@ -153,7 +217,8 @@ func newVerifier(cfg VerifierConfig, v *oidc.IDTokenVerifier) *Verifier {
 
 var ErrInvalidToken = errors.New("invalid token")
 
-// Verify checks signature, iss, exp, nbf (with clock skew), aud and sub.
+// Verify checks signature (alg allowlist), iss, exp, nbf (with clock skew),
+// aud, typ and sub.
 func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	tok, err := v.v.Verify(ctx, raw)
 	if err != nil {
@@ -168,6 +233,9 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	}
 	if !hasAudience(tok.Audience, v.cfg.Audience) {
 		return nil, fmt.Errorf("%w: audience mismatch", ErrInvalidToken)
+	}
+	if err := checkType(claims); err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}
 	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.AdminRoles)
 	if err != nil {
@@ -185,8 +253,16 @@ func hasAudience(aud []string, want string) bool {
 	return false
 }
 
-// checkTimes enforces nbf with skew; exp is enforced by go-oidc (without
-// skew), so we additionally re-check it here with skew applied.
+// checkType requires Keycloak's typ claim to be "Bearer" (an access token),
+// rejecting ID ("ID"), refresh ("Refresh") and untyped tokens.
+func checkType(claims map[string]any) error {
+	if typ, _ := claims["typ"].(string); typ != "Bearer" {
+		return fmt.Errorf("token typ %q is not Bearer", typ)
+	}
+	return nil
+}
+
+// checkTimes requires exp and enforces exp and nbf with the configured skew.
 func checkTimes(claims map[string]any, now time.Time, skew time.Duration) error {
 	num := func(k string) (time.Time, bool) {
 		switch f := claims[k].(type) {
@@ -201,7 +277,11 @@ func checkTimes(claims map[string]any, now time.Time, skew time.Duration) error 
 	if nbf, ok := num("nbf"); ok && now.Add(skew).Before(nbf) {
 		return errors.New("token not yet valid")
 	}
-	if exp, ok := num("exp"); ok && now.Add(-skew).After(exp) {
+	exp, ok := num("exp")
+	if !ok {
+		return errors.New("token has no exp")
+	}
+	if now.Add(-skew).After(exp) {
 		return errors.New("token expired")
 	}
 	return nil

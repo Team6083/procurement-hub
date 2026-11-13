@@ -7,7 +7,7 @@ import { buildConfig, buildCsp, buildHeaders, generate, requiresCommit, resolveC
 const full = {
   APP_API_URL: 'https://api.example.org/base',
   APP_OIDC_AUTHORITY: 'https://sso.example.org/realms/example',
-  APP_OIDC_CLIENT_ID: 'procurement-hub',
+  APP_OIDC_CLIENT_ID: 'procurement-hub-web',
 };
 
 describe('buildCsp', () => {
@@ -46,7 +46,7 @@ describe('buildConfig', () => {
   it('builds config with optional scope', () => {
     expect(buildConfig(full)).toEqual({
       apiBaseUrl: full.APP_API_URL,
-      oidc: { authority: full.APP_OIDC_AUTHORITY, clientId: 'procurement-hub' },
+      oidc: { authority: full.APP_OIDC_AUTHORITY, clientId: 'procurement-hub-web' },
     });
     expect(buildConfig({ ...full, APP_OIDC_SCOPE: 'openid' })?.oidc).toMatchObject({ scope: 'openid' });
   });

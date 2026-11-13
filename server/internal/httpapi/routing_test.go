@@ -15,7 +15,7 @@ func TestMetaIsPublicOthersRequireAuth(t *testing.T) {
 	MountMeta(r, MetaInfo{BaseCurrency: "TWD", SupportedCurrencies: []string{"TWD"}})
 	var sawAdmin bool
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(Authenticate(fakeVerifier{err: ErrTest}, fakeProv{}, fakeML{&sawAdmin}))
+		r.Use(Authenticate(fakeVerifier{err: ErrTest}, nil, fakeProv{}, fakeML{&sawAdmin}))
 		r.Get("/me", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(200) })
 	})
 

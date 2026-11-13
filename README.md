@@ -63,7 +63,7 @@ The image runs `serve` by default; pass `migrate` as the container command to ru
 
 The backend is configured only through environment variables. [`docs/configuration.md`](docs/configuration.md) lists every variable with its default and format rules, and [`server/.env.example`](server/.env.example) is a starting point. Required: `CORS_ALLOWED_ORIGINS`, `FRONTEND_URL`, `MONGO_URI` (the database name is the URI path), `OIDC_ISSUER`, `OIDC_AUDIENCE`, `ADMIN_ROLES` and `WEBHOOK_ENCRYPTION_KEY`. Invalid settings are all reported at once and the process exits with status 1; on success one log line shows the effective configuration with secrets masked.
 
-`ADMIN_ROLES` and `ALLOWED_ROLES` use oauth2-proxy's `--allowed-role` notation: a bare name is a Keycloak **realm role**, `<client id>:<role>` is a **client role**, and any match in the comma-separated list is enough. Examples: `ADMIN_ROLES=system-admin` (realm role), `ADMIN_ROLES=procurement-hub-api:admin` (client role), `ADMIN_ROLES=system-admin,procurement-hub-api:admin` (either). The role must be present in the **access token**; see [`docs/keycloak.md`](docs/keycloak.md).
+`ADMIN_ROLES` and `ALLOWED_ROLES` use oauth2-proxy's `--allowed-role` notation: a bare name is a Keycloak **realm role**, `<client id>:<role>` is a **client role**, and any match in the comma-separated list is enough. Examples: `ADMIN_ROLES=system-admin` (realm role), `ADMIN_ROLES=procurement-hub-api:admin` (client role), `ADMIN_ROLES=system-admin,procurement-hub-api:admin` (either). When `ALLOWED_ROLES` is set, callers that are neither system admins nor hold one of its roles get `403 missing_role` and no user record is created. The role must be present in the **access token**: the SPA client `procurement-hub-web` has *Full scope allowed* off and the roles are assigned to its dedicated scope; an Audience mapper adds `procurement-hub-api`. See [`docs/keycloak.md`](docs/keycloak.md).
 
 Role-mapping rules map token claim values to team roles. Example `ROLE_MAPPINGS_FILE`:
 
@@ -83,7 +83,7 @@ The built SPA contains no environment-specific values. At startup it fetches `/c
 ```json
 {
   "apiBaseUrl": "https://api.example.org",
-  "oidc": { "authority": "https://sso.example.org/realms/example", "clientId": "procurement-hub", "scope": "openid profile email" }
+  "oidc": { "authority": "https://sso.example.org/realms/example", "clientId": "procurement-hub-web", "scope": "openid profile email" }
 }
 ```
 

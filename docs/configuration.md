@@ -48,15 +48,17 @@ At startup the service checks every variable. If anything is wrong it prints **a
 | `OIDC_CLOCK_SKEW` | no | `60s` | Tolerated clock difference when checking `exp` and `nbf`. |
 | `OIDC_GROUPS_CLAIM` | no | `groups` | Dot path of the group list in the access token, used by role-mapping rules. |
 | `ADMIN_ROLES` | yes | — | Roles that make a caller a system admin (role list syntax below). Required because without it nobody can create teams. |
-| `ALLOWED_ROLES` | no | unrestricted | Roles allowed to use the service at all (role list syntax below). System admins are always allowed. When unset, everyone who can sign in may use the service. |
+| `ALLOWED_ROLES` | no | unrestricted | Roles allowed to use the service at all (role list syntax below). System admins are always allowed. Everyone else without a matching role gets `403 missing_role` on every authenticated endpoint, and no user record is created for them. When unset, everyone who can sign in may use the service. |
 | `ROLE_MAPPINGS_FILE` | no | — | Path of a YAML file with managed role-mapping rules (see the README). |
 
 **Role list syntax** (the same as oauth2-proxy's `--allowed-role`): a comma-separated list where any match is enough.
 
 - A value without `:` is a Keycloak **realm role**, matched against `realm_access.roles`.
-- `<client id>:<role>` is a **client role**, matched against `resource_access.<client id>.roles`. The value is split at the **first** `:`, so a realm role name cannot contain `:`; both parts must be non-empty.
+- `<client id>:<role>` is a **client role**, matched against `resource_access.<client id>.roles`. The value is split at the **first** `:`, so a realm role name cannot contain `:` (realm roles containing `:` are ignored); both parts must be non-empty.
 
 Examples: `ADMIN_ROLES=procurement-hub-api:admin`, `ALLOWED_ROLES=staff,procurement-hub-api:user`. Roles are read from the current access token on every request. See [`keycloak.md`](keycloak.md) for getting the roles into the token.
+
+**Token validation.** Every `/api/v1` request except `GET /api/v1/meta` needs a bearer access token. The signature is verified against the issuer's JWKS with a fixed allowlist of `RS256` (the token header never widens it; `none` and HS* are always rejected). `iss` must equal `OIDC_ISSUER`, `aud` must contain `OIDC_AUDIENCE`, `exp` (required) and `nbf` are checked with `OIDC_CLOCK_SKEW`, `sub` is required and `typ` must be `Bearer`, so ID and refresh tokens are rejected. Any failure returns `401 unauthenticated`.
 
 ### Secrets
 

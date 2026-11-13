@@ -62,10 +62,11 @@ func TestCheckTimes(t *testing.T) {
 		ok     bool
 	}{
 		{"valid", map[string]any{"exp": 2000.0, "nbf": 900.0}, true},
-		{"nbf within skew", map[string]any{"nbf": 1050.0}, true},
-		{"nbf beyond skew", map[string]any{"nbf": 1100.0}, false},
+		{"nbf within skew", map[string]any{"exp": 2000.0, "nbf": 1050.0}, true},
+		{"nbf beyond skew", map[string]any{"exp": 2000.0, "nbf": 1100.0}, false},
 		{"exp within skew", map[string]any{"exp": 950.0}, true},
 		{"exp beyond skew", map[string]any{"exp": 900.0}, false},
+		{"exp missing", map[string]any{"nbf": 900.0}, false},
 	}
 	for _, tt := range tests {
 		if err := checkTimes(tt.claims, now, skew); (err == nil) != tt.ok {
@@ -79,8 +80,8 @@ func TestSystemAdminFromRealmOrClientRole(t *testing.T) {
 		"sub":          "u1",
 		"realm_access": map[string]any{"roles": []any{"offline_access", "realm-admin"}},
 		"resource_access": map[string]any{
-			"procurement-hub": map[string]any{"roles": []any{"admin"}},
-			"other-app":       map[string]any{"roles": []any{"viewer"}},
+			"procurement-hub-api": map[string]any{"roles": []any{"admin"}},
+			"other-app":           map[string]any{"roles": []any{"viewer"}},
 		},
 	}
 	tests := []struct {
@@ -89,10 +90,10 @@ func TestSystemAdminFromRealmOrClientRole(t *testing.T) {
 		want  bool
 	}{
 		{"realm role", []string{"realm-admin"}, true},
-		{"client role", []string{"procurement-hub:admin"}, true},
-		{"any of several", []string{"nope", "procurement-hub:admin"}, true},
+		{"client role", []string{"procurement-hub-api:admin"}, true},
+		{"any of several", []string{"nope", "procurement-hub-api:admin"}, true},
 		{"client role on the wrong client", []string{"other-app:admin"}, false},
-		{"right client, wrong role", []string{"procurement-hub:viewer"}, false},
+		{"right client, wrong role", []string{"procurement-hub-api:viewer"}, false},
 		{"bare name does not match a client role", []string{"admin"}, false},
 		{"no match", []string{"system-admin"}, false},
 		{"empty list grants nothing", nil, false},
@@ -120,5 +121,77 @@ func TestClientRolesNotation(t *testing.T) {
 	}
 	if got := ClientRoles(map[string]any{}); len(got) != 0 {
 		t.Fatalf("missing resource_access: %v", got)
+	}
+}
+
+func TestCheckType(t *testing.T) {
+	tests := []struct {
+		typ any
+		ok  bool
+	}{
+		{"Bearer", true},
+		{"ID", false},
+		{"Refresh", false},
+		{"bearer", false},
+		{nil, false},
+		{1.0, false},
+	}
+	for _, tt := range tests {
+		claims := map[string]any{}
+		if tt.typ != nil {
+			claims["typ"] = tt.typ
+		}
+		if err := checkType(claims); (err == nil) != tt.ok {
+			t.Errorf("typ %v: err=%v want ok=%v", tt.typ, err, tt.ok)
+		}
+	}
+}
+
+func TestSigningAlgs(t *testing.T) {
+	if got, err := signingAlgs(nil); err != nil || !reflect.DeepEqual(got, []string{"RS256"}) {
+		t.Fatalf("default: %v %v", got, err)
+	}
+	if got, err := signingAlgs([]string{"ES256", "PS256"}); err != nil || len(got) != 2 {
+		t.Fatalf("asymmetric list: %v %v", got, err)
+	}
+	for _, bad := range []string{"none", "HS256", "HS384", "HS512", "rs256", ""} {
+		if _, err := signingAlgs([]string{"RS256", bad}); err == nil {
+			t.Errorf("%q accepted", bad)
+		}
+	}
+}
+
+func TestHasAccess(t *testing.T) {
+	claims := map[string]any{
+		"sub":          "u1",
+		"realm_access": map[string]any{"roles": []any{"staff", "odd:name"}},
+		"resource_access": map[string]any{
+			"procurement-hub-api": map[string]any{"roles": []any{"user"}},
+		},
+	}
+	tests := []struct {
+		name    string
+		admin   []string
+		allowed []string
+		want    bool
+	}{
+		{"unset allows everyone", nil, nil, true},
+		{"realm role", nil, []string{"staff"}, true},
+		{"client role", nil, []string{"procurement-hub-api:user"}, true},
+		{"any of several", nil, []string{"nope", "staff"}, true},
+		{"bare name does not match a client role", nil, []string{"user"}, false},
+		{"client syntax does not match a realm role", nil, []string{"realm:staff"}, false},
+		{"realm role containing a colon is ignored", nil, []string{"odd:name"}, false},
+		{"no match", nil, []string{"other"}, false},
+		{"system admin always passes", []string{"staff"}, []string{"other"}, true},
+	}
+	for _, tt := range tests {
+		p, err := PrincipalFromClaims(claims, "groups", tt.admin)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := p.HasAccess(tt.allowed); got != tt.want {
+			t.Errorf("%s: HasAccess = %v, want %v (roles %v)", tt.name, got, tt.want, p.Roles)
+		}
 	}
 }

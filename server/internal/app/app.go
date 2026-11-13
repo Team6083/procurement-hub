@@ -53,7 +53,7 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 	items := service.NewItems(st, log, batches)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Use(httpapi.Authenticate(d.Verifier, identity, teams))
+		r.Use(httpapi.Authenticate(d.Verifier, d.Config.AllowedRoles, identity, teams))
 		(&httpapi.TeamsAPI{Teams: teams}).Mount(r)
 		(&httpapi.MeAPI{Users: users, RoleMappings: d.RoleMappings}).Mount(r)
 		(&httpapi.BatchesAPI{
