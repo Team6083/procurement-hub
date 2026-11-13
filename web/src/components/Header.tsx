@@ -1,9 +1,9 @@
 import { Anchor, Group, Menu, Select, Text, UnstyledButton } from '@mantine/core';
-import { useNavigate } from '@tanstack/react-router';
-import { Link } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { Link, useNavigate } from 'react-router';
 import { useSession } from '../auth/AuthGate';
 import { useMe } from '../api/me';
+import { paths } from '../paths';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useChangeLanguage } from '../i18n/useLanguage';
 
@@ -30,7 +30,7 @@ export function Header() {
               </Menu.Target>
               <Menu.Dropdown>
                 {memberships.map((m) => (
-                  <Menu.Item key={m.teamId} onClick={() => void navigate({ to: '/teams/$slug', params: { slug: m.slug } })}>
+                  <Menu.Item key={m.teamId} onClick={() => void navigate(paths.team(m.slug))}>
                     {m.name}
                   </Menu.Item>
                 ))}

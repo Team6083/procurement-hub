@@ -4,6 +4,7 @@ import { useMyTasks } from '../../api/batches';
 import type { Batch } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { RouteAnchor } from '../../components/RouteLinks';
+import { paths } from '../../paths';
 
 interface TaskLike { Batch?: Batch; Count?: number; batch?: Batch; count?: number }
 /** GET /me/tasks serialises BatchTask with capitalised keys; accept lower-case too in case the backend adds tags. */
@@ -34,16 +35,16 @@ export function MyTasksCard() {
         {proposals.length > 0 && <Text size="sm" fw={500}>{tb('tasks.proposals')}</Text>}
         {proposals.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} href={`/batches/${b.id}`} size="sm">#{b.number} {b.title}</RouteAnchor>;
+          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)} size="sm">#{b.number} {b.title}</RouteAnchor>;
         })}
         {review.length > 0 && <Text size="sm" fw={500}>{tb('tasks.review')}</Text>}
         {review.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} href={`/batches/${b.id}`} size="sm">#{b.number} {b.title} ({tb('tasks.pendingCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)} size="sm">#{b.number} {b.title} ({tb('tasks.pendingCount', { count: taskCount(x) })})</RouteAnchor>;
         })}
         {returned.length > 0 && <Text size="sm" fw={500}>{tb('tasks.returned')}</Text>}
         {returned.map((i) => (
-          <RouteAnchor key={i.id} href={`/batches/${i.batchId}`} size="sm">
+          <RouteAnchor key={i.id} to={paths.batch(i.batchId)} size="sm">
             #{i.seqNo} {i.name}{i.review?.comment ? ` — ${i.review.comment}` : ''}
           </RouteAnchor>
         ))}

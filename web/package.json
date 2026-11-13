@@ -22,7 +22,6 @@
     "@mantine/core": "9.7.2",
     "@mantine/hooks": "9.7.2",
     "@tanstack/react-query": "5.104.2",
-    "@tanstack/react-router": "1.170.44",
     "@tanstack/react-table": "9.3.1",
     "i18next": "26.4.5",
     "oidc-client-ts": "3.5.0",
@@ -31,6 +30,7 @@
     "react-hook-form": "7.90.0",
     "react-i18next": "17.0.16",
     "react-oidc-context": "3.3.1",
+    "react-router": "7.18.5",
     "zod": "4.6.7"
   },
   "devDependencies": {

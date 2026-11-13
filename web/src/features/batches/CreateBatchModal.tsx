@@ -1,14 +1,15 @@
 import { Button, Group, Modal, Select, Stack, Switch, Textarea, TextInput } from '@mantine/core';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useCreateBatch } from '../../api/batches';
 import type { MyMembership } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { useRouter } from '@tanstack/react-router';
+import { paths } from '../../paths';
 
 function Inner({ team, onClose }: { team: MyMembership; onClose: () => void }) {
   const { t } = useTranslation('batches');
-  const router = useRouter();
+  const navigate = useNavigate();
   const admin = team.role === 'admin';
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -20,7 +21,7 @@ function Inner({ team, onClose }: { team: MyMembership; onClose: () => void }) {
         e.preventDefault();
         create.mutate(
           { title: title.trim(), description, propose: admin ? propose : true },
-          { onSuccess: (b) => { onClose(); router.history.push(`/batches/${b.id}`); } },
+          { onSuccess: (b) => { onClose(); void navigate(paths.batch(b.id)); } },
         );
       }}
     >

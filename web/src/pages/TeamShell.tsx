@@ -1,20 +1,21 @@
 import { Alert, Badge, Group, Loader, Stack, Tabs, Title } from '@mantine/core';
-import { Outlet, useNavigate, useParams, useRouterState } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { useMe } from '../api/me';
 import { useTeam, useTeams } from '../api/teams';
 import { isFullTeam } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { TeamContext } from '../features/teams/TeamContext';
 import { canAdminTeam, isTeamMember } from '../features/teams/roles';
+import { paths } from '../paths';
 
 type TabKey = 'overview' | 'members' | 'settings';
 
 export function TeamShell() {
   const { t } = useTranslation('teams');
-  const { slug = '' } = useParams({ strict: false });
+  const { slug = '' } = useParams();
   const navigate = useNavigate();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { pathname } = useLocation();
   const { me } = useMe();
   const teams = useTeams();
   const teamId = teams.data?.find((x) => x.slug === slug)?.id;
@@ -31,9 +32,7 @@ export function TeamShell() {
   const member = !!full && (isTeamMember(me, teamId) || !!me?.isSystemAdmin);
   const active: TabKey = pathname.includes('/settings') ? 'settings' : pathname.endsWith('/members') ? 'members' : 'overview';
   const go = (tab: string | null) => {
-    if (tab === 'members') void navigate({ to: '/teams/$slug/members', params: { slug } });
-    else if (tab === 'settings') void navigate({ to: '/teams/$slug/settings', params: { slug } });
-    else void navigate({ to: '/teams/$slug', params: { slug } });
+    void navigate(paths.team(slug, tab === 'members' || tab === 'settings' ? tab : ''));
   };
 
   return (

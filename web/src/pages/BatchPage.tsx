@@ -1,13 +1,14 @@
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Tabs, Text, Title } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
-import { useParams } from '@tanstack/react-router';
 import { useTranslation } from 'react-i18next';
+import { useParams } from 'react-router';
 import { useBatch, useItems } from '../api/batches';
 import { useMe } from '../api/me';
 import { useTeam } from '../api/teams';
 import { isFullTeam } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
+import { paths } from '../paths';
 import { BatchActions } from '../features/batches/BatchActions';
 import { EditBatchModal } from '../features/batches/EditBatchModal';
 import { ItemsTab } from '../features/batches/ItemsTab';
@@ -19,7 +20,7 @@ import { useNames } from '../features/batches/useNames';
 
 export function BatchPage() {
   const { t } = useTranslation('batches');
-  const { id } = useParams({ strict: false });
+  const { id } = useParams();
   const { me } = useMe();
   const batchQ = useBatch(id);
   const batch = batchQ.data?.data;
@@ -49,7 +50,7 @@ export function BatchPage() {
             <Title order={2}>#{batch.number} {batch.title}</Title>
             <BatchStatusBadge status={batch.status} />
           </Group>
-          {teamData && <RouteAnchor href={`/teams/${teamData.slug}`} size="sm">{teamData.name}</RouteAnchor>}
+          {teamData && <RouteAnchor to={paths.team(teamData.slug)} size="sm">{teamData.name}</RouteAnchor>}
         </Stack>
         <Group>
           {canEditBatch(batch, caller) && <Button size="xs" variant="default" onClick={open}>{t('edit.button')}</Button>}

@@ -8,6 +8,7 @@ import { useTeams } from '../api/teams';
 import type { BatchStatus } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
+import { paths } from '../paths';
 import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
 
@@ -59,7 +60,7 @@ export function BatchesPage() {
               {batches.map((b) => (
                 <Table.Tr key={b.id}>
                   <Table.Td>#{b.number}</Table.Td>
-                  <Table.Td><RouteAnchor href={`/batches/${b.id}`}>{b.title}</RouteAnchor></Table.Td>
+                  <Table.Td><RouteAnchor to={paths.batch(b.id)}>{b.title}</RouteAnchor></Table.Td>
                   <Table.Td>{teamName(b.teamId)}</Table.Td>
                   <Table.Td><BatchStatusBadge status={b.status} /></Table.Td>
                   <Table.Td>{b.deadline ? new Date(b.deadline).toLocaleString() : '—'}</Table.Td>

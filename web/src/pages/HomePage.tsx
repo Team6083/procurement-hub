@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
 import { useTeams } from '../api/teams';
 import { RouteAnchor } from '../components/RouteLinks';
+import { paths } from '../paths';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { CreateTeamModal } from '../features/teams/CreateTeamModal';
 import { MyTasksCard } from '../features/batches/MyTasksCard';
@@ -34,7 +35,7 @@ export function HomePage() {
             return (
               <Group key={team.id} justify="space-between" wrap="nowrap">
                 <Stack gap={0}>
-                  <RouteAnchor href={`/teams/${team.slug}`} fw={500}>
+                  <RouteAnchor to={paths.team(team.slug)} fw={500}>
                     {team.name}
                   </RouteAnchor>
                   {team.description && <Text size="sm" c="dimmed" lineClamp={1}>{team.description}</Text>}

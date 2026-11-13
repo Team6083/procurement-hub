@@ -1,8 +1,8 @@
 import { Button, Group, Modal, Stack, Textarea, TextInput } from '@mantine/core';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useNavigate } from '@tanstack/react-router';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router';
 import { useApi } from '../../api/context';
 import { meKey } from '../../api/me';
 import { teamsKey } from '../../api/teams';
@@ -10,6 +10,7 @@ import type { Team } from '../../api/types';
 import { useGuardedMutation } from '../../api/useGuardedMutation';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { UserSearchSelect } from '../../components/UserSearchSelect';
+import { paths } from '../../paths';
 import { createTeamSchema, type CreateTeamForm } from './schemas';
 
 /** System-admin "Create team" dialog (POST /teams). */
@@ -27,7 +28,7 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
     onSuccess: (team) => {
       form.reset();
       onClose();
-      void navigate({ to: '/teams/$slug', params: { slug: team.slug } });
+      void navigate(paths.team(team.slug));
     },
   });
   const err = form.formState.errors;

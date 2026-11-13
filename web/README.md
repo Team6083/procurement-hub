@@ -64,6 +64,10 @@ Other static hosts: run `npm run build`, put your `config.json` in `dist/`, serv
 - The API client sends `Authorization: Bearer <access token>`. On `401` it renews once and retries once; if that still fails it starts a new sign-in. A second such failure within a minute shows a "session not accepted" page instead of redirecting again, so a misconfigured API cannot cause a redirect loop.
 - Sign-out calls `signoutRedirect` with `post_logout_redirect_uri` set to the app root.
 
+## Routing
+
+`src/router.tsx` defines the routes for react-router 7 in data mode (`createBrowserRouter`, no framework mode or SSR), with `basename` taken from `VITE_BASE_PATH`. The router is created only after sign-in, once the OIDC callback has restored the original URL. Route paths and `Link` targets are app paths without the base path (`/batches/1`); build dynamic ones with `src/paths.ts`, and use `RouteAnchor`/`RouteButton` from `src/components/RouteLinks.tsx` for links styled by the UI library. Query strings are kept as they are; a page that reads one parses `useSearchParams()` with zod. `src/router.test.tsx` covers every route, the base path and `/auth/callback`.
+
 ## Language
 
 The UI is available in English (`en`) and Traditional Chinese (`zh-TW`). The first language comes from the browser's preferences (`zh*` gives `zh-TW`, `en*` gives `en`, anything else `en`). Choosing a language in the app saves it to `/me`, and the saved choice then wins over the browser's preferences. `/me` returns `locale: null` until the user chooses, so an unchosen profile never overrides the browser. `src/i18n/locales.test.ts` checks that both languages have the same keys.

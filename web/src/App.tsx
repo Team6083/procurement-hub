@@ -1,7 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { RouterProvider } from '@tanstack/react-router';
 import { useMemo } from 'react';
+import { RouterProvider } from 'react-router';
 import { ApiContext } from './api/context';
 import { createApiClient } from './api/client';
 import { useMeta } from './api/meta';

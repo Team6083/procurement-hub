@@ -1,12 +1,15 @@
 import { Container, Loader, Stack } from '@mantine/core';
-import { Outlet, createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
-import { Header } from './components/Header';
-import { UpdateBanner } from './components/UpdateBanner';
-import { Placeholder } from './pages/Placeholder';
 import { useTranslation } from 'react-i18next';
+import { Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
+import { ErrorAlert } from './components/ErrorAlert';
+import { Header } from './components/Header';
+import { LocaleSync } from './components/LocaleSync';
+import { UpdateBanner } from './components/UpdateBanner';
+import { BASE_PATH } from './config';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { HomePage } from './pages/HomePage';
+import { Placeholder } from './pages/Placeholder';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GeneralSettings } from './pages/settings/GeneralSettings';
@@ -17,8 +20,6 @@ import { TeamMembersTab } from './pages/TeamMembersTab';
 import { TeamOverview } from './pages/TeamOverview';
 import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
-import { LocaleSync } from './components/LocaleSync';
-import { BASE_PATH } from './config';
 
 function Layout() {
   return (
@@ -33,8 +34,9 @@ function Layout() {
   );
 }
 
-function NotFound() {
-  return <Placeholder titleKey="pages.notFound" />;
+/** Errors thrown while rendering a page stay inside the layout instead of replacing the app. */
+function RouteError() {
+  return <ErrorAlert error={useRouteError()} />;
 }
 
 function Callback() {
@@ -47,44 +49,51 @@ function Callback() {
   );
 }
 
-const rootRoute = createRootRoute({ component: Layout, notFoundComponent: NotFound });
+/** The route tree (spec section 17.1). Paths are relative to the basename. */
+export const routes: RouteObject[] = [
+  {
+    element: <Layout />,
+    children: [
+      {
+        errorElement: <RouteError />,
+        children: [
+          { path: '/', element: <HomePage /> },
+          { path: '/batches', element: <BatchesPage /> },
+          { path: '/batches/:id', element: <BatchPage /> },
+          { path: '/settings', element: <SettingsPage /> },
+          {
+            path: '/teams/:slug',
+            element: <TeamShell />,
+            children: [
+              { index: true, element: <TeamOverview /> },
+              { path: 'members', element: <TeamMembersTab /> },
+              {
+                path: 'settings',
+                element: <TeamSettingsShell />,
+                children: [
+                  { index: true, element: <GeneralSettings /> },
+                  { path: 'subgroups', element: <SubgroupsSettings /> },
+                  { path: 'reference-rates', element: <ReferenceRatesSettings /> },
+                  { path: 'members', element: <MembersSettings /> },
+                ],
+              },
+            ],
+          },
+          { path: '/reports', element: <Placeholder titleKey="pages.reports" /> },
+          { path: '/admin/role-mappings', element: <RoleMappingsPage /> },
+          { path: '/auth/callback', element: <Callback /> },
+          { path: '*', element: <Placeholder titleKey="pages.notFound" /> },
+        ],
+      },
+    ],
+  },
+];
 
-const page = (path: string, titleKey: string) =>
-  createRoute({ getParentRoute: () => rootRoute, path, component: () => <Placeholder titleKey={titleKey} /> });
-
-const route = (path: string, component: () => React.JSX.Element) =>
-  createRoute({ getParentRoute: () => rootRoute, path, component });
-
-const teamRoute = createRoute({ getParentRoute: () => rootRoute, path: '/teams/$slug', component: TeamShell });
-const settingsShell = createRoute({ getParentRoute: () => teamRoute, path: 'settings', component: TeamSettingsShell });
-const teamTree = teamRoute.addChildren([
-  createRoute({ getParentRoute: () => teamRoute, path: '/', component: TeamOverview }),
-  createRoute({ getParentRoute: () => teamRoute, path: 'members', component: TeamMembersTab }),
-  settingsShell.addChildren([
-    createRoute({ getParentRoute: () => settingsShell, path: '/', component: GeneralSettings }),
-    createRoute({ getParentRoute: () => settingsShell, path: 'subgroups', component: SubgroupsSettings }),
-    createRoute({ getParentRoute: () => settingsShell, path: 'reference-rates', component: ReferenceRatesSettings }),
-    createRoute({ getParentRoute: () => settingsShell, path: 'members', component: MembersSettings }),
-  ]),
-]);
-
-const routeTree = rootRoute.addChildren([
-  route('/', HomePage),
-  route('/batches', BatchesPage),
-  route('/settings', SettingsPage),
-  teamTree,
-  route('/batches/$id', BatchPage),
-  page('/reports', 'pages.reports'),
-  route('/admin/role-mappings', RoleMappingsPage),
-  createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: Callback }),
-]);
-
-export function createAppRouter() {
-  return createRouter({ routeTree, basepath: BASE_PATH.replace(/\/+$/, '') || '/' });
+/** react-router's basename for a Vite base path: "/" → "/", "/sub/" → "/sub". */
+export function toBasename(base: string): string {
+  return base.replace(/\/+$/, '') || '/';
 }
 
-declare module '@tanstack/react-router' {
-  interface Register {
-    router: ReturnType<typeof createAppRouter>;
-  }
+export function createAppRouter(base = BASE_PATH) {
+  return createBrowserRouter(routes, { basename: toBasename(base) });
 }
