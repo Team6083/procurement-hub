@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - Teams, members and role-mapping rules synchronized from OIDC token claims; batches and items with the review flow.
+- Ordering (API only): team orders, external orders (vendor transactions) that can merge orders of several teams (the caller must be purchaser of every batch), marking items unpurchasable, and automatic `ordering` to `receiving`/`completed` batch transitions. Actual costs are computed in the base currency from the charged amount (or a reference rate, flagged provisional), with proportional or overridden allocation of shared costs and largest-remainder rounding so the amounts add up exactly to the charge. Adds migration `0002_order_indexes`; run `migrate` before starting this version.
 - `serve` (default) and `migrate` subcommands. Data migrations and indexes are versioned, applied only by `migrate` under a MongoDB lease, and `/readyz` stays 503 until they have run.
 - `ALLOWED_ROLES` to restrict who may use the service (`403 missing_role`), alongside the required `ADMIN_ROLES`.
 - Operations endpoints on a separate port (`METRICS_LISTEN_ADDR`): `/healthz`, `/readyz` and Prometheus `/metrics` with `procurement_hub_` metrics; JSON access log, `X-Request-ID` propagation, graceful shutdown with `SHUTDOWN_TIMEOUT`.

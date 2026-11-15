@@ -29,6 +29,7 @@ type Migration struct {
 // registry lists every migration in the order it must run. Append only.
 var registry = []Migration{
 	{ID: "0001_reference_rates_decimal", Up: referenceRatesDecimal},
+	{ID: "0002_order_indexes", Up: orderIndexes},
 }
 
 // All returns the registered migrations in order.

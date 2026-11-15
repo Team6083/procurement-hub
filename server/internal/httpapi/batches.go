@@ -34,6 +34,7 @@ func (a *BatchesAPI) Mount(r chi.Router) {
 	r.Post("/items/{id}/withdraw", a.withdrawItem)
 	r.Post("/items/{id}/resubmit", a.resubmitItem)
 	r.Post("/items/{id}/force-reject", a.forceReject)
+	r.Post("/items/{id}/unpurchasable", a.unpurchasable)
 	r.Get("/me/tasks", a.tasks)
 	r.Get("/audit", a.audit)
 	r.Get("/teams/{teamId}/audit", a.teamAudit)
@@ -348,6 +349,27 @@ func (a *BatchesAPI) forceReject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	it, err := a.Items.ForceReject(r.Context(), a.actor(r).Actor, id, ver, req.Reason)
+	respondItem(w, r, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) unpurchasable(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.MarkUnpurchasable(r.Context(), a.actor(r).Actor, id, ver, req.Reason)
 	respondItem(w, r, http.StatusOK, it, err)
 }
 

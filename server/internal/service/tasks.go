@@ -20,8 +20,8 @@ type BatchTask struct {
 	Count int          `json:"count"`
 }
 
-// MyTasks is the "my tasks" payload (spec §16.2). Ordering, receiving and
-// exception tasks arrive with milestones 4 and 5 and are empty until then.
+// MyTasks is the "my tasks" payload (spec §16.2). Receiving and exception
+// tasks arrive with milestone 5 and are empty until then.
 type MyTasks struct {
 	ProposalsToHandle []BatchTask
 	ItemsToReview     []BatchTask
@@ -72,6 +72,26 @@ func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
 			}
 			if n := counts[domain.ItemPending]; n > 0 {
 				out.ItemsToReview = append(out.ItemsToReview, BatchTask{Batch: b, Count: n})
+			}
+		}
+	}
+
+	if len(teamIDs) > 0 {
+		bs, err := s.st.BatchesByStatus(ctx, domain.BatchOrdering, teamIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range bs {
+			if !actor.HasBatchRole(b.TeamID, authzAssignments(b.Assignments), authz.BatchPurchaser) {
+				continue
+			}
+			counts, err := s.st.ItemCounts(ctx, b.ID)
+			if err != nil {
+				return nil, err
+			}
+			// Approved items still wait for an order or an unpurchasable mark.
+			if n := counts[domain.ItemApproved]; n > 0 {
+				out.BatchesToOrder = append(out.BatchesToOrder, BatchTask{Batch: b, Count: n})
 			}
 		}
 	}

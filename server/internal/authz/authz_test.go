@@ -64,3 +64,35 @@ func TestBatchRoles(t *testing.T) {
 		t.Error("system admin must not implicitly hold batch roles")
 	}
 }
+
+func TestHasBatchRoleOnAll(t *testing.T) {
+	teamA, teamB := bson.NewObjectID(), bson.NewObjectID()
+	buyer, admin := bson.NewObjectID(), bson.NewObjectID()
+	refA := BatchRef{TeamID: teamA, Assignments: Assignments{Purchasers: []bson.ObjectID{buyer}}}
+	refB := BatchRef{TeamID: teamB, Assignments: Assignments{Purchasers: []bson.ObjectID{buyer}}}
+	refBOther := BatchRef{TeamID: teamB, Assignments: Assignments{Purchasers: []bson.ObjectID{bson.NewObjectID()}}}
+	member := map[bson.ObjectID]domain.Role{teamA: domain.RoleMember, teamB: domain.RoleMember}
+
+	tests := []struct {
+		name string
+		a    Actor
+		refs []BatchRef
+		want bool
+	}{
+		{"purchaser of both", Actor{UserID: buyer, TeamRoles: member}, []BatchRef{refA, refB}, true},
+		{"purchaser of one only", Actor{UserID: buyer, TeamRoles: member}, []BatchRef{refA, refBOther}, false},
+		{"team admin of one covers it, the other needs assignment",
+			Actor{UserID: admin, TeamRoles: map[bson.ObjectID]domain.Role{teamB: domain.RoleAdmin, teamA: domain.RoleMember}},
+			[]BatchRef{refBOther, refA}, false},
+		{"team admin of both",
+			Actor{UserID: admin, TeamRoles: map[bson.ObjectID]domain.Role{teamB: domain.RoleAdmin, teamA: domain.RoleAdmin}},
+			[]BatchRef{refBOther, refA}, true},
+		{"system admin has no implicit role", Actor{UserID: admin, IsSystemAdmin: true}, []BatchRef{refA}, false},
+		{"nothing to hold", Actor{UserID: buyer, TeamRoles: member}, nil, false},
+	}
+	for _, tt := range tests {
+		if got := tt.a.HasBatchRoleOnAll(tt.refs, BatchPurchaser); got != tt.want {
+			t.Errorf("%s: got %v want %v", tt.name, got, tt.want)
+		}
+	}
+}

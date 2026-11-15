@@ -63,6 +63,7 @@ type Batch struct {
 	Assignments        Assignments   `bson:"assignments" json:"assignments"`
 	VisibilityOverride Visibility    `bson:"visibilityOverride,omitempty" json:"visibilityOverride"`
 	ItemCounter        int           `bson:"itemCounter" json:"-"`
+	OrderCounter       int           `bson:"orderCounter" json:"-"` // source of order numbers
 	StatusReason       string        `bson:"statusReason,omitempty" json:"statusReason"`
 	StatusChangedAt    time.Time     `bson:"statusChangedAt" json:"statusChangedAt"`
 	CreatedAt          time.Time     `bson:"createdAt" json:"createdAt"`

@@ -92,3 +92,24 @@ func EffectiveVisibility(team domain.Visibility, override domain.Visibility) dom
 func (a Actor) CanReadBatch(team bson.ObjectID, teamVis, override domain.Visibility) bool {
 	return a.IsSystemAdmin || a.IsMember(team) || EffectiveVisibility(teamVis, override) == domain.VisibilityPublic
 }
+
+// BatchRef identifies one batch for checks that span several batches.
+type BatchRef struct {
+	TeamID      bson.ObjectID
+	Assignments Assignments
+}
+
+// HasBatchRoleOnAll is true when the actor holds the role on every batch
+// (spec §8.3: external orders need the purchaser of each involved batch).
+// With no batches there is nothing to hold, so it is false.
+func (a Actor) HasBatchRoleOnAll(refs []BatchRef, r BatchRole) bool {
+	if len(refs) == 0 {
+		return false
+	}
+	for _, ref := range refs {
+		if !a.HasBatchRole(ref.TeamID, ref.Assignments, r) {
+			return false
+		}
+	}
+	return true
+}

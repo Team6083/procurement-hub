@@ -57,3 +57,19 @@ func (o *optionalString) UnmarshalJSON(b []byte) error {
 	}
 	return json.Unmarshal(b, &o.Value)
 }
+
+// optional distinguishes an absent field, an explicit null and a value.
+type optional[T any] struct {
+	Set   bool
+	Null  bool
+	Value T
+}
+
+func (o *optional[T]) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if bytes.Equal(bytes.TrimSpace(b), []byte("null")) {
+		o.Null = true
+		return nil
+	}
+	return json.Unmarshal(b, &o.Value)
+}

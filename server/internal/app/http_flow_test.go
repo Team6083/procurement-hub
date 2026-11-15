@@ -28,7 +28,13 @@ type world struct {
 
 func setup(t *testing.T) *world {
 	t.Helper()
-	e := newEnv(t)
+	return setupWith(t, nil)
+}
+
+// setupWith is setup with extra or overridden environment variables.
+func setupWith(t *testing.T, overrides map[string]string) *world {
+	t.Helper()
+	e := newEnvWith(t, overrides)
 	w := &world{env: e}
 	w.root = e.user(t, "root", true)
 	w.adm = e.user(t, "adm", false)

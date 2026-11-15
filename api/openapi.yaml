@@ -867,12 +867,306 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /items/{id}/unpurchasable:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    post:
+      operationId: markItemUnpurchasable
+      summary: Close an approved item that cannot be bought (purchasers and team admins, batch `ordering`)
+      description: |
+        Requires a non-blank `reason` (400 `invalid_request`). The batch must be `ordering` (422 `batch_not_ordering`), the item
+        `approved` (else 409 `invalid_transition`) and not part of an order (422 `item_in_order`: remove it from the order first).
+        The batch may advance automatically in the same transaction (to `receiving`, or `completed` when every approved item is
+        unpurchasable); the response is the updated item. System admins have no implicit purchaser role (403).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UnpurchasableRequest" }
+      responses:
+        "200":
+          description: Updated item
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Item" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict` or `invalid_transition`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /batches/{id}/orders:
+    parameters:
+      - $ref: "#/components/parameters/BatchId"
+    get:
+      operationId: listBatchOrders
+      summary: List the batch's team orders (anyone who can read the batch)
+      description: "Returns all orders by number, cancelled ones included, not paginated (`{items}` only)."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OrderList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: createOrder
+      summary: Create a draft team order from approved items (purchasers and team admins, batch `ordering`)
+      description: |
+        `vendor` is required (at most 200 characters) and `itemIds` lists 1 or more distinct items of the batch. Every item must be
+        `approved` and in no live order (422 `item_not_orderable`); an id that is not an item of this batch is 400. The batch
+        must be `ordering` (422 `batch_not_ordering`). System admins have no implicit purchaser role (403). Orders are numbered
+        per batch. No `If-Match`; the new order's version is in `ETag`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateOrderRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /orders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    patch:
+      operationId: patchOrder
+      summary: Change a draft order's vendor and/or items (purchasers and team admins)
+      description: |
+        Only the fields present change; `itemIds`, when present, replaces the whole item set (added items must be approved and in
+        no live order, removed items are released). Only a draft order outside any external order can change (422
+        `order_not_draft`, `order_in_transaction`: cancel the external order first), while the batch is `ordering` or
+        `receiving` (422 `batch_not_ordering`).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchOrderRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: cancelOrder
+      summary: Cancel a draft order and release its items (purchasers and team admins)
+      description: |
+        The order is kept with status `cancelled` and returned. Same restrictions as `PATCH`
+        (422 `order_not_draft`, `order_in_transaction`, `batch_not_ordering`).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: The cancelled order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Order" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-transactions:
+    post:
+      operationId: createVendorTransaction
+      summary: Create a draft external order from draft team orders (purchaser of every involved batch)
+      description: |
+        The orders may belong to several teams and batches. The caller must be able to read at least one of them (else 404, also
+        for unknown ids) and be purchaser of every involved batch (team admins implicitly; system admins not: 403). Every order
+        must be a draft outside any external order (422 `order_not_available`) and every batch `ordering` (422
+        `batch_not_ordering`). `currency` must be a supported currency (the vendor's billing currency). `vendor` defaults to
+        the orders' common vendor and is required (400) when they differ. No `If-Match`; the version is in `ETag`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateVendorTransactionRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorTransactionView" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-transactions/{id}:
+    parameters:
+      - $ref: "#/components/parameters/VendorTransactionId"
+    get:
+      operationId: getVendorTransaction
+      summary: External order details (anyone who can read at least one of its orders)
+      description: |
+        Orders the caller cannot read are not listed and their ids, teams, batches and allocations are left out of the response;
+        only `hiddenOrderCount` and `hiddenOrdersTotalBase` (the sum of their base totals) describe them (spec §8.2).
+        Otherwise 404.
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorTransactionView" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    patch:
+      operationId: patchVendorTransaction
+      summary: Edit prices, shared costs, allocation and the charged amount (purchaser of every involved batch)
+      description: |
+        A partial update: only fields present change (`sharedCosts`, `allocations` and `itemPrices` replace or merge as described
+        on their schemas). Allowed while the external order is `draft` or `placed` (422 `vendor_transaction_cancelled`), also after
+        the batch moved on, because bills arrive late. Costs (spec §11) are recalculated in the same transaction and every
+        change is audited on each involved batch.
+
+        Validation (400 `invalid_request`, `details.fields`): money fits the minor unit of its currency (shared costs and
+        prices: the transaction currency; `chargedAmountBase`: the base currency), a `discount` is not positive, prices use the
+        transaction currency and are not negative, `itemPrices` name items of this external order.
+
+        Business rules (422): `allocations` must name every order once; if any share differs from the proportional share the
+        shares are a manual override: they must add up to the total of the shared costs (`allocation_sum_mismatch`) and a
+        non-blank `allocationOverrideReason` is required (`allocation_override_reason_required`). Changing `sharedCosts`
+        while a manual override exists without sending new `allocations` fails with `allocation_sum_mismatch` unless the new
+        total still equals the stored shares; send `allocations: null` to go back to proportional allocation.
+        `cost_basis_zero`: a non-zero charged amount cannot be spread while the priced total is zero.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PatchVendorTransactionRequest" }
+      responses:
+        "200":
+          description: Updated external order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorTransactionView" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-transactions/{id}/place:
+    parameters:
+      - $ref: "#/components/parameters/VendorTransactionId"
+    post:
+      operationId: placeVendorTransaction
+      summary: Place a draft external order (purchaser of every involved batch)
+      description: |
+        In one transaction: the external order and its orders become `placed`, their items `ordered`, and each batch's automatic
+        transition is evaluated (`ordering` to `receiving`, or `completed`). 422 `vendor_transaction_not_draft`, `batch_not_ordering`.
+        No request body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Placed external order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorTransactionView" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-transactions/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/VendorTransactionId"
+    post:
+      operationId: cancelVendorTransaction
+      summary: Cancel a draft external order and release its orders (purchaser of every involved batch)
+      description: |
+        The team orders go back to plain drafts and their actual prices are cleared. A placed external order cannot be cancelled
+        (422 `vendor_transaction_not_draft`); problems after placing are handled with item exceptions and adjustments. No request body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Cancelled external order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorTransactionView" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /me/tasks:
     get:
       operationId: getMyTasks
       summary: Work waiting for the caller
       description: |
-        `batchesToOrder`, `itemsToReceive` and `openExceptions` are always empty until later milestones.
+        `batchesToOrder` lists batches in `ordering` where the caller is a purchaser (team admins implicitly) and approved items
+        still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` and
+        `openExceptions` are always empty until a later milestone.
       responses:
         "200":
           description: OK
@@ -972,6 +1266,16 @@ components:
       in: path
       required: true
       schema: { type: string }
+    OrderId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    VendorTransactionId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
     IfMatch:
       name: If-Match
       in: header
@@ -1052,7 +1356,9 @@ components:
         Business-rule violation. Codes: `team_slug_taken`, `team_archived`, `subgroup_exists`,
         `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
-        `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch).
+        `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
+        `batch_not_ordering`, `item_not_orderable`, `item_in_order`, `order_not_draft`, `order_in_transaction`, `order_not_available`,
+        `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -1510,7 +1816,7 @@ components:
       required: [batch, count]
       properties:
         batch: { $ref: "#/components/schemas/Batch" }
-        count: { type: integer, description: Number of pending items (itemsToReview); 0 otherwise. }
+        count: { type: integer, description: "Number of pending items (itemsToReview) or of approved items not yet ordered or marked unpurchasable (batchesToOrder); 0 otherwise." }
     MyTasks:
       type: object
       required: [proposalsToHandle, itemsToReview, returnedItems, batchesToOrder, itemsToReceive, openExceptions]
@@ -1521,6 +1827,174 @@ components:
         batchesToOrder: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
         itemsToReceive: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
         openExceptions: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
+    UnpurchasableRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string }
+    OrderStatus:
+      type: string
+      description: Status of a team order and of an external order.
+      enum: [draft, placed, cancelled]
+    Order:
+      type: object
+      required: [id, teamId, batchId, number, vendor, itemIds, vendorTransactionId, status, itemsCostBase, sharedCostBase, adjustmentsBase, totalBase, costsProvisional, createdBy, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        teamId: { type: string }
+        batchId: { type: string }
+        number: { type: integer, description: Per-batch order number. }
+        vendor: { type: string }
+        itemIds: { type: array, items: { type: string }, description: Kept on cancelled orders for history. }
+        vendorTransactionId: { type: [string, "null"] }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        itemsCostBase: { type: string, description: "Decimal string, base currency; 0 until costs are computed." }
+        sharedCostBase: { type: string, description: "Decimal string, base currency (this order's allocation of the shared costs)." }
+        adjustmentsBase: { type: string, description: "Decimal string, base currency; sum of the order's adjustments (refunds are negative)." }
+        totalBase: { type: string, description: "Decimal string: itemsCostBase + sharedCostBase + adjustmentsBase." }
+        costsProvisional: { type: boolean, description: "True while the figures are not final: prices are missing, or they were converted with a reference rate." }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    OrderList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Order" } }
+    CreateOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [vendor, itemIds]
+      properties:
+        vendor: { type: string, maxLength: 200 }
+        itemIds: { type: array, minItems: 1, maxItems: 5000, items: { type: string } }
+    PatchOrderRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        vendor: { type: string, maxLength: 200 }
+        itemIds: { type: array, minItems: 1, maxItems: 5000, items: { type: string }, description: Replaces the item set. }
+    SharedCostType:
+      type: string
+      enum: [shipping, fee, tax, discount, other]
+    SharedCost:
+      type: object
+      required: [type, amount, note]
+      properties:
+        type: { $ref: "#/components/schemas/SharedCostType" }
+        amount: { type: string, description: "Decimal string in the external order's currency; negative for discounts." }
+        note: { type: string }
+    SharedCostRequest:
+      type: object
+      additionalProperties: false
+      required: [type, amount]
+      properties:
+        type: { $ref: "#/components/schemas/SharedCostType" }
+        amount: { type: string, description: "Decimal string in the external order's currency, at most its minor-unit digits; a discount must not be positive." }
+        note: { type: string, maxLength: 500 }
+    Allocation:
+      type: object
+      required: [orderId, shareOfSharedCosts, overridden]
+      properties:
+        orderId: { type: string }
+        shareOfSharedCosts: { type: string, description: Decimal string in the external order's currency. }
+        overridden: { type: boolean, description: True when the share was set by hand instead of proportionally to the item subtotals. }
+    VendorTransaction:
+      type: object
+      required: [id, vendor, externalOrderNo, currency, orderIds, teamIds, batchIds, status, placedAt, placedBy, sharedCosts, chargedAmountBase, allocations, allocationOverrideReason, expectedDeliveryDate, paymentNote, createdBy, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        vendor: { type: string }
+        externalOrderNo: { type: string }
+        currency: { type: string, description: The vendor's billing currency. }
+        orderIds: { type: array, items: { type: string } }
+        teamIds: { type: array, items: { type: string } }
+        batchIds: { type: array, items: { type: string } }
+        status: { $ref: "#/components/schemas/OrderStatus" }
+        placedAt: { type: [string, "null"], format: date-time }
+        placedBy: { type: [string, "null"] }
+        sharedCosts: { type: array, items: { $ref: "#/components/schemas/SharedCost" } }
+        chargedAmountBase: { type: [string, "null"], description: "Decimal string: what was actually charged, in the base currency." }
+        allocations: { type: array, items: { $ref: "#/components/schemas/Allocation" } }
+        allocationOverrideReason: { type: string }
+        expectedDeliveryDate: { type: [string, "null"], format: date-time }
+        paymentNote: { type: string }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    OrderDetail:
+      type: object
+      required: [order, items]
+      properties:
+        order: { $ref: "#/components/schemas/Order" }
+        items:
+          type: array
+          description: The order's item lines, with `actualUnitPrice` and `actualCostBase`.
+          items: { $ref: "#/components/schemas/Item" }
+    VendorTransactionView:
+      description: |
+        An external order as seen by one caller. Orders the caller cannot read are omitted from `orders`, `orderIds`, `teamIds`,
+        `batchIds` and `allocations`; `hiddenOrderCount` and `hiddenOrdersTotalBase` summarise them.
+      allOf:
+        - $ref: "#/components/schemas/VendorTransaction"
+        - type: object
+          required: [orders, hiddenOrderCount, hiddenOrdersTotalBase]
+          properties:
+            orders: { type: array, items: { $ref: "#/components/schemas/OrderDetail" } }
+            hiddenOrderCount: { type: integer }
+            hiddenOrdersTotalBase: { type: string, description: "Decimal string, base currency." }
+    CreateVendorTransactionRequest:
+      type: object
+      additionalProperties: false
+      required: [orderIds, currency]
+      properties:
+        orderIds: { type: array, minItems: 1, maxItems: 1000, items: { type: string } }
+        currency: { type: string, description: A supported currency code. }
+        vendor: { type: string, maxLength: 200 }
+        externalOrderNo: { type: string, maxLength: 200 }
+    PatchVendorTransactionRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        vendor: { type: string, maxLength: 200 }
+        externalOrderNo: { type: string, maxLength: 200 }
+        paymentNote: { type: string, maxLength: 2000 }
+        expectedDeliveryDate: { type: [string, "null"], format: date-time }
+        sharedCosts:
+          type: array
+          maxItems: 50
+          description: Replaces the whole list of shared costs.
+          items: { $ref: "#/components/schemas/SharedCostRequest" }
+        chargedAmountBase:
+          type: [string, "null"]
+          description: "Decimal string in the base currency, at most its minor-unit digits, not negative. `null` clears it."
+        allocations:
+          type: [array, "null"]
+          description: |
+            One entry per order: a share of the total of the shared costs, in the external order's currency. Entries that differ from
+            the proportional share are overrides. `null` resets to proportional allocation.
+          items:
+            type: object
+            additionalProperties: false
+            required: [orderId, shareOfSharedCosts]
+            properties:
+              orderId: { type: string }
+              shareOfSharedCosts: { type: string }
+        allocationOverrideReason: { type: string, maxLength: 500, description: Required while any allocation is overridden. }
+        itemPrices:
+          type: array
+          description: Merged by item. A null price clears the item's actual price.
+          items:
+            type: object
+            additionalProperties: false
+            required: [itemId, actualUnitPrice]
+            properties:
+              itemId: { type: string }
+              actualUnitPrice:
+                oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }]
     AuditChange:
       type: object
       required: [field, from, to]
@@ -1613,3 +2087,14 @@ components:
         - item_not_editable
         - item_not_edited
         - item_not_reviewable
+        - batch_not_ordering
+        - item_not_orderable
+        - item_in_order
+        - order_not_draft
+        - order_in_transaction
+        - order_not_available
+        - vendor_transaction_not_draft
+        - vendor_transaction_cancelled
+        - allocation_sum_mismatch
+        - allocation_override_reason_required
+        - cost_basis_zero

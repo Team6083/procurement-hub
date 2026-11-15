@@ -373,3 +373,28 @@ func TestReadinessUntilMigrated(t *testing.T) {
 		t.Fatalf("after migrate: %d %v, want 200", code, body)
 	}
 }
+
+// 0002 makes (batchId, number) unique on orders and is safe to run again.
+func TestOrderIndexes(t *testing.T) {
+	st := mongotest.Store(t, "ph_mig")
+	ctx := context.Background()
+	batch := bson.NewObjectID()
+	orders := st.DB.Collection("orders")
+	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: batch}, {Key: "number", Value: 1}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: batch}, {Key: "number", Value: 1}}); !mongo.IsDuplicateKeyError(err) {
+		t.Fatalf("duplicate order number: err = %v, want a duplicate key error", err)
+	}
+	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: bson.NewObjectID()}, {Key: "number", Value: 1}}); err != nil {
+		t.Fatalf("same number in another batch: %v", err)
+	}
+	// Running the migration again changes nothing.
+	for _, m := range migrations.All() {
+		if m.ID == "0002_order_indexes" {
+			if err := m.Up(ctx, st.DB); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+}

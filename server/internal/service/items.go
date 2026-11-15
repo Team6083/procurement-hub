@@ -308,11 +308,17 @@ func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectI
 // transitionItem applies a single event with audit and batch re-evaluation.
 func (s *Items) transitionItem(ctx context.Context, actor string, b *domain.Batch, it *domain.Item, version int64,
 	ev domain.ItemEvent, action, comment string, review *domain.Review) (*domain.Item, error) {
+	return s.transitionItemSet(ctx, actor, b, it, version, ev, action, comment, review, nil)
+}
+
+// transitionItemSet is transitionItem that also sets `extra` fields.
+func (s *Items) transitionItemSet(ctx context.Context, actor string, b *domain.Batch, it *domain.Item, version int64,
+	ev domain.ItemEvent, action, comment string, review *domain.Review, extra bson.D) (*domain.Item, error) {
 	to, err := domain.NextItemStatus(it.Status, ev, it.ReceivedQuantity)
 	if err != nil {
 		return nil, ruleFromDomain(err)
 	}
-	set := bson.D{{Key: "status", Value: to}}
+	set := append(bson.D{{Key: "status", Value: to}}, extra...)
 	if review != nil {
 		review.AtVersion = version + 1
 		set = append(set, bson.E{Key: "review", Value: review})
@@ -453,6 +459,34 @@ func (s *Items) ForceReject(ctx context.Context, actor authz.Actor, id bson.Obje
 	}
 	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvForceReject, "item.force_rejected", reason,
 		&domain.Review{Decision: "rejected", By: actor.UserID, At: s.batches.now(), Comment: reason, Forced: true})
+}
+
+// MarkUnpurchasable closes an approved item the purchaser cannot buy
+// (purchasers, batch `ordering`, reason required). The batch may advance
+// automatically in the same transaction (spec §10.1).
+func (s *Items) MarkUnpurchasable(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if !actor.HasBatchRole(t.ID, authzAssignments(b.Assignments), authz.BatchPurchaser) {
+		return nil, ErrForbidden
+	}
+	if t.Archived {
+		return nil, Rule("team_archived", "Archived teams are read-only.")
+	}
+	if b.Status != domain.BatchOrdering {
+		return nil, Rule("batch_not_ordering", "Items can only be marked unpurchasable while the batch is in ordering.")
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, Invalid("reason", "required")
+	}
+	if it.Status == domain.ItemApproved && it.OrderID != nil {
+		return nil, Rule("item_in_order", "Remove the item from its order first.")
+	}
+	return s.transitionItemSet(ctx, actor.UserID.Hex(), b, it, version, domain.EvUnpurchasable, "item.unpurchasable", reason, nil,
+		bson.D{{Key: "closeReason", Value: reason}})
 }
 
 func authzAssignments(a domain.Assignments) authz.Assignments {
