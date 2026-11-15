@@ -17,6 +17,8 @@ import { ItemsTab } from '../features/batches/ItemsTab';
 import { ReviewTab } from '../features/batches/ReviewTab';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
+import { OrdersTab } from '../features/orders/OrdersTab';
+import { canSeeOrders } from '../features/orders/rules';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
 
@@ -91,6 +93,7 @@ export function BatchPage() {
         <Tabs.List>
           <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
           {internals && <Tabs.Trigger value="review">{t('tabs.review')}</Tabs.Trigger>}
+          {canSeeOrders(caller) && <Tabs.Trigger value="orders">{t('tabs.orders')}</Tabs.Trigger>}
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="items">
@@ -101,6 +104,11 @@ export function BatchPage() {
         {internals && (
           <Tabs.Content value="review">
             {items.data && <ReviewTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
+          </Tabs.Content>
+        )}
+        {canSeeOrders(caller) && (
+          <Tabs.Content value="orders">
+            {items.data && <OrdersTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
           </Tabs.Content>
         )}
         <Tabs.Content value="timeline">

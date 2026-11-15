@@ -18,3 +18,28 @@ export function currencyFractionDigits(currency: string): number | undefined {
 
 /** Maximum fractional digits of a reference rate (server limit). */
 export const MAX_RATE_DIGITS = 6;
+
+export type AmountError = 'format' | 'negative' | 'positive' | 'zero' | 'digits';
+
+export interface AmountRules {
+  /** Maximum fractional digits (a client-side hint; the server stays authoritative). */
+  digits?: number;
+  /** Which signs are accepted. Default "nonNegative". */
+  sign?: 'nonNegative' | 'nonPositive' | 'any';
+  /** Reject an amount equal to zero. */
+  nonZero?: boolean;
+}
+
+/** Validates a typed decimal amount; returns an error kind (an i18n key suffix) or null. */
+export function validateAmount(input: string, rules: AmountRules = {}): AmountError | null {
+  const s = input.trim();
+  if (!/^-?(?:\d+(?:\.\d+)?|\.\d+)$/.test(s)) return 'format';
+  const negative = s.startsWith('-');
+  const zero = /^-?[0.]*$/.test(s);
+  const sign = rules.sign ?? 'nonNegative';
+  if (negative && !zero && sign === 'nonNegative') return 'negative';
+  if (!negative && !zero && sign === 'nonPositive') return 'positive';
+  if (zero && rules.nonZero) return 'zero';
+  if (rules.digits !== undefined && fractionDigits(s) > rules.digits) return 'digits';
+  return null;
+}

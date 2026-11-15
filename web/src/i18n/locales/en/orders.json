@@ -1,0 +1,120 @@
+{
+  "status": {
+    "draft": "Draft",
+    "placed": "Placed",
+    "cancelled": "Cancelled"
+  },
+  "provisional": "Provisional",
+  "validation": {
+    "required": "This field is required.",
+    "format": "Enter a number, for example 12.50.",
+    "negative": "The amount cannot be negative.",
+    "positive": "A discount cannot be positive.",
+    "zero": "The amount cannot be zero.",
+    "digits": "Too many decimal places for this currency.",
+    "reason": {
+      "required": "A reason is required.",
+      "tooLong": "The reason is too long (500 characters at most)."
+    }
+  },
+  "orders": {
+    "title": "Orders",
+    "createExternal": "Create external order ({{count}})",
+    "empty": "No orders yet",
+    "emptyOrdering": "Select approved items below to create the first order.",
+    "emptyNotOrdering": "Orders can be created once the batch is in the ordering stage.",
+    "number": "Order",
+    "status": "Status",
+    "external": "External order",
+    "select": "Select order #{{number}}",
+    "itemCount": "{{count}} items",
+    "openExternal": "Open",
+    "cancel": "Cancel order",
+    "cancelConfirm": "Cancel draft order #{{number}} and release its items?",
+    "total": "Total of active orders: {{amount}} {{currency}}"
+  },
+  "cost": {
+    "items": "Items ({{currency}})",
+    "shared": "Shared costs",
+    "adjustments": "Adjustments",
+    "total": "Total"
+  },
+  "create": {
+    "title": "Approved items to order",
+    "empty": "No approved items are waiting for an order.",
+    "vendor": "Vendor",
+    "submit": "Create order from {{count}} items"
+  },
+  "edit": {
+    "title": "Edit order #{{number}}",
+    "items": "Items",
+    "noItems": "No items available."
+  },
+  "adjust": {
+    "button": "Adjust",
+    "title": "Adjust order #{{number}}",
+    "amount": "Amount ({{currency}})",
+    "amountHelp": "Use a negative amount for a refund.",
+    "reason": "Reason",
+    "item": "Item",
+    "wholeOrder": "Whole order",
+    "submit": "Book adjustment"
+  },
+  "external": {
+    "title": "Create external order from {{count}} orders",
+    "currency": "Billing currency",
+    "currencyHelp": "The currency the vendor bills in.",
+    "vendorDiffers": "The orders have different vendors. Enter the vendor for the external order.",
+    "orderNo": "Vendor order number",
+    "create": "Create external order"
+  },
+  "vt": {
+    "details": "Details",
+    "expectedDelivery": "Expected delivery",
+    "charged": "Amount charged ({{currency}})",
+    "chargedHelp": "What the card or bank actually charged. Leave empty until the bill arrives.",
+    "paymentNote": "Payment note",
+    "sharedCosts": "Shared costs",
+    "addCost": "Add cost",
+    "noSharedCosts": "No shared costs.",
+    "costType": "Type",
+    "costTypes": {
+      "shipping": "Shipping",
+      "fee": "Fee",
+      "tax": "Tax",
+      "discount": "Discount",
+      "other": "Other"
+    },
+    "costAmount": "Amount ({{currency}})",
+    "costNote": "Note",
+    "removeCost": "Remove cost",
+    "sharedTotal": "Shared costs total: {{amount}} {{currency}}",
+    "allocation": "Allocation of shared costs",
+    "allocationOverridden": "Shares were set by hand.",
+    "allocationProportional": "Shared costs are split in proportion to each order's item subtotal.",
+    "share": "Share ({{currency}})",
+    "shareOf": "Share of {{order}}",
+    "shareSum": "Shares {{sum}} of {{total}} {{currency}}",
+    "overrideReason": "Reason for the manual split",
+    "overrideHelp": "Required when you change the shares. To go back to the automatic split, use the reset button.",
+    "resetAllocation": "Reset to proportional",
+    "prices": "Actual prices",
+    "item": "Item",
+    "quantity": "Quantity",
+    "estimated": "Estimated unit price",
+    "actualUnit": "Actual unit price ({{currency}})",
+    "actualUnitOf": "Actual unit price of {{item}}",
+    "actualCost": "Cost (base)",
+    "orders": "Orders",
+    "orderLabel": "Batch #{{batch}}, order #{{number}}",
+    "placedAt": "Placed {{date}}",
+    "cancel": "Cancel external order",
+    "place": "Place external order",
+    "placeConfirm": "Place this external order? Its orders become placed and their items ordered. This cannot be undone.",
+    "cancelConfirm": "Cancel this draft external order? Its orders return to drafts and their actual prices are cleared.",
+    "readOnly": "You can view this external order, but only the purchasers of all its batches can edit it.",
+    "readOnlyHidden": "Some of its orders belong to batches you cannot see, so it is read-only for you.",
+    "hidden": "{{count}} more orders are hidden from you, totalling {{amount}} {{currency}}.",
+    "noCharged": "No charged amount yet; costs are provisional"
+  }
+}

@@ -33,16 +33,17 @@ export function useBatchList(filters: BatchFilters) {
   });
 }
 
+export const batchQuery = (api: ReturnType<typeof useApi>, id: string | undefined) => ({
+  queryKey: batchKey(id),
+  queryFn: async ({ signal }: { signal: AbortSignal }): Promise<Versioned<Batch>> => {
+    const r = await api.full.get<Batch>(`/batches/${id}`, { signal });
+    return { data: r.data, etag: r.etag ?? r.data.version };
+  },
+});
+
 export function useBatch(id: string | undefined) {
   const api = useApi();
-  return useQuery({
-    queryKey: batchKey(id),
-    enabled: !!id,
-    queryFn: async ({ signal }): Promise<Versioned<Batch>> => {
-      const r = await api.full.get<Batch>(`/batches/${id}`, { signal });
-      return { data: r.data, etag: r.etag ?? r.data.version };
-    },
-  });
+  return useQuery({ ...batchQuery(api, id), enabled: !!id });
 }
 
 export function useItems(batchId: string | undefined) {

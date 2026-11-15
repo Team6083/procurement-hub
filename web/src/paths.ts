@@ -2,4 +2,5 @@
 export const paths = {
   team: (slug: string, tab = '') => `/teams/${encodeURIComponent(slug)}${tab && `/${tab}`}`,
   batch: (id: string) => `/batches/${encodeURIComponent(id)}`,
+  vendorTransaction: (id: string) => `/vendor-transactions/${encodeURIComponent(id)}`,
 };

@@ -21,6 +21,7 @@ import { TeamMembersTab } from './pages/TeamMembersTab';
 import { TeamOverview } from './pages/TeamOverview';
 import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
+import { VendorTransactionPage } from './pages/VendorTransactionPage';
 
 function Layout() {
   return (
@@ -59,6 +60,7 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/batches', element: <BatchesPage /> },
           { path: '/batches/:id', element: <BatchPage /> },
+          { path: '/vendor-transactions/:id', element: <VendorTransactionPage /> },
           { path: '/settings', element: <SettingsPage /> },
           {
             path: '/teams/:slug',
