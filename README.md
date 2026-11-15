@@ -4,7 +4,25 @@ A multi-team procurement management system. Members request items in a purchasin
 
 Licensed under the [Apache License 2.0](LICENSE).
 
-> **Status:** under development. Implemented so far: skeleton, identity & teams, batches & items (review flow). Ordering, receiving, notifications, product lookup, CSV and reports are not built yet.
+> **Status:** under development, no release yet. The backend API covers teams through receiving; the web UI covers teams and batches only. See [Feature status](#feature-status).
+
+## Feature status
+
+| Area | State |
+|---|---|
+| Sign-in with OIDC (Keycloak), access-token validation, `ADMIN_ROLES` / `ALLOWED_ROLES` | Works |
+| Teams, members, subgroups, reference exchange rates, role-mapping rules (from `ROLE_MAPPINGS_FILE` or the API) that sync team membership from token claims | Works (API and web UI) |
+| Batches and items with the review flow (approve, send back, reject, withdraw, resubmit) | Works (API and web UI) |
+| Orders and external orders (vendor transactions, including merging orders of several teams), cost calculation in the base currency with allocation of shared costs and exact rounding | Works (API only) |
+| Receiving records, exceptions, dispositions (exchange, accept, cancel, refund), cost adjustments, automatic batch completion, `GET /me/tasks` | Works (API only) |
+| Audit log | Works (API) |
+| Web UI for orders, external orders and receiving | Not yet |
+| Notifications (in-app, email, Slack, Discord) | Not yet |
+| Product lookup (part-finder) | Not yet |
+| CSV import and export | Not yet |
+| Cost report | Not yet |
+
+Configuration variables for the missing features (`SMTP_*`, `LOOKUP_*`, `PARTFINDER_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
 
 ## Architecture
 
@@ -22,11 +40,21 @@ Nothing in this repository is specific to an organization or deployment: every e
 
 ```sh
 cd examples
-cp .env.example .env   # set OIDC_ISSUER, ADMIN_ROLES, WEBHOOK_ENCRYPTION_KEY, ...
-docker compose up -d
+cp .env.example .env   # set OIDC_ISSUER, ADMIN_ROLES and WEBHOOK_ENCRYPTION_KEY
+                       # (head -c 32 /dev/urandom | base64)
+docker compose up -d   # pulls ghcr.io/team6083/procurement-hub:latest
 ```
 
-`serve` starts only after `migrate` has exited successfully. `OIDC_ISSUER` must point at a running provider (for example a Keycloak realm set up as in [`docs/keycloak.md`](docs/keycloak.md)); no provider is bundled. If the issuer is unreachable, `serve` keeps running and retries OIDC discovery in the background: until it succeeds, `/readyz` answers 503 with `"check":"oidc"` and authenticated API requests get `503 upstream_unavailable`. The API listens on `127.0.0.1:8080` and the health and metrics endpoints on `127.0.0.1:9090`. Set `PROCUREMENT_HUB_IMAGE` to use a locally built image. The example MongoDB has no authentication and is meant for local trials only.
+`PROCUREMENT_HUB_IMAGE` overrides the image. The compose file pulls the published image, and no release has been published yet, so until one exists build the image locally (see [Container image](#container-image)) and run `PROCUREMENT_HUB_IMAGE=procurement-hub:local docker compose up -d`. Check it:
+
+```sh
+curl http://127.0.0.1:9090/healthz            # {"status":"ok"}
+curl http://127.0.0.1:9090/readyz             # 200 {"status":"ready"} once OIDC is loaded and migrations have run
+curl http://127.0.0.1:8080/api/v1/meta        # version, commit, base currency, supported currencies
+docker compose down -v                        # stop and delete the data
+```
+
+`serve` starts only after `migrate` has exited successfully. `OIDC_ISSUER` must point at a running provider (for example a Keycloak realm set up as in [`docs/keycloak.md`](docs/keycloak.md)); no provider is bundled. If the issuer is unreachable, `serve` keeps running and retries OIDC discovery in the background: until it succeeds, `/readyz` answers 503 with `"check":"oidc"` and authenticated API requests get `503 upstream_unavailable`. The API listens on `127.0.0.1:8080` and the health and metrics endpoints on `127.0.0.1:9090`. `web/e2e/keycloak/realm-example.json` is a Keycloak realm import with the settings from the guide, localhost origins and throwaway test users; it is meant for trials and the end-to-end tests, not for production. The example MongoDB has no authentication and is meant for local trials only.
 
 ### Development
 

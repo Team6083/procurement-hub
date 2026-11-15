@@ -16,15 +16,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Operations endpoints on a separate port (`METRICS_LISTEN_ADDR`): `/healthz`, `/readyz` and Prometheus `/metrics` with `procurement_hub_` metrics; JSON access log, `X-Request-ID` propagation, graceful shutdown with `SHUTDOWN_TIMEOUT`.
 - Container image `ghcr.io/team6083/procurement-hub`: distroless, numeric non-root user, read-only root filesystem, version and commit injected at build time.
 - CI for the server (gofmt, `go vet`, golangci-lint with staticcheck, race-enabled tests against a MongoDB replica set via testcontainers, govulncheck), the web app (generated API types check, typecheck, lint, tests, build, `npm audit`) and the image build; release workflow, Dependabot, and an `examples/docker-compose.yml` for local trials.
-- `SECURITY.md`, `CONTRIBUTING.md`, `docs/configuration.md` and `docs/keycloak.md`.
+- `SECURITY.md`, `CONTRIBUTING.md`, `docs/configuration.md` and `docs/keycloak.md`. The README lists which features work today and which (notifications, product lookup, CSV import and export, cost report, web UI for orders and receiving) are not implemented yet, and `docs/configuration.md` marks the settings that are validated but not used yet.
 - Playwright end-to-end tests (`web/e2e`) of sign-in, access control, the team and batch flows, the update banner and a phone viewport, against Keycloak, MongoDB, the server image and the production SPA build; run in CI.
 
 ### Changed
 
 - The web app uses the team UI package `@team6083/ui`: the shared frame (pages as icon buttons with the current one highlighted, a color mode toggle, the account menu with the language and sign-out, a drawer on phones, the build in the footer) in a centered column, the team theme (gray by default, `brand` for emphasis only), and the home page rebuilt with a single page heading, a teams section with its count, and empty states.
-
-### Changed
-
 - Repository layout is now `server/` (Go module `github.com/team6083/procurement-hub/server`) and `web/`.
 - Environment variables follow the project standard names and format rules, are all validated at startup, and the effective configuration is logged with secrets masked. `WEBHOOK_ENCRYPTION_KEY` is turned into the encryption key with HKDF-SHA256.
 - Access tokens are checked against an RS256 allowlist and must have `typ` `Bearer` and an expiry.
