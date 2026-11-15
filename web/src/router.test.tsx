@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { I18nextProvider } from 'react-i18next';
 import { RouterProvider, createMemoryRouter, useLocation, useParams } from 'react-router';
@@ -16,7 +17,7 @@ function stub(name: string) {
     return <p data-testid="page">{`${name} ${JSON.stringify(params)} ${pathname}`}</p>;
   };
 }
-vi.mock('./components/Header', () => ({ Header: () => null }));
+vi.mock('./components/AppFrame', () => ({ AppFrame: ({ children }: { children: ReactNode }) => children }));
 vi.mock('./components/UpdateBanner', () => ({ UpdateBanner: () => null }));
 vi.mock('./components/LocaleSync', () => ({ LocaleSync: () => null }));
 vi.mock('./pages/HomePage', async () => {

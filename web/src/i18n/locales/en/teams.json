@@ -2,12 +2,14 @@
   "home": {
     "myTasks": {
       "title": "My tasks",
-      "body": "Tasks assigned to you will appear here."
+      "body": "Tasks assigned to you will appear here.",
+      "emptyTitle": "You're all caught up"
     },
     "teams": {
       "title": "Teams",
       "empty": "There are no teams yet.",
-      "archived": "Archived"
+      "archived": "Archived",
+      "emptyBody": "Teams you join will appear here."
     },
     "createTeam": "Create team"
   },

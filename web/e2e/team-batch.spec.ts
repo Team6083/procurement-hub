@@ -31,7 +31,7 @@ async function as(browser: import('@playwright/test').Browser, user: UserKey, pa
     sessions.set(user, s);
   } else if (path) {
     await s.page.goto(path);
-    await expect(s.page.getByRole('button', { name: 'User menu' })).toHaveText(users[user].name);
+    await expect(s.page.getByRole('button', { name: users[user].name })).toBeVisible();
   }
   return s.page;
 }

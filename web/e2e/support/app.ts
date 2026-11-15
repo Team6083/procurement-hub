@@ -11,7 +11,7 @@ export async function signInOnKeycloak(page: Page, user: UserKey): Promise<void>
 
 /** The signed-in shell is up: the header's user menu shows the user's name. */
 export async function expectSignedIn(page: Page, user: UserKey): Promise<void> {
-  await expect(page.getByRole('button', { name: 'User menu' })).toHaveText(users[user].name);
+  await expect(page.getByRole('button', { name: users[user].name })).toBeVisible();
 }
 
 export interface Session {

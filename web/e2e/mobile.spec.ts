@@ -22,12 +22,12 @@ test('a team admin creates a draft batch and adds an item on a phone', async ({ 
   await admin.context.close();
 
   const { context, page } = await openAs(browser, 'tara');
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: teamName }).click();
+  // Teams are listed on the home page; the menu drawer holds the app's pages.
+  await page.getByRole('link', { name: teamName }).click();
   await expect(page).toHaveURL(`/teams/${slug}`);
 
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('menuitem', { name: 'Batches' }).click();
+  await page.getByRole('button', { name: 'Open menu' }).click();
+  await page.getByRole('dialog').getByRole('link', { name: 'Batches' }).click();
   await page.getByRole('button', { name: 'New batch' }).click();
   const dialog = page.getByRole('dialog', { name: 'New batch' });
   await dialog.getByLabel('Team').selectOption({ label: teamName });

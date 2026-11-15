@@ -4,13 +4,11 @@ import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
 import { App } from './App';
 import { ConfigErrorPage } from './components/ConfigErrorPage';
-import { followSystemColorMode } from './components/ui/color-mode';
 import { Provider } from './components/ui/provider';
 import { ConfigError, loadConfig } from './config';
 import i18n from './i18n';
 
 async function bootstrap() {
-  followSystemColorMode();
   const root = createRoot(document.getElementById('root')!);
   try {
     // Runtime config is fetched before anything else (auth, API, router) initializes.

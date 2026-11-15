@@ -135,7 +135,7 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
       </Table.Header>
       <Table.Body>
         {table.getRowModel().rows.map((row) => (
-          <Table.Row key={row.id} bg={row.getIsSelected() ? 'row.selected' : undefined} aria-selected={selectable ? row.getIsSelected() : undefined}>
+          <Table.Row key={row.id} bg={row.getIsSelected() ? 'brand.subtle' : undefined} aria-selected={selectable ? row.getIsSelected() : undefined}>
             {selectable && (
               <Table.Cell>
                 <Checkbox.Root size="sm" checked={row.getIsSelected()} onCheckedChange={(e) => row.toggleSelected(!!e.checked)}>

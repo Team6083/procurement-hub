@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { expectSignedIn, openAs, signInOnKeycloak } from './support/app';
+import { users } from './support/env';
 
 const KEYCLOAK_AUTH = /^http:\/\/keycloak:18180\/realms\/example\/protocol\/openid-connect\/auth\?/;
 
@@ -28,7 +29,7 @@ test.describe('sign-in (spec section 7.1)', () => {
 
     // Sign-out ends the SSO session (signoutRedirect with post_logout_redirect_uri = app root):
     // back at the app, the next sign-in shows the Keycloak form again.
-    await page.getByRole('button', { name: 'User menu' }).click();
+    await page.getByRole('button', { name: users.alice.name }).click();
     await page.getByRole('menuitem', { name: 'Log out' }).click();
     await expect(page).toHaveURL(KEYCLOAK_AUTH);
     await expect(page.getByLabel('Username or email')).toBeVisible();
@@ -84,7 +85,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     await expect(page.getByText("You don't have access to this service. Please contact an admin.")).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
     // Nothing else of the app: no header, no navigation, no page content.
-    await expect(page.getByRole('button', { name: 'User menu' })).toHaveCount(0);
+    await expect(page.getByRole('banner')).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Batches' })).toHaveCount(0);
 
     // No user record was created: a system admin cannot find her in the user search.

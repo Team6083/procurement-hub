@@ -1,8 +1,8 @@
-import { Box, Container, Spinner, Stack } from '@chakra-ui/react';
+import { Spinner, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
-import { Header } from './components/Header';
+import { AppFrame } from './components/AppFrame';
 import { LocaleSync } from './components/LocaleSync';
 import { UpdateBanner } from './components/UpdateBanner';
 import { BASE_PATH } from './config';
@@ -23,14 +23,13 @@ import { TeamShell } from './pages/TeamShell';
 
 function Layout() {
   return (
-    <Box minH="100vh">
+    <>
       <UpdateBanner />
-      <Header />
       <LocaleSync />
-      <Container as="main" maxW="7xl" px={{ base: '3', md: '6' }} py="4">
+      <AppFrame>
         <Outlet />
-      </Container>
-    </Box>
+      </AppFrame>
+    </>
   );
 }
 

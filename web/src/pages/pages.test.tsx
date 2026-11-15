@@ -47,8 +47,9 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(await screen.findByRole('link', { name: /#7 Spring order \(2 pending\)/ })).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Robotics' })).toBeTruthy();
     // Desktop nav and the narrow-screen menu button both exist; CSS decides which shows.
-    expect(screen.getByRole('button', { name: 'Menu' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'User menu' }).textContent).toBe('Alice Example');
+    expect(screen.getByRole('link', { name: 'My tasks' }).getAttribute('aria-current')).toBe('page');
+    expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Alice Example' })).toBeTruthy();
   });
 
   it('batches list with filters', async () => {

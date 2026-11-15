@@ -2,12 +2,14 @@
   "home": {
     "myTasks": {
       "title": "我的待辦",
-      "body": "指派給您的待辦事項會顯示在這裡。"
+      "body": "指派給您的待辦事項會顯示在這裡。",
+      "emptyTitle": "沒有待辦事項"
     },
     "teams": {
       "title": "團隊",
       "empty": "目前沒有任何團隊。",
-      "archived": "已封存"
+      "archived": "已封存",
+      "emptyBody": "加入的團隊會顯示在這裡。"
     },
     "createTeam": "建立團隊"
   },
