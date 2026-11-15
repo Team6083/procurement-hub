@@ -37,7 +37,8 @@
     "all": "All",
     "toOrder": "Approved, not yet ordered",
     "noMatch": "No items match these filters",
-    "noMatchHint": "Change or clear a filter to see more items."
+    "noMatchHint": "Change or clear a filter to see more items.",
+    "searchItems": "Search name, vendor or SKU"
   },
   "list": {
     "title": "Batches",
@@ -139,7 +140,12 @@
     "base": "Estimate: {{amount}} {{currency}}",
     "noRate": "No rate",
     "visible": "Totals (excluding withdrawn and rejected)",
-    "selected": "Selected ({{count}})"
+    "selected": "Selected ({{count}})",
+    "inCurrency": "Items in {{currency}}",
+    "noRateHint": "No reference rate; not in the estimate",
+    "estimate": "Estimate ({{currency}})",
+    "excludes": "Excludes withdrawn and rejected items",
+    "selectedEstimate": "Estimate {{amount}} {{currency}}"
   },
   "review": {
     "readOnly": "Only approvers and team admins can review items.",
@@ -199,5 +205,9 @@
     "price": "Enter a non-negative decimal number.",
     "url": "Enter an http or https URL.",
     "priceDigits": "Too many decimal places for this currency."
+  },
+  "people": {
+    "member": "Team member",
+    "former": "Former member"
   }
 }

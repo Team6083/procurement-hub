@@ -33,7 +33,8 @@
     "cancelConfirm": "Cancel draft order #{{number}} and release its items?",
     "total": "Total of active orders: {{amount}} {{currency}}",
     "placeHint": "Ordering from several batches at once?",
-    "placeLink": "Place orders"
+    "placeLink": "Place orders",
+    "totalActive": "Total of active orders"
   },
   "cost": {
     "items": "Items ({{currency}})",
@@ -43,7 +44,8 @@
   },
   "create": {
     "vendor": "Vendor",
-    "submit": "Create order from {{count}} items"
+    "submit": "Create order from {{count}} items",
+    "needVendor": "Enter a vendor to create the order"
   },
   "edit": {
     "title": "Edit order #{{number}}",
@@ -116,7 +118,8 @@
     "readOnly": "You can view this external order, but only the purchasers of all its batches can edit it.",
     "readOnlyHidden": "Some of its orders belong to batches you cannot see, so it is read-only for you.",
     "hidden": "{{count}} more orders are hidden from you, totalling {{amount}} {{currency}}.",
-    "noCharged": "No charged amount yet; costs are provisional"
+    "noCharged": "No charged amount yet; costs are provisional",
+    "sharedTotalLabel": "Shared costs total"
   },
   "place": {
     "title": "Place orders",

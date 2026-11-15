@@ -33,7 +33,8 @@
     "cancelConfirm": "取消草稿訂單 #{{number}} 並釋出其品項？",
     "total": "有效訂單合計：{{amount}} {{currency}}",
     "placeHint": "要一次為多個批次下單？",
-    "placeLink": "前往下單"
+    "placeLink": "前往下單",
+    "totalActive": "有效訂單合計"
   },
   "cost": {
     "items": "品項（{{currency}}）",
@@ -43,7 +44,8 @@
   },
   "create": {
     "vendor": "廠商",
-    "submit": "以 {{count}} 個品項建立訂單"
+    "submit": "以 {{count}} 個品項建立訂單",
+    "needVendor": "填入廠商後即可建立訂單"
   },
   "edit": {
     "title": "編輯訂單 #{{number}}",
@@ -116,7 +118,8 @@
     "readOnly": "你可以檢視這筆外部下單，但只有所有相關批次的下單人能編輯。",
     "readOnlyHidden": "其中部分訂單屬於你看不到的批次，所以對你是唯讀。",
     "hidden": "另有 {{count}} 張訂單對你隱藏，合計 {{amount}} {{currency}}。",
-    "noCharged": "尚未填入扣款金額，成本為暫估"
+    "noCharged": "尚未填入扣款金額，成本為暫估",
+    "sharedTotalLabel": "共同費用合計"
   },
   "place": {
     "title": "下單",

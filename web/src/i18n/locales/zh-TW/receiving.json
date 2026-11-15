@@ -19,7 +19,8 @@
     "note": "備註（選填）",
     "history": "先前的點收紀錄",
     "historyEntry": "{{who}} 於 {{when}} 點收 {{quantity}} 個",
-    "submit": "登錄點收"
+    "submit": "登錄點收",
+    "inFull": "全數點收"
   },
   "exceptionType": {
     "quantity_mismatch": "數量不符",
@@ -70,5 +71,14 @@
       "required": "請填寫註解。",
       "tooLong": "註解太長（最多 1000 字）。"
     }
+  },
+  "table": {
+    "item": "品項",
+    "vendor": "廠商",
+    "received": "已點收",
+    "receivedOf": "{{received}} / {{quantity}}",
+    "status": "狀態",
+    "problem": "問題",
+    "closeReason": "原因"
   }
 }

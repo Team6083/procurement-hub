@@ -17,6 +17,11 @@ export function isActive(href: string, pathname: string): boolean {
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
+/** Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). */
+export function isWidePage(pathname: string): boolean {
+  return /^\/(batches\/[^/]+|orders|vendor-transactions\/[^/]+)\/?$/.test(pathname);
+}
+
 /** The team app frame (AppShell) with this app's pages and account menu. */
 export function AppFrame({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -44,6 +49,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <AppShell
       appName={t('app.name')}
+      width={isWidePage(pathname) ? 'wide' : 'column'}
       nav={nav}
       renderLink={renderLink}
       account={

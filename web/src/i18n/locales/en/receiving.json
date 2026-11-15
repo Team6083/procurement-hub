@@ -19,7 +19,8 @@
     "note": "Note (optional)",
     "history": "Earlier receipts",
     "historyEntry": "{{quantity}} received by {{who}} on {{when}}",
-    "submit": "Record receipt"
+    "submit": "Record receipt",
+    "inFull": "Receive in full"
   },
   "exceptionType": {
     "quantity_mismatch": "Quantity mismatch",
@@ -70,5 +71,14 @@
       "required": "A note is required.",
       "tooLong": "The note is too long (1000 characters at most)."
     }
+  },
+  "table": {
+    "item": "Item",
+    "vendor": "Vendor",
+    "received": "Received",
+    "receivedOf": "{{received}} of {{quantity}}",
+    "status": "Status",
+    "problem": "Problem",
+    "closeReason": "Reason"
   }
 }
