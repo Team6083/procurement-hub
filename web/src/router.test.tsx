@@ -18,7 +18,6 @@ function stub(name: string) {
   };
 }
 vi.mock('./components/AppFrame', () => ({ AppFrame: ({ children }: { children: ReactNode }) => children }));
-vi.mock('./components/UpdateBanner', () => ({ UpdateBanner: () => null }));
 vi.mock('./components/LocaleSync', () => ({ LocaleSync: () => null }));
 vi.mock('./pages/HomePage', async () => {
   const { RouteAnchor: Anchor } = await import('./components/RouteLinks');

@@ -81,8 +81,8 @@ test.describe('sign-in (spec section 7.1)', () => {
     expect(res.status()).toBe(403);
     expect(await res.json()).toMatchObject({ error: { code: 'missing_role' } });
 
-    await expect(page.getByRole('heading', { name: 'No access' })).toBeVisible();
-    await expect(page.getByText("You don't have access to this service. Please contact an admin.")).toBeVisible();
+    await expect(page.getByRole('heading', { name: "You don't have access to this service" })).toBeVisible();
+    await expect(page.getByText('Contact an admin to get access.')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
     // Nothing else of the app: no header, no navigation, no page content.
     await expect(page.getByRole('banner')).toHaveCount(0);

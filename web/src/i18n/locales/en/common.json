@@ -22,10 +22,6 @@
     "unknown": "Signed in"
   },
   "loading": "Loading…",
-  "banner": {
-    "updated": "The system has been updated. Please reload the page.",
-    "reload": "Reload"
-  },
   "placeholder": {
     "title": "Coming soon",
     "body": "This page is not available yet."
@@ -39,17 +35,6 @@
     "reports": "Reports",
     "roleMappings": "Role mappings",
     "notFound": "Page not found"
-  },
-  "config": {
-    "missing": {
-      "title": "Configuration not found",
-      "body": "The application could not load config.json. Ask your administrator to provide it."
-    },
-    "invalid": {
-      "title": "Configuration is invalid",
-      "body": "The file config.json was found but its contents are not valid."
-    },
-    "details": "Details"
   },
   "actions": {
     "save": "Save",

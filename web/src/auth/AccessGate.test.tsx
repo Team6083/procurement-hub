@@ -22,7 +22,7 @@ describe('AccessGate (spec section 7.1)', () => {
     expect(screen.getByText('app chrome')).toBeTruthy();
     act(() => store.deny());
     expect(screen.queryByText('app chrome')).toBeNull();
-    expect(screen.getByText("You don't have access to this service. Please contact an admin.")).toBeTruthy();
+    expect(screen.getByRole('heading', { name: "You don't have access to this service" })).toBeTruthy();
     expect(screen.getAllByRole('button')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
     expect(signOut).toHaveBeenCalledTimes(1);
@@ -33,7 +33,8 @@ describe('AccessGate (spec section 7.1)', () => {
     const store = createAccessStore();
     store.deny();
     renderUI(<AccessGate store={store} onSignOut={() => undefined}>x</AccessGate>);
-    expect(screen.getByText('你沒有這個服務的存取權，請聯絡 admin。')).toBeTruthy();
+    expect(screen.getByRole('heading', { name: '你沒有這個服務的存取權' })).toBeTruthy();
+    expect(screen.getByText('請聯絡 admin。')).toBeTruthy();
     expect(screen.getByRole('button', { name: '登出' })).toBeTruthy();
     await i18n.changeLanguage('en');
   });
@@ -52,7 +53,7 @@ describe('AccessGate (spec section 7.1)', () => {
       { 'GET /me': apiError(403, 'missing_role') },
       { onMissingRole: store.deny },
     );
-    expect(await screen.findByText("You don't have access to this service. Please contact an admin.")).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: "You don't have access to this service" })).toBeTruthy();
     expect(screen.queryByText(/home/)).toBeNull();
   });
 });

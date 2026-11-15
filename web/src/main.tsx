@@ -2,10 +2,10 @@ import './zodSetup';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
+import { ConfigErrorPage } from '@team6083/ui';
 import { App } from './App';
-import { ConfigErrorPage } from './components/ConfigErrorPage';
 import { Provider } from './components/ui/provider';
-import { ConfigError, loadConfig } from './config';
+import { loadConfig } from './config';
 import i18n from './i18n';
 
 async function bootstrap() {
@@ -21,11 +21,10 @@ async function bootstrap() {
       </StrictMode>,
     );
   } catch (e) {
-    const err = e instanceof ConfigError ? e : new ConfigError('invalid', String(e));
     root.render(
       <I18nextProvider i18n={i18n}>
         <Provider>
-          <ConfigErrorPage error={err} />
+          <ConfigErrorPage minH="100vh" error={e} />
         </Provider>
       </I18nextProvider>,
     );

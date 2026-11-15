@@ -22,10 +22,6 @@
     "unknown": "已登入"
   },
   "loading": "載入中…",
-  "banner": {
-    "updated": "系統已更新，請重新載入頁面。",
-    "reload": "重新載入"
-  },
   "placeholder": {
     "title": "即將推出",
     "body": "此頁面尚未開放。"
@@ -39,17 +35,6 @@
     "reports": "報表",
     "roleMappings": "角色對應",
     "notFound": "找不到頁面"
-  },
-  "config": {
-    "missing": {
-      "title": "找不到設定檔",
-      "body": "應用程式無法載入 config.json，請聯絡管理員提供。"
-    },
-    "invalid": {
-      "title": "設定檔無效",
-      "body": "已找到 config.json，但內容不正確。"
-    },
-    "details": "詳細資訊"
   },
   "actions": {
     "save": "儲存",

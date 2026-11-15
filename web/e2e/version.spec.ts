@@ -8,7 +8,7 @@ import { API_NEXT_URL, API_URL, runId } from './support/env';
 // deployment from the tab's point of view.
 test('a backend with another commit shows the update banner and blocks writes', async ({ browser }) => {
   const { context, page } = await openAs(browser, 'sysadmin', '/batches');
-  await expect(page.getByTestId('update-banner')).toHaveCount(0);
+  await expect(page.getByTestId('app-outdated-banner')).toHaveCount(0);
 
   const writes: string[] = [];
   page.on('request', (r) => {
@@ -20,8 +20,8 @@ test('a backend with another commit shows the update banner and blocks writes', 
   const read = page.waitForResponse((r) => r.url().includes('/api/v1/batches?') && r.headers()['x-app-commit']?.endsWith('-next') === true);
   await page.getByLabel('Search').fill(`nothing-${runId()}`);
   expect((await read).ok()).toBe(true);
-  const banner = page.getByTestId('update-banner');
-  await expect(banner).toContainText('The system has been updated. Please reload the page.');
+  const banner = page.getByTestId('app-outdated-banner');
+  await expect(banner).toContainText('The system has been updated');
   await expect(page.getByText('No batches found.')).toBeVisible();
 
   // Writes are refused in the client and never reach the API.
@@ -41,6 +41,6 @@ test('a backend with another commit shows the update banner and blocks writes', 
   await page.unroute(`${API_URL}/api/**`);
   await banner.getByRole('button', { name: 'Reload' }).click();
   await expect(page.getByRole('heading', { name: 'My tasks' })).toBeVisible();
-  await expect(page.getByTestId('update-banner')).toHaveCount(0);
+  await expect(page.getByTestId('app-outdated-banner')).toHaveCount(0);
   await context.close();
 });

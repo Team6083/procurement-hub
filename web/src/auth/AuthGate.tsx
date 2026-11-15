@@ -1,9 +1,9 @@
-import { Button, Center, Spinner, Stack, Text } from '@chakra-ui/react';
+import { Button, Center, Code, Spinner, Stack, Text } from '@chakra-ui/react';
+import { StatusPage } from '@team6083/ui';
 import type { User, UserManager } from 'oidc-client-ts';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AuthProvider, useAuth } from 'react-oidc-context';
-import { StatusPage } from '../components/StatusPage';
 import { withBase } from '../config';
 import { isCallbackPath, returnToFromState } from './oidc';
 import type { Session } from './session';
@@ -55,17 +55,27 @@ function AuthGate({ session, children }: { session: Session; children: ReactNode
   const failure = callbackError ?? redirectError;
   if (failure !== null) {
     return (
-      <StatusPage title={t('callbackFailed.title')} body={t('callbackFailed.body')} details={failure}>
-        <Button onClick={() => window.location.replace(withBase('/'))}>{t('callbackFailed.retry')}</Button>
+      <StatusPage
+        minH="100vh"
+        title={t('callbackFailed.title')}
+        description={t('callbackFailed.body')}
+        actions={<Button onClick={() => window.location.replace(withBase('/'))}>{t('callbackFailed.retry')}</Button>}
+      >
+        <Code display="block" whiteSpace="pre-wrap" wordBreak="break-word" textAlign="start" p="3" w="full">
+          {failure}
+        </Code>
       </StatusPage>
     );
   }
   if (rejected) {
     return (
-      <StatusPage title={t('sessionRejected.title')} body={t('sessionRejected.body')}>
-        {/* User-initiated, so it bypasses the redirect cooldown. */}
-        <Button onClick={() => void session.signinRedirect()}>{t('sessionRejected.signIn')}</Button>
-      </StatusPage>
+      <StatusPage
+        minH="100vh"
+        title={t('sessionRejected.title')}
+        description={t('sessionRejected.body')}
+        // User-initiated, so it bypasses the redirect cooldown.
+        actions={<Button onClick={() => void session.signinRedirect()}>{t('sessionRejected.signIn')}</Button>}
+      />
     );
   }
   if (!auth.isAuthenticated) {

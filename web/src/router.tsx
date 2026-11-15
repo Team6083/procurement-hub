@@ -2,9 +2,10 @@ import { Spinner, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
+import { AppCommitProvider } from '@team6083/ui';
+import { useVersionMismatch } from './api/versionGuard';
 import { AppFrame } from './components/AppFrame';
 import { LocaleSync } from './components/LocaleSync';
-import { UpdateBanner } from './components/UpdateBanner';
 import { BASE_PATH } from './config';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
@@ -23,13 +24,12 @@ import { TeamShell } from './pages/TeamShell';
 
 function Layout() {
   return (
-    <>
-      <UpdateBanner />
+    <AppCommitProvider buildCommit={__APP_COMMIT__} outdated={useVersionMismatch()}>
       <LocaleSync />
       <AppFrame>
         <Outlet />
       </AppFrame>
-    </>
+    </AppCommitProvider>
   );
 }
 
