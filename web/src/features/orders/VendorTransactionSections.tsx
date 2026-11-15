@@ -165,7 +165,7 @@ export function AllocationCard({ view, editable, orderLabel }: SectionProps) {
                 <Table.Cell>
                   <FormField disabled={!editable} errorText={amountText(check.errors[order.id])}>
                     <Input aria-label={t('vt.shareOf', { order: orderLabel(order) })} inputMode="decimal" value={shares[order.id] ?? ''}
-                      onChange={(e) => setShares((s) => ({ ...s, [order.id]: e.currentTarget.value }))} />
+                      onChange={(e) => { const v = e.currentTarget.value; setShares((s) => ({ ...s, [order.id]: v })); }} />
                   </FormField>
                 </Table.Cell>
               </Table.Row>

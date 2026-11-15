@@ -90,6 +90,21 @@ describe('VendorTransactionPage', () => {
     expect((within(card).getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true);
   });
 
+  it('edits several shares at once without reading the event inside a deferred state update', async () => {
+    // The second change in one batch is queued, so its updater runs after React cleared currentTarget.
+    show(routes(view()));
+    await screen.findByRole('button', { name: 'Place external order' });
+    const first = screen.getByLabelText('Share of Batch #7, order #1');
+    const second = screen.getByLabelText('Share of Batch #7, order #2');
+    act(() => {
+      fireEvent.change(first, { target: { value: '7' } });
+      fireEvent.change(second, { target: { value: '3' } });
+    });
+    expect((first as HTMLInputElement).value).toBe('7');
+    expect((second as HTMLInputElement).value).toBe('3');
+    expect(screen.getByText('Shares 10.00 of 10.00 USD')).toBeTruthy();
+  });
+
   it('places the draft after confirmation', async () => {
     const { calls } = show(routes(view(), { 'POST /vendor-transactions/v1/place': { ...view(), status: 'placed', version: 5 } }));
     await act(async () => { fireEvent.click(await screen.findByRole('button', { name: 'Place external order' })); });
