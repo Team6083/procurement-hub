@@ -20,7 +20,9 @@ const features = tableFeatures({
   sortedRowModel: createSortedRowModel(),
   sortFns: { basic: sortFn_basic, text: sortFn_text },
 });
-const helper = createColumnHelper<typeof features, Item>();
+/** An item plus its requester's display name; the table caches cell values per data row, so the name must live in the data. */
+type Row = Item & { requesterName: string };
+const helper = createColumnHelper<typeof features, Row>();
 
 interface Props {
   items: Item[];
@@ -67,7 +69,7 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
           },
         }),
         helper.accessor((r) => subgroupName(r.subgroupId), { id: 'subgroup', header: t('item.subgroup'), sortFn: 'text' }),
-        helper.accessor((r) => nameOf(r.requesterId), { id: 'requester', header: t('item.requester'), sortFn: 'text' }),
+        helper.accessor('requesterName', { id: 'requester', header: t('item.requester'), sortFn: 'text' }),
         helper.accessor('priority', {
           id: 'priority', header: t('item.priority'), sortFn: 'basic',
           cell: (c) => (
@@ -89,11 +91,14 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
         helper.accessor('status', { id: 'status', header: t('item.status'), sortFn: 'text', cell: (c) => <ItemStatusBadge status={c.getValue()} /> }),
       ]),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, team, nameOf],
+    [t, team],
   );
 
+  // Names usually arrive after the items (member list loads separately); new row objects make the table recompute.
+  const data = useMemo<Row[]>(() => items.map((i) => ({ ...i, requesterName: nameOf(i.requesterId) })), [items, nameOf]);
+
   const table = useTable({
-    features, columns, data: items,
+    features, columns, data,
     getRowId: (r) => r.id,
     enableRowSelection: selectable,
     // Like a spreadsheet: the first click sorts ascending for text and numbers alike.

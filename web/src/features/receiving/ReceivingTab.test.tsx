@@ -8,8 +8,6 @@ import { callerFor } from '../batches/rules';
 import { ReceivingTab } from './ReceivingTab';
 
 beforeAll(() => {
-  // jsdom has no CSS.escape, which the dialog's focus trap calls when it reacts to the dialog closing.
-  if (!window.CSS) Object.defineProperty(window, 'CSS', { value: { escape: (s: string) => s }, configurable: true });
   void i18n.changeLanguage('en');
 });
 afterEach(cleanup);

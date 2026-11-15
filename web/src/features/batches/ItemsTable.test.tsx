@@ -73,6 +73,16 @@ describe('ItemsTable', () => {
     expect(onChange).toHaveBeenLastCalledWith({});
   });
 
+  it('shows requester names, updating when names load after the first render and falling back to the id', () => {
+    const rows = [item(1, { requesterId: 'u1' }), item(2, { requesterId: 'unknown-user-abcdef' })];
+    const view = renderUI(<ItemsTable items={rows} team={team()} nameOf={(id) => id.slice(-6)} selection={{}} onSelectionChange={() => undefined} />);
+    expect(screen.getByText('u1')).toBeTruthy();
+    const nameOf = (id: string) => (id === 'u1' ? 'Alice' : id.slice(-6));
+    view.rerender(<ItemsTable items={rows} team={team()} nameOf={nameOf} selection={{}} onSelectionChange={() => undefined} />);
+    expect(screen.getByText('Alice')).toBeTruthy();
+    expect(screen.getByText('abcdef')).toBeTruthy();
+  });
+
   it('has no checkboxes when not selectable', () => {
     renderUI(<Harness selectable={false} />);
     expect(screen.queryAllByRole('checkbox')).toHaveLength(0);
