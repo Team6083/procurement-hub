@@ -3,6 +3,7 @@
     "items": "Items",
     "review": "Review",
     "orders": "Orders",
+    "receiving": "Receiving",
     "timeline": "Timeline"
   },
   "status": {
@@ -183,7 +184,11 @@
     "proposals": "Proposals to handle",
     "review": "Items to review",
     "returned": "Returned items",
-    "pendingCount": "{{count}} pending"
+    "pendingCount": "{{count}} pending",
+    "receive": "Items to receive",
+    "exceptions": "Open exceptions",
+    "toReceiveCount": "{{count}} to receive",
+    "exceptionCount": "{{count}} open"
   },
   "validation": {
     "quantity": "Enter a whole number of at least 1.",

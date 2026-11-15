@@ -19,6 +19,8 @@ import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
 import { OrdersTab } from '../features/orders/OrdersTab';
 import { canSeeOrders } from '../features/orders/rules';
+import { ReceivingTab } from '../features/receiving/ReceivingTab';
+import { canSeeReceiving } from '../features/receiving/rules';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
 
@@ -90,10 +92,11 @@ export function BatchPage() {
       </Card.Root>
 
       <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
-        <Tabs.List>
+        <Tabs.List overflowX="auto">
           <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
           {internals && <Tabs.Trigger value="review">{t('tabs.review')}</Tabs.Trigger>}
           {canSeeOrders(caller) && <Tabs.Trigger value="orders">{t('tabs.orders')}</Tabs.Trigger>}
+          {canSeeReceiving(batch, caller) && <Tabs.Trigger value="receiving">{t('tabs.receiving')}</Tabs.Trigger>}
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="items">
@@ -109,6 +112,11 @@ export function BatchPage() {
         {canSeeOrders(caller) && (
           <Tabs.Content value="orders">
             {items.data && <OrdersTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
+          </Tabs.Content>
+        )}
+        {canSeeReceiving(batch, caller) && (
+          <Tabs.Content value="receiving">
+            {items.data && <ReceivingTab batch={batch} caller={caller} items={list} nameOf={names.name} />}
           </Tabs.Content>
         )}
         <Tabs.Content value="timeline">

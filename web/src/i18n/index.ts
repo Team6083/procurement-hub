@@ -6,6 +6,7 @@ import enAdmin from './locales/en/admin.json';
 import enBatches from './locales/en/batches.json';
 import enCommon from './locales/en/common.json';
 import enOrders from './locales/en/orders.json';
+import enReceiving from './locales/en/receiving.json';
 import enErrors from './locales/en/errors.json';
 import enTeams from './locales/en/teams.json';
 import zhAdmin from './locales/zh-TW/admin.json';
@@ -13,14 +14,15 @@ import zhBatches from './locales/zh-TW/batches.json';
 import zhAuth from './locales/zh-TW/auth.json';
 import zhCommon from './locales/zh-TW/common.json';
 import zhOrders from './locales/zh-TW/orders.json';
+import zhReceiving from './locales/zh-TW/receiving.json';
 import zhErrors from './locales/zh-TW/errors.json';
 import zhTeams from './locales/zh-TW/teams.json';
 
 export { SUPPORTED_LANGUAGES, type Language } from './detect';
 
 export const resources = {
-  en: { common: enCommon, errors: enErrors, auth: enAuth, teams: enTeams, admin: enAdmin, batches: enBatches, orders: enOrders },
-  'zh-TW': { common: zhCommon, errors: zhErrors, auth: zhAuth, teams: zhTeams, admin: zhAdmin, batches: zhBatches, orders: zhOrders },
+  en: { common: enCommon, errors: enErrors, auth: enAuth, teams: enTeams, admin: enAdmin, batches: enBatches, orders: enOrders, receiving: enReceiving },
+  'zh-TW': { common: zhCommon, errors: zhErrors, auth: zhAuth, teams: zhTeams, admin: zhAdmin, batches: zhBatches, orders: zhOrders, receiving: zhReceiving },
 } as const;
 
 void i18n.use(initReactI18next).init({
@@ -29,7 +31,7 @@ void i18n.use(initReactI18next).init({
   lng: detectLanguage(typeof navigator === 'undefined' ? undefined : navigator.languages),
   fallbackLng: 'en',
   defaultNS: 'common',
-  ns: ['common', 'errors', 'auth', 'teams', 'admin', 'batches', 'orders'],
+  ns: ['common', 'errors', 'auth', 'teams', 'admin', 'batches', 'orders', 'receiving'],
   interpolation: { escapeValue: false },
 });
 

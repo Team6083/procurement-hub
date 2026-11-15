@@ -1,0 +1,74 @@
+{
+  "empty": "Nothing to receive yet",
+  "emptyHelp": "Items appear here once their order has been placed.",
+  "allReceived": "Everything has been received",
+  "groups": {
+    "toReceive": "To receive",
+    "exceptions": "Open exceptions",
+    "done": "Closed"
+  },
+  "card": {
+    "received": "{{received}} of {{quantity}} received"
+  },
+  "receive": {
+    "button": "Receive ({{count}} left)",
+    "title": "Receive {{name}}",
+    "progress": "{{received}} of {{quantity}} received so far.",
+    "quantity": "Quantity received now",
+    "remaining": "{{count}} still to arrive. Report extra goods as a problem.",
+    "note": "Note (optional)",
+    "history": "Earlier receipts",
+    "historyEntry": "{{quantity}} received by {{who}} on {{when}}",
+    "submit": "Record receipt"
+  },
+  "exceptionType": {
+    "quantity_mismatch": "Quantity mismatch",
+    "wrong_item": "Wrong item",
+    "damaged": "Damaged"
+  },
+  "exception": {
+    "button": "Report a problem",
+    "title": "Report a problem with {{name}}",
+    "type": "What is wrong?",
+    "description": "Describe the problem",
+    "descriptionHelp": "A purchaser will decide what happens next. The batch cannot complete until then.",
+    "submit": "Report problem",
+    "resolve": "Resolve",
+    "reportedBy": "Reported by {{who}} on {{when}}"
+  },
+  "resolve": {
+    "title": "Resolve the problem with {{name}}",
+    "action": "Disposition",
+    "actions": {
+      "exchange": "Return or exchange",
+      "accept": "Accept what arrived",
+      "cancel": "Cancel the item"
+    },
+    "help": {
+      "exchange": "The item goes back to ordered; receive it again when the replacement arrives.",
+      "accept": "The item closes with the quantity received so far as its final quantity.",
+      "cancel": "The item closes as not obtained."
+    },
+    "nothingReceived": "Nothing has arrived, so there is nothing to accept. Cancel the item instead.",
+    "note": "Note",
+    "refund": "Refund ({{currency}}, optional)",
+    "refundHelp": "A positive amount. It is booked as an adjustment on the order.",
+    "submit": "Resolve"
+  },
+  "validation": {
+    "quantity": {
+      "format": "Enter a whole number.",
+      "min": "Enter at least 1.",
+      "exceeds": "That is more than the {{max}} still to arrive."
+    },
+    "noteTooLong": "The note is too long (500 characters at most).",
+    "description": {
+      "required": "Describe the problem.",
+      "tooLong": "The description is too long (2000 characters at most)."
+    },
+    "note": {
+      "required": "A note is required.",
+      "tooLong": "The note is too long (1000 characters at most)."
+    }
+  }
+}

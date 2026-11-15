@@ -44,6 +44,11 @@
     "allocation_sum_mismatch": "The shares must add up to the total of the shared costs.",
     "allocation_override_reason_required": "Enter a reason for the manual split.",
     "cost_basis_zero": "The charged amount cannot be spread while the priced total is zero. Enter the item prices first.",
-    "order_not_placed": "Adjustments can only be booked on placed orders."
+    "order_not_placed": "Adjustments can only be booked on placed orders.",
+    "batch_not_receiving": "This batch is not in the receiving stage.",
+    "receipt_exceeds_quantity": "That is more than the quantity still to arrive. Report extra goods as a problem.",
+    "item_not_ordered": "This item has not been ordered.",
+    "exception_resolved": "This problem has already been resolved.",
+    "nothing_received": "Nothing has arrived, so there is nothing to accept. Cancel the item instead."
   }
 }

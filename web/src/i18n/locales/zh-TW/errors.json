@@ -44,6 +44,11 @@
     "allocation_sum_mismatch": "分攤金額加總必須等於共同費用合計。",
     "allocation_override_reason_required": "請填寫手動分攤的原因。",
     "cost_basis_zero": "品項總額為零時無法分攤扣款金額，請先填入品項單價。",
-    "order_not_placed": "只有已下單的訂單可以登錄調整。"
+    "order_not_placed": "只有已下單的訂單可以登錄調整。",
+    "batch_not_receiving": "此批次不在點收階段。",
+    "receipt_exceeds_quantity": "超過尚未到貨的數量。多出的貨請回報為異常。",
+    "item_not_ordered": "此品項尚未下單。",
+    "exception_resolved": "這個問題已經處理過了。",
+    "nothing_received": "尚未收到任何貨，沒有可接受的數量。請改為取消品項。"
   }
 }

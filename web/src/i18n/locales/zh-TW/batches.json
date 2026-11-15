@@ -3,6 +3,7 @@
     "items": "品項",
     "review": "審核",
     "orders": "訂單",
+    "receiving": "點收",
     "timeline": "時間軸"
   },
   "status": {
@@ -183,7 +184,11 @@
     "proposals": "待處理的提案",
     "review": "待審核品項",
     "returned": "已退回的品項",
-    "pendingCount": "{{count}} 項待審"
+    "pendingCount": "{{count}} 項待審",
+    "receive": "待點收的品項",
+    "exceptions": "未處理的異常",
+    "toReceiveCount": "{{count}} 項待點收",
+    "exceptionCount": "{{count}} 項未處理"
   },
   "validation": {
     "quantity": "請輸入至少為 1 的整數。",
