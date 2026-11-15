@@ -1,4 +1,5 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createQueryClient } from './api/queryClient';
 import { useMemo } from 'react';
 import { useAuth } from 'react-oidc-context';
 import { RouterProvider } from 'react-router';
@@ -47,7 +48,7 @@ export function App({ config }: { config: AppConfig }) {
   const access = useMemo(() => createAccessStore(), []);
   const features = useMemo(() => featuresFrom(config), [config]);
   const queryClient = useMemo(
-    () => new QueryClient({ defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } } }),
+    () => createQueryClient(),
     [],
   );
   const api = useMemo(
