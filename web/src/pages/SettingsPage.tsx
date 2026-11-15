@@ -1,4 +1,5 @@
-import { Heading, Stack, Text } from '@chakra-ui/react';
+import { Card, Stack, Text } from '@chakra-ui/react';
+import { PageHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
 import { ErrorAlert } from '../components/ErrorAlert';
@@ -11,13 +12,14 @@ export function SettingsPage() {
   const { me } = useMe();
   const { change, mutation } = useChangeLanguage();
   return (
-    <Stack maxW="480px" gap="4">
-      <Heading as="h2" size="xl">{t('pages.settings')}</Heading>
-      {me && (
-        <Text color="fg.muted">
-          {me.displayName || me.username} {me.email && `(${me.email})`}
-        </Text>
-      )}
+    <>
+      <PageHeader
+        title={t('pages.settings')}
+        description={me && `${me.displayName || me.username}${me.email ? ` (${me.email})` : ''}`}
+      />
+      <Card.Root size="sm">
+        <Card.Body>
+          <Stack maxW="480px" gap="4">
       <SelectField
         label={t('language.label')}
         helperText={t('settingsPage.languageHelp')}
@@ -26,8 +28,11 @@ export function SettingsPage() {
         options={SUPPORTED_LANGUAGES.map((l) => ({ value: l, label: t(`language.${l}`) }))}
         onChange={(v) => v && change(v as Language)}
       />
-      {mutation.isSuccess && <Text fontSize="sm" color="fg.success">{t('actions.saved')}</Text>}
+      {mutation.isSuccess && <Text textStyle="sm" color="fg.success">{t('actions.saved')}</Text>}
       <ErrorAlert error={mutation.error} />
-    </Stack>
+          </Stack>
+        </Card.Body>
+      </Card.Root>
+    </>
   );
 }

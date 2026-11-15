@@ -1,13 +1,18 @@
-import { Heading, Stack, Text } from '@chakra-ui/react';
+import { Card } from '@chakra-ui/react';
+import { EmptyState, PageHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
+import { LuConstruction } from 'react-icons/lu';
 
 export function Placeholder({ titleKey }: { titleKey: string }) {
   const { t } = useTranslation();
   return (
-    <Stack>
-      <Heading as="h2" size="xl">{t(titleKey)}</Heading>
-      <Text fontWeight="semibold">{t('placeholder.title')}</Text>
-      <Text color="fg.muted">{t('placeholder.body')}</Text>
-    </Stack>
+    <>
+      <PageHeader title={t(titleKey)} />
+      <Card.Root size="sm">
+        <Card.Body>
+          <EmptyState icon={<LuConstruction />} title={t('placeholder.title')} description={t('placeholder.body')} />
+        </Card.Body>
+      </Card.Root>
+    </>
   );
 }

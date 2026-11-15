@@ -15,8 +15,8 @@ export function TeamSettingsShell() {
   const nav = (suffix: string, label: string) => (
     <RouteButton
       to={paths.team(slug, `settings${suffix}`)}
-      variant={isActive(suffix) ? 'solid' : 'subtle'}
-      size="xs"
+      variant={isActive(suffix) ? 'subtle' : 'ghost'}
+      size="sm"
       aria-current={isActive(suffix) ? 'page' : undefined}
     >
       {label}
@@ -25,7 +25,7 @@ export function TeamSettingsShell() {
   return (
     <Stack gap="4">
       {team.archived && <Notice status="warning">{t('settings.archivedNotice')}</Notice>}
-      <HStack gap="2" wrap="wrap" as="nav">
+      <HStack gap="1" wrap="wrap" as="nav">
         {nav('', t('settings.nav.general'))}
         {nav('/subgroups', t('settings.nav.subgroups'))}
         {nav('/reference-rates', t('settings.nav.rates'))}

@@ -1,4 +1,6 @@
-import { Button, Flex, Heading, HStack, Input, Spinner, Stack, Table, Text, useDisclosure } from '@chakra-ui/react';
+import { Button, Card, HStack, Input, Skeleton, Stack, Table, useDisclosure } from '@chakra-ui/react';
+import { EmptyState, PageHeader } from '@team6083/ui';
+import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useBatchList } from '../api/batches';
@@ -35,10 +37,18 @@ export function BatchesPage() {
 
   return (
     <Stack gap="4">
-      <Flex justify="space-between" align="center" gap="3" wrap="wrap">
-        <Heading as="h2" size="xl">{t('list.title')}</Heading>
-        {canCreate && <Button onClick={open}>{anyAdmin ? t('list.new') : t('list.propose')}</Button>}
-      </Flex>
+      <PageHeader
+        title={t('list.title')}
+        mb="0"
+        actions={
+          canCreate && (
+            <Button size="sm" onClick={open}>
+              <LuPlus />
+              {anyAdmin ? t('list.new') : t('list.propose')}
+            </Button>
+          )
+        }
+      />
       <Stack direction={{ base: 'column', md: 'row' }} align={{ md: 'flex-end' }} gap="3">
         <SelectField w={{ md: '220px' }} label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
         <SelectField w={{ md: '220px' }} label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
@@ -46,9 +56,15 @@ export function BatchesPage() {
           <Input size="sm" value={text} onChange={(e) => setText(e.currentTarget.value)} />
         </FormField>
       </Stack>
-      {list.isPending && <Spinner />}
+      {list.isPending && <Skeleton h="24" rounded="l3" />}
       {list.error && <ErrorAlert error={list.error} />}
-      {list.data && batches.length === 0 && <Text color="fg.muted">{t('list.empty')}</Text>}
+      {list.data && batches.length === 0 && (
+        <Card.Root size="sm">
+          <Card.Body>
+            <EmptyState icon={<LuPackage />} title={t('list.empty')} />
+          </Card.Body>
+        </Card.Root>
+      )}
       {batches.length > 0 && (
         <TableShell minW="640px" interactive>
           <Table.Header>
@@ -63,8 +79,8 @@ export function BatchesPage() {
           <Table.Body>
             {batches.map((b) => (
               <Table.Row key={b.id}>
-                <Table.Cell>#{b.number}</Table.Cell>
-                <Table.Cell><RouteAnchor to={paths.batch(b.id)}>{b.title}</RouteAnchor></Table.Cell>
+                <Table.Cell color="fg.muted" fontVariantNumeric="tabular-nums">#{b.number}</Table.Cell>
+                <Table.Cell><RouteAnchor to={paths.batch(b.id)} fontWeight="medium">{b.title}</RouteAnchor></Table.Cell>
                 <Table.Cell>{teamName(b.teamId)}</Table.Cell>
                 <Table.Cell><BatchStatusBadge status={b.status} /></Table.Cell>
                 <Table.Cell>{b.deadline ? new Date(b.deadline).toLocaleString() : '—'}</Table.Cell>

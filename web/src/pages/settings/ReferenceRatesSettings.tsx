@@ -1,4 +1,5 @@
-import { Button, Flex, Heading, HStack, Input, Spinner, Stack, Text } from '@chakra-ui/react';
+import { Button, Flex, HStack, Input, Spinner, Stack, Text } from '@chakra-ui/react';
+import { SectionHeader } from '@team6083/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -85,7 +86,7 @@ export function ReferenceRatesSettings() {
   const currencies = selectableCurrencies(meta.data.supportedCurrencies, meta.data.baseCurrency);
   return (
     <Stack gap="4">
-      <Heading as="h3" size="lg">{t('settings.nav.rates')}</Heading>
+      <SectionHeader title={t('settings.nav.rates')} mb="0" />
       {currencies.length === 0 && <Notice>{t('rates.noCurrencies')}</Notice>}
       <RatesForm_ key={full.version} team={full} currencies={currencies} base={meta.data.baseCurrency} />
     </Stack>

@@ -30,7 +30,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     // Sign-out ends the SSO session (signoutRedirect with post_logout_redirect_uri = app root):
     // back at the app, the next sign-in shows the Keycloak form again.
     await page.getByRole('button', { name: users.alice.name }).click();
-    await page.getByRole('menuitem', { name: 'Log out' }).click();
+    await page.getByRole('menuitem', { name: 'Sign out' }).click();
     await expect(page).toHaveURL(KEYCLOAK_AUTH);
     await expect(page.getByLabel('Username or email')).toBeVisible();
     await page.goto('/');

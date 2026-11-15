@@ -54,7 +54,7 @@ export function HomePage() {
                     {index > 0 && <Separator />}
                     <HStack justify="space-between" gap="3" py="2">
                       <Stack gap="0" minW="0">
-                        <RouteAnchor to={paths.team(team.slug)} color="fg" fontWeight="medium">
+                        <RouteAnchor to={paths.team(team.slug)} fontWeight="medium">
                           {team.name}
                         </RouteAnchor>
                         {team.description && (

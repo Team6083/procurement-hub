@@ -64,18 +64,18 @@ export function MyTasksCard() {
       <TaskGroup title={tb('tasks.proposals')} count={proposals.length}>
         {proposals.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)} color="fg">#{b.number} {b.title}</RouteAnchor>;
+          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title}</RouteAnchor>;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.review')} count={review.length}>
         {review.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)} color="fg">#{b.number} {b.title} ({tb('tasks.pendingCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.pendingCount', { count: taskCount(x) })})</RouteAnchor>;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.returned')} count={returned.length}>
         {returned.map((i) => (
-          <RouteAnchor key={i.id} to={paths.batch(i.batchId)} color="fg">
+          <RouteAnchor key={i.id} to={paths.batch(i.batchId)}>
             #{i.seqNo} {i.name}{i.review?.comment ? ` — ${i.review.comment}` : ''}
           </RouteAnchor>
         ))}

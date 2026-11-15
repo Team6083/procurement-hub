@@ -1,4 +1,6 @@
-import { Badge, Box, Button, Card, Flex, Heading, HStack, SimpleGrid, Spinner, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
+import { Badge, Box, Button, Card, HStack, SimpleGrid, Skeleton, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
+import { PageHeader } from '@team6083/ui';
+import { LuPencil } from 'react-icons/lu';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -21,8 +23,8 @@ import { useNames } from '../features/batches/useNames';
 function Fact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <Box>
-      <Text fontSize="xs" color="fg.muted">{label}</Text>
-      <Text fontSize="sm">{children}</Text>
+      <Text textStyle="xs" color="fg.muted">{label}</Text>
+      <Text>{children}</Text>
     </Box>
   );
 }
@@ -42,7 +44,7 @@ export function BatchPage() {
   const names = useNames(batch?.teamId, internals);
   const { open: editing, onOpen: open, onClose: close } = useDisclosure();
 
-  if (batchQ.isPending) return <Spinner />;
+  if (batchQ.isPending) return <Skeleton h="32" rounded="l3" />;
   if (batchQ.error || !batch) return <ErrorAlert error={batchQ.error} />;
 
   const list = items.data ?? [];
@@ -53,23 +55,27 @@ export function BatchPage() {
 
   return (
     <Stack gap="4">
-      <Flex justify="space-between" align="flex-start" gap="3" wrap="wrap">
-        <Stack gap="1">
+      <PageHeader
+        mb="0"
+        title={`#${batch.number} ${batch.title}`}
+        badge={<BatchStatusBadge status={batch.status} />}
+        description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
+        actions={
           <HStack wrap="wrap">
-            <Heading as="h2" size="xl">#{batch.number} {batch.title}</Heading>
-            <BatchStatusBadge status={batch.status} />
+            {canEditBatch(batch, caller) && (
+              <Button size="sm" variant="outline" onClick={open}>
+                <LuPencil />
+                {t('edit.button')}
+              </Button>
+            )}
+            <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} />
           </HStack>
-          {teamData && <RouteAnchor to={paths.team(teamData.slug)} fontSize="sm">{teamData.name}</RouteAnchor>}
-        </Stack>
-        <HStack wrap="wrap">
-          {canEditBatch(batch, caller) && <Button size="xs" variant="outline" onClick={open}>{t('edit.button')}</Button>}
-          <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} />
-        </HStack>
-      </Flex>
+        }
+      />
       {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
       {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
-      <Card.Root variant="outline">
-        <Card.Body p="4">
+      <Card.Root size="sm">
+        <Card.Body>
           <SimpleGrid columns={{ base: 2, md: 3, lg: 6 }} gap="4" alignItems="start">
             <Fact label={t('header.deadline')}>{batch.deadline ? new Date(batch.deadline).toLocaleString() : '—'}</Fact>
             <Fact label={t('header.visibility')}>{visibility ? t(`visibility.${visibility}`) : '—'}</Fact>
@@ -88,7 +94,7 @@ export function BatchPage() {
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="items">
-          {items.isPending && <Spinner />}
+          {items.isPending && <Skeleton h="24" rounded="l3" />}
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
         </Tabs.Content>

@@ -1,7 +1,7 @@
-import { AccountMenu, AppShell, BuildInfo, type NavItem } from '@team6083/ui';
+import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuCheck, LuFileChartColumn, LuLanguages, LuListTodo, LuLogOut, LuPackage, LuSettings, LuShieldCheck } from 'react-icons/lu';
+import { LuFileChartColumn, LuListTodo, LuPackage, LuSettings, LuShieldCheck } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
 import { useMe } from '../api/me';
@@ -32,14 +32,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
     { href: '/settings', label: t('nav.settings'), icon: <LuSettings /> },
   ].map((item) => ({ ...item, active: isActive(item.href, pathname) }));
 
-  // The language lives in the account menu, not the header (the team's DESIGN.md: Frame).
-  const current = i18n.resolvedLanguage ?? 'en';
-  const languages = SUPPORTED_LANGUAGES.map((lang) => ({
-    value: `lang-${lang}`,
-    label: t(`language.${lang}`),
-    icon: lang === current ? <LuCheck /> : <LuLanguages />,
-    onSelect: () => change(lang as Language),
-  }));
+  // The language lives in the account menu, folded under one item (the team's DESIGN.md: Frame).
+  const languages = SUPPORTED_LANGUAGES.map((lang) => ({ value: lang, label: t(`language.${lang}`) }));
 
   return (
     <AppShell
@@ -47,11 +41,14 @@ export function AppFrame({ children }: { children: ReactNode }) {
       nav={nav}
       renderLink={renderLink}
       account={
-        <AccountMenu
-          name={name}
-          detail={user.profile.email}
-          items={[...languages, { value: 'logout', label: t('user.logout'), icon: <LuLogOut />, onSelect: logout }]}
-        />
+        <AccountMenu name={name} detail={user.profile.email}>
+          <LanguageMenu
+            languages={languages}
+            value={i18n.resolvedLanguage ?? 'en'}
+            onChange={(lang) => change(lang as Language)}
+          />
+          <SignOutMenuItem onSelect={() => void logout()} />
+        </AccountMenu>
       }
       buildInfo={<BuildInfo commit={__APP_COMMIT__ === 'unknown' ? null : __APP_COMMIT__} />}
     >

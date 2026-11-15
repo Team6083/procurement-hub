@@ -1,4 +1,6 @@
-import { Badge, Button, Flex, Heading, HStack, Spinner, Stack, Table, Text } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
+import { EmptyState, PageHeader } from '@team6083/ui';
+import { LuPlus, LuShieldCheck } from 'react-icons/lu';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
@@ -18,19 +20,31 @@ export function RoleMappingsPage() {
   const [creating, setCreating] = useState(false);
   const [toDelete, setToDelete] = useState<RoleMapping | null>(null);
 
-  if (isPending) return <Spinner />;
+  if (isPending) return <Skeleton h="24" rounded="l3" />;
   if (!isSystemAdmin) return <Notice>{t('forbidden')}</Notice>;
 
   return (
     <Stack gap="4">
-      <Flex justify="space-between" align="center" gap="3" wrap="wrap">
-        <Heading as="h2" size="xl">{t('title')}</Heading>
-        <Button onClick={() => setCreating(true)}>{t('create')}</Button>
-      </Flex>
-      <Text color="fg.muted" fontSize="sm">{t('intro')}</Text>
-      {rules.isPending && <Spinner />}
+      <PageHeader
+        mb="0"
+        title={t('title')}
+        description={t('intro')}
+        actions={
+          <Button size="sm" onClick={() => setCreating(true)}>
+            <LuPlus />
+            {t('create')}
+          </Button>
+        }
+      />
+      {rules.isPending && <Skeleton h="24" rounded="l3" />}
       {rules.error && <ErrorAlert error={rules.error} />}
-      {rules.data?.length === 0 && <Text color="fg.muted">{t('empty')}</Text>}
+      {rules.data?.length === 0 && (
+        <Card.Root size="sm">
+          <Card.Body>
+            <EmptyState icon={<LuShieldCheck />} title={t('empty')} />
+          </Card.Body>
+        </Card.Root>
+      )}
       {rules.data && rules.data.length > 0 && (
         <TableShell minW="760px">
           <Table.Header>

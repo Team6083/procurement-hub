@@ -1,4 +1,6 @@
-import { Badge, Button, Flex, Heading, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
+import { Badge, Button, Flex, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
+import { EmptyState, SectionHeader } from '@team6083/ui';
+import { LuFolderTree } from 'react-icons/lu';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTeamMutation } from '../../api/teams';
@@ -96,10 +98,10 @@ export function SubgroupsSettings() {
   if (!full) return null;
   return (
     <Stack gap="4">
-      <Heading as="h3" size="lg">{t('settings.nav.subgroups')}</Heading>
+      <SectionHeader title={t('settings.nav.subgroups')} mb="0" />
       <AddSubgroup key={`add-${full.version}`} team={full} />
       {full.subgroups.length === 0 ? (
-        <Text color="fg.muted">{t('subgroups.empty')}</Text>
+        <EmptyState icon={<LuFolderTree />} title={t('subgroups.empty')} />
       ) : (
         <TableShell maxW="640px">
           <Table.Body>

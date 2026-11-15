@@ -12,7 +12,7 @@ const ITEM_COLOR: Partial<Record<ItemStatus, string>> = {
 
 export function BatchStatusBadge({ status }: { status: BatchStatus }) {
   const { t } = useTranslation('batches');
-  return <Badge variant="solid" colorPalette={BATCH_COLOR[status] ?? 'gray'}>{t(`status.${status}`, { defaultValue: status })}</Badge>;
+  return <Badge variant="subtle" colorPalette={BATCH_COLOR[status] ?? 'gray'}>{t(`status.${status}`, { defaultValue: status })}</Badge>;
 }
 
 export function ItemStatusBadge({ status }: { status: ItemStatus }) {

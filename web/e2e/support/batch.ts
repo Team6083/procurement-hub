@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 
 /** The batch page header (title heading plus status badge). */
-export const batchHeader = (page: Page): Locator => page.getByRole('main').getByRole('heading', { level: 2 }).locator('..');
+export const batchHeader = (page: Page): Locator => page.getByRole('main').getByRole('heading', { level: 1 }).locator('..');
 
 export async function expectBatchStatus(page: Page, status: string): Promise<void> {
   await expect(batchHeader(page)).toContainText(status);

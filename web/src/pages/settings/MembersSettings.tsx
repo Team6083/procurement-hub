@@ -1,4 +1,5 @@
-import { Button, Flex, Heading, HStack, Spinner, Stack, Table, Text } from '@chakra-ui/react';
+import { Button, Flex, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
+import { SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAddMember, useMembers, usePatchMember, useRemoveMember } from '../../api/members';
@@ -99,9 +100,9 @@ export function MembersSettings() {
   if (!full) return null;
   return (
     <Stack gap="4">
-      <Heading as="h3" size="lg">{t('settings.nav.members')}</Heading>
+      <SectionHeader title={t('settings.nav.members')} mb="0" />
       <AddMember team={full} existing={(members.data ?? []).map((m) => m.userId)} />
-      {members.isPending && <Spinner />}
+      {members.isPending && <Skeleton h="24" rounded="l3" />}
       {members.error && <ErrorAlert error={members.error} />}
       {members.data && (
         <TableShell minW="760px">

@@ -1,4 +1,5 @@
-import { Badge, Heading, HStack, Spinner, Stack, Tabs } from '@chakra-ui/react';
+import { Badge, Skeleton, Stack, Tabs } from '@chakra-ui/react';
+import { PageHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router';
 import { useMe } from '../api/me';
@@ -21,7 +22,7 @@ export function TeamShell() {
   const teamId = teams.data?.find((x) => x.slug === slug)?.id;
   const team = useTeam(teamId);
 
-  if (teams.isPending || (teamId && team.isPending)) return <Spinner />;
+  if (teams.isPending || (teamId && team.isPending)) return <Skeleton h="32" rounded="l3" />;
   if (teams.error) return <ErrorAlert error={teams.error} />;
   if (!teamId) return <Notice>{t('team.notFound')}</Notice>;
   if (team.error || !team.data) return <ErrorAlert error={team.error} />;
@@ -38,10 +39,7 @@ export function TeamShell() {
   return (
     <TeamContext.Provider value={{ teamId, slug, team: data, full, canAdmin, isMember: member }}>
       <Stack gap="4">
-        <HStack wrap="wrap">
-          <Heading as="h2" size="xl">{data.name}</Heading>
-          {data.archived && <Badge colorPalette="gray">{t('team.archived')}</Badge>}
-        </HStack>
+        <PageHeader mb="0" title={data.name} badge={data.archived && <Badge colorPalette="gray">{t('team.archived')}</Badge>} />
         <Tabs.Root value={active} onValueChange={(e) => go(e.value)}>
           <Tabs.List>
             <Tabs.Trigger value="overview">{t('tabs.overview')}</Tabs.Trigger>

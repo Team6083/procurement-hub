@@ -1,4 +1,4 @@
-import { Box, Button, Flex, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Card, Flex, SimpleGrid, Stack } from '@chakra-ui/react';
 import type { RowSelectionState } from '@tanstack/react-table';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,6 +13,8 @@ import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
 import { countsTowardEstimate, filterItems, type ItemFilters } from './filters';
 import { canAddItem, canModifyItem, canResubmitItem, showResubmit, type Caller } from './rules';
+import { EmptyState } from '@team6083/ui';
+import { LuPackageOpen } from 'react-icons/lu';
 
 interface Props {
   batch: Batch;
@@ -57,7 +59,11 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       </Flex>
 
       {items.length === 0 ? (
-        <Text color="fg.muted">{t('item.empty')}</Text>
+        <Card.Root size="sm">
+          <Card.Body>
+            <EmptyState icon={<LuPackageOpen />} title={t('item.empty')} />
+          </Card.Body>
+        </Card.Root>
       ) : (
         <ItemsTable
           items={visible}

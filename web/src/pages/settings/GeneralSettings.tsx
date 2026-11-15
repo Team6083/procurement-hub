@@ -1,4 +1,5 @@
-import { Button, Heading, HStack, Input, Separator, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, HStack, Input, Separator, Stack, Text, Textarea } from '@chakra-ui/react';
+import { SectionHeader } from '@team6083/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -110,7 +111,7 @@ export function GeneralSettings() {
   if (!full) return <Notice>{t('settings.forbidden')}</Notice>;
   return (
     <Stack gap="4">
-      <Heading as="h3" size="lg">{t('settings.nav.general')}</Heading>
+      <SectionHeader title={t('settings.nav.general')} mb="0" />
       {/* Remount when the server version changes (after save or a conflict refetch). */}
       <GeneralForm_ key={full.version} team={full} />
       {isSystemAdmin && <ArchiveControl team={full} />}
