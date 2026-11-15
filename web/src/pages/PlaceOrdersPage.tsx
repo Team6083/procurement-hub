@@ -1,5 +1,6 @@
-import { Button, Checkbox, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
-import { EmptyState, PageHeader, SectionHeader } from '@team6083/ui';
+import { Button, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { EmptyState, PageHeader, SectionHeader, SelectionBar } from '@team6083/ui';
+import { DataTable } from '../components/DataTable';
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPackageCheck, LuShoppingCart } from 'react-icons/lu';
@@ -7,15 +8,14 @@ import { useBatchList } from '../api/batches';
 import { useMe } from '../api/me';
 import { useItemsOf, useOrdersOf } from '../api/orders';
 import { useTeams } from '../api/teams';
-import type { Item } from '../api/types';
+import type { Batch, Item } from '../api/types';
 import { ErrorAlert, Notice } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
-import { TableShell } from '../components/ui/table';
 import { callerFor } from '../features/batches/rules';
 import { PlaceOrderDialog, type PlaceSnapshot } from '../features/orders/PlaceOrderDialog';
 import { OrderStatusBadge, money } from '../features/orders/OrderBadges';
 import {
-  availableRows, externalOrderGroups, groupByVendor, groupItemsByVendor, planOrders, readyItemRows, selectedItemRows, selectedRows, toggleGroup, toggleItemGroup,
+  availableRows, externalOrderGroups, planOrders, readyItemRows, selectedItemRows, selectedRows,
 } from '../features/orders/placeOrders';
 import { paths } from '../paths';
 
@@ -45,9 +45,7 @@ export function PlaceOrdersPage() {
   const itemsByBatch = Object.fromEntries(batchIds.map((id, i) => [id, itemQs[i]?.data as Item[] | undefined]));
   const callerOf = (b: { teamId: string }) => callerFor(me, b.teamId);
   const rows = availableRows(batches, ordersByBatch, callerOf);
-  const groups = groupByVendor(rows);
   const itemRows = readyItemRows(batches, itemsByBatch, callerOf);
-  const itemGroups = groupItemsByVendor(itemRows);
   const chosen = selectedRows(rows, selection);
   const chosenItems = selectedItemRows(itemRows, itemSelection);
   const total = chosen.length + chosenItems.length;
@@ -60,6 +58,17 @@ export function PlaceOrdersPage() {
   const failed = orderQs.some((q) => q.error) || itemQs.some((q) => q.error);
   const mayOrder = rows.some((r) => r.selectable) || itemRows.some((r) => r.selectable);
 
+  const ids = (sel: Record<string, boolean>) => Object.keys(sel).filter((k) => sel[k]);
+  const fromIds = (list: string[]) => Object.fromEntries(list.map((k) => [k, true]));
+  const clear = () => { setSelection({}); setItemSelection({}); };
+  const batchCell = (batch: Batch, selectable: boolean) => (
+    <Stack as="span" gap="0" textAlign="start">
+      <RouteAnchor to={paths.batch(batch.id)}>{batchLabel(batch)}</RouteAnchor>
+      {!selectable && <Text as="span" textStyle="xs" color="fg.muted">{t('place.notPurchaser')}</Text>}
+    </Stack>
+  );
+  const vendorLabel = (vendor: string) => vendor || t('place.noVendor');
+
   return (
     <Stack gap="8">
       <PageHeader title={t('place.title')} description={t('place.description')} mb="0" />
@@ -67,16 +76,7 @@ export function PlaceOrdersPage() {
       {failed && <Notice>{t('place.loadError')}</Notice>}
 
       <Stack gap="3">
-        <SectionHeader
-          title={t('place.ready')}
-          count={loading ? undefined : itemRows.length}
-          mb="0"
-          actions={mayOrder && (
-            <Button disabled={total === 0} onClick={open}>
-              {t('place.createExternal', { count: total })}
-            </Button>
-          )}
-        />
+        <SectionHeader title={t('place.ready')} count={loading ? undefined : itemRows.length} mb="0" />
         {loading ? (
           <Skeleton h="24" rounded="l3" />
         ) : itemRows.length === 0 && rows.length === 0 ? (
@@ -84,53 +84,21 @@ export function PlaceOrdersPage() {
         ) : itemRows.length === 0 ? (
           <Text color="fg.muted">{t('place.noItems')}</Text>
         ) : (
-          <TableShell minW="900px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader w="8" />
-                <Table.ColumnHeader>{t('place.item')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('place.quantity')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('place.estimate')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('place.batch')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('place.team')}</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {itemGroups.flatMap((g) => {
-                const vendor = g.vendor || t('place.noVendor');
-                const pickable = g.rows.filter((r) => r.selectable);
-                const all = pickable.length > 0 && pickable.every((r) => itemSelection[r.item.id]);
-                return [
-                  <Table.Row key={`g:${g.vendor}`} bg="bg.muted">
-                    <Table.Cell>
-                      {pickable.length > 0 && (
-                        <Checkbox.Root size="sm" checked={all} onCheckedChange={(e) => setItemSelection((s) => toggleItemGroup(s, g.rows, !!e.checked))}>
-                          <Checkbox.HiddenInput aria-label={t('place.selectItemsOf', { vendor })} />
-                          <Checkbox.Control />
-                        </Checkbox.Root>
-                      )}
-                    </Table.Cell>
-                    <Table.Cell colSpan={5} fontWeight="semibold">{vendor}</Table.Cell>
-                  </Table.Row>,
-                  ...g.rows.map(({ item, batch, selectable }) => (
-                    <Table.Row key={item.id}>
-                      <Table.Cell>
-                        <Checkbox.Root size="sm" disabled={!selectable} checked={!!itemSelection[item.id] && selectable} onCheckedChange={(e) => setItemSelection((s) => ({ ...s, [item.id]: !!e.checked }))}>
-                          <Checkbox.HiddenInput aria-label={t('place.selectItem', { name: item.name })} title={selectable ? undefined : t('place.notPurchaser')} />
-                          <Checkbox.Control />
-                        </Checkbox.Root>
-                      </Table.Cell>
-                      <Table.Cell>{item.name}</Table.Cell>
-                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{item.quantity}</Table.Cell>
-                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(item.estimatedUnitPrice.amount)} {item.estimatedUnitPrice.currency}</Table.Cell>
-                      <Table.Cell><RouteAnchor to={paths.batch(batch.id)}>{batchLabel(batch)}</RouteAnchor></Table.Cell>
-                      <Table.Cell>{teamName(batch.teamId)}</Table.Cell>
-                    </Table.Row>
-                  )),
-                ];
-              })}
-            </Table.Body>
-          </TableShell>
+          <DataTable
+            aria-label={t('place.ready')}
+            rows={itemRows}
+            getRowId={(r) => r.item.id}
+            selection={{ selected: ids(itemSelection), onChange: (l) => setItemSelection(fromIds(l)), canSelect: (r) => r.selectable }}
+            groupBy={(r) => r.item.vendor.trim()}
+            groupLabel={(vendor) => vendorLabel(vendor)}
+            columns={[
+              { key: 'item', header: t('place.item'), priority: 'primary', cell: (r) => r.item.name },
+              { key: 'quantity', header: t('place.quantity'), numeric: true, cell: (r) => r.item.quantity },
+              { key: 'estimate', header: t('place.estimate'), numeric: true, cell: (r) => `${money(r.item.estimatedUnitPrice.amount)} ${r.item.estimatedUnitPrice.currency}` },
+              { key: 'batch', header: t('place.batch'), cell: (r) => batchCell(r.batch, r.selectable) },
+              { key: 'team', header: t('place.team'), priority: 'secondary', cell: (r) => teamName(r.batch.teamId) },
+            ]}
+          />
         )}
       </Stack>
 
@@ -138,52 +106,21 @@ export function PlaceOrdersPage() {
         <Stack gap="3">
           <SectionHeader title={t('place.drafts')} count={rows.length} mb="0" />
           <Text color="fg.muted">{t('place.draftsHint')}</Text>
-          <TableShell minW="800px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader w="8" />
-                <Table.ColumnHeader>{t('orders.number')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('place.batch')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('place.team')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('place.items')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('cost.total')}</Table.ColumnHeader>
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {groups.flatMap((g) => {
-                const pickable = g.rows.filter((r) => r.selectable);
-                const all = pickable.length > 0 && pickable.every((r) => selection[r.order.id]);
-                return [
-                  <Table.Row key={`g:${g.vendor}`} bg="bg.muted">
-                    <Table.Cell>
-                      {pickable.length > 0 && (
-                        <Checkbox.Root size="sm" checked={all} onCheckedChange={(e) => setSelection((s) => toggleGroup(s, g.rows, !!e.checked))}>
-                          <Checkbox.HiddenInput aria-label={t('place.selectVendor', { vendor: g.vendor })} />
-                          <Checkbox.Control />
-                        </Checkbox.Root>
-                      )}
-                    </Table.Cell>
-                    <Table.Cell colSpan={5} fontWeight="semibold">{g.vendor}</Table.Cell>
-                  </Table.Row>,
-                  ...g.rows.map(({ order, batch, selectable }) => (
-                    <Table.Row key={order.id}>
-                      <Table.Cell>
-                        <Checkbox.Root size="sm" disabled={!selectable} checked={!!selection[order.id] && selectable} onCheckedChange={(e) => setSelection((s) => ({ ...s, [order.id]: !!e.checked }))}>
-                          <Checkbox.HiddenInput aria-label={t('orders.select', { number: order.number })} title={selectable ? undefined : t('place.notPurchaser')} />
-                          <Checkbox.Control />
-                        </Checkbox.Root>
-                      </Table.Cell>
-                      <Table.Cell fontVariantNumeric="tabular-nums">#{order.number}</Table.Cell>
-                      <Table.Cell><RouteAnchor to={paths.batch(batch.id)}>{batchLabel(batch)}</RouteAnchor></Table.Cell>
-                      <Table.Cell>{teamName(batch.teamId)}</Table.Cell>
-                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{order.itemIds.length}</Table.Cell>
-                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(order.totalBase)}</Table.Cell>
-                    </Table.Row>
-                  )),
-                ];
-              })}
-            </Table.Body>
-          </TableShell>
+          <DataTable
+            aria-label={t('place.drafts')}
+            rows={rows}
+            getRowId={(r) => r.order.id}
+            selection={{ selected: ids(selection), onChange: (l) => setSelection(fromIds(l)), canSelect: (r) => r.selectable }}
+            groupBy={(r) => r.order.vendor}
+            groupLabel={(vendor) => vendorLabel(vendor)}
+            columns={[
+              { key: 'order', header: t('orders.number'), priority: 'primary', cell: (r) => `#${r.order.number}` },
+              { key: 'batch', header: t('place.batch'), cell: (r) => batchCell(r.batch, r.selectable) },
+              { key: 'team', header: t('place.team'), priority: 'secondary', cell: (r) => teamName(r.batch.teamId) },
+              { key: 'items', header: t('place.items'), numeric: true, cell: (r) => r.order.itemIds.length },
+              { key: 'total', header: t('cost.total'), numeric: true, cell: (r) => money(r.order.totalBase) },
+            ]}
+          />
         </Stack>
       )}
 
@@ -191,38 +128,34 @@ export function PlaceOrdersPage() {
         <SectionHeader title={t('place.inProgress')} count={loading ? undefined : inProgress.length} mb="0" />
         {loading ? (
           <Skeleton h="16" rounded="l3" />
-        ) : inProgress.length === 0 ? (
-          <EmptyState icon={<LuPackageCheck />} title={t('place.noExternal')} description={t('place.noExternalBody')} />
         ) : (
-          <TableShell minW="640px">
-            <Table.Header>
-              <Table.Row>
-                <Table.ColumnHeader>{t('create.vendor')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('orders.status')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('vt.orders')}</Table.ColumnHeader>
-                <Table.ColumnHeader />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {inProgress.map((g) => (
-                <Table.Row key={g.id}>
-                  <Table.Cell>{g.vendor}</Table.Cell>
-                  <Table.Cell><OrderStatusBadge status={g.status} /></Table.Cell>
-                  <Table.Cell>
-                    <HStack gap="2" wrap="wrap">
-                      <Text as="span" color="fg.muted">{t('place.ordersCount', { count: g.orders.length })}</Text>
-                      <Text as="span">{[...new Set(g.orders.map((o) => `#${o.batch.number}`))].join(', ')}</Text>
-                    </HStack>
-                  </Table.Cell>
-                  <Table.Cell textAlign="end"><RouteAnchor to={paths.vendorTransaction(g.id)}>{t('place.openExternal')}</RouteAnchor></Table.Cell>
-                </Table.Row>
-              ))}
-            </Table.Body>
-          </TableShell>
+          <DataTable
+            aria-label={t('place.inProgress')}
+            rows={inProgress}
+            getRowId={(g) => g.id}
+            empty={<EmptyState icon={<LuPackageCheck />} title={t('place.noExternal')} description={t('place.noExternalBody')} />}
+            columns={[
+              { key: 'vendor', header: t('create.vendor'), priority: 'primary', cell: (g) => <RouteAnchor to={paths.vendorTransaction(g.id)}>{g.vendor}</RouteAnchor> },
+              { key: 'status', header: t('orders.status'), cell: (g) => <OrderStatusBadge status={g.status} /> },
+              {
+                key: 'orders', header: t('vt.orders'),
+                cell: (g) => (
+                  <HStack as="span" gap="2" wrap="wrap">
+                    <Text as="span" color="fg.muted">{t('place.ordersCount', { count: g.orders.length })}</Text>
+                    <Text as="span">{[...new Set(g.orders.map((o) => `#${o.batch.number}`))].join(', ')}</Text>
+                  </HStack>
+                ),
+              },
+              { key: 'open', header: '', label: '', cell: (g) => <RouteAnchor to={paths.vendorTransaction(g.id)}>{t('place.openExternal')}</RouteAnchor> },
+            ]}
+          />
         )}
       </Stack>
 
-      <PlaceOrderDialog snapshot={snapshot} onClose={() => setSnapshot(null)} onPlaced={() => { setSelection({}); setItemSelection({}); }} />
+      <SelectionBar count={total} onClear={clear}>
+        {mayOrder && <Button size="sm" onClick={open}>{t('external.create')}</Button>}
+      </SelectionBar>
+      <PlaceOrderDialog snapshot={snapshot} onClose={() => setSnapshot(null)} onPlaced={clear} />
     </Stack>
   );
 }

@@ -50,7 +50,8 @@ describe('VendorTransactionPage', () => {
     expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
     expect(screen.getAllByText('Draft').length).toBeGreaterThan(0);
     expect(await screen.findByRole('button', { name: 'Place external order' })).toBeTruthy();
-    expect(screen.getByText('Shared costs total: 10.00 USD')).toBeTruthy();
+    expect(screen.getByText('Shared costs total')).toBeTruthy();
+    expect(screen.getAllByText('10.00 USD').length).toBeGreaterThan(0);
     expect(screen.getByText('Shares 10.00 of 10.00 USD')).toBeTruthy();
     expect(screen.getByLabelText('Actual unit price of Part 1')).toBeTruthy();
     // no vendor order number before the order is placed

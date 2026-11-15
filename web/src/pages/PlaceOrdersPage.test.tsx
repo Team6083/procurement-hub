@@ -5,6 +5,7 @@ import type { Order } from '../api/types';
 import i18n from '../i18n';
 import { apiError, batch, item, me, renderWithApi, type Routes } from '../test/fakeApi';
 import { PlaceOrdersPage } from './PlaceOrdersPage';
+import { selectionBar } from '../test/dataTable';
 
 beforeAll(() => void i18n.changeLanguage('en'));
 afterEach(cleanup);
@@ -47,6 +48,15 @@ function show(r: Routes) {
 }
 
 const click = (el: HTMLElement) => act(async () => { fireEvent.click(el); });
+const table = (name: string) => within(screen.getByRole('table', { name }));
+/** The checkbox of the row in `tableName` that shows `text`. */
+const rowBox = (tableName: string, text: string) => within(table(tableName).getAllByRole('row').find((r) => r.textContent?.includes(text))!).queryByRole('checkbox');
+/** The SelectionBar's main action, with the count of picked rows. */
+async function createFromBar(count: number) {
+  const bar = selectionBar()!;
+  expect(within(bar).getByText(`${count} selected`)).toBeTruthy();
+  await click(within(bar).getByRole('button', { name: 'Create external order' }));
+}
 const posts = (calls: { method: string; path: string; body: unknown }[], path: string) => calls.filter((c) => c.method === 'POST' && c.path === path);
 
 describe('PlaceOrdersPage', () => {
@@ -62,9 +72,9 @@ describe('PlaceOrdersPage', () => {
     expect(screen.queryByText('Nothing to order')).toBeNull();
     expect(screen.queryByText('Done')).toBeNull();
     expect(screen.queryByText('Pending thing')).toBeNull();
-    await click(screen.getByRole('checkbox', { name: 'Select Servo' }));
-    await click(screen.getByRole('checkbox', { name: 'Select Lens' }));
-    await click(screen.getByRole('button', { name: 'Create external order (2)' }));
+    await click(rowBox('Ready to order', 'Servo')!);
+    await click(rowBox('Ready to order', 'Lens')!);
+    await createFromBar(2);
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText('Vendor order number')).toBeNull();
     await click(within(dialog).getByRole('button', { name: 'Create external order' }));
@@ -84,9 +94,9 @@ describe('PlaceOrdersPage', () => {
       'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }),
     }));
     await screen.findByText('Servo');
-    await click(screen.getByRole('checkbox', { name: 'Select Servo' }));
-    await click(screen.getByRole('checkbox', { name: 'Select Lens' }));
-    await click(screen.getByRole('button', { name: 'Create external order (2)' }));
+    await click(rowBox('Ready to order', 'Servo')!);
+    await click(rowBox('Ready to order', 'Lens')!);
+    await createFromBar(2);
     const dialog = await screen.findByRole('dialog');
     await click(within(dialog).getByRole('button', { name: 'Create external order' }));
     await within(dialog).findByText(/1 draft orders were already created/);
@@ -101,20 +111,24 @@ describe('PlaceOrdersPage', () => {
   it('shows the items of purchasable batches as selectable and others disabled', async () => {
     show(routes({ 'GET /batches/b1/orders': { items: [] }, 'GET /batches/b2/orders': { items: [] }, 'GET /batches/b3/orders': { items: [] } }));
     await screen.findByText('Locked');
-    expect((screen.getByRole('checkbox', { name: 'Select Locked' }) as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByRole('checkbox', { name: 'Select Servo' }) as HTMLInputElement).disabled).toBe(false);
-    await click(screen.getByRole('checkbox', { name: 'Select all items of Acme' }));
-    expect(screen.getByRole('button', { name: 'Create external order (2)' })).toBeTruthy();
+    // Nothing to act on before rows are picked.
+    expect(selectionBar()).toBeNull();
+    expect(rowBox('Ready to order', 'Locked')).toBeNull();
+    expect(rowBox('Ready to order', 'Servo')).toBeTruthy();
+    expect(screen.getAllByText('Only purchasers of the batch can order it.').length).toBeGreaterThan(0);
+    // The vendor group's checkbox picks every pickable row of the group.
+    await click(table('Ready to order').getAllByRole('checkbox', { name: 'Select all' })[1]!);
+    expect(within(selectionBar()!).getByText('2 selected')).toBeTruthy();
   });
 
   it('creates one external order from orders of two batches, without a vendor order number', async () => {
     const { calls } = show(routes({ 'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }) }));
     await screen.findByText('Draft orders');
-    const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' });
-    // rows: Acme/b1, Acme/b2, Acme/b3 (disabled) in batch order
-    await act(async () => { fireEvent.click(boxes[0]!); });
-    await act(async () => { fireEvent.click(boxes[1]!); });
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create external order (2)' })); });
+    const boxes = table('Draft orders').getAllByRole('checkbox', { name: 'Select row' });
+    // rows: Acme/b1, Acme/b2 (Acme/b3 cannot be picked) in batch order
+    await click(boxes[0]!);
+    await click(boxes[1]!);
+    await createFromBar(2);
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).queryByText('Vendor order number')).toBeNull();
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create external order' })); });
@@ -125,11 +139,10 @@ describe('PlaceOrdersPage', () => {
   it('does not let a non-purchaser batch be selected', async () => {
     show(routes());
     await screen.findByText('Draft orders');
-    const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' }) as HTMLInputElement[];
-    expect(boxes.map((b) => b.disabled)).toEqual([false, false, true]);
-    const group = screen.getByRole('checkbox', { name: 'Select all orders of Acme' });
-    await act(async () => { fireEvent.click(group); });
-    expect(screen.getByRole('button', { name: 'Create external order (2)' })).toBeTruthy();
+    expect(table('Draft orders').getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
+    // The table's and the Acme group's "Select all" pick only the two pickable drafts.
+    await click(table('Draft orders').getAllByRole('checkbox', { name: 'Select all' })[1]!);
+    expect(within(selectionBar()!).getByText('2 selected')).toBeTruthy();
   });
 
   it('lists external orders in progress with links', async () => {

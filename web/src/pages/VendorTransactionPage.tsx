@@ -1,5 +1,6 @@
-import { Badge, Button, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
+import { Badge, Button, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { PageHeader, SectionHeader } from '@team6083/ui';
+import { DataTable } from '../components/DataTable';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -10,8 +11,8 @@ import type { Order } from '../api/types';
 import { ErrorAlert, Notice } from '../components/ErrorAlert';
 import { ReasonModal } from '../components/ReasonModal';
 import { RouteAnchor } from '../components/RouteLinks';
-import { TableShell } from '../components/ui/table';
 import { paths } from '../paths';
+import { shortDate } from '../features/dates';
 import { OrderStatusBadge, ProvisionalBadge, money } from '../features/orders/OrderBadges';
 import { canManageVendorTransaction } from '../features/orders/vendorTransaction';
 import { AllocationCard, DetailsCard, ItemPricesCard, SharedCostsCard } from '../features/orders/VendorTransactionSections';
@@ -48,7 +49,7 @@ export function VendorTransactionPage() {
         mb="0"
         title={view.status === 'placed' && view.externalOrderNo ? `${view.vendor} · ${view.externalOrderNo}` : view.vendor}
         badge={<OrderStatusBadge status={view.status} />}
-        description={[view.currency, view.placedAt && t('vt.placedAt', { date: new Date(view.placedAt).toLocaleString() })].filter(Boolean).join(' · ')}
+        description={[view.currency, view.placedAt && t('vt.placedAt', { date: shortDate(view.placedAt) })].filter(Boolean).join(' · ')}
         actions={manage && draft && (
           <HStack wrap="wrap">
             <Button variant="outline" colorPalette="red" onClick={() => { action.reset(); setDialog('cancel'); }}>{t('vt.cancel')}</Button>
@@ -64,35 +65,27 @@ export function VendorTransactionPage() {
 
       <Stack gap="3">
         <SectionHeader title={t('vt.orders')} count={view.orders.length} mb="0" />
-        <TableShell minW="720px">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>{t('orders.number')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('orders.status')}</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="end">{t('cost.items', { currency: base })}</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="end">{t('cost.shared')}</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="end">{t('cost.adjustments')}</Table.ColumnHeader>
-              <Table.ColumnHeader textAlign="end">{t('cost.total')}</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {view.orders.map(({ order }) => (
-              <Table.Row key={order.id}>
-                <Table.Cell><RouteAnchor to={paths.batch(order.batchId)}>{orderLabel(order)}</RouteAnchor></Table.Cell>
-                <Table.Cell><OrderStatusBadge status={order.status} /></Table.Cell>
-                <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(order.itemsCostBase)}</Table.Cell>
-                <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(order.sharedCostBase)}</Table.Cell>
-                <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(order.adjustmentsBase)}</Table.Cell>
-                <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">
-                  <HStack justify="flex-end" gap="2">
-                    {order.costsProvisional && <ProvisionalBadge />}
-                    <Text as="span" fontWeight="semibold">{money(order.totalBase)}</Text>
-                  </HStack>
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </TableShell>
+        <DataTable
+          aria-label={t('vt.orders')}
+          rows={view.orders}
+          getRowId={(d) => d.order.id}
+          columns={[
+            { key: 'order', header: t('orders.number'), priority: 'primary', cell: ({ order }) => <RouteAnchor to={paths.batch(order.batchId)}>{orderLabel(order)}</RouteAnchor> },
+            { key: 'status', header: t('orders.status'), cell: ({ order }) => <OrderStatusBadge status={order.status} /> },
+            { key: 'items', header: t('cost.items', { currency: base }), numeric: true, priority: 'secondary', cell: ({ order }) => money(order.itemsCostBase) },
+            { key: 'shared', header: t('cost.shared'), numeric: true, priority: 'secondary', cell: ({ order }) => money(order.sharedCostBase) },
+            { key: 'adjustments', header: t('cost.adjustments'), numeric: true, priority: 'secondary', cell: ({ order }) => money(order.adjustmentsBase) },
+            {
+              key: 'total', header: t('cost.total'), numeric: true,
+              cell: ({ order }) => (
+                <HStack as="span" justify="flex-end" gap="2">
+                  {order.costsProvisional && <ProvisionalBadge />}
+                  <Text as="span" fontWeight="semibold">{money(order.totalBase)}</Text>
+                </HStack>
+              ),
+            },
+          ]}
+        />
         {view.chargedAmountBase === null && <Badge alignSelf="flex-start" variant="subtle" colorPalette="orange">{t('vt.noCharged')}</Badge>}
       </Stack>
 

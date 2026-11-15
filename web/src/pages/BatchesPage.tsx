@@ -1,5 +1,6 @@
-import { Button, Card, HStack, Input, Skeleton, Stack, Table, useDisclosure } from '@chakra-ui/react';
-import { EmptyState, PageHeader } from '@team6083/ui';
+import { Button, Card, HStack, Skeleton, Stack, Text, useDisclosure } from '@chakra-ui/react';
+import { EmptyState, FilterBar, PageHeader } from '@team6083/ui';
+import { DataTable } from '../components/DataTable';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,13 +10,12 @@ import { useTeams } from '../api/teams';
 import type { BatchStatus } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
-import { FormField } from '../components/ui/field';
 import { SelectField } from '../components/ui/select';
-import { TableShell } from '../components/ui/table';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { paths } from '../paths';
 import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
+import { shortDate } from '../features/dates';
 
 export const BATCH_STATUSES: BatchStatus[] = ['proposed', 'proposal_rejected', 'draft', 'collecting', 'reviewing', 'ordering', 'receiving', 'completed', 'cancelled'];
 
@@ -49,13 +49,15 @@ export function BatchesPage() {
           )
         }
       />
-      <Stack direction={{ base: 'column', md: 'row' }} align={{ md: 'flex-end' }} gap="3">
-        <SelectField w={{ md: '220px' }} label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
-        <SelectField w={{ md: '220px' }} label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
-        <FormField label={t('filters.text')} w={{ md: '260px' }}>
-          <Input size="sm" value={text} onChange={(e) => setText(e.currentTarget.value)} />
-        </FormField>
-      </Stack>
+      <FilterBar
+        mb="0"
+        search={{ value: text, onChange: setText, placeholder: t('filters.text') }}
+        activeCount={[teamId, status].filter(Boolean).length}
+        onClear={() => { setTeamId(''); setStatus(''); }}
+      >
+        <SelectField label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
+        <SelectField label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
+      </FilterBar>
       {list.isPending && <Skeleton h="24" rounded="l3" />}
       {list.error && <ErrorAlert error={list.error} />}
       {list.data && batches.length === 0 && (
@@ -66,28 +68,25 @@ export function BatchesPage() {
         </Card.Root>
       )}
       {batches.length > 0 && (
-        <TableShell minW="640px" interactive>
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>{t('list.number')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('list.batchTitle')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('filters.team')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('filters.status')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('header.deadline')}</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {batches.map((b) => (
-              <Table.Row key={b.id}>
-                <Table.Cell color="fg.muted" fontVariantNumeric="tabular-nums">#{b.number}</Table.Cell>
-                <Table.Cell><RouteAnchor to={paths.batch(b.id)} fontWeight="medium">{b.title}</RouteAnchor></Table.Cell>
-                <Table.Cell>{teamName(b.teamId)}</Table.Cell>
-                <Table.Cell><BatchStatusBadge status={b.status} /></Table.Cell>
-                <Table.Cell>{b.deadline ? new Date(b.deadline).toLocaleString() : '—'}</Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </TableShell>
+        <DataTable
+          aria-label={t('list.title')}
+          rows={batches}
+          getRowId={(b) => b.id}
+          columns={[
+            {
+              key: 'title', header: t('list.batchTitle'), priority: 'primary',
+              cell: (b) => (
+                <>
+                  <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{b.number}</Text>
+                  <RouteAnchor to={paths.batch(b.id)}>{b.title}</RouteAnchor>
+                </>
+              ),
+            },
+            { key: 'team', header: t('filters.team'), cell: (b) => teamName(b.teamId) },
+            { key: 'status', header: t('filters.status'), cell: (b) => <BatchStatusBadge status={b.status} /> },
+            { key: 'deadline', header: t('header.deadline'), cell: (b) => <Text as="span" fontVariantNumeric="tabular-nums">{shortDate(b.deadline)}</Text> },
+          ]}
+        />
       )}
       {list.hasNextPage && (
         <HStack>

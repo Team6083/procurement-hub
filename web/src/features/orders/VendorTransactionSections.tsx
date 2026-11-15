@@ -1,5 +1,6 @@
-import { Button, Card, Flex, HStack, IconButton, Input, SimpleGrid, Stack, Table, Text, Textarea } from '@chakra-ui/react';
-import { SectionHeader } from '@team6083/ui';
+import { Box, Button, Card, Flex, HStack, IconButton, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { SectionHeader, Totals } from '@team6083/ui';
+import { DataTable } from '../../components/DataTable';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
@@ -8,7 +9,6 @@ import type { OrderDetail, SharedCost, VendorTransactionView } from '../../api/t
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
-import { TableShell } from '../../components/ui/table';
 import { format, parseDecSafe } from '../batches/decimal';
 import { toLocalInput } from '../batches/datetime';
 import { currencyFractionDigits } from '../money';
@@ -124,7 +124,7 @@ export function SharedCostsCard({ view, editable }: Pick<SectionProps, 'view' | 
             ))}
           </Stack>
         )}
-        <Text fontWeight="semibold">{t('vt.sharedTotal', { amount: format(total), currency: view.currency })}</Text>
+        <Totals lines={[{ label: t('vt.sharedTotalLabel'), value: `${format(total)} ${view.currency}`, emphasis: true }]} />
         {editable && (
           <CardActions error={patch.error}>
             <Button loading={patch.isPending} disabled={!check.valid || !dirty} onClick={() => patch.mutate({ sharedCosts: check.value })}>{t('common:actions.save')}</Button>
@@ -151,27 +151,25 @@ export function AllocationCard({ view, editable, orderLabel }: SectionProps) {
       <Card.Body gap="4">
         <SectionHeader title={t('vt.allocation')} as="h3" mb="0" />
         <Text color="fg.muted">{overridden ? t('vt.allocationOverridden') : t('vt.allocationProportional')}</Text>
-        <TableShell minW="480px">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>{t('orders.number')}</Table.ColumnHeader>
-              <Table.ColumnHeader w="48">{t('vt.share', { currency: view.currency })}</Table.ColumnHeader>
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {view.orders.map(({ order }) => (
-              <Table.Row key={order.id}>
-                <Table.Cell>{orderLabel(order)}</Table.Cell>
-                <Table.Cell>
+        <DataTable
+          aria-label={t('vt.allocation')}
+          rows={view.orders}
+          getRowId={(d) => d.order.id}
+          columns={[
+            { key: 'order', header: t('orders.number'), priority: 'primary', cell: ({ order }) => orderLabel(order) },
+            {
+              key: 'share', header: t('vt.share', { currency: view.currency }), width: '48',
+              cell: ({ order }) => (
+                <Box as="span" display="block" w={{ base: '40', md: 'full' }}>
                   <FormField disabled={!editable} errorText={amountText(check.errors[order.id])}>
-                    <Input aria-label={t('vt.shareOf', { order: orderLabel(order) })} inputMode="decimal" value={shares[order.id] ?? ''}
+                    <Input size="sm" textAlign="end" aria-label={t('vt.shareOf', { order: orderLabel(order) })} inputMode="decimal" value={shares[order.id] ?? ''}
                       onChange={(e) => { const v = e.currentTarget.value; setShares((s) => ({ ...s, [order.id]: v })); }} />
                   </FormField>
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </TableShell>
+                </Box>
+              ),
+            },
+          ]}
+        />
         <Text color={check.matches ? undefined : 'fg.error'} fontWeight="semibold">
           {t('vt.shareSum', { sum: format(check.sum), total: format(total), currency: view.currency })}
         </Text>
@@ -208,33 +206,28 @@ export function ItemPricesCard({ view, editable, orderLabel }: SectionProps) {
         {view.orders.map(({ order, items }) => (
           <Stack key={order.id} gap="2">
             <Text fontWeight="semibold">{orderLabel(order)}</Text>
-            <TableShell minW="720px">
-              <Table.Header>
-                <Table.Row>
-                  <Table.ColumnHeader>{t('vt.item')}</Table.ColumnHeader>
-                  <Table.ColumnHeader textAlign="end">{t('vt.quantity')}</Table.ColumnHeader>
-                  <Table.ColumnHeader textAlign="end">{t('vt.estimated')}</Table.ColumnHeader>
-                  <Table.ColumnHeader w="48">{t('vt.actualUnit', { currency: view.currency })}</Table.ColumnHeader>
-                  <Table.ColumnHeader textAlign="end">{t('vt.actualCost')}</Table.ColumnHeader>
-                </Table.Row>
-              </Table.Header>
-              <Table.Body>
-                {items.map((it) => (
-                  <Table.Row key={it.id}>
-                    <Table.Cell>#{it.seqNo} {it.name}</Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{it.quantity}</Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{format(parseDecSafe(it.estimatedUnitPrice.amount))} {it.estimatedUnitPrice.currency}</Table.Cell>
-                    <Table.Cell>
+            <DataTable
+              aria-label={orderLabel(order)}
+              rows={items}
+              getRowId={(it) => it.id}
+              columns={[
+                { key: 'item', header: t('vt.item'), priority: 'primary', cell: (it) => `#${it.seqNo} ${it.name}` },
+                { key: 'quantity', header: t('vt.quantity'), numeric: true, cell: (it) => it.quantity },
+                { key: 'estimated', header: t('vt.estimated'), numeric: true, priority: 'secondary', cell: (it) => `${format(parseDecSafe(it.estimatedUnitPrice.amount))} ${it.estimatedUnitPrice.currency}` },
+                {
+                  key: 'actual', header: t('vt.actualUnit', { currency: view.currency }), width: '48',
+                  cell: (it) => (
+                    <Box as="span" display="block" w={{ base: '40', md: 'full' }}>
                       <FormField disabled={!editable} errorText={amountText(check.byItem[it.id])}>
-                        <Input aria-label={t('vt.actualUnitOf', { item: it.name })} inputMode="decimal" value={edits[it.id] ?? it.actualUnitPrice?.amount ?? ''}
+                        <Input size="sm" textAlign="end" aria-label={t('vt.actualUnitOf', { item: it.name })} inputMode="decimal" value={edits[it.id] ?? it.actualUnitPrice?.amount ?? ''}
                           onChange={(e) => { const v = e.currentTarget.value; setEdits((s) => ({ ...s, [it.id]: v })); }} />
                       </FormField>
-                    </Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{it.actualCostBase ? format(parseDecSafe(it.actualCostBase)) : '—'}</Table.Cell>
-                  </Table.Row>
-                ))}
-              </Table.Body>
-            </TableShell>
+                    </Box>
+                  ),
+                },
+                { key: 'cost', header: t('vt.actualCost'), numeric: true, cell: (it) => (it.actualCostBase ? format(parseDecSafe(it.actualCostBase)) : '—') },
+              ]}
+            />
           </Stack>
         ))}
         {editable && (
