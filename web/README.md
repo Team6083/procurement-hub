@@ -18,6 +18,7 @@ The only build-time variable is `VITE_BASE_PATH` (the deployed base path, defaul
 | `oidc.authority` | OIDC issuer URL (for Keycloak, the realm URL) |
 | `oidc.clientId` | The SPA's public client id, e.g. `procurement-hub-web` |
 | `oidc.scope` | Optional, default `openid profile email`. Must include `openid`; `offline_access` is rejected |
+| `features.bulkReceive` | Optional, default off. `true` lets receivers pick several items on the Receiving tab and receive them in full at once |
 
 Unknown fields are rejected. If `config.json` is missing or invalid, the app shows a configuration error page and does nothing else.
 

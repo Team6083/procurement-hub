@@ -32,7 +32,7 @@ const caller = (userId = 'u1', role: 'admin' | 'member' = 'member') =>
 function show(routes: Routes = {}, c = caller(), b = batch({ status: 'receiving', assignments: { approvers: [], purchasers: ['p1'], receivers: ['u1'] } })) {
   return renderWithApi(
     <MemoryRouter>
-      <ReceivingTab batch={b} caller={c} items={items} nameOf={() => 'Alice'} />
+      <ReceivingTab batch={b} caller={c} items={items} nameOf={() => 'Alice'} bulkReceive />
     </MemoryRouter>,
     { 'GET /meta': meta, 'GET /items/i3/exceptions': { items: [exception()] }, 'GET /items/i1/receipts': { items: [] }, ...routes },
   );
@@ -104,6 +104,17 @@ describe('ReceivingTab', () => {
     expect(within(rowWith('Gear')).queryByRole('button', { name: 'More actions' })).toBeNull();
     expect(within(rowWith('Servo')).getByRole('button', { name: 'More actions' })).toBeTruthy();
     expect(within(rowWith('Wheel')).getByRole('checkbox', { name: 'Select row' })).toBeTruthy();
+  });
+
+  it('offers no picking unless config.json turns on bulkReceive', async () => {
+    renderWithApi(
+      <MemoryRouter>
+        <ReceivingTab batch={batch({ status: 'receiving', assignments: { approvers: [], purchasers: ['p1'], receivers: ['u1'] } })} caller={caller()} items={items} nameOf={() => 'Alice'} />
+      </MemoryRouter>,
+      { 'GET /meta': meta, 'GET /items/i3/exceptions': { items: [exception()] }, 'GET /items/i1/receipts': { items: [] } },
+    );
+    await screen.findByText('Cracked housing');
+    expect(screen.queryByRole('checkbox', { name: 'Select row' })).toBeNull();
   });
 
   it('receives the picked items in full, one receipt each with its version', async () => {

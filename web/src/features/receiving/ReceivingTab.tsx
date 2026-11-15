@@ -20,9 +20,11 @@ interface Props {
   caller: Caller;
   items: Item[];
   nameOf: (id: string) => string;
+  /** "Receive in full" for several picked items; off unless config.json's features.bulkReceive turns it on. */
+  bulkReceive?: boolean;
 }
 
-export function ReceivingTab({ batch, caller, items, nameOf }: Props) {
+export function ReceivingTab({ batch, caller, items, nameOf, bulkReceive = false }: Props) {
   const { t } = useTranslation('receiving');
   const [receiving, setReceiving] = useState<Item | null>(null);
   const [reporting, setReporting] = useState<Item | null>(null);
@@ -116,7 +118,7 @@ export function ReceivingTab({ batch, caller, items, nameOf }: Props) {
           aria-label={t('groups.toReceive')}
           rows={pending}
           getRowId={(i) => i.id}
-          selection={mayReceive ? { selected: picked, onChange: setPicked } : undefined}
+          selection={mayReceive && bulkReceive ? { selected: picked, onChange: setPicked } : undefined}
           rowActions={mayReceive ? (i) => [
             { value: 'receive', icon: <LuPackagePlus />, label: t('receive.button', { count: remainingQuantity(i) }), onSelect: () => setReceiving(i) },
             { value: 'report', icon: <LuCircleAlert />, label: t('exception.button'), onSelect: () => setReporting(i) },
@@ -142,10 +144,10 @@ export function ReceivingTab({ batch, caller, items, nameOf }: Props) {
           />
         </Stack>
       )}
-      <SelectionBar count={pickedItems.length} onClear={() => setPicked([])}>
+      {bulkReceive && <SelectionBar count={pickedItems.length} onClear={() => setPicked([])}>
         {bulkError ? <Box w="full"><ErrorAlert error={bulkError} /></Box> : null}
         <Button size="sm" loading={bulkRunning} onClick={() => void receiveInFull()}>{t('receive.inFull')}</Button>
-      </SelectionBar>
+      </SelectionBar>}
       <ReceiveModal item={receiving} batchId={batch.id} nameOf={nameOf} onClose={() => setReceiving(null)} />
       <ExceptionModal item={reporting} batchId={batch.id} onClose={() => setReporting(null)} />
       <ResolveModal target={resolving} batchId={batch.id} onClose={() => setResolving(null)} />

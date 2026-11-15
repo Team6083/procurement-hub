@@ -21,6 +21,13 @@ export const configSchema = z.strictObject({
     clientId: z.string().trim().min(1),
     scope,
   }),
+  // Optional features, all off unless config.json turns them on.
+  features: z
+    .strictObject({
+      // "Receive in full" for several picked items at once on the Receiving tab.
+      bulkReceive: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

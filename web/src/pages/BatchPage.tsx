@@ -17,6 +17,7 @@ import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
 import { OrdersTab } from '../features/orders/OrdersTab';
 import { canSeeOrders } from '../features/orders/rules';
+import { useFeatures } from '../features/flags';
 import { ReceivingTab } from '../features/receiving/ReceivingTab';
 import { canSeeReceiving } from '../features/receiving/rules';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
@@ -27,6 +28,7 @@ export function BatchPage() {
   const { t } = useTranslation('batches');
   const { id } = useParams();
   const { me } = useMe();
+  const features = useFeatures();
   const batchQ = useBatch(id);
   const batch = batchQ.data?.data;
   const teamQ = useTeam(batch?.teamId);
@@ -107,7 +109,7 @@ export function BatchPage() {
         )}
         {canSeeReceiving(batch, caller) && (
           <Tabs.Content value="receiving">
-            {items.data && <ReceivingTab batch={batch} caller={caller} items={list} nameOf={names.name} />}
+            {items.data && <ReceivingTab batch={batch} caller={caller} items={list} nameOf={names.name} bulkReceive={features.bulkReceive} />}
           </Tabs.Content>
         )}
         <Tabs.Content value="timeline">
