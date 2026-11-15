@@ -80,6 +80,11 @@ export function OrdersTab({ batch, team, caller, items, nameOf }: Props) {
             </Button>
           )}
         />
+        {mayExternal && (
+          <Text color="fg.muted" textStyle="sm">
+            {t('orders.placeHint')} <RouteAnchor to={paths.placeOrders}>{t('orders.placeLink')}</RouteAnchor>
+          </Text>
+        )}
         {list.length === 0 ? (
           <EmptyState icon={<LuShoppingCart />} title={t('orders.empty')} description={batch.status === 'ordering' ? t('orders.emptyOrdering') : t('orders.emptyNotOrdering')} />
         ) : (

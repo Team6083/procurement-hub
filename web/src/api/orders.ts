@@ -2,7 +2,7 @@ import { useQueries, useQuery, useQueryClient, type QueryKey } from '@tanstack/r
 import { auditKey, batchKey, batchQuery, batchesKey, itemsKey, tasksKey } from './batches';
 import { useApi } from './context';
 import type {
-  AdjustmentRequest, AdjustmentResult, CreateOrderRequest, CreateVendorTransactionRequest, Order, PatchOrderRequest,
+  AdjustmentRequest, AdjustmentResult, CreateOrderRequest, Item, CreateVendorTransactionRequest, Order, PatchOrderRequest,
   PatchVendorTransactionRequest, VendorTransactionView,
 } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
@@ -116,4 +116,26 @@ export const useVendorTransactionAction = (id: string) =>
 export function useBatchesById(ids: string[]) {
   const api = useApi();
   return useQueries({ queries: ids.map((id) => batchQuery(api, id)) });
+}
+
+/** Orders of several batches (shares the cache with useOrders). */
+export function useOrdersOf(batchIds: string[]) {
+  const api = useApi();
+  return useQueries({
+    queries: batchIds.map((id) => ({
+      queryKey: ordersKey(id),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => (await api.get<{ items: Order[] }>(`/batches/${id}/orders`, { signal })).items,
+    })),
+  });
+}
+
+/** Items of several batches (shares the cache with useItems). */
+export function useItemsOf(batchIds: string[]) {
+  const api = useApi();
+  return useQueries({
+    queries: batchIds.map((id) => ({
+      queryKey: itemsKey(id),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => (await api.get<{ items: Item[] }>(`/batches/${id}/items`, { signal })).items,
+    })),
+  });
 }

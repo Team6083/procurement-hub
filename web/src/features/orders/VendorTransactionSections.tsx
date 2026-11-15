@@ -51,9 +51,11 @@ export function DetailsCard({ view, editable, base }: Pick<SectionProps, 'view' 
           <FormField label={t('create.vendor')} disabled={!editable} errorText={form.vendor.trim() === '' ? t('validation.required') : undefined}>
             <Input value={form.vendor} maxLength={200} onChange={(e) => set('vendor')(e.currentTarget.value)} />
           </FormField>
-          <FormField label={t('external.orderNo')} disabled={!editable}>
-            <Input value={form.externalOrderNo} maxLength={200} onChange={(e) => set('externalOrderNo')(e.currentTarget.value)} />
-          </FormField>
+          {view.status === 'placed' && (
+            <FormField label={t('external.orderNo')} helperText={t('external.orderNoHelp')} disabled={!editable}>
+              <Input value={form.externalOrderNo} maxLength={200} onChange={(e) => set('externalOrderNo')(e.currentTarget.value)} />
+            </FormField>
+          )}
           <FormField label={t('vt.expectedDelivery')} disabled={!editable}>
             <Input type="datetime-local" value={form.expectedDelivery} onChange={(e) => set('expectedDelivery')(e.currentTarget.value)} />
           </FormField>

@@ -9,7 +9,8 @@
     "settings": "設定",
     "admin": "角色對應",
     "teams": "團隊",
-    "menu": "選單"
+    "menu": "選單",
+    "placeOrders": "下單"
   },
   "language": {
     "label": "語言",
@@ -34,7 +35,8 @@
     "batch": "批次",
     "reports": "報表",
     "roleMappings": "角色對應",
-    "notFound": "找不到頁面"
+    "notFound": "找不到頁面",
+    "placeOrders": "下單"
   },
   "actions": {
     "save": "儲存",

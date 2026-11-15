@@ -1,0 +1,84 @@
+import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { MemoryRouter, Route, Routes as RouterRoutes } from 'react-router';
+import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import type { Order } from '../api/types';
+import i18n from '../i18n';
+import { batch, item, me, renderWithApi, type Routes } from '../test/fakeApi';
+import { PlaceOrdersPage } from './PlaceOrdersPage';
+
+beforeAll(() => void i18n.changeLanguage('en'));
+afterEach(cleanup);
+
+const at = '2026-01-01T00:00:00Z';
+const order = (id: string, batchId: string, teamId: string, number: number, over: Partial<Order> = {}): Order => ({
+  id, teamId, batchId, number, vendor: 'Acme', itemIds: ['i1'], vendorTransactionId: null, status: 'draft',
+  itemsCostBase: '0', sharedCostBase: '0', adjustmentsBase: '0', totalBase: '100', costsProvisional: true, createdBy: 'u1', createdAt: at, updatedAt: at, version: 1, ...over,
+});
+const mem = (teamId: string) => ({ teamId, slug: teamId, name: teamId, role: 'member' as const, ssoRole: '' as const, manualRole: 'member' as const, defaultSubgroupId: '' });
+const assign = (purchasers: string[]) => ({ approvers: [], purchasers, receivers: [] });
+const b1 = batch({ id: 'b1', teamId: 't1', number: 1, title: 'Alpha', status: 'ordering', assignments: assign(['u1']) });
+const b2 = batch({ id: 'b2', teamId: 't2', number: 2, title: 'Beta', status: 'ordering', assignments: assign(['u1']) });
+const b3 = batch({ id: 'b3', teamId: 't1', number: 3, title: 'Gamma', status: 'ordering', assignments: assign(['u9']) });
+
+const routes = (extra: Routes = {}): Routes => ({
+  'GET /meta': { version: '1', commit: 'unknown', baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled: false, emailEnabled: false },
+  'GET /me': me({ memberships: [mem('t1'), mem('t2')] }),
+  'GET /teams': { items: [{ id: 't1', slug: 't1', name: 'Robotics', description: '', archived: false }, { id: 't2', slug: 't2', name: 'Vision', description: '', archived: false }], nextCursor: null },
+  'GET /batches': { items: [b1, b2, b3], nextCursor: null },
+  'GET /batches/b1/orders': { items: [order('o1', 'b1', 't1', 1), order('o9', 'b1', 't1', 2, { status: 'placed', vendorTransactionId: 'vP' })] },
+  'GET /batches/b2/orders': { items: [order('o2', 'b2', 't2', 1)] },
+  'GET /batches/b3/orders': { items: [order('o3', 'b3', 't1', 1)] },
+  'GET /batches/b1/items': { items: [item(1)], nextCursor: null },
+  'GET /batches/b2/items': { items: [item(1, { batchId: 'b2' })], nextCursor: null },
+  ...extra,
+});
+
+function show(r: Routes) {
+  return renderWithApi(
+    <MemoryRouter initialEntries={['/orders']}>
+      <RouterRoutes>
+        <Route path="/orders" element={<PlaceOrdersPage />} />
+        <Route path="/vendor-transactions/:id" element={<p>vt page</p>} />
+      </RouterRoutes>
+    </MemoryRouter>,
+    r,
+  );
+}
+
+describe('PlaceOrdersPage', () => {
+  it('creates one external order from orders of two batches, without a vendor order number', async () => {
+    const { calls } = show(routes({ 'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }) }));
+    await screen.findByText(/Gamma/);
+    const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' });
+    // rows: Acme/b1, Acme/b2, Acme/b3 (disabled) in batch order
+    await act(async () => { fireEvent.click(boxes[0]!); });
+    await act(async () => { fireEvent.click(boxes[1]!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create external order (2)' })); });
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByText('Vendor order number')).toBeNull();
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Create external order' })); });
+    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ orderIds: ['o1', 'o2'], currency: 'USD', vendor: 'Acme' }));
+    expect(await screen.findByText('vt page')).toBeTruthy();
+  });
+
+  it('does not let a non-purchaser batch be selected', async () => {
+    show(routes());
+    await screen.findByText(/Gamma/);
+    const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' }) as HTMLInputElement[];
+    expect(boxes.map((b) => b.disabled)).toEqual([false, false, true]);
+    const group = screen.getByRole('checkbox', { name: 'Select all orders of Acme' });
+    await act(async () => { fireEvent.click(group); });
+    expect(screen.getByRole('button', { name: 'Create external order (2)' })).toBeTruthy();
+  });
+
+  it('lists external orders in progress with links', async () => {
+    show(routes());
+    const link = await screen.findByRole('link', { name: 'Open' });
+    expect(link.getAttribute('href')).toBe('/vendor-transactions/vP');
+  });
+
+  it('shows an empty state when nothing is ready', async () => {
+    show(routes({ 'GET /batches': { items: [], nextCursor: null } }));
+    expect(await screen.findByText('Nothing to order')).toBeTruthy();
+  });
+});

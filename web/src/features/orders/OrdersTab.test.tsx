@@ -50,6 +50,11 @@ describe('OrdersTab', () => {
     expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
   });
 
+  it('links to the Place orders page for ordering across batches', async () => {
+    show({});
+    expect((await screen.findByRole('link', { name: 'Place orders' })).getAttribute('href')).toBe('/orders');
+  });
+
   it('creates an order from the selected approved items with their common vendor', async () => {
     const { calls } = show({ 'POST /batches/b1/orders': (b: unknown) => ({ ...order(3), ...(b as object) }) });
     const boxes = await screen.findAllByRole('checkbox', { name: 'Select row' });
@@ -88,6 +93,7 @@ describe('OrdersTab', () => {
     await screen.findAllByRole('row');
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Create external order/ })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Place orders' })).toBeNull();
     expect(screen.queryByText('Approved items to order')).toBeNull();
   });
 

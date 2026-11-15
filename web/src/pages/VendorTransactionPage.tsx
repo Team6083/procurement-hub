@@ -46,7 +46,7 @@ export function VendorTransactionPage() {
     <Stack gap="4">
       <PageHeader
         mb="0"
-        title={view.externalOrderNo ? `${view.vendor} · ${view.externalOrderNo}` : view.vendor}
+        title={view.status === 'placed' && view.externalOrderNo ? `${view.vendor} · ${view.externalOrderNo}` : view.vendor}
         badge={<OrderStatusBadge status={view.status} />}
         description={[view.currency, view.placedAt && t('vt.placedAt', { date: new Date(view.placedAt).toLocaleString() })].filter(Boolean).join(' · ')}
         actions={manage && draft && (

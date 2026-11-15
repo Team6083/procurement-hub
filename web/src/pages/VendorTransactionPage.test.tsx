@@ -53,6 +53,22 @@ describe('VendorTransactionPage', () => {
     expect(screen.getByText('Shared costs total: 10.00 USD')).toBeTruthy();
     expect(screen.getByText('Shares 10.00 of 10.00 USD')).toBeTruthy();
     expect(screen.getByLabelText('Actual unit price of Part 1')).toBeTruthy();
+    // no vendor order number before the order is placed
+    expect(screen.queryByLabelText('Vendor order number')).toBeNull();
+  });
+
+  it('shows vendor order number in the title and an editable field once placed', async () => {
+    const { calls } = show(routes(view({ status: 'placed', externalOrderNo: 'PO-9' }), { 'PATCH /vendor-transactions/v1': (b: unknown) => ({ ...view({ status: 'placed' }), ...(b as object), version: 5 }) }));
+    expect(await screen.findByRole('heading', { name: 'Acme · PO-9' })).toBeTruthy();
+    fireEvent.change(await screen.findByLabelText('Vendor order number'), { target: { value: 'PO-10' } });
+    const details = screen.getByRole('heading', { name: 'Details' }).closest('.chakra-card__root') as HTMLElement;
+    await act(async () => { fireEvent.click(within(details).getByRole('button', { name: 'Save' })); });
+    await waitFor(() => expect(calls.find((c) => c.method === 'PATCH')?.body).toEqual({ externalOrderNo: 'PO-10' }));
+  });
+
+  it('keeps the title to the vendor while a draft', async () => {
+    show(routes(view({ externalOrderNo: 'STALE' })));
+    expect(await screen.findByRole('heading', { name: 'Acme' })).toBeTruthy();
   });
 
   it('saves shared costs and the charged amount as partial PATCHes with If-Match', async () => {

@@ -9,7 +9,8 @@
     "settings": "Settings",
     "admin": "Role mappings",
     "teams": "Teams",
-    "menu": "Menu"
+    "menu": "Menu",
+    "placeOrders": "Place orders"
   },
   "language": {
     "label": "Language",
@@ -34,7 +35,8 @@
     "batch": "Batch",
     "reports": "Reports",
     "roleMappings": "Role mappings",
-    "notFound": "Page not found"
+    "notFound": "Page not found",
+    "placeOrders": "Place orders"
   },
   "actions": {
     "save": "Save",

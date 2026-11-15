@@ -1,10 +1,12 @@
 import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuFileChartColumn, LuListTodo, LuPackage, LuSettings, LuShieldCheck } from 'react-icons/lu';
+import { LuFileChartColumn, LuListTodo, LuPackage, LuSettings, LuShoppingCart, LuShieldCheck } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
+import { useMyTasks } from '../api/batches';
 import { useMe } from '../api/me';
+import { paths } from '../paths';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useChangeLanguage } from '../i18n/useLanguage';
 
@@ -19,7 +21,10 @@ export function isActive(href: string, pathname: string): boolean {
 export function AppFrame({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useSession();
-  const { isSystemAdmin } = useMe();
+  const { isSystemAdmin, memberships } = useMe();
+  const tasks = useMyTasks();
+  // Purchasers are assigned per batch, so the page shows for team admins, system admins and anyone with a batch to order.
+  const canOrder = isSystemAdmin || memberships.some((m) => m.role === 'admin') || (tasks.data?.batchesToOrder ?? []).length > 0;
   const { change } = useChangeLanguage();
   const { pathname } = useLocation();
   const name = (user.profile.name as string | undefined) ?? user.profile.email ?? t('user.unknown');
@@ -27,6 +32,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const nav: NavItem[] = [
     { href: '/', label: t('nav.home'), icon: <LuListTodo /> },
     { href: '/batches', label: t('nav.batches'), icon: <LuPackage /> },
+    ...(canOrder ? [{ href: paths.placeOrders, label: t('nav.placeOrders'), icon: <LuShoppingCart /> }] : []),
     { href: '/reports', label: t('nav.reports'), icon: <LuFileChartColumn /> },
     ...(isSystemAdmin ? [{ href: '/admin/role-mappings', label: t('nav.admin'), icon: <LuShieldCheck /> }] : []),
     { href: '/settings', label: t('nav.settings'), icon: <LuSettings /> },

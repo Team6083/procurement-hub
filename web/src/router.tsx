@@ -10,6 +10,7 @@ import { BASE_PATH } from './config';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { HomePage } from './pages/HomePage';
+import { PlaceOrdersPage } from './pages/PlaceOrdersPage';
 import { Placeholder } from './pages/Placeholder';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -60,6 +61,7 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/batches', element: <BatchesPage /> },
           { path: '/batches/:id', element: <BatchPage /> },
+          { path: '/orders', element: <PlaceOrdersPage /> },
           { path: '/vendor-transactions/:id', element: <VendorTransactionPage /> },
           { path: '/settings', element: <SettingsPage /> },
           {

@@ -31,7 +31,9 @@
     "openExternal": "開啟",
     "cancel": "取消訂單",
     "cancelConfirm": "取消草稿訂單 #{{number}} 並釋出其品項？",
-    "total": "有效訂單合計：{{amount}} {{currency}}"
+    "total": "有效訂單合計：{{amount}} {{currency}}",
+    "placeHint": "要一次為多個批次下單？",
+    "placeLink": "前往下單"
   },
   "cost": {
     "items": "品項（{{currency}}）",
@@ -66,7 +68,8 @@
     "currencyHelp": "廠商開立帳單所用的幣別。",
     "vendorDiffers": "這些訂單的廠商不同，請填寫外部下單的廠商。",
     "orderNo": "廠商訂單編號",
-    "create": "建立外部下單"
+    "create": "建立外部下單",
+    "orderNoHelp": "結帳後再填入廠商的訂單編號。"
   },
   "vt": {
     "details": "詳細資料",
@@ -110,11 +113,32 @@
     "placedAt": "下單於 {{date}}",
     "cancel": "取消外部下單",
     "place": "送出外部下單",
-    "placeConfirm": "要送出這筆外部下單嗎？所含訂單會變為已下單、品項變為已訂購，之後無法復原。",
+    "placeConfirm": "要送出這筆外部下單嗎？所含訂單會變為已下單、品項變為已訂購，之後無法復原。送出後仍可補填廠商訂單編號。",
     "cancelConfirm": "要取消這筆草稿外部下單嗎？所含訂單會回到草稿，實際單價會被清除。",
     "readOnly": "你可以檢視這筆外部下單，但只有所有相關批次的下單人能編輯。",
     "readOnlyHidden": "其中部分訂單屬於你看不到的批次，所以對你是唯讀。",
     "hidden": "另有 {{count}} 張訂單對你隱藏，合計 {{amount}} {{currency}}。",
     "noCharged": "尚未填入扣款金額，成本為暫估"
+  },
+  "place": {
+    "title": "下單",
+    "description": "列出你可下單之所有下單階段批次的草稿訂單。可跨批次與團隊勾選，一起購買。",
+    "ready": "待下單",
+    "vendorGroup": "廠商：{{vendor}}",
+    "selectVendor": "選取 {{vendor}} 的所有訂單",
+    "batch": "批次",
+    "team": "團隊",
+    "createExternal": "建立外部下單（{{count}}）",
+    "empty": "沒有待下單的項目",
+    "emptyBody": "處於下單階段之批次的草稿訂單會顯示在這裡。",
+    "notPurchaser": "只有該批次的下單人可以下單。",
+    "inProgress": "外部下單",
+    "external": "外部下單",
+    "openExternal": "開啟",
+    "ordersCount": "{{count}} 張訂單",
+    "loadError": "部分批次無法載入。",
+    "noExternal": "還沒有外部下單",
+    "noExternalBody": "你建立的外部下單會顯示在這裡。",
+    "items": "品項"
   }
 }
