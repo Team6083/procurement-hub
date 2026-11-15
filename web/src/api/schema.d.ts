@@ -771,6 +771,121 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/items/{id}/receipts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Receiving records of an item (anyone who can read the batch)
+         * @description Oldest first, not paginated (`{items}` only).
+         */
+        get: operations["listItemReceipts"];
+        put?: never;
+        /**
+         * Record goods received (receivers, purchasers and team admins, batch `receiving`)
+         * @description `quantity` (at least 1) more units arrived. The item becomes `partially_received`, or `received` when the ordered
+         *     quantity is complete; `receivedQuantity` is the sum of the receipts. Receiving more than was ordered is 422
+         *     `receipt_exceeds_quantity` (report extra goods as an exception). The item must be `ordered` or `partially_received`
+         *     (else 409 `invalid_transition`, e.g. while it has an open exception) and the batch `receiving` (422 `batch_not_receiving`).
+         *     System admins have no implicit role (403). `If-Match` is the item's version; the response carries the item's new
+         *     version in `ETag`. When this closes the last open item the batch completes in the same transaction (see `batch.status`).
+         */
+        post: operations["recordItemReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/items/{id}/exceptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Exceptions of an item, resolved ones included (anyone who can read the batch)
+         * @description Oldest first, not paginated (`{items}` only). Not listed in the specification's endpoint table: it is the only way for a
+         *     client to learn the id (and version) of the open exception that `POST /exceptions/{id}/resolve` needs.
+         */
+        get: operations["listItemExceptions"];
+        put?: never;
+        /**
+         * Report a problem with an item (receivers, purchasers and team admins, batch `receiving`)
+         * @description `type` is `quantity_mismatch`, `wrong_item` or `damaged`; `description` is required. The item must be `ordered` or
+         *     `partially_received` (else 409 `invalid_transition`; an item has at most one open exception) and becomes `exception`;
+         *     the batch cannot complete until a purchaser resolves it. `If-Match` is the item's version; `ETag` is its new version.
+         */
+        post: operations["reportItemException"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/exceptions/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disposition an open exception (purchasers and team admins, batch `receiving`)
+         * @description `exchange` (return or exchange) sends the item back to `ordered`, or to `partially_received` when some units were already
+         *     received. `accept` closes the item as `accepted_short` with `receivedQuantity` as its final quantity (422
+         *     `nothing_received` when nothing arrived: cancel instead). `cancel` closes it as `not_obtained`. For `accept` and `cancel`
+         *     `note` is required (it becomes the item's `closeReason`) and `refundAmountBase` (a positive base-currency amount, at most
+         *     the base currency's decimals; 400 with `exchange`) records a refund: a negative adjustment bound to the item is added to its
+         *     order, whose `adjustmentsBase` and `totalBase` are recomputed in the same transaction. A resolved exception is 422
+         *     `exception_resolved`. When this closes the last open item the batch completes in the same transaction. `If-Match` is the
+         *     exception's version; `ETag` is its new version.
+         */
+        post: operations["resolveItemException"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/orders/{id}/adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Book a refund or cost correction on a placed order (purchasers and team admins)
+         * @description `amountBase` is a non-zero base-currency decimal (refunds are negative; at most the base currency's decimals), `reason`
+         *     is required, and the optional `itemId` must be an item of the order (it then also reduces that item's actual cost in
+         *     exports). The order must be `placed` (422 `order_not_placed`). Its `adjustmentsBase` and `totalBase` are recomputed in the
+         *     same transaction. Allowed in any batch status. `If-Match` is the order's version; `ETag` is its new version. System admins
+         *     have no implicit purchaser role (403).
+         */
+        post: operations["addOrderAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/tasks": {
         parameters: {
             query?: never;
@@ -781,8 +896,10 @@ export interface paths {
         /**
          * Work waiting for the caller
          * @description `batchesToOrder` lists batches in `ordering` where the caller is a purchaser (team admins implicitly) and approved items
-         *     still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` and
-         *     `openExceptions` are always empty until a later milestone.
+         *     still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` lists batches in
+         *     `receiving` where the caller is a receiver (team admins implicitly) with the number of `ordered` or `partially_received`
+         *     items; `openExceptions` lists batches in `receiving` where the caller is a purchaser (team admins implicitly) with the
+         *     number of items in `exception`.
          */
         get: operations["getMyTasks"];
         put?: never;
@@ -1236,6 +1353,115 @@ export interface components {
         UnpurchasableRequest: {
             reason: string;
         };
+        Receipt: {
+            id: string;
+            itemId: string;
+            orderId: string;
+            teamId: string;
+            quantity: number;
+            receivedBy: string;
+            /** Format: date-time */
+            receivedAt: string;
+            note: string;
+            /** @description Reserved; always empty. */
+            attachments: string[];
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ReceiptList: {
+            items: components["schemas"]["Receipt"][];
+        };
+        ReceiptRequest: {
+            quantity: number;
+            note?: string;
+        };
+        ReceiptResult: {
+            receipt: components["schemas"]["Receipt"];
+            item: components["schemas"]["Item"];
+            batch: components["schemas"]["Batch"];
+        };
+        /** @enum {string} */
+        ExceptionType: "quantity_mismatch" | "wrong_item" | "damaged";
+        /** @enum {string} */
+        ExceptionAction: "exchange" | "accept" | "cancel";
+        ExceptionResolution: {
+            action: components["schemas"]["ExceptionAction"];
+            by: string;
+            /** Format: date-time */
+            at: string;
+            note: string;
+            /** @description Decimal string, base currency; the refund as a positive amount. */
+            refundAmountBase: string | null;
+        };
+        ItemException: {
+            id: string;
+            itemId: string;
+            teamId: string;
+            type: components["schemas"]["ExceptionType"];
+            description: string;
+            reportedBy: string;
+            /** Format: date-time */
+            reportedAt: string;
+            /** @description Null while the exception is open. */
+            resolution: components["schemas"]["ExceptionResolution"] | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ExceptionList: {
+            items: components["schemas"]["ItemException"][];
+        };
+        ExceptionRequest: {
+            type: components["schemas"]["ExceptionType"];
+            description: string;
+        };
+        ResolveExceptionRequest: {
+            action: components["schemas"]["ExceptionAction"];
+            /** @description Required with `accept` and `cancel`. */
+            note?: string;
+            /** @description Positive decimal string in the base currency; `accept` and `cancel` only. */
+            refundAmountBase?: string | null;
+        };
+        Adjustment: {
+            id: string;
+            orderId: string;
+            teamId: string;
+            itemId: string | null;
+            /** @description Decimal string, base currency; refunds are negative. */
+            amountBase: string;
+            reason: string;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        AdjustmentRequest: {
+            /** @description Non-zero decimal string in the base currency; negative for a refund. */
+            amountBase: string;
+            reason: string;
+            itemId?: string | null;
+        };
+        AdjustmentResult: {
+            adjustment: components["schemas"]["Adjustment"];
+            order: components["schemas"]["Order"];
+        };
+        ExceptionResult: {
+            exception: components["schemas"]["ItemException"];
+            item: components["schemas"]["Item"];
+            batch: components["schemas"]["Batch"];
+            /** @description The refund booked by `resolve`; null otherwise. */
+            adjustment: components["schemas"]["Adjustment"] | null;
+        };
         /**
          * @description Status of a team order and of an external order.
          * @enum {string}
@@ -1433,7 +1659,7 @@ export interface components {
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "batch_not_ordering" | "item_not_orderable" | "item_in_order" | "order_not_draft" | "order_in_transaction" | "order_not_available" | "vendor_transaction_not_draft" | "vendor_transaction_cancelled" | "allocation_sum_mismatch" | "allocation_override_reason_required" | "cost_basis_zero";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "batch_not_ordering" | "item_not_orderable" | "item_in_order" | "order_not_draft" | "order_in_transaction" | "order_not_available" | "vendor_transaction_not_draft" | "vendor_transaction_cancelled" | "allocation_sum_mismatch" | "allocation_override_reason_required" | "cost_basis_zero" | "batch_not_receiving" | "receipt_exceeds_quantity" | "item_not_ordered" | "exception_resolved" | "nothing_received" | "order_not_placed";
     };
     responses: {
         /**
@@ -1534,7 +1760,8 @@ export interface components {
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
          *     `batch_not_ordering`, `item_not_orderable`, `item_in_order`, `order_not_draft`, `order_in_transaction`, `order_not_available`,
-         *     `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`.
+         *     `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`,
+         *     `batch_not_receiving`, `receipt_exceeds_quantity`, `item_not_ordered`, `exception_resolved`, `nothing_received`, `order_not_placed`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -3104,6 +3331,266 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["VersionConflict"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listItemReceipts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    recordItemReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReceiptRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReceiptResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `version_conflict` or `invalid_transition`. */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listItemExceptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    reportItemException: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ExceptionRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `version_conflict` or `invalid_transition`. */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    resolveItemException: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ResolveExceptionRequest"];
+            };
+        };
+        responses: {
+            /** @description The resolved exception, the updated item and batch, and the refund adjustment if any */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExceptionResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `version_conflict` or `invalid_transition`. */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    addOrderAdjustment: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["OrderId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdjustmentRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdjustmentResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `version_conflict`. */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];

@@ -1159,14 +1159,219 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /items/{id}/receipts:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: listItemReceipts
+      summary: Receiving records of an item (anyone who can read the batch)
+      description: "Oldest first, not paginated (`{items}` only)."
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiptList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: recordItemReceipt
+      summary: Record goods received (receivers, purchasers and team admins, batch `receiving`)
+      description: |
+        `quantity` (at least 1) more units arrived. The item becomes `partially_received`, or `received` when the ordered
+        quantity is complete; `receivedQuantity` is the sum of the receipts. Receiving more than was ordered is 422
+        `receipt_exceeds_quantity` (report extra goods as an exception). The item must be `ordered` or `partially_received`
+        (else 409 `invalid_transition`, e.g. while it has an open exception) and the batch `receiving` (422 `batch_not_receiving`).
+        System admins have no implicit role (403). `If-Match` is the item's version; the response carries the item's new
+        version in `ETag`. When this closes the last open item the batch completes in the same transaction (see `batch.status`).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReceiptRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReceiptResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict` or `invalid_transition`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /items/{id}/exceptions:
+    parameters:
+      - $ref: "#/components/parameters/ItemId"
+    get:
+      operationId: listItemExceptions
+      summary: Exceptions of an item, resolved ones included (anyone who can read the batch)
+      description: |
+        Oldest first, not paginated (`{items}` only). Not listed in the specification's endpoint table: it is the only way for a
+        client to learn the id (and version) of the open exception that `POST /exceptions/{id}/resolve` needs.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExceptionList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: reportItemException
+      summary: Report a problem with an item (receivers, purchasers and team admins, batch `receiving`)
+      description: |
+        `type` is `quantity_mismatch`, `wrong_item` or `damaged`; `description` is required. The item must be `ordered` or
+        `partially_received` (else 409 `invalid_transition`; an item has at most one open exception) and becomes `exception`;
+        the batch cannot complete until a purchaser resolves it. `If-Match` is the item's version; `ETag` is its new version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ExceptionRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExceptionResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict` or `invalid_transition`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /exceptions/{id}/resolve:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      operationId: resolveItemException
+      summary: Disposition an open exception (purchasers and team admins, batch `receiving`)
+      description: |
+        `exchange` (return or exchange) sends the item back to `ordered`, or to `partially_received` when some units were already
+        received. `accept` closes the item as `accepted_short` with `receivedQuantity` as its final quantity (422
+        `nothing_received` when nothing arrived: cancel instead). `cancel` closes it as `not_obtained`. For `accept` and `cancel`
+        `note` is required (it becomes the item's `closeReason`) and `refundAmountBase` (a positive base-currency amount, at most
+        the base currency's decimals; 400 with `exchange`) records a refund: a negative adjustment bound to the item is added to its
+        order, whose `adjustmentsBase` and `totalBase` are recomputed in the same transaction. A resolved exception is 422
+        `exception_resolved`. When this closes the last open item the batch completes in the same transaction. `If-Match` is the
+        exception's version; `ETag` is its new version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolveExceptionRequest" }
+      responses:
+        "200":
+          description: The resolved exception, the updated item and batch, and the refund adjustment if any
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ExceptionResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict` or `invalid_transition`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /orders/{id}/adjustments:
+    parameters:
+      - $ref: "#/components/parameters/OrderId"
+    post:
+      operationId: addOrderAdjustment
+      summary: Book a refund or cost correction on a placed order (purchasers and team admins)
+      description: |
+        `amountBase` is a non-zero base-currency decimal (refunds are negative; at most the base currency's decimals), `reason`
+        is required, and the optional `itemId` must be an item of the order (it then also reduces that item's actual cost in
+        exports). The order must be `placed` (422 `order_not_placed`). Its `adjustmentsBase` and `totalBase` are recomputed in the
+        same transaction. Allowed in any batch status. `If-Match` is the order's version; `ETag` is its new version. System admins
+        have no implicit purchaser role (403).
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AdjustmentRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AdjustmentResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: "`version_conflict`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /me/tasks:
     get:
       operationId: getMyTasks
       summary: Work waiting for the caller
       description: |
         `batchesToOrder` lists batches in `ordering` where the caller is a purchaser (team admins implicitly) and approved items
-        still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` and
-        `openExceptions` are always empty until a later milestone.
+        still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` lists batches in
+        `receiving` where the caller is a receiver (team admins implicitly) with the number of `ordered` or `partially_received`
+        items; `openExceptions` lists batches in `receiving` where the caller is a purchaser (team admins implicitly) with the
+        number of items in `exception`.
       responses:
         "200":
           description: OK
@@ -1358,7 +1563,8 @@ components:
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
         `batch_not_ordering`, `item_not_orderable`, `item_in_order`, `order_not_draft`, `order_in_transaction`, `order_not_available`,
-        `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`.
+        `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`,
+        `batch_not_receiving`, `receipt_exceeds_quantity`, `item_not_ordered`, `exception_resolved`, `nothing_received`, `order_not_placed`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -1833,6 +2039,127 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+    Receipt:
+      type: object
+      required: [id, itemId, orderId, teamId, quantity, receivedBy, receivedAt, note, attachments, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        itemId: { type: string }
+        orderId: { type: string }
+        teamId: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        receivedBy: { type: string }
+        receivedAt: { type: string, format: date-time }
+        note: { type: string }
+        attachments: { type: array, items: { type: string }, description: Reserved; always empty. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    ReceiptList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Receipt" } }
+    ReceiptRequest:
+      type: object
+      additionalProperties: false
+      required: [quantity]
+      properties:
+        quantity: { type: integer, minimum: 1 }
+        note: { type: string, maxLength: 500 }
+    ReceiptResult:
+      type: object
+      required: [receipt, item, batch]
+      properties:
+        receipt: { $ref: "#/components/schemas/Receipt" }
+        item: { $ref: "#/components/schemas/Item" }
+        batch: { $ref: "#/components/schemas/Batch" }
+    ExceptionType:
+      type: string
+      enum: [quantity_mismatch, wrong_item, damaged]
+    ExceptionAction:
+      type: string
+      enum: [exchange, accept, cancel]
+    ExceptionResolution:
+      type: object
+      required: [action, by, at, note, refundAmountBase]
+      properties:
+        action: { $ref: "#/components/schemas/ExceptionAction" }
+        by: { type: string }
+        at: { type: string, format: date-time }
+        note: { type: string }
+        refundAmountBase: { type: [string, "null"], description: "Decimal string, base currency; the refund as a positive amount." }
+    ItemException:
+      type: object
+      required: [id, itemId, teamId, type, description, reportedBy, reportedAt, resolution, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        itemId: { type: string }
+        teamId: { type: string }
+        type: { $ref: "#/components/schemas/ExceptionType" }
+        description: { type: string }
+        reportedBy: { type: string }
+        reportedAt: { type: string, format: date-time }
+        resolution: { oneOf: [{ $ref: "#/components/schemas/ExceptionResolution" }, { type: "null" }], description: Null while the exception is open. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    ExceptionList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ItemException" } }
+    ExceptionRequest:
+      type: object
+      additionalProperties: false
+      required: [type, description]
+      properties:
+        type: { $ref: "#/components/schemas/ExceptionType" }
+        description: { type: string, maxLength: 2000 }
+    ResolveExceptionRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { $ref: "#/components/schemas/ExceptionAction" }
+        note: { type: string, maxLength: 1000, description: Required with `accept` and `cancel`. }
+        refundAmountBase: { type: [string, "null"], description: "Positive decimal string in the base currency; `accept` and `cancel` only." }
+    Adjustment:
+      type: object
+      required: [id, orderId, teamId, itemId, amountBase, reason, createdBy, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        orderId: { type: string }
+        teamId: { type: string }
+        itemId: { type: [string, "null"] }
+        amountBase: { type: string, description: "Decimal string, base currency; refunds are negative." }
+        reason: { type: string }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    AdjustmentRequest:
+      type: object
+      additionalProperties: false
+      required: [amountBase, reason]
+      properties:
+        amountBase: { type: string, description: "Non-zero decimal string in the base currency; negative for a refund." }
+        reason: { type: string, maxLength: 500 }
+        itemId: { type: [string, "null"] }
+    AdjustmentResult:
+      type: object
+      required: [adjustment, order]
+      properties:
+        adjustment: { $ref: "#/components/schemas/Adjustment" }
+        order: { $ref: "#/components/schemas/Order" }
+    ExceptionResult:
+      type: object
+      required: [exception, item, batch, adjustment]
+      properties:
+        exception: { $ref: "#/components/schemas/ItemException" }
+        item: { $ref: "#/components/schemas/Item" }
+        batch: { $ref: "#/components/schemas/Batch" }
+        adjustment: { oneOf: [{ $ref: "#/components/schemas/Adjustment" }, { type: "null" }], description: The refund booked by `resolve`; null otherwise. }
     OrderStatus:
       type: string
       description: Status of a team order and of an external order.
@@ -2098,3 +2425,9 @@ components:
         - allocation_sum_mismatch
         - allocation_override_reason_required
         - cost_basis_zero
+        - batch_not_receiving
+        - receipt_exceeds_quantity
+        - item_not_ordered
+        - exception_resolved
+        - nothing_received
+        - order_not_placed

@@ -67,9 +67,9 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 			Batches: batches, Items: items, Tasks: service.NewTasks(st),
 			Timeline: service.NewTimeline(st, log, batches, items),
 		}).Mount(r)
-		(&httpapi.OrdersAPI{
-			Orders: service.NewOrders(st, log, batches), VendorTxs: service.NewVendorTransactions(st, log, batches),
-		}).Mount(r)
+		vendorTxs := service.NewVendorTransactions(st, log, batches)
+		(&httpapi.OrdersAPI{Orders: service.NewOrders(st, log, batches), VendorTxs: vendorTxs}).Mount(r)
+		(&httpapi.ReceivingAPI{Receiving: service.NewReceiving(st, log, batches, vendorTxs)}).Mount(r)
 	})
 	return r, batches
 }

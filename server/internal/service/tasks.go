@@ -20,8 +20,7 @@ type BatchTask struct {
 	Count int          `json:"count"`
 }
 
-// MyTasks is the "my tasks" payload (spec §16.2). Receiving and exception
-// tasks arrive with milestone 5 and are empty until then.
+// MyTasks is the "my tasks" payload (spec §16.2).
 type MyTasks struct {
 	ProposalsToHandle []BatchTask
 	ItemsToReview     []BatchTask
@@ -92,6 +91,32 @@ func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
 			// Approved items still wait for an order or an unpurchasable mark.
 			if n := counts[domain.ItemApproved]; n > 0 {
 				out.BatchesToOrder = append(out.BatchesToOrder, BatchTask{Batch: b, Count: n})
+			}
+		}
+	}
+
+	if len(teamIDs) > 0 {
+		bs, err := s.st.BatchesByStatus(ctx, domain.BatchReceiving, teamIDs)
+		if err != nil {
+			return nil, err
+		}
+		for _, b := range bs {
+			as := authzAssignments(b.Assignments)
+			isReceiver := actor.HasBatchRole(b.TeamID, as, authz.BatchReceiver)
+			isPurchaser := actor.HasBatchRole(b.TeamID, as, authz.BatchPurchaser)
+			if !isReceiver && !isPurchaser {
+				continue
+			}
+			counts, err := s.st.ItemCounts(ctx, b.ID)
+			if err != nil {
+				return nil, err
+			}
+			// Receivers wait for goods; purchasers resolve what went wrong.
+			if n := counts[domain.ItemOrdered] + counts[domain.ItemPartiallyReceived]; isReceiver && n > 0 {
+				out.ItemsToReceive = append(out.ItemsToReceive, BatchTask{Batch: b, Count: n})
+			}
+			if n := counts[domain.ItemException]; isPurchaser && n > 0 {
+				out.OpenExceptions = append(out.OpenExceptions, BatchTask{Batch: b, Count: n})
 			}
 		}
 	}

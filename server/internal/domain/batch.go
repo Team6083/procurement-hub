@@ -239,7 +239,7 @@ func autoStep(s BatchStatus, c ItemCounts) BatchStatus {
 		}
 		return BatchCompleted // all approved items unpurchasable
 	case BatchReceiving:
-		if c.sum(receivingOpen...) > 0 {
+		if !ReceivingComplete(c) {
 			return s
 		}
 		return BatchCompleted

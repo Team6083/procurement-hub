@@ -992,3 +992,17 @@ func (s *VendorTransactions) Cancel(ctx context.Context, actor authz.Actor, id b
 	}
 	return s.viewFor(ctx, actor, out, g)
 }
+
+// refreshCosts recomputes the cost fields of a transaction's orders inside
+// the caller's database transaction, for changes that do not go through
+// Update (new adjustments). The stored allocation stays as it is: nothing it
+// depends on changed.
+func (s *VendorTransactions) refreshCosts(ctx context.Context, txID bson.ObjectID) error {
+	tx, err := s.st.GetVendorTransaction(ctx, txID)
+	if err != nil {
+		return mapStore(err)
+	}
+	next := *tx
+	_, err = s.recalc(ctx, recalcInput{tx: &next, mode: allocKeep})
+	return err
+}
