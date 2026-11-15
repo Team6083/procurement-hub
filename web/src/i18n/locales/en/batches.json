@@ -1,7 +1,6 @@
 {
   "tabs": {
     "items": "Items",
-    "review": "Review",
     "orders": "Orders",
     "receiving": "Receiving",
     "timeline": "Timeline"
@@ -35,7 +34,10 @@
     "team": "Team",
     "status": "Status",
     "text": "Search",
-    "all": "All"
+    "all": "All",
+    "toOrder": "Approved, not yet ordered",
+    "noMatch": "No items match these filters",
+    "noMatchHint": "Change or clear a filter to see more items."
   },
   "list": {
     "title": "Batches",
@@ -137,14 +139,11 @@
     "base": "Estimate: {{amount}} {{currency}}",
     "noRate": "No rate",
     "visible": "Totals (excluding withdrawn and rejected)",
-    "selected": "Selected ({{count}})",
-    "pending": "Pending items"
+    "selected": "Selected ({{count}})"
   },
   "review": {
-    "notReviewing": "This batch is not under review.",
     "readOnly": "Only approvers and team admins can review items.",
     "pending": "Pending items ({{count}})",
-    "nonePending": "No pending items.",
     "approve": "Approve selected ({{count}})",
     "return": "Return",
     "reject": "Reject",
@@ -152,8 +151,7 @@
     "comment": "Comment",
     "commentHelp": "A comment is required. It will be shown to the requester of {{count}} selected item(s).",
     "reason": "Reason",
-    "forceHelp": "Force-reject {{name}}? A reason is required.",
-    "returned": "Returned items ({{count}})"
+    "forceHelp": "Force-reject {{name}}? A reason is required."
   },
   "timeline": {
     "empty": "No events yet.",

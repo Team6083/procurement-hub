@@ -12,17 +12,17 @@ export function EstimateSummary({ items, rates, label }: { items: Item[]; rates:
   const e = estimate(items, rates, base);
   return (
     <Stack gap="0.5">
-      {label && <Text fontSize="sm" fontWeight="semibold">{label}</Text>}
+      {label && <Text textStyle="sm" fontWeight="semibold">{label}</Text>}
       {e.byCurrency.length === 0 ? (
-        <Text fontSize="sm" color="fg.muted">{t('totals.none')}</Text>
+        <Text textStyle="sm" color="fg.muted">{t('totals.none')}</Text>
       ) : (
         <>
           <HStack gap="4" wrap="wrap">
-            {e.byCurrency.map((c) => <Text key={c.currency} fontSize="sm">{c.amount} {c.currency}</Text>)}
+            {e.byCurrency.map((c) => <Text key={c.currency} textStyle="sm">{c.amount} {c.currency}</Text>)}
           </HStack>
-          <Text fontSize="sm" fontWeight="semibold">{t('totals.base', { amount: e.base, currency: base })}</Text>
+          <Text textStyle="sm" fontWeight="semibold">{t('totals.base', { amount: e.base, currency: base })}</Text>
           {e.noRate.length > 0 && (
-            <Text fontSize="sm" color="fg.warning">
+            <Text textStyle="sm" color="fg.warning">
               {t('totals.noRate')}: {e.noRate.map((c) => `${c.amount} ${c.currency}`).join(', ')}
             </Text>
           )}

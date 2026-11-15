@@ -14,7 +14,6 @@ import { paths } from '../paths';
 import { BatchActions } from '../features/batches/BatchActions';
 import { EditBatchModal } from '../features/batches/EditBatchModal';
 import { ItemsTab } from '../features/batches/ItemsTab';
-import { ReviewTab } from '../features/batches/ReviewTab';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
 import { OrdersTab } from '../features/orders/OrdersTab';
@@ -94,7 +93,6 @@ export function BatchPage() {
       <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
         <Tabs.List overflowX="auto">
           <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
-          {internals && <Tabs.Trigger value="review">{t('tabs.review')}</Tabs.Trigger>}
           {canSeeOrders(caller) && <Tabs.Trigger value="orders">{t('tabs.orders')}</Tabs.Trigger>}
           {canSeeReceiving(batch, caller) && <Tabs.Trigger value="receiving">{t('tabs.receiving')}</Tabs.Trigger>}
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
@@ -104,14 +102,9 @@ export function BatchPage() {
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
         </Tabs.Content>
-        {internals && (
-          <Tabs.Content value="review">
-            {items.data && <ReviewTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
-          </Tabs.Content>
-        )}
         {canSeeOrders(caller) && (
           <Tabs.Content value="orders">
-            {items.data && <OrdersTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} />}
+            {items.data && <OrdersTab batch={batch} caller={caller} items={list} />}
           </Tabs.Content>
         )}
         {canSeeReceiving(batch, caller) && (

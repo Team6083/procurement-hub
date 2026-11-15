@@ -59,10 +59,10 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
                   <Text as="span">{it.name}</Text>
                 )}
                 {it.status === 'returned' && it.review?.comment && (
-                  <Text fontSize="xs" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
+                  <Text textStyle="xs" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
                 )}
                 {it.status === 'rejected' && it.review?.comment && (
-                  <Text fontSize="xs" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
+                  <Text textStyle="xs" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
                 )}
               </Box>
             );
@@ -126,7 +126,7 @@ export function ItemsTable({ items, team, nameOf, actions, selectable = true, se
             const dir = h.column.getIsSorted();
             return (
               <Table.ColumnHeader key={h.id} aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}>
-                <Button variant="plain" size="xs" px="0" h="auto" fontWeight="semibold" onClick={h.column.getToggleSortingHandler()}>
+                <Button variant="plain" px="0" h="auto" fontWeight="semibold" onClick={h.column.getToggleSortingHandler()}>
                   <HStack gap="1">
                     <table.FlexRender header={h} />
                     <span aria-hidden>{dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}</span>

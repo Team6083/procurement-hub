@@ -1,7 +1,6 @@
 {
   "tabs": {
     "items": "品項",
-    "review": "審核",
     "orders": "訂單",
     "receiving": "點收",
     "timeline": "時間軸"
@@ -35,7 +34,10 @@
     "team": "團隊",
     "status": "狀態",
     "text": "搜尋",
-    "all": "全部"
+    "all": "全部",
+    "toOrder": "已核准、尚未下單",
+    "noMatch": "沒有符合篩選條件的品項",
+    "noMatchHint": "調整或清除篩選條件以查看更多品項。"
   },
   "list": {
     "title": "批次",
@@ -137,14 +139,11 @@
     "base": "估算：{{amount}} {{currency}}",
     "noRate": "無匯率",
     "visible": "合計（不含已撤回與已駁回）",
-    "selected": "已選取 ({{count}})",
-    "pending": "待審核品項"
+    "selected": "已選取 ({{count}})"
   },
   "review": {
-    "notReviewing": "此批次目前不在審核中。",
     "readOnly": "只有審核者與團隊管理員可以審核品項。",
     "pending": "待審核品項 ({{count}})",
-    "nonePending": "沒有待審核品項。",
     "approve": "核准所選 ({{count}})",
     "return": "退回",
     "reject": "駁回",
@@ -152,8 +151,7 @@
     "comment": "意見",
     "commentHelp": "必須填寫意見，申請人會看到所選 {{count}} 個品項的意見。",
     "reason": "原因",
-    "forceHelp": "要強制駁回 {{name}} 嗎？必須填寫原因。",
-    "returned": "已退回品項 ({{count}})"
+    "forceHelp": "要強制駁回 {{name}} 嗎？必須填寫原因。"
   },
   "timeline": {
     "empty": "尚無事件。",

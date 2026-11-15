@@ -1,65 +1,48 @@
-import { Button, Checkbox, Flex, HStack, Input, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
-import type { RowSelectionState } from '@tanstack/react-table';
+import { Button, Checkbox, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
 import { EmptyState, SectionHeader } from '@team6083/ui';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
 import { useMeta } from '../../api/meta';
-import { useCancelOrder, useCreateOrder, useOrders } from '../../api/orders';
-import type { Batch, Item, Order, Team } from '../../api/types';
+import { useCancelOrder, useOrders } from '../../api/orders';
+import type { Batch, Item, Order } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { TableShell } from '../../components/ui/table';
 import { paths } from '../../paths';
 import { ZERO, add, format, parseDecSafe } from '../batches/decimal';
-import { ItemsTable } from '../batches/ItemsTable';
 import type { Caller } from '../batches/rules';
 import { AdjustmentModal } from './AdjustmentModal';
 import { EditOrderModal } from './EditOrderModal';
 import { ExternalOrderModal } from './ExternalOrderModal';
 import { OrderStatusBadge, ProvisionalBadge, money } from './OrderBadges';
 import {
-  MAX_VENDOR_LENGTH, canAdjust, canChangeOrder, canCreateOrder, canCreateVendorTransaction, commonVendor, isAvailableOrder, orderableItems,
+  canAdjust, canChangeOrder, canCreateVendorTransaction, isAvailableOrder,
 } from './rules';
 
 interface Props {
   batch: Batch;
-  team: Team | undefined;
   caller: Caller;
   items: Item[];
-  nameOf: (id: string) => string;
 }
 
-export function OrdersTab({ batch, team, caller, items, nameOf }: Props) {
+export function OrdersTab({ batch, caller, items }: Props) {
   const { t } = useTranslation('orders');
   const meta = useMeta();
   const base = meta.data?.baseCurrency ?? '';
   const orders = useOrders(batch.id);
-  const createOrder = useCreateOrder(batch.id);
   const cancel = useCancelOrder(batch.id);
-  const [itemSel, setItemSel] = useState<RowSelectionState>({});
   const [orderSel, setOrderSel] = useState<Record<string, boolean>>({});
-  const [typedVendor, setTypedVendor] = useState<string | undefined>();
   const [editing, setEditing] = useState<Order | null>(null);
   const [adjusting, setAdjusting] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
   const [external, setExternal] = useState(false);
 
-  const orderable = useMemo(() => orderableItems(items), [items]);
-  const selectedItems = orderable.filter((i) => itemSel[i.id]);
-  const vendor = typedVendor ?? commonVendor(selectedItems.map((i) => i.vendor));
   const list = orders.data ?? [];
   const selectedOrders = list.filter((o) => orderSel[o.id] && isAvailableOrder(o));
-  const mayCreate = canCreateOrder(batch, caller);
   const mayExternal = canCreateVendorTransaction(batch, caller);
   const itemName = (id: string) => items.find((i) => i.id === id)?.name;
-
-  const submitOrder = () =>
-    createOrder.mutate(
-      { vendor: vendor.trim(), itemIds: selectedItems.map((i) => i.id) },
-      { onSuccess: () => { setItemSel({}); setTypedVendor(undefined); } },
-    );
 
   if (orders.isPending) return <Skeleton h="24" rounded="l3" />;
   if (orders.error) return <ErrorAlert error={orders.error} />;
@@ -141,9 +124,9 @@ export function OrdersTab({ batch, team, caller, items, nameOf }: Props) {
                     </Table.Cell>
                     <Table.Cell>
                       <HStack gap="2" justify="flex-end">
-                        {canChangeOrder(o, batch, caller) && <Button size="2xs" variant="outline" onClick={() => setEditing(o)}>{t('common:actions.edit')}</Button>}
-                        {canChangeOrder(o, batch, caller) && <Button size="2xs" variant="subtle" colorPalette="red" onClick={() => { cancel.reset(); setCancelling(o); }}>{t('orders.cancel')}</Button>}
-                        {canAdjust(o, batch, caller) && <Button size="2xs" variant="outline" onClick={() => setAdjusting(o)}>{t('adjust.button')}</Button>}
+                        {canChangeOrder(o, batch, caller) && <Button variant="outline" onClick={() => setEditing(o)}>{t('common:actions.edit')}</Button>}
+                        {canChangeOrder(o, batch, caller) && <Button variant="subtle" colorPalette="red" onClick={() => { cancel.reset(); setCancelling(o); }}>{t('orders.cancel')}</Button>}
+                        {canAdjust(o, batch, caller) && <Button variant="outline" onClick={() => setAdjusting(o)}>{t('adjust.button')}</Button>}
                       </HStack>
                     </Table.Cell>
                   </Table.Row>
@@ -156,29 +139,6 @@ export function OrdersTab({ batch, team, caller, items, nameOf }: Props) {
           <Text fontWeight="semibold">{t('orders.total', { amount: format(total), currency: base })}</Text>
         )}
       </Stack>
-
-      {mayCreate && (
-        <Stack gap="3">
-          <SectionHeader title={t('create.title')} count={orderable.length} mb="0" />
-          {orderable.length === 0 ? (
-            <EmptyState icon={<LuShoppingCart />} title={t('create.empty')} />
-          ) : (
-            <>
-              <ItemsTable items={orderable} team={team} nameOf={nameOf} selection={itemSel} onSelectionChange={setItemSel} />
-              <Flex gap="3" align="flex-end" wrap="wrap">
-                <Stack gap="1" minW="64">
-                  <Text textStyle="sm" fontWeight="medium">{t('create.vendor')}</Text>
-                  <Input aria-label={t('create.vendor')} value={vendor} maxLength={MAX_VENDOR_LENGTH} onChange={(e) => setTypedVendor(e.currentTarget.value)} />
-                </Stack>
-                <Button disabled={selectedItems.length === 0 || vendor.trim() === ''} loading={createOrder.isPending} onClick={submitOrder}>
-                  {t('create.submit', { count: selectedItems.length })}
-                </Button>
-              </Flex>
-              <ErrorAlert error={createOrder.error} />
-            </>
-          )}
-        </Stack>
-      )}
 
       <EditOrderModal order={editing} batchId={batch.id} items={items} onClose={() => setEditing(null)} />
       <AdjustmentModal order={adjusting} batchId={batch.id} items={items} onClose={() => setAdjusting(null)} />

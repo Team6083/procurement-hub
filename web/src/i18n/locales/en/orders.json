@@ -21,7 +21,7 @@
     "title": "Orders",
     "createExternal": "Create external order ({{count}})",
     "empty": "No orders yet",
-    "emptyOrdering": "Select approved items below to create the first order.",
+    "emptyOrdering": "Select approved items on the Items tab to create the first order.",
     "emptyNotOrdering": "Orders can be created once the batch is in the ordering stage.",
     "number": "Order",
     "status": "Status",
@@ -42,8 +42,6 @@
     "total": "Total"
   },
   "create": {
-    "title": "Approved items to order",
-    "empty": "No approved items are waiting for an order.",
     "vendor": "Vendor",
     "submit": "Create order from {{count}} items"
   },

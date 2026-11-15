@@ -69,9 +69,8 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(servo.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
 
-    await act(async () => {
-      fireEvent.click(screen.getByRole('tab', { name: 'Review' }));
-    });
+    expect(screen.queryByRole('tab', { name: 'Review' })).toBeNull();
+    expect(screen.getByRole('tab', { name: 'Orders' })).toBeTruthy();
     expect(await screen.findByText('Pending items (2)')).toBeTruthy();
 
     await act(async () => {

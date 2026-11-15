@@ -145,7 +145,7 @@ test('the team admin closes collection and the batch moves to review', async ({ 
   await expectBatchStatus(page, 'Reviewing');
 });
 
-/** Selects one pending item on the Review tab and decides it; `pendingAfter` null = review ends. */
+/** Selects one pending item in the Items table and decides it; `pendingAfter` null = review ends. */
 async function decide(page: Page, itemName: string, decision: 'approve' | 'return' | 'reject', pendingAfter: number | null, comment = '') {
   // The native input is visually hidden under Chakra's checkbox control (which takes pointer
   // clicks), so the click goes to the input itself.
@@ -170,14 +170,16 @@ async function decide(page: Page, itemName: string, decision: 'approve' | 'retur
 
 test('the reviewer approves, returns and rejects; the batch stays in review (21.4)', async ({ browser }) => {
   const page = await as(browser, 'carol', batchPath);
-  await page.getByRole('tab', { name: 'Review' }).click();
+  // A reviewer's Items table opens on the pending filter.
+  await expect(page.getByRole('combobox', { name: 'Status' })).toHaveValue('pending');
   await expect(page.getByText('Pending items (3)')).toBeVisible();
 
   await decide(page, items.kit.name, 'approve', 2);
   await decide(page, items.servo.name, 'return', 1, 'Which model? Add the SKU.');
   await decide(page, items.cable.name, 'reject', 0, 'We have plenty of these.');
 
-  await expect(page.getByText('Returned items (1)')).toBeVisible();
+  await page.getByRole('combobox', { name: 'Status' }).selectOption({ label: 'Returned' });
+  await expect(itemRow(page, items.servo.name)).toContainText('Returned');
   await expectBatchStatus(page, 'Reviewing');
 });
 
@@ -197,10 +199,9 @@ test('the requester edits and resubmits the returned item; its approval moves th
   await expectBatchStatus(page, 'Reviewing');
 
   const carol = await as(browser, 'carol', batchPath);
-  await carol.getByRole('tab', { name: 'Review' }).click();
   await decide(carol, items.servo.name, 'approve', null);
   await expectBatchStatus(carol, 'Ordering');
-  await carol.getByRole('tab', { name: 'Items' }).click();
+  await carol.getByRole('combobox', { name: 'Status' }).selectOption({ label: 'All' });
   await expect(itemRow(carol, items.kit.name)).toContainText('Approved');
   await expect(itemRow(carol, items.servo.name)).toContainText('Approved');
   await expect(itemRow(carol, items.cable.name)).toContainText('Rejected');

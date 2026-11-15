@@ -21,7 +21,7 @@
     "title": "訂單",
     "createExternal": "建立外部下單（{{count}}）",
     "empty": "還沒有訂單",
-    "emptyOrdering": "在下方選取已核准的品項，建立第一張訂單。",
+    "emptyOrdering": "請到「品項」分頁選取已核准的品項，建立第一張訂單。",
     "emptyNotOrdering": "批次進入下單階段後才能建立訂單。",
     "number": "訂單",
     "status": "狀態",
@@ -42,8 +42,6 @@
     "total": "合計"
   },
   "create": {
-    "title": "待下單的已核准品項",
-    "empty": "沒有等待建立訂單的已核准品項。",
     "vendor": "廠商",
     "submit": "以 {{count}} 個品項建立訂單"
   },

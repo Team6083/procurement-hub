@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Order } from '../../api/types';
 import i18n from '../../i18n';
-import { batch, item, renderWithApi, team, type Routes } from '../../test/fakeApi';
+import { batch, item, renderWithApi, type Routes } from '../../test/fakeApi';
 import { callerFor } from '../batches/rules';
 import { OrdersTab } from './OrdersTab';
 
@@ -28,7 +28,7 @@ const caller = (userId = 'u1', teamRole: 'admin' | 'member' = 'member') => ({ ..
 function show(routes: Routes, c = caller(), b = batch({ status: 'ordering', assignments: { approvers: [], purchasers: ['u1'], receivers: [] } })) {
   return renderWithApi(
     <MemoryRouter>
-      <OrdersTab batch={b} team={team()} caller={c} items={items} nameOf={() => 'Alice'} />
+      <OrdersTab batch={b} caller={c} items={items} />
     </MemoryRouter>,
     { 'GET /meta': meta, 'GET /batches/b1/orders': { items: [order(1, { status: 'placed', vendorTransactionId: 'v1', itemsCostBase: '320', totalBase: '350.50' }), order(2, { itemIds: ['i2'] })] }, ...routes },
   );
@@ -46,23 +46,14 @@ describe('OrdersTab', () => {
     expect(first.getByText(/Servo/)).toBeTruthy();
     expect(within(rows[2]!).getByText('Draft')).toBeTruthy();
     expect(screen.getByText('Total of active orders: 350.50 TWD')).toBeTruthy();
-    // only approved items outside any order can be picked for a new order
-    expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
+    // item selection and order creation live in the Items tab
+    expect(screen.queryByRole('checkbox', { name: 'Select row' })).toBeNull();
+    expect(screen.queryByRole('textbox', { name: 'Vendor' })).toBeNull();
   });
 
   it('links to the Place orders page for ordering across batches', async () => {
     show({});
     expect((await screen.findByRole('link', { name: 'Place orders' })).getAttribute('href')).toBe('/orders');
-  });
-
-  it('creates an order from the selected approved items with their common vendor', async () => {
-    const { calls } = show({ 'POST /batches/b1/orders': (b: unknown) => ({ ...order(3), ...(b as object) }) });
-    const boxes = await screen.findAllByRole('checkbox', { name: 'Select row' });
-    await act(async () => { fireEvent.click(boxes[0]!); });
-    await act(async () => { fireEvent.click(boxes[1]!); });
-    expect((screen.getByRole('textbox', { name: 'Vendor' }) as HTMLInputElement).value).toBe('Acme');
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create order from 2 items' })); });
-    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ vendor: 'Acme', itemIds: ['i2', 'i3'] }));
   });
 
   it('offers edit and cancel only for a free draft, adjust only for a placed order', async () => {
@@ -94,7 +85,6 @@ describe('OrdersTab', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
     expect(screen.queryByRole('button', { name: /Create external order/ })).toBeNull();
     expect(screen.queryByRole('link', { name: 'Place orders' })).toBeNull();
-    expect(screen.queryByText('Approved items to order')).toBeNull();
   });
 
   it('shows an empty state when there are no orders', async () => {
