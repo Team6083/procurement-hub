@@ -59,6 +59,10 @@ jobs:
   web:
     name: web (Node)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # @team6083/ui is a private package on GitHub Packages.
+      packages: read
     defaults:
       run:
         working-directory: web
@@ -75,6 +79,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: generated API types are up to date
         run: |
           npm run gen:api
@@ -92,6 +98,9 @@ jobs:
     name: end-to-end (Playwright)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    permissions:
+      contents: read
+      packages: read
     defaults:
       run:
         working-directory: web
@@ -108,6 +117,8 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
       - name: Start the environment

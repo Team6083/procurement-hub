@@ -11,7 +11,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     await signInOnKeycloak(page, 'alice');
     await expectSignedIn(page, 'alice');
     await expect(page).toHaveURL('/batches?status=collecting');
-    await expect(page.getByRole('heading', { name: 'Batches' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Batches', exact: true })).toBeVisible();
 
     // Tokens are in memory only: nothing token-like in web storage.
     const stored = await page.evaluate(() =>
@@ -25,7 +25,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     await bounce;
     await expectSignedIn(page, 'alice');
     await expect(page).toHaveURL('/batches?status=collecting');
-    await expect(page.getByRole('heading', { name: 'Batches' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Batches', exact: true })).toBeVisible();
 
     // Sign-out ends the SSO session (signoutRedirect with post_logout_redirect_uri = app root):
     // back at the app, the next sign-in shows the Keycloak form again.
@@ -69,7 +69,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     const me = page.waitForResponse((r) => r.url().includes('/api/v1/batches'));
     await page.getByRole('link', { name: 'Batches' }).click();
     expect((await me).status()).toBe(200);
-    await expect(page.getByRole('heading', { name: 'Batches' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Batches', exact: true })).toBeVisible();
     expect(redirects).toBe(0);
   });
 
@@ -86,7 +86,7 @@ test.describe('sign-in (spec section 7.1)', () => {
     await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible();
     // Nothing else of the app: no header, no navigation, no page content.
     await expect(page.getByRole('banner')).toHaveCount(0);
-    await expect(page.getByRole('heading', { name: 'Batches' })).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: 'Batches', exact: true })).toHaveCount(0);
 
     // No user record was created: a system admin cannot find her in the user search.
     const admin = await openAs(browser, 'sysadmin');

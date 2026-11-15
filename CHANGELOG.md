@@ -21,7 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- The web app uses the team UI package `@team6083/ui`: the shared frame (pages as icon buttons with the current one highlighted, a color mode toggle, the account menu with the language and sign-out, a drawer on phones, the build in the footer) in a centered column, the team theme (gray by default, `brand` for emphasis only), and the home page rebuilt with a single page heading, a teams section with its count, and empty states.
+- The web app uses the team UI package `@team6083/ui` (private, on GitHub Packages; `npm ci` needs `NODE_AUTH_TOKEN`, see `web/README.md`): the shared frame (pages as icon buttons with the current one highlighted, a color mode toggle, the account menu with the language and sign-out, a drawer on phones, the build in the footer) in a centered column, the team theme (gray by default, `brand` for emphasis only), and the home page rebuilt with a single page heading, a teams section with its count, and empty states.
 - Repository layout is now `server/` (Go module `github.com/team6083/procurement-hub/server`) and `web/`.
 - Environment variables follow the project standard names and format rules, are all validated at startup, and the effective configuration is logged with secrets masked. `WEBHOOK_ENCRYPTION_KEY` is turned into the encryption key with HKDF-SHA256.
 - Access tokens are checked against an RS256 allowlist and must have `typ` `Bearer` and an expiry.
