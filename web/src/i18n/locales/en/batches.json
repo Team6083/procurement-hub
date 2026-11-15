@@ -123,6 +123,9 @@
     "selectRow": "Select row",
     "withdraw": "Withdraw",
     "withdrawConfirm": "Withdraw item {{name}}?",
+    "unpurchasable": "Mark unpurchasable",
+    "unpurchasableHelp": "Mark {{name}} as unpurchasable? The item is closed and will not be ordered. A reason is required.",
+    "unpurchasableReason": "Reason",
     "resubmit": "Resubmit",
     "resubmitNeedsEdit": "Edit the item before resubmitting it.",
     "returnedComment": "Returned: {{comment}}",
@@ -176,7 +179,8 @@
       "item_approved": "Item approved",
       "item_returned": "Item returned",
       "item_rejected": "Item rejected",
-      "item_force_rejected": "Item force-rejected"
+      "item_force_rejected": "Item force-rejected",
+      "item_unpurchasable": "Item marked unpurchasable"
     }
   },
   "tasks": {
@@ -185,6 +189,8 @@
     "review": "Items to review",
     "returned": "Returned items",
     "pendingCount": "{{count}} pending",
+    "order": "Items to order",
+    "toOrderCount": "{{count}} to order",
     "receive": "Items to receive",
     "exceptions": "Open exceptions",
     "toReceiveCount": "{{count}} to receive",

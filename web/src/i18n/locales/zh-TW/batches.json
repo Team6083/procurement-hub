@@ -123,6 +123,9 @@
     "selectRow": "選取此列",
     "withdraw": "撤回",
     "withdrawConfirm": "要撤回品項 {{name}} 嗎？",
+    "unpurchasable": "標記為無法購買",
+    "unpurchasableHelp": "要將 {{name}} 標記為無法購買嗎？品項將結案且不會下單，必須填寫原因。",
+    "unpurchasableReason": "原因",
     "resubmit": "重新送審",
     "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
     "returnedComment": "已退回：{{comment}}",
@@ -176,7 +179,8 @@
       "item_approved": "品項已核准",
       "item_returned": "品項已退回",
       "item_rejected": "品項已駁回",
-      "item_force_rejected": "品項已強制駁回"
+      "item_force_rejected": "品項已強制駁回",
+      "item_unpurchasable": "品項已標記為無法購買"
     }
   },
   "tasks": {
@@ -185,6 +189,8 @@
     "review": "待審核品項",
     "returned": "已退回的品項",
     "pendingCount": "{{count}} 項待審",
+    "order": "待下單的品項",
+    "toOrderCount": "{{count}} 項待下單",
     "receive": "待點收的品項",
     "exceptions": "未處理的異常",
     "toReceiveCount": "{{count}} 項待點收",

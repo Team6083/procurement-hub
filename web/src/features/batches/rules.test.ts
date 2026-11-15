@@ -3,7 +3,7 @@ import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
 import { auditActionKey, isZeroId } from './audit';
-import { availableActions, canAddItem, canForceReject, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
+import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [], receivers: n ? ['r1'] : [] });
 const batch = (o: Partial<Batch> = {}): Batch =>
@@ -140,5 +140,24 @@ describe('filters, urls, forms, audit helpers', () => {
     expect(auditActionKey('batch.auto_transition')).toBe('timeline.actions.batch_auto_transition');
     expect(isZeroId('000000000000000000000000')).toBe(true);
     expect(isZeroId('65a1b2c3d4e5f60718293a4b')).toBe(false);
+  });
+});
+
+describe('canMarkUnpurchasable', () => {
+  const ordering = batch({ status: 'ordering', assignments: { approvers: [], purchasers: ['u1'], receivers: [] } });
+  const approved = item({ status: 'approved', orderId: null });
+  it('is offered to assigned purchasers and team admins on approved, unordered items while ordering', () => {
+    expect(canMarkUnpurchasable(approved, ordering, caller())).toBe(true);
+    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x', teamRole: 'admin' }))).toBe(true);
+  });
+  it('hides it from other members and from system admins without a team role', () => {
+    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x' }))).toBe(false);
+    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x', teamRole: undefined, isSystemAdmin: true }))).toBe(false);
+  });
+  it('requires an approved item outside an order, an ordering batch and a live team', () => {
+    expect(canMarkUnpurchasable(item({ status: 'pending' }), ordering, caller())).toBe(false);
+    expect(canMarkUnpurchasable(item({ status: 'approved', orderId: 'o1' }), ordering, caller())).toBe(false);
+    expect(canMarkUnpurchasable(approved, { ...ordering, status: 'receiving' }, caller())).toBe(false);
+    expect(canMarkUnpurchasable(approved, ordering, caller({ archived: true }))).toBe(false);
   });
 });

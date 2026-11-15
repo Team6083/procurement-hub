@@ -104,3 +104,12 @@ export function canReview(b: Batch, c: Caller): boolean {
 export function canForceReject(it: Pick<Item, 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
   return !c.archived && canAdmin(c) && b.status === 'reviewing' && (it.status === 'pending' || it.status === 'returned');
 }
+
+/**
+ * Mirrors backend MarkUnpurchasable: purchasers and team admins (system admins have no implicit purchaser role),
+ * batch `ordering`, item `approved` and not part of an order.
+ */
+export function canMarkUnpurchasable(it: Pick<Item, 'status' | 'orderId'>, b: Pick<Batch, 'status' | 'assignments'>, c: Caller): boolean {
+  if (c.archived || b.status !== 'ordering' || it.status !== 'approved' || it.orderId) return false;
+  return isTeamAdmin(c) || b.assignments.purchasers.includes(c.userId);
+}

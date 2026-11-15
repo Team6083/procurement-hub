@@ -150,9 +150,9 @@ export function usePutItem(batchId: string) {
 
 export function useItemAction(batchId: string) {
   const api = useApi();
-  return useGuardedMutation<{ item: Item; action: 'withdraw' | 'resubmit' | 'force-reject'; reason?: string }, Item>({
+  return useGuardedMutation<{ item: Item; action: 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable'; reason?: string }, Item>({
     mutationFn: ({ item, action, reason }) =>
-      api.post<Item>(`/items/${item.id}/${action}`, action === 'force-reject' ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
+      api.post<Item>(`/items/${item.id}/${action}`, action === 'force-reject' || action === 'unpurchasable' ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
     ...useItemsChanged(batchId),
   });
 }

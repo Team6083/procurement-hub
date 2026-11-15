@@ -7,7 +7,7 @@ const BATCH_COLOR: Record<BatchStatus, string> = {
   ordering: 'cyan', receiving: 'teal', completed: 'green', cancelled: 'gray',
 };
 const ITEM_COLOR: Partial<Record<ItemStatus, string>> = {
-  pending: 'yellow', approved: 'green', returned: 'orange', rejected: 'red', withdrawn: 'gray',
+  pending: 'yellow', approved: 'green', returned: 'orange', rejected: 'red', withdrawn: 'gray', unpurchasable: 'gray',
 };
 
 export function BatchStatusBadge({ status }: { status: BatchStatus }) {

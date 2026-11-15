@@ -45,9 +45,10 @@ export function MyTasksCard() {
   const proposals = (d?.proposalsToHandle ?? []) as TaskLike[];
   const review = (d?.itemsToReview ?? []) as TaskLike[];
   const returned = d?.returnedItems ?? [];
+  const order = (d?.batchesToOrder ?? []) as TaskLike[];
   const receive = (d?.itemsToReceive ?? []) as TaskLike[];
   const exceptions = (d?.openExceptions ?? []) as TaskLike[];
-  const empty = proposals.length + review.length + returned.length + receive.length + exceptions.length === 0;
+  const empty = proposals.length + review.length + returned.length + order.length + receive.length + exceptions.length === 0;
 
   if (tasks.isPending) return <Skeleton h="24" rounded="l3" />;
   if (tasks.error) return <ErrorAlert error={tasks.error} />;
@@ -81,6 +82,12 @@ export function MyTasksCard() {
             #{i.seqNo} {i.name}{i.review?.comment ? ` — ${i.review.comment}` : ''}
           </RouteAnchor>
         ))}
+      </TaskGroup>
+      <TaskGroup title={tb('tasks.order')} count={order.length}>
+        {order.map((x) => {
+          const b = taskBatch(x);
+          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.toOrderCount', { count: taskCount(x) })})</RouteAnchor>;
+        })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.receive')} count={receive.length}>
         {receive.map((x) => {

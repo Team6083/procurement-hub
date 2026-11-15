@@ -12,7 +12,7 @@ import { EstimateSummary } from './EstimateSummary';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
 import { countsTowardEstimate, filterItems, type ItemFilters } from './filters';
-import { canAddItem, canModifyItem, canResubmitItem, showResubmit, type Caller } from './rules';
+import { canAddItem, canMarkUnpurchasable, canModifyItem, canResubmitItem, showResubmit, type Caller } from './rules';
 import { EmptyState } from '@team6083/ui';
 import { LuPackageOpen } from 'react-icons/lu';
 
@@ -33,6 +33,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
+  const [unbuyable, setUnbuyable] = useState<Item | null>(null);
   const action = useItemAction(batch.id);
 
   const visible = useMemo(() => filterItems(items, filters), [items, filters]);
@@ -75,6 +76,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
             <>
               {canModifyItem(it, batch, caller) && <Button size="2xs" variant="outline" onClick={() => setEditing(it)}>{t('common:actions.edit')}</Button>}
               {canModifyItem(it, batch, caller) && <Button size="2xs" variant="subtle" colorPalette="red" onClick={() => { action.reset(); setWithdrawing(it); }}>{t('item.withdraw')}</Button>}
+              {canMarkUnpurchasable(it, batch, caller) && (
+                <Button size="2xs" variant="subtle" colorPalette="red" onClick={() => { action.reset(); setUnbuyable(it); }}>{t('item.unpurchasable')}</Button>
+              )}
               {showResubmit(it, batch, caller) && (
                 <Tooltip content={t('item.resubmitNeedsEdit')} disabled={canResubmitItem(it, batch, caller)}>
                   <Box as="span" display="inline-block">
@@ -107,6 +111,18 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         error={withdrawing ? action.error : null}
         onClose={() => setWithdrawing(null)}
         onConfirm={() => withdrawing && action.mutate({ item: withdrawing, action: 'withdraw' }, { onSuccess: () => setWithdrawing(null) })}
+      />
+      <ReasonModal
+        opened={!!unbuyable}
+        title={t('item.unpurchasable')}
+        body={t('item.unpurchasableHelp', { name: unbuyable?.name })}
+        reasonLabel={t('item.unpurchasableReason')}
+        confirmLabel={t('item.unpurchasable')}
+        danger
+        loading={action.isPending}
+        error={unbuyable ? action.error : null}
+        onClose={() => setUnbuyable(null)}
+        onConfirm={(reason) => unbuyable && action.mutate({ item: unbuyable, action: 'unpurchasable', reason }, { onSuccess: () => setUnbuyable(null) })}
       />
     </Stack>
   );
