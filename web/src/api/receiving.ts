@@ -1,4 +1,4 @@
-import { useQuery, type QueryKey } from '@tanstack/react-query';
+import { useQueries, useQuery, type QueryKey } from '@tanstack/react-query';
 import { auditKey, batchKey, batchesKey, itemsKey, tasksKey } from './batches';
 import { useApi } from './context';
 import { ordersKey } from './orders';
@@ -28,6 +28,17 @@ export function useItemExceptions(itemId: string | undefined, enabled = true) {
     queryKey: exceptionsKey(itemId),
     enabled: !!itemId && enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: ItemException[] }>(`/items/${itemId}/exceptions`, { signal })).items,
+  });
+}
+
+/** GET /items/{id}/exceptions for several items at once (same cache entries as useItemExceptions). */
+export function useItemExceptionsOf(itemIds: string[]) {
+  const api = useApi();
+  return useQueries({
+    queries: itemIds.map((itemId) => ({
+      queryKey: exceptionsKey(itemId),
+      queryFn: async ({ signal }: { signal: AbortSignal }) => (await api.get<{ items: ItemException[] }>(`/items/${itemId}/exceptions`, { signal })).items,
+    })),
   });
 }
 

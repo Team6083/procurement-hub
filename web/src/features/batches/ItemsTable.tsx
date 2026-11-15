@@ -1,12 +1,10 @@
-import { Badge, Box, Button, Checkbox, HStack, Link, Table, Text } from '@chakra-ui/react';
-import {
-  createSortedRowModel, createColumnHelper, rowSelectionFeature, rowSortingFeature, sortFn_basic, sortFn_text, tableFeatures, useTable,
-  type RowSelectionState, type SortingState,
-} from '@tanstack/react-table';
+import { Badge, Box, Button, Icon, Link, Text } from '@chakra-ui/react';
+import { type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
+import { DataTable } from '../../components/DataTable';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuArrowDown, LuArrowUp } from 'react-icons/lu';
 import type { Item, Team } from '../../api/types';
-import { TableShell } from '../../components/ui/table';
 import { Tooltip } from '../../components/ui/tooltip';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
 import { format, parseDecSafe } from './decimal';
@@ -14,148 +12,120 @@ import { lineTotal } from './estimates';
 import { safeHttpUrl } from './itemForm';
 import { ItemStatusBadge } from './StatusBadges';
 
-const features = tableFeatures({
-  rowSortingFeature,
-  rowSelectionFeature,
-  sortedRowModel: createSortedRowModel(),
-  sortFns: { basic: sortFn_basic, text: sortFn_text },
-});
-/** An item plus its requester's display name; the table caches cell values per data row, so the name must live in the data. */
-type Row = Item & { requesterName: string };
-const helper = createColumnHelper<typeof features, Row>();
+type SortKey = 'name' | 'requester' | 'subgroup' | 'priority' | 'quantity' | 'unitPrice' | 'lineTotal' | 'vendor' | 'status';
+interface Sort { key: SortKey; desc: boolean }
 
 interface Props {
   items: Item[];
   team: Team | undefined;
   nameOf: (userId: string) => string;
-  /** Row actions (edit/withdraw/resubmit/force-reject) rendered in the last column. */
-  actions?: (item: Item) => ReactNode;
-  selectable?: boolean;
-  selection: RowSelectionState;
-  onSelectionChange: (s: RowSelectionState) => void;
+  /** False for viewers who cannot read the team's members: the requester column is left out. */
+  showRequester?: boolean;
+  /** A row's actions (edit, withdraw, resubmit, force reject...), folded into its ⋯ menu. */
+  rowActions?: (item: Item) => RowAction[];
+  selection?: DataTableSelection<Item>;
+  empty?: ReactNode;
 }
 
-/** Spreadsheet-like items table: sortable columns, multi-select, inline line totals. */
-export function ItemsTable({ items, team, nameOf, actions, selectable = true, selection, onSelectionChange }: Props) {
+const total = (i: Item) => {
+  const d = lineTotal(i);
+  return Number(d.n) / 10 ** d.s;
+};
+
+/** The batch's items: name first, numbers right-aligned, detail columns dropped on narrow screens; sortable by any column. */
+export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty }: Props) {
   const { t } = useTranslation('batches');
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sort, setSort] = useState<Sort | null>(null);
   const subgroupName = (id: string) => team?.subgroups.find((g) => g.id === id)?.name ?? '';
   const prio = (p: number) => priorityLabel(team?.priorityLabels, String(p) as PriorityKey, (k) => t(`teams:priority.default.${k}`));
 
-  const columns = useMemo(
-    () =>
-      helper.columns([
-        helper.accessor('seqNo', { id: 'seqNo', header: '#', sortFn: 'basic', cell: (c) => `#${c.getValue()}` }),
-        helper.accessor('name', {
-          id: 'name', header: t('item.name'), sortFn: 'text',
-          cell: (c) => {
-            const it = c.row.original;
-            const url = safeHttpUrl(it.productUrl);
-            return (
-              <Box>
-                {url ? (
-                  <Link href={url} target="_blank" rel="noopener noreferrer" color="brand.fg">{it.name}</Link>
-                ) : (
-                  <Text as="span">{it.name}</Text>
-                )}
-                {it.status === 'returned' && it.review?.comment && (
-                  <Text textStyle="xs" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
-                )}
-                {it.status === 'rejected' && it.review?.comment && (
-                  <Text textStyle="xs" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
-                )}
-              </Box>
-            );
-          },
-        }),
-        helper.accessor((r) => subgroupName(r.subgroupId), { id: 'subgroup', header: t('item.subgroup'), sortFn: 'text' }),
-        helper.accessor('requesterName', { id: 'requester', header: t('item.requester'), sortFn: 'text' }),
-        helper.accessor('priority', {
-          id: 'priority', header: t('item.priority'), sortFn: 'basic',
-          cell: (c) => (
-            <Tooltip content={prio(c.getValue())}>
-              <Badge variant="outline" tabIndex={0}>{c.getValue()}</Badge>
-            </Tooltip>
-          ),
-        }),
-        helper.accessor('quantity', { id: 'quantity', header: t('item.quantity'), sortFn: 'basic' }),
-        helper.accessor((r) => Number(r.estimatedUnitPrice.amount), {
-          id: 'unitPrice', header: t('item.unitPrice'), sortFn: 'basic',
-          cell: (c) => `${format(parseDecSafe(c.row.original.estimatedUnitPrice.amount))} ${c.row.original.estimatedUnitPrice.currency}`,
-        }),
-        helper.accessor((r) => Number(lineTotal(r).n) / 10 ** lineTotal(r).s, {
-          id: 'lineTotal', header: t('item.lineTotal'), sortFn: 'basic',
-          cell: (c) => `${format(lineTotal(c.row.original))} ${c.row.original.estimatedUnitPrice.currency}`,
-        }),
-        helper.accessor('vendor', { id: 'vendor', header: t('item.vendor'), sortFn: 'text' }),
-        helper.accessor('status', { id: 'status', header: t('item.status'), sortFn: 'text', cell: (c) => <ItemStatusBadge status={c.getValue()} /> }),
-      ]),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [t, team],
-  );
+  const rows = useMemo(() => {
+    if (!sort) return items;
+    const value = (i: Item): string | number => {
+      switch (sort.key) {
+        case 'name': return i.name;
+        case 'requester': return nameOf(i.requesterId);
+        case 'subgroup': return team?.subgroups.find((g) => g.id === i.subgroupId)?.name ?? '';
+        case 'priority': return i.priority;
+        case 'quantity': return i.quantity;
+        case 'unitPrice': return Number(i.estimatedUnitPrice.amount);
+        case 'lineTotal': return total(i);
+        case 'vendor': return i.vendor;
+        case 'status': return t(`itemStatus.${i.status}`, { defaultValue: i.status });
+      }
+    };
+    const sorted = [...items].sort((a, b) => {
+      const x = value(a);
+      const y = value(b);
+      return typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
+    });
+    return sort.desc ? sorted.reverse() : sorted;
+  }, [items, sort, nameOf, team, t]);
 
-  // Names usually arrive after the items (member list loads separately); new row objects make the table recompute.
-  const data = useMemo<Row[]>(() => items.map((i) => ({ ...i, requesterName: nameOf(i.requesterId) })), [items, nameOf]);
-
-  const table = useTable({
-    features, columns, data,
-    getRowId: (r) => r.id,
-    enableRowSelection: selectable,
-    // Like a spreadsheet: the first click sorts ascending for text and numbers alike.
-    sortDescFirst: false,
-    state: { sorting, rowSelection: selection },
-    onSortingChange: setSorting,
-    onRowSelectionChange: (u) => onSelectionChange(typeof u === 'function' ? u(selection) : u),
+  // Like a spreadsheet: the first click sorts ascending, the second descending, the third restores the batch order.
+  const header = (key: SortKey, label: string, numeric = false) => {
+    const dir = sort?.key === key ? (sort.desc ? 'descending' : 'ascending') : undefined;
+    const next = () => setSort(!dir ? { key, desc: false } : dir === 'ascending' ? { key, desc: true } : null);
+    return (
+      <Button variant="plain" size="sm" px="0" h="auto" minW="0" color="inherit" fontWeight="inherit" data-sort={dir} onClick={next}
+        flexDirection={numeric ? 'row-reverse' : 'row'}>
+        {label}
+        {dir && <Icon boxSize="3" aria-hidden>{dir === 'ascending' ? <LuArrowUp /> : <LuArrowDown />}</Icon>}
+      </Button>
+    );
+  };
+  const col = (key: SortKey, label: string, rest: Omit<DataColumn<Item>, 'key' | 'header' | 'label'>): DataColumn<Item> => ({
+    key, label, header: header(key, label, rest.numeric), ...rest,
   });
-  const all = table.getIsAllRowsSelected();
-  const some = table.getIsSomeRowsSelected();
+
+  const columns: DataColumn<Item>[] = [
+    col('name', t('item.name'), {
+      priority: 'primary',
+      cell: (it) => {
+        const url = safeHttpUrl(it.productUrl);
+        return (
+          <Box as="span" display="block" textAlign="start">
+            <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
+            {url ? <Link href={url} target="_blank" rel="noopener noreferrer" color="brand.fg">{it.name}</Link> : <Text as="span">{it.name}</Text>}
+            {it.status === 'returned' && it.review?.comment && (
+              <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
+            )}
+            {it.status === 'rejected' && it.review?.comment && (
+              <Text textStyle="xs" fontWeight="normal" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
+            )}
+          </Box>
+        );
+      },
+    }),
+    ...(showRequester ? [col('requester', t('item.requester'), { cell: (it) => nameOf(it.requesterId) })] : []),
+    col('subgroup', t('item.subgroup'), { priority: 'secondary', cell: (it) => subgroupName(it.subgroupId) || '—' }),
+    col('priority', t('item.priority'), {
+      priority: 'secondary',
+      cell: (it) => (
+        <Tooltip content={prio(it.priority)}>
+          <Badge variant="outline" tabIndex={0}>{it.priority}</Badge>
+        </Tooltip>
+      ),
+    }),
+    col('vendor', t('item.vendor'), { priority: 'secondary', cell: (it) => it.vendor || '—' }),
+    col('quantity', t('item.quantity'), { numeric: true, cell: (it) => it.quantity }),
+    col('unitPrice', t('item.unitPrice'), {
+      numeric: true, priority: 'secondary',
+      cell: (it) => `${format(parseDecSafe(it.estimatedUnitPrice.amount))} ${it.estimatedUnitPrice.currency}`,
+    }),
+    col('lineTotal', t('item.lineTotal'), { numeric: true, cell: (it) => `${format(lineTotal(it))} ${it.estimatedUnitPrice.currency}` }),
+    col('status', t('item.status'), { cell: (it) => <ItemStatusBadge status={it.status} /> }),
+  ];
 
   return (
-    <TableShell minW="900px" interactive>
-      <Table.Header>
-        <Table.Row>
-          {selectable && (
-            <Table.ColumnHeader w="8">
-              <Checkbox.Root size="sm" checked={all ? true : some ? 'indeterminate' : false} onCheckedChange={(e) => table.toggleAllRowsSelected(!!e.checked)}>
-                <Checkbox.HiddenInput aria-label={t('item.selectAll')} />
-                <Checkbox.Control />
-              </Checkbox.Root>
-            </Table.ColumnHeader>
-          )}
-          {table.getHeaderGroups()[0]?.headers.map((h) => {
-            const dir = h.column.getIsSorted();
-            return (
-              <Table.ColumnHeader key={h.id} aria-sort={dir === 'asc' ? 'ascending' : dir === 'desc' ? 'descending' : 'none'}>
-                <Button variant="plain" px="0" h="auto" fontWeight="semibold" onClick={h.column.getToggleSortingHandler()}>
-                  <HStack gap="1">
-                    <table.FlexRender header={h} />
-                    <span aria-hidden>{dir === 'asc' ? '▲' : dir === 'desc' ? '▼' : ''}</span>
-                  </HStack>
-                </Button>
-              </Table.ColumnHeader>
-            );
-          })}
-          {actions && <Table.ColumnHeader />}
-        </Table.Row>
-      </Table.Header>
-      <Table.Body>
-        {table.getRowModel().rows.map((row) => (
-          <Table.Row key={row.id} bg={row.getIsSelected() ? 'brand.subtle' : undefined} aria-selected={selectable ? row.getIsSelected() : undefined}>
-            {selectable && (
-              <Table.Cell>
-                <Checkbox.Root size="sm" checked={row.getIsSelected()} onCheckedChange={(e) => row.toggleSelected(!!e.checked)}>
-                  <Checkbox.HiddenInput aria-label={t('item.selectRow')} />
-                  <Checkbox.Control />
-                </Checkbox.Root>
-              </Table.Cell>
-            )}
-            {row.getAllCells().map((cell) => (
-              <Table.Cell key={cell.id}><table.FlexRender cell={cell} /></Table.Cell>
-            ))}
-            {actions && <Table.Cell><HStack gap="2">{actions(row.original)}</HStack></Table.Cell>}
-          </Table.Row>
-        ))}
-      </Table.Body>
-    </TableShell>
+    <DataTable
+      aria-label={t('tabs.items')}
+      rows={rows}
+      columns={columns}
+      getRowId={(i) => i.id}
+      selection={selection}
+      rowActions={rowActions}
+      empty={empty}
+    />
   );
 }

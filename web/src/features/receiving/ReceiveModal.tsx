@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { useItemReceipts, useRecordReceipt } from '../../api/receiving';
 import type { Item } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { shortDate } from '../dates';
 import { AppDialog } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { MAX_RECEIPT_NOTE, checkReceipt, remainingQuantity } from './rules';
@@ -39,7 +40,7 @@ function Inner({ item, batchId, nameOf, onClose }: Props & { item: Item }) {
           <List.Root ps="4" color="fg.muted">
             {receipts.data.map((r) => (
               <List.Item key={r.id}>
-                {t('receive.historyEntry', { quantity: r.quantity, who: nameOf(r.receivedBy), when: new Date(r.receivedAt).toLocaleString() })}
+                {t('receive.historyEntry', { quantity: r.quantity, who: nameOf(r.receivedBy), when: shortDate(r.receivedAt) })}
                 {r.note && ` — ${r.note}`}
               </List.Item>
             ))}

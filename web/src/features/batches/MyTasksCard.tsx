@@ -1,4 +1,4 @@
-import { Card, Skeleton, Stack } from '@chakra-ui/react';
+import { Badge, Card, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, SectionHeader } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,6 +16,16 @@ export function taskBatch(t: TaskLike): Batch | undefined {
 }
 export function taskCount(t: TaskLike): number {
   return t.Count ?? t.count ?? 0;
+}
+
+/** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
+function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
+  return (
+    <HStack gap="2" wrap="wrap">
+      <RouteAnchor to={paths.batch(batch.id)}>#{batch.number} {batch.title}</RouteAnchor>
+      {badge && <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{badge}</Badge>}
+    </HStack>
+  );
 }
 
 /** One kind of task: its title and count, then a card of links. */
@@ -67,38 +77,39 @@ export function MyTasksCard() {
       <TaskGroup title={tb('tasks.proposals')} count={proposals.length}>
         {proposals.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title}</RouteAnchor>;
+          return b && <BatchTask key={b.id} batch={b} />;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.review')} count={review.length}>
         {review.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.pendingCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.pendingCount', { count: taskCount(x) })} />;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.returned')} count={returned.length}>
         {returned.map((i) => (
-          <RouteAnchor key={i.id} to={paths.batch(i.batchId)}>
-            #{i.seqNo} {i.name}{i.review?.comment ? ` — ${i.review.comment}` : ''}
-          </RouteAnchor>
+          <Stack key={i.id} gap="0">
+            <RouteAnchor to={paths.batch(i.batchId)}>#{i.seqNo} {i.name}</RouteAnchor>
+            {i.review?.comment && <Text textStyle="sm" color="fg.muted">{i.review.comment}</Text>}
+          </Stack>
         ))}
       </TaskGroup>
       <TaskGroup title={tb('tasks.order')} count={order.length}>
         {order.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.toOrderCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.toOrderCount', { count: taskCount(x) })} />;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.receive')} count={receive.length}>
         {receive.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.toReceiveCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.toReceiveCount', { count: taskCount(x) })} />;
         })}
       </TaskGroup>
       <TaskGroup title={tb('tasks.exceptions')} count={exceptions.length}>
         {exceptions.map((x) => {
           const b = taskBatch(x);
-          return b && <RouteAnchor key={b.id} to={paths.batch(b.id)}>#{b.number} {b.title} ({tb('tasks.exceptionCount', { count: taskCount(x) })})</RouteAnchor>;
+          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.exceptionCount', { count: taskCount(x) })} />;
         })}
       </TaskGroup>
     </Stack>

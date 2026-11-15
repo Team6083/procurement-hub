@@ -1,7 +1,6 @@
-import { Badge, Box, Button, Card, HStack, SimpleGrid, Skeleton, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
-import { PageHeader } from '@team6083/ui';
+import { Badge, Button, Card, HStack, Skeleton, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
+import { FactList, PageHeader } from '@team6083/ui';
 import { LuPencil } from 'react-icons/lu';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useBatch, useItems } from '../api/batches';
@@ -22,15 +21,7 @@ import { ReceivingTab } from '../features/receiving/ReceivingTab';
 import { canSeeReceiving } from '../features/receiving/rules';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
-
-function Fact({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <Box>
-      <Text textStyle="xs" color="fg.muted">{label}</Text>
-      <Text>{children}</Text>
-    </Box>
-  );
-}
+import { shortDate } from '../features/dates';
 
 export function BatchPage() {
   const { t } = useTranslation('batches');
@@ -61,7 +52,12 @@ export function BatchPage() {
       <PageHeader
         mb="0"
         title={`#${batch.number} ${batch.title}`}
-        badge={<BatchStatusBadge status={batch.status} />}
+        badge={
+          <HStack gap="2">
+            <BatchStatusBadge status={batch.status} />
+            {batch.origin === 'proposed' && <Badge variant="outline">{t('header.proposed')}</Badge>}
+          </HStack>
+        }
         description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
         actions={
           <HStack wrap="wrap">
@@ -79,14 +75,16 @@ export function BatchPage() {
       {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
       <Card.Root size="sm">
         <Card.Body>
-          <SimpleGrid columns={{ base: 2, md: 3, lg: 6 }} gap="4" alignItems="start">
-            <Fact label={t('header.deadline')}>{batch.deadline ? new Date(batch.deadline).toLocaleString() : '—'}</Fact>
-            <Fact label={t('header.visibility')}>{visibility ? t(`visibility.${visibility}`) : '—'}</Fact>
-            <Fact label={t('assignments.approvers')}>{who(batch.assignments.approvers)}</Fact>
-            <Fact label={t('assignments.purchasers')}>{who(batch.assignments.purchasers)}</Fact>
-            <Fact label={t('assignments.receivers')}>{who(batch.assignments.receivers)}</Fact>
-            {batch.origin === 'proposed' && <Box><Badge variant="outline">{t('header.proposed')}</Badge></Box>}
-          </SimpleGrid>
+          <FactList
+            minChildWidth={{ base: '9rem', md: '12rem' }}
+            items={[
+              { label: t('header.deadline'), value: shortDate(batch.deadline) },
+              { label: t('header.visibility'), value: visibility ? t(`visibility.${visibility}`) : '—' },
+              { label: t('assignments.approvers'), value: who(batch.assignments.approvers) },
+              { label: t('assignments.purchasers'), value: who(batch.assignments.purchasers) },
+              { label: t('assignments.receivers'), value: who(batch.assignments.receivers) },
+            ]}
+          />
         </Card.Body>
       </Card.Root>
 

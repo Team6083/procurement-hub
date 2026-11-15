@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openAs, reloadSignedIn, type Session } from './support/app';
-import { addItem, expectBatchStatus, itemRow, localInputInDays } from './support/batch';
+import { addItem, expectBatchStatus, itemRow, localInputInDays, openRowMenu, selectionBar, statusFilter } from './support/batch';
 import { runId, users, type UserKey } from './support/env';
 import { addToGroup, ensureTeamGroup, removeFromGroup } from './support/keycloak';
 
@@ -153,32 +153,35 @@ async function decide(page: Page, itemName: string, decision: 'approve' | 'retur
   await box.dispatchEvent('click');
   await expect(box).toBeChecked();
   if (decision === 'approve') {
-    await page.getByRole('button', { name: 'Approve selected (1)' }).click();
+    await selectionBar(page).getByRole('button', { name: 'Approve selected (1)' }).click();
   } else {
     const label = decision === 'return' ? 'Return' : 'Reject';
-    await page.getByRole('button', { name: label, exact: true }).click();
+    await selectionBar(page).getByRole('button', { name: label, exact: true }).click();
     const dialog = page.getByRole('dialog', { name: label });
     await dialog.getByLabel('Comment').fill(comment);
     await dialog.getByRole('button', { name: label }).click();
     await expect(dialog).toBeHidden();
   }
   if (pendingAfter === null) return;
-  // Settled: the list was reloaded and the selection cleared.
-  await expect(page.getByText(`Pending items (${pendingAfter})`)).toBeVisible();
-  await expect(page.getByRole('button', { name: /^Approve selected/ })).toHaveText('Approve selected (0)');
+  // Settled: the selection was cleared and the reloaded list (on the pending filter) shrank.
+  await expect(selectionBar(page)).toHaveCount(0);
+  await expect(page.getByRole('row').filter({ hasText: 'Pending' })).toHaveCount(pendingAfter);
 }
 
 test('the reviewer approves, returns and rejects; the batch stays in review (21.4)', async ({ browser }) => {
   const page = await as(browser, 'carol', batchPath);
   // A reviewer's Items table opens on the pending filter.
-  await expect(page.getByRole('combobox', { name: 'Status' })).toHaveValue('pending');
-  await expect(page.getByText('Pending items (3)')).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Filter\s*1$/ })).toBeVisible();
+  await expect(await statusFilter(page)).toHaveValue('pending');
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('row').filter({ hasText: 'Pending' })).toHaveCount(3);
 
   await decide(page, items.kit.name, 'approve', 2);
   await decide(page, items.servo.name, 'return', 1, 'Which model? Add the SKU.');
   await decide(page, items.cable.name, 'reject', 0, 'We have plenty of these.');
 
-  await page.getByRole('combobox', { name: 'Status' }).selectOption({ label: 'Returned' });
+  await (await statusFilter(page)).selectOption({ label: 'Returned' });
+  await page.keyboard.press('Escape');
   await expect(itemRow(page, items.servo.name)).toContainText('Returned');
   await expectBatchStatus(page, 'Reviewing');
 });
@@ -187,21 +190,24 @@ test('the requester edits and resubmits the returned item; its approval moves th
   const page = await as(browser, 'alice', batchPath);
   const row = itemRow(page, items.servo.name);
   await expect(row).toContainText('Returned: Which model? Add the SKU.');
-  await expect(row.getByRole('button', { name: 'Resubmit' })).toBeDisabled();
-
-  await row.getByRole('button', { name: 'Edit' }).click();
+  // No buttons in rows: Resubmit waits in the row's menu, disabled until the item is edited.
+  await openRowMenu(page, items.servo.name);
+  await expect(page.getByRole('menuitem', { name: /^Resubmit/ })).toBeDisabled();
+  await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit item' });
   await dialog.getByLabel('SKU').fill('MG996R');
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
-  await row.getByRole('button', { name: 'Resubmit' }).click();
+  await openRowMenu(page, items.servo.name);
+  await page.getByRole('menuitem', { name: 'Resubmit', exact: true }).click();
   await expect(row).toContainText('Pending');
   await expectBatchStatus(page, 'Reviewing');
 
   const carol = await as(browser, 'carol', batchPath);
   await decide(carol, items.servo.name, 'approve', null);
   await expectBatchStatus(carol, 'Ordering');
-  await carol.getByRole('combobox', { name: 'Status' }).selectOption({ label: 'All' });
+  await (await statusFilter(carol)).selectOption({ label: 'All' });
+  await carol.keyboard.press('Escape');
   await expect(itemRow(carol, items.kit.name)).toContainText('Approved');
   await expect(itemRow(carol, items.servo.name)).toContainText('Approved');
   await expect(itemRow(carol, items.cable.name)).toContainText('Rejected');

@@ -28,3 +28,19 @@ export function localInputInDays(days: number): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
+
+/** The Items tab's status filter, behind the 篩選 (Filter) button; opens the popover when it is closed. */
+export async function statusFilter(page: Page): Promise<Locator> {
+  const select = page.getByRole('combobox', { name: 'Status' });
+  if (!(await select.isVisible())) await page.getByRole('button', { name: /^Filter/ }).click();
+  await expect(select).toBeVisible();
+  return select;
+}
+
+/** Opens the ⋯ menu of the item's row. */
+export async function openRowMenu(page: Page, name: string): Promise<void> {
+  await itemRow(page, name).getByRole('button', { name: 'More actions' }).click();
+}
+
+/** The bar that appears once rows are picked. */
+export const selectionBar = (page: Page): Locator => page.getByRole('region', { name: /selected$/ });

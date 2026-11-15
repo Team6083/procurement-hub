@@ -1,4 +1,4 @@
-import { Button, Flex, Input, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Input, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useCreateOrder } from '../../api/orders';
@@ -16,14 +16,17 @@ interface Props {
   onDone: () => void;
 }
 
-/** Creates a team order from the selected approved items; the vendor defaults to the items' common vendor. */
+/**
+ * Creates a team order from the selected approved items, inside the items' SelectionBar; the vendor defaults to
+ * the items' common vendor. Renders nothing for a non-purchaser or when no orderable item is picked.
+ */
 export function OrderBar({ batch, caller, selected, onDone }: Props) {
   const { t } = useTranslation('orders');
   const createOrder = useCreateOrder(batch.id);
   const [typedVendor, setTypedVendor] = useState<string | undefined>();
   const vendor = typedVendor ?? commonVendor(selected.map((i) => i.vendor));
 
-  if (!canCreateOrder(batch, caller)) return null;
+  if (!canCreateOrder(batch, caller) || selected.length === 0) return null;
 
   const submit = () =>
     createOrder.mutate(
@@ -32,17 +35,15 @@ export function OrderBar({ batch, caller, selected, onDone }: Props) {
     );
 
   return (
-    <Stack gap="3">
-      <Flex gap="3" align="flex-end" wrap="wrap">
-        <Stack gap="1" minW="64">
-          <Text textStyle="sm" fontWeight="medium">{t('create.vendor')}</Text>
-          <Input aria-label={t('create.vendor')} value={vendor} maxLength={MAX_VENDOR_LENGTH} onChange={(e) => setTypedVendor(e.currentTarget.value)} />
-        </Stack>
-        <Button disabled={selected.length === 0 || vendor.trim() === ''} loading={createOrder.isPending} onClick={submit}>
+    <>
+      {createOrder.error && <Box w="full"><ErrorAlert error={createOrder.error} /></Box>}
+      <Input size="sm" w={{ base: 'full', sm: '56' }} aria-label={t('create.vendor')} placeholder={t('create.vendor')} value={vendor} maxLength={MAX_VENDOR_LENGTH}
+        onChange={(e) => setTypedVendor(e.currentTarget.value)} />
+      {vendor.trim() === '' ? <Text textStyle="sm" color="fg.muted">{t('create.needVendor')}</Text> : (
+        <Button size="sm" loading={createOrder.isPending} onClick={submit}>
           {t('create.submit', { count: selected.length })}
         </Button>
-      </Flex>
-      <ErrorAlert error={createOrder.error} />
-    </Stack>
+      )}
+    </>
   );
 }

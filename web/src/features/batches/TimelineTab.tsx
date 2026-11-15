@@ -6,6 +6,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { auditActionKey, isSystemActor } from './audit';
 import { EmptyState } from '@team6083/ui';
 import { LuHistory } from 'react-icons/lu';
+import { shortDate } from '../dates';
 
 function statusChange(ev: AuditEvent, t: (k: string, o?: Record<string, unknown>) => string): string | null {
   const c = ev.changes?.find((x) => x.field === 'status');
@@ -38,7 +39,7 @@ export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id:
                 <Timeline.Title>{t(auditActionKey(ev.action), { defaultValue: t('timeline.generic', { action: ev.action }) })}</Timeline.Title>
                 {sc && <Text fontSize="sm">{sc}</Text>}
                 {ev.comment && <Text fontSize="sm" color="fg.muted" whiteSpace="pre-wrap">“{ev.comment}”</Text>}
-                <Timeline.Description>{actor} · {new Date(ev.at).toLocaleString()}</Timeline.Description>
+                <Timeline.Description>{actor} · {shortDate(ev.at)}</Timeline.Description>
               </Timeline.Content>
             </Timeline.Item>
           );

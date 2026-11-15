@@ -1,15 +1,15 @@
-import { Button, Checkbox, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
-import { EmptyState, SectionHeader } from '@team6083/ui';
+import { Button, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { EmptyState, SectionHeader, SelectionBar, Totals, type RowAction } from '@team6083/ui';
+import { DataTable } from '../../components/DataTable';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuShoppingCart } from 'react-icons/lu';
+import { LuPencil, LuScale, LuShoppingCart, LuX } from 'react-icons/lu';
 import { useMeta } from '../../api/meta';
 import { useCancelOrder, useOrders } from '../../api/orders';
 import type { Batch, Item, Order } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { RouteAnchor } from '../../components/RouteLinks';
-import { TableShell } from '../../components/ui/table';
 import { paths } from '../../paths';
 import { ZERO, add, format, parseDecSafe } from '../batches/decimal';
 import type { Caller } from '../batches/rules';
@@ -33,116 +33,91 @@ export function OrdersTab({ batch, caller, items }: Props) {
   const base = meta.data?.baseCurrency ?? '';
   const orders = useOrders(batch.id);
   const cancel = useCancelOrder(batch.id);
-  const [orderSel, setOrderSel] = useState<Record<string, boolean>>({});
+  const [orderSel, setOrderSel] = useState<string[]>([]);
   const [editing, setEditing] = useState<Order | null>(null);
   const [adjusting, setAdjusting] = useState<Order | null>(null);
   const [cancelling, setCancelling] = useState<Order | null>(null);
   const [external, setExternal] = useState(false);
 
   const list = orders.data ?? [];
-  const selectedOrders = list.filter((o) => orderSel[o.id] && isAvailableOrder(o));
+  const selectedOrders = list.filter((o) => orderSel.includes(o.id) && isAvailableOrder(o));
   const mayExternal = canCreateVendorTransaction(batch, caller);
   const itemName = (id: string) => items.find((i) => i.id === id)?.name;
 
   if (orders.isPending) return <Skeleton h="24" rounded="l3" />;
   if (orders.error) return <ErrorAlert error={orders.error} />;
 
+  const actionsOf = (o: Order): RowAction[] => [
+    ...(canChangeOrder(o, batch, caller) ? [{ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(o) }] : []),
+    ...(canAdjust(o, batch, caller) ? [{ value: 'adjust', icon: <LuScale />, label: t('adjust.button'), onSelect: () => setAdjusting(o) }] : []),
+    ...(canChangeOrder(o, batch, caller) ? [{ value: 'cancel', icon: <LuX />, label: t('orders.cancel'), danger: true, onSelect: () => { cancel.reset(); setCancelling(o); } }] : []),
+  ];
   const live = list.filter((o) => o.status !== 'cancelled');
   const total = live.reduce((s, o) => add(s, parseDecSafe(o.totalBase)), ZERO);
 
   return (
     <Stack gap="6">
       <Stack gap="3">
-        <SectionHeader
-          title={t('orders.title')}
-          count={list.length}
-          mb="0"
-          actions={mayExternal && (
-            <Button disabled={selectedOrders.length === 0} onClick={() => setExternal(true)}>
-              {t('orders.createExternal', { count: selectedOrders.length })}
-            </Button>
-          )}
-        />
+        <SectionHeader title={t('orders.title')} count={list.length} mb="0" />
         {mayExternal && (
           <Text color="fg.muted" textStyle="sm">
             {t('orders.placeHint')} <RouteAnchor to={paths.placeOrders}>{t('orders.placeLink')}</RouteAnchor>
           </Text>
         )}
-        {list.length === 0 ? (
-          <EmptyState icon={<LuShoppingCart />} title={t('orders.empty')} description={batch.status === 'ordering' ? t('orders.emptyOrdering') : t('orders.emptyNotOrdering')} />
-        ) : (
-          <TableShell minW="900px">
-            <Table.Header>
-              <Table.Row>
-                {mayExternal && <Table.ColumnHeader w="8" />}
-                <Table.ColumnHeader>{t('orders.number')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('create.vendor')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('orders.status')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('cost.items', { currency: base })}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('cost.shared')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('cost.adjustments')}</Table.ColumnHeader>
-                <Table.ColumnHeader textAlign="end">{t('cost.total')}</Table.ColumnHeader>
-                <Table.ColumnHeader>{t('orders.external')}</Table.ColumnHeader>
-                <Table.ColumnHeader />
-              </Table.Row>
-            </Table.Header>
-            <Table.Body>
-              {list.map((o) => {
+        <DataTable
+          aria-label={t('orders.title')}
+          rows={list}
+          getRowId={(o) => o.id}
+          selection={mayExternal ? { selected: orderSel, onChange: setOrderSel, canSelect: isAvailableOrder } : undefined}
+          rowActions={list.some((o) => actionsOf(o).length > 0) ? actionsOf : undefined}
+          empty={<EmptyState icon={<LuShoppingCart />} title={t('orders.empty')} description={batch.status === 'ordering' ? t('orders.emptyOrdering') : t('orders.emptyNotOrdering')} />}
+          columns={[
+            {
+              key: 'order', header: t('orders.number'), priority: 'primary',
+              cell: (o) => {
                 const names = o.itemIds.map(itemName).filter((n): n is string => !!n);
                 const shown = names.slice(0, 3).join(', ');
                 return (
-                  <Table.Row key={o.id} opacity={o.status === 'cancelled' ? 0.6 : undefined}>
-                    {mayExternal && (
-                      <Table.Cell>
-                        {isAvailableOrder(o) && (
-                          <Checkbox.Root size="sm" checked={!!orderSel[o.id]} onCheckedChange={(e) => setOrderSel((s) => ({ ...s, [o.id]: !!e.checked }))}>
-                            <Checkbox.HiddenInput aria-label={t('orders.select', { number: o.number })} />
-                            <Checkbox.Control />
-                          </Checkbox.Root>
-                        )}
-                      </Table.Cell>
-                    )}
-                    <Table.Cell fontVariantNumeric="tabular-nums">#{o.number}</Table.Cell>
-                    <Table.Cell>
-                      <Text>{o.vendor}</Text>
-                      <Text color="fg.muted" textStyle="xs">
-                        {t('orders.itemCount', { count: o.itemIds.length })}{shown && `: ${shown}${names.length > 3 ? '…' : ''}`}
-                      </Text>
-                    </Table.Cell>
-                    <Table.Cell><OrderStatusBadge status={o.status} /></Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(o.itemsCostBase)}</Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(o.sharedCostBase)}</Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(o.adjustmentsBase)}</Table.Cell>
-                    <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">
-                      <HStack justify="flex-end" gap="2">
-                        {o.costsProvisional && o.status !== 'cancelled' && <ProvisionalBadge />}
-                        <Text as="span" fontWeight="semibold">{money(o.totalBase)}</Text>
-                      </HStack>
-                    </Table.Cell>
-                    <Table.Cell>
-                      {o.vendorTransactionId && <RouteAnchor to={paths.vendorTransaction(o.vendorTransactionId)}>{t('orders.openExternal')}</RouteAnchor>}
-                    </Table.Cell>
-                    <Table.Cell>
-                      <HStack gap="2" justify="flex-end">
-                        {canChangeOrder(o, batch, caller) && <Button variant="outline" onClick={() => setEditing(o)}>{t('common:actions.edit')}</Button>}
-                        {canChangeOrder(o, batch, caller) && <Button variant="subtle" colorPalette="red" onClick={() => { cancel.reset(); setCancelling(o); }}>{t('orders.cancel')}</Button>}
-                        {canAdjust(o, batch, caller) && <Button variant="outline" onClick={() => setAdjusting(o)}>{t('adjust.button')}</Button>}
-                      </HStack>
-                    </Table.Cell>
-                  </Table.Row>
+                  <Stack as="span" gap="0" textAlign="start" opacity={o.status === 'cancelled' ? 0.6 : undefined}>
+                    <span>
+                      <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{o.number}</Text>
+                      {o.vendor}
+                    </span>
+                    <Text as="span" color="fg.muted" fontWeight="normal" textStyle="xs">
+                      {t('orders.itemCount', { count: o.itemIds.length })}{shown && `: ${shown}${names.length > 3 ? '…' : ''}`}
+                    </Text>
+                  </Stack>
                 );
-              })}
-            </Table.Body>
-          </TableShell>
-        )}
-        {live.length > 0 && base && (
-          <Text fontWeight="semibold">{t('orders.total', { amount: format(total), currency: base })}</Text>
-        )}
+              },
+            },
+            { key: 'status', header: t('orders.status'), cell: (o) => <OrderStatusBadge status={o.status} /> },
+            { key: 'items', header: t('cost.items', { currency: base }), label: t('cost.items', { currency: base }), numeric: true, priority: 'secondary', cell: (o) => money(o.itemsCostBase) },
+            { key: 'shared', header: t('cost.shared'), numeric: true, priority: 'secondary', cell: (o) => money(o.sharedCostBase) },
+            { key: 'adjustments', header: t('cost.adjustments'), numeric: true, priority: 'secondary', cell: (o) => money(o.adjustmentsBase) },
+            {
+              key: 'total', header: t('cost.total'), numeric: true,
+              cell: (o) => (
+                <HStack as="span" justify="flex-end" gap="2">
+                  {o.costsProvisional && o.status !== 'cancelled' && <ProvisionalBadge />}
+                  <Text as="span" fontWeight="semibold">{money(o.totalBase)}</Text>
+                </HStack>
+              ),
+            },
+            {
+              key: 'external', header: t('orders.external'),
+              cell: (o) => (o.vendorTransactionId ? <RouteAnchor to={paths.vendorTransaction(o.vendorTransactionId)}>{t('orders.openExternal')}</RouteAnchor> : '—'),
+            },
+          ]}
+        />
+        {live.length > 0 && base && <Totals lines={[{ label: t('orders.totalActive'), value: `${format(total)} ${base}`, emphasis: true }]} />}
+        <SelectionBar count={selectedOrders.length} onClear={() => setOrderSel([])}>
+          <Button size="sm" onClick={() => setExternal(true)}>{t('external.create')}</Button>
+        </SelectionBar>
       </Stack>
 
       <EditOrderModal order={editing} batchId={batch.id} items={items} onClose={() => setEditing(null)} />
       <AdjustmentModal order={adjusting} batchId={batch.id} items={items} onClose={() => setAdjusting(null)} />
-      <ExternalOrderModal opened={external} orders={selectedOrders} items={items} onClose={() => { setExternal(false); setOrderSel({}); }} />
+      <ExternalOrderModal opened={external} orders={selectedOrders} items={items} onClose={() => { setExternal(false); setOrderSel([]); }} />
       <ReasonModal
         opened={!!cancelling}
         title={t('orders.cancel')}

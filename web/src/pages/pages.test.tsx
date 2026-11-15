@@ -4,6 +4,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import i18n from '../i18n';
 import { routes } from '../router';
 import { batch, item, me, member, renderWithApi, team, type Routes } from '../test/fakeApi';
+import { filterSelect } from '../test/dataTable';
+import { shortDate } from '../features/dates';
 
 // Logged-in pages with the real layout and a fake API (no identity provider in tests).
 vi.mock('../auth/AuthGate', () => ({
@@ -44,7 +46,8 @@ function open(path: string, extra: Routes = {}) {
 describe('logged-in pages render with Chakra and API data', () => {
   it('home: my tasks and teams', async () => {
     open('/');
-    expect(await screen.findByRole('link', { name: /#7 Spring order \(2 pending\)/ })).toBeTruthy();
+    expect(await screen.findByRole('link', { name: '#7 Spring order' })).toBeTruthy();
+    expect(screen.getByText('2 pending')).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Robotics' })).toBeTruthy();
     // Desktop nav and the narrow-screen menu button both exist; CSS decides which shows.
     expect(screen.getByRole('link', { name: 'My tasks' }).getAttribute('aria-current')).toBe('page');
@@ -55,7 +58,7 @@ describe('logged-in pages render with Chakra and API data', () => {
   it('batches list with filters', async () => {
     open('/batches');
     expect(await screen.findByRole('link', { name: 'Spring order' })).toBeTruthy();
-    expect(screen.getByRole('combobox', { name: 'Team' })).toBeTruthy();
+    expect(await filterSelect('Team')).toBeTruthy();
     expect(screen.getByRole('combobox', { name: 'Status' })).toBeTruthy();
   });
 
@@ -64,14 +67,16 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(await screen.findByRole('heading', { name: '#7 Spring order' })).toBeTruthy();
     expect(screen.getByText('Parts for the arm')).toBeTruthy();
     // 2026-03-01T16:30Z in UTC+8
-    expect(screen.getByText(new Date('2026-03-01T16:30:00Z').toLocaleString())).toBeTruthy();
+    expect(screen.getByText(shortDate('2026-03-01T16:30:00Z'))).toBeTruthy();
+    expect(shortDate('2026-03-01T16:30:00Z', { now: new Date('2026-06-01T00:00:00Z') })).toBe('3/2 00:30');
     const servo = await screen.findByRole('link', { name: 'Servo' });
     expect(servo.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
 
     expect(screen.queryByRole('tab', { name: 'Review' })).toBeNull();
     expect(screen.getByRole('tab', { name: 'Orders' })).toBeTruthy();
-    expect(await screen.findByText('Pending items (2)')).toBeTruthy();
+    // An approver's items open on the pending filter, shown as one set filter.
+    expect(screen.getByRole('button', { name: /^Filter\s*1$/ })).toBeTruthy();
 
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Edit' }));

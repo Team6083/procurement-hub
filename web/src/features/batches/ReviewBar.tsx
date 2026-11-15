@@ -1,4 +1,4 @@
-import { Button, HStack, Text } from '@chakra-ui/react';
+import { Box, Button } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useReview } from '../../api/batches';
@@ -16,12 +16,16 @@ interface Props {
   onDone: () => void;
 }
 
-/** Batch review actions for the items workspace: approve, return or reject the selected pending items. */
+/**
+ * The review decisions for the picked rows, shown in the items' SelectionBar: approve, return or reject the
+ * selected pending items. Renders nothing for a caller who cannot review or when no pending item is picked.
+ */
 export function ReviewBar({ batch, caller, selected, onDone }: Props) {
   const { t } = useTranslation('batches');
   const [dialog, setDialog] = useState<'return' | 'reject' | null>(null);
   const review = useReview(batch.id);
-  const reviewer = canReview(batch, caller);
+
+  if (!canReview(batch, caller) || selected.length === 0) return null;
 
   const decide = (decision: 'approve' | 'return' | 'reject', comment?: string) =>
     review.mutate(
@@ -29,18 +33,14 @@ export function ReviewBar({ batch, caller, selected, onDone }: Props) {
       { onSuccess: () => { onDone(); setDialog(null); } },
     );
 
-  if (!reviewer) return <Text color="fg.muted">{t('review.readOnly')}</Text>;
-
   return (
     <>
-      <HStack wrap="wrap">
-        <Button disabled={selected.length === 0} loading={review.isPending && review.variables?.decisions[0]?.decision === 'approve'} onClick={() => decide('approve')}>
-          {t('review.approve', { count: selected.length })}
-        </Button>
-        <Button variant="subtle" colorPalette="orange" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('return'); }}>{t('review.return')}</Button>
-        <Button variant="subtle" colorPalette="red" disabled={selected.length === 0} onClick={() => { review.reset(); setDialog('reject'); }}>{t('review.reject')}</Button>
-      </HStack>
-      {dialog === null && <ErrorAlert error={review.error} />}
+      {dialog === null && review.error && <Box w="full"><ErrorAlert error={review.error} /></Box>}
+      <Button size="sm" variant="outline" colorPalette="red" onClick={() => { review.reset(); setDialog('reject'); }}>{t('review.reject')}</Button>
+      <Button size="sm" variant="outline" onClick={() => { review.reset(); setDialog('return'); }}>{t('review.return')}</Button>
+      <Button size="sm" loading={review.isPending && review.variables?.decisions[0]?.decision === 'approve'} onClick={() => decide('approve')}>
+        {t('review.approve', { count: selected.length })}
+      </Button>
       <ReasonModal
         opened={dialog !== null}
         title={dialog === 'reject' ? t('review.reject') : t('review.return')}

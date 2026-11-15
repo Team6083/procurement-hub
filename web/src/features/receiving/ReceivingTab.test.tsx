@@ -6,6 +6,7 @@ import i18n from '../../i18n';
 import { batch, item, renderWithApi, type Routes } from '../../test/fakeApi';
 import { callerFor } from '../batches/rules';
 import { ReceivingTab } from './ReceivingTab';
+import { chooseMenuItem, openRowMenu, rowWith, selectionBar } from '../../test/dataTable';
 
 beforeAll(() => {
   void i18n.changeLanguage('en');
@@ -38,22 +39,22 @@ function show(routes: Routes = {}, c = caller(), b = batch({ status: 'receiving'
 }
 
 describe('ReceivingTab', () => {
-  it('groups items into cards: open exceptions, to receive, closed', async () => {
+  it('groups items into tables: open exceptions, to receive, closed', async () => {
     show();
     expect(await screen.findByText('Cracked housing')).toBeTruthy();
     expect(screen.getByText('Open exceptions')).toBeTruthy();
     expect(screen.getByText('To receive')).toBeTruthy();
     expect(screen.getByText('Closed')).toBeTruthy();
-    expect(within(screen.getByTestId('receiving-item-i2')).getByText(/2 of 5 received/)).toBeTruthy();
-    expect(within(screen.getByTestId('receiving-item-i5')).getByText('Out of stock')).toBeTruthy();
-    // card list, no table that would force horizontal scrolling on a phone
-    expect(screen.queryByRole('table')).toBeNull();
+    expect(within(rowWith('Wheel')).getByText('2 of 5')).toBeTruthy();
+    expect(within(rowWith('Nut')).getByText('Out of stock')).toBeTruthy();
+    expect(screen.getAllByRole('table').map((t) => t.getAttribute('aria-label'))).toEqual(['Open exceptions', 'To receive', 'Closed']);
   });
 
   it('records a receipt with the item version in If-Match', async () => {
     const { calls } = show({ 'POST /items/i1/receipts': (b: unknown) => ({ receipt: b, item: items[0], batch: batch() }) });
-    const card = await screen.findByTestId('receiving-item-i1');
-    await act(async () => { fireEvent.click(within(card).getByRole('button', { name: 'Receive (4 left)' })); });
+    await screen.findByText('Servo');
+    expect(await openRowMenu(rowWith('Servo'))).toEqual(['Receive (4 left)', 'Report a problem']);
+    await chooseMenuItem('Receive (4 left)');
     const dialog = await screen.findByRole('dialog');
     const qty = within(dialog).getByLabelText('Quantity received now') as HTMLInputElement;
     expect(qty.value).toBe('4');
@@ -71,8 +72,9 @@ describe('ReceivingTab', () => {
 
   it('reports a problem with a type and description', async () => {
     const { calls } = show({ 'POST /items/i1/exceptions': (b: unknown) => ({ exception: b, item: items[0], batch: batch(), adjustment: null }) });
-    const card = await screen.findByTestId('receiving-item-i1');
-    await act(async () => { fireEvent.click(within(card).getByRole('button', { name: 'Report a problem' })); });
+    await screen.findByText('Servo');
+    await openRowMenu(rowWith('Servo'));
+    await chooseMenuItem('Report a problem');
     const dialog = await screen.findByRole('dialog');
     expect((within(dialog).getByRole('button', { name: 'Report problem' }) as HTMLButtonElement).disabled).toBe(true);
     fireEvent.change(within(dialog).getByLabelText('What is wrong?'), { target: { value: 'wrong_item' } });
@@ -83,8 +85,9 @@ describe('ReceivingTab', () => {
 
   it('lets a purchaser resolve an exception with the exception version in If-Match', async () => {
     const { calls } = show({ 'POST /exceptions/e1/resolve': (b: unknown) => ({ exception: b, item: items[2], batch: batch(), adjustment: null }) }, caller('p1'));
-    const card = await screen.findByTestId('receiving-item-i3');
-    await act(async () => { fireEvent.click(await within(card).findByRole('button', { name: 'Resolve' })); });
+    await screen.findByText('Cracked housing');
+    expect(await openRowMenu(rowWith('Gear'))).toEqual(['Resolve']);
+    await chooseMenuItem('Resolve');
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText('Disposition'), { target: { value: 'accept' } });
     expect((within(dialog).getByRole('button', { name: 'Resolve' }) as HTMLButtonElement).disabled).toBe(true);
@@ -98,19 +101,35 @@ describe('ReceivingTab', () => {
   it('a receiver can receive but not resolve', async () => {
     show();
     await screen.findByText('Cracked housing');
-    expect(screen.getAllByRole('button', { name: /^Receive/ })).toHaveLength(2);
-    expect(screen.queryByRole('button', { name: 'Resolve' })).toBeNull();
+    expect(within(rowWith('Gear')).queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(within(rowWith('Servo')).getByRole('button', { name: 'More actions' })).toBeTruthy();
+    expect(within(rowWith('Wheel')).getByRole('checkbox', { name: 'Select row' })).toBeTruthy();
+  });
+
+  it('receives the picked items in full, one receipt each with its version', async () => {
+    const { calls } = show({
+      'POST /items/i1/receipts': (b: unknown) => ({ receipt: b, item: items[0], batch: batch() }),
+      'POST /items/i2/receipts': (b: unknown) => ({ receipt: b, item: items[1], batch: batch() }),
+    });
+    await screen.findByText('Servo');
+    expect(selectionBar()).toBeNull();
+    await act(async () => { fireEvent.click(within(rowWith('Servo')).getByRole('checkbox', { name: 'Select row' })); });
+    await act(async () => { fireEvent.click(within(rowWith('Wheel')).getByRole('checkbox', { name: 'Select row' })); });
+    await act(async () => { fireEvent.click(within(selectionBar()!).getByRole('button', { name: 'Receive in full' })); });
+    await waitFor(() => expect(calls.filter((c) => c.method === 'POST').map((c) => [c.path, c.body, c.headers['If-Match']])).toEqual([
+      ['/items/i1/receipts', { quantity: 4 }, '"7"'],
+      ['/items/i2/receipts', { quantity: 3 }, '"1"'],
+    ]));
   });
 
   it('is read-only for a member with no receiving role or once the batch is completed', async () => {
     show({}, caller('u9'));
     await screen.findByText('Cracked housing');
-    expect(screen.queryByRole('button', { name: /^Receive/ })).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Report a problem' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+    expect(screen.queryByRole('checkbox')).toBeNull();
     cleanup();
     show({}, caller('p1'), batch({ status: 'completed', assignments: { approvers: [], purchasers: ['p1'], receivers: [] } }));
     await screen.findByText('Cracked housing');
-    expect(screen.queryByRole('button', { name: 'Resolve' })).toBeNull();
-    expect(screen.queryByRole('button', { name: /^Receive/ })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
 });

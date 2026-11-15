@@ -11,10 +11,12 @@ afterEach(cleanup);
 const empty = { proposalsToHandle: [], itemsToReview: [], returnedItems: [], batchesToOrder: [], itemsToReceive: [], openExceptions: [] };
 
 describe('MyTasksCard', () => {
-  it('lists batches to order with their count, linking to the batch', async () => {
+  it('lists batches to order with their count as a badge, linking to the batch', async () => {
     renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, { 'GET /me/tasks': { ...empty, batchesToOrder: [{ batch: batch({ status: 'ordering' }), count: 3 }] } });
     const link = await screen.findByRole('link', { name: /Spring order/ });
-    expect(link.textContent).toContain('3 to order');
+    // The count is a badge beside the link, not text inside it.
+    expect(link.textContent).toBe('#7 Spring order');
+    expect(screen.getByText('3 to order')).toBeTruthy();
     expect(link.getAttribute('href')).toBe('/batches/b1');
     expect(screen.getByText('Items to order')).toBeTruthy();
   });
