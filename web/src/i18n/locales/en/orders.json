@@ -120,7 +120,7 @@
   },
   "place": {
     "title": "Place orders",
-    "description": "Draft orders of all ordering batches you can purchase for. Pick orders from any batch and team to buy them together.",
+    "description": "Approved items of all ordering batches you can purchase for, and draft orders. Pick from any batch and team to buy them together.",
     "ready": "Ready to order",
     "vendorGroup": "Vendor: {{vendor}}",
     "selectVendor": "Select all orders of {{vendor}}",
@@ -128,7 +128,7 @@
     "team": "Team",
     "createExternal": "Create external order ({{count}})",
     "empty": "Nothing to order",
-    "emptyBody": "Draft orders of batches in the ordering stage show up here.",
+    "emptyBody": "Approved items of batches in the ordering stage, and draft orders, show up here.",
     "notPurchaser": "Only purchasers of the batch can order it.",
     "inProgress": "External orders",
     "external": "External order",
@@ -137,6 +137,17 @@
     "loadError": "Some batches could not be loaded.",
     "noExternal": "No external orders yet",
     "noExternalBody": "External orders you create show up here.",
-    "items": "Items"
+    "items": "Items",
+    "noVendor": "No vendor",
+    "selectItemsOf": "Select all items of {{vendor}}",
+    "selectItem": "Select {{name}}",
+    "item": "Item",
+    "quantity": "Qty",
+    "estimate": "Est. unit price",
+    "noItems": "No approved items are waiting for an order.",
+    "drafts": "Draft orders",
+    "draftsHint": "Orders already created in a batch. Picked drafts go into the same external order as the picked items.",
+    "partial": "{{count}} draft orders were already created and are kept. Retrying only creates what is missing.",
+    "retry": "Retry"
   }
 }

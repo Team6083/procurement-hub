@@ -22,7 +22,7 @@ export function useOrders(batchId: string | undefined) {
 }
 
 /** Everything an order change can touch on the batch page. */
-const orderChanged = (batchId: string): QueryKey[] => [ordersKey(batchId), itemsKey(batchId), batchKey(batchId), batchesKey, tasksKey, auditKey(batchId)];
+export const orderChanged = (batchId: string): QueryKey[] => [ordersKey(batchId), itemsKey(batchId), batchKey(batchId), batchesKey, tasksKey, auditKey(batchId)];
 
 export function useCreateOrder(batchId: string) {
   const api = useApi();

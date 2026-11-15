@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes as RouterRoutes } from 'react-router';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { Order } from '../api/types';
 import i18n from '../i18n';
-import { batch, item, me, renderWithApi, type Routes } from '../test/fakeApi';
+import { apiError, batch, item, me, renderWithApi, type Routes } from '../test/fakeApi';
 import { PlaceOrdersPage } from './PlaceOrdersPage';
 
 beforeAll(() => void i18n.changeLanguage('en'));
@@ -28,8 +28,9 @@ const routes = (extra: Routes = {}): Routes => ({
   'GET /batches/b1/orders': { items: [order('o1', 'b1', 't1', 1), order('o9', 'b1', 't1', 2, { status: 'placed', vendorTransactionId: 'vP' })] },
   'GET /batches/b2/orders': { items: [order('o2', 'b2', 't2', 1)] },
   'GET /batches/b3/orders': { items: [order('o3', 'b3', 't1', 1)] },
-  'GET /batches/b1/items': { items: [item(1)], nextCursor: null },
-  'GET /batches/b2/items': { items: [item(1, { batchId: 'b2' })], nextCursor: null },
+  'GET /batches/b1/items': { items: [item(1, { id: 'a1', name: 'Servo', status: 'approved' }), item(2, { id: 'a2', name: 'Cable', status: 'approved', vendor: 'Zed' }), item(3, { id: 'i1', name: 'Done', status: 'approved', orderId: 'o1' })], nextCursor: null },
+  'GET /batches/b2/items': { items: [item(1, { id: 'c1', name: 'Lens', batchId: 'b2', teamId: 't2', status: 'approved' }), item(2, { id: 'c2', name: 'Pending thing', batchId: 'b2', teamId: 't2' })], nextCursor: null },
+  'GET /batches/b3/items': { items: [item(1, { id: 'd1', name: 'Locked', batchId: 'b3', status: 'approved' })], nextCursor: null },
   ...extra,
 });
 
@@ -45,10 +46,70 @@ function show(r: Routes) {
   );
 }
 
+const click = (el: HTMLElement) => act(async () => { fireEvent.click(el); });
+const posts = (calls: { method: string; path: string; body: unknown }[], path: string) => calls.filter((c) => c.method === 'POST' && c.path === path);
+
 describe('PlaceOrdersPage', () => {
+  it('orders approved items of two batches and teams together, without drafts and without a vendor order number', async () => {
+    let n = 0;
+    const { calls } = show(routes({
+      'GET /batches/b1/orders': { items: [] }, 'GET /batches/b2/orders': { items: [] }, 'GET /batches/b3/orders': { items: [] },
+      'POST /batches/b1/orders': (b: unknown) => ({ ...order(`n${++n}`, 'b1', 't1', 1), ...(b as object) }),
+      'POST /batches/b2/orders': (b: unknown) => ({ ...order(`n${++n}`, 'b2', 't2', 1), ...(b as object) }),
+      'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }),
+    }));
+    await screen.findByText('Servo');
+    expect(screen.queryByText('Nothing to order')).toBeNull();
+    expect(screen.queryByText('Done')).toBeNull();
+    expect(screen.queryByText('Pending thing')).toBeNull();
+    await click(screen.getByRole('checkbox', { name: 'Select Servo' }));
+    await click(screen.getByRole('checkbox', { name: 'Select Lens' }));
+    await click(screen.getByRole('button', { name: 'Create external order (2)' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByText('Vendor order number')).toBeNull();
+    await click(within(dialog).getByRole('button', { name: 'Create external order' }));
+    expect(await screen.findByText('vt page')).toBeTruthy();
+    expect(posts(calls, '/batches/b1/orders').map((c) => c.body)).toEqual([{ vendor: 'Acme', itemIds: ['a1'] }]);
+    expect(posts(calls, '/batches/b2/orders').map((c) => c.body)).toEqual([{ vendor: 'Acme', itemIds: ['c1'] }]);
+    expect(posts(calls, '/vendor-transactions').map((c) => c.body)).toEqual([{ orderIds: ['n1', 'n2'], currency: 'USD', vendor: 'Acme' }]);
+  });
+
+  it('keeps created orders when a later step fails and a retry only creates the missing ones', async () => {
+    let n = 0;
+    let b2Calls = 0;
+    const { calls } = show(routes({
+      'GET /batches/b1/orders': { items: [] }, 'GET /batches/b2/orders': { items: [] },
+      'POST /batches/b1/orders': (b: unknown) => ({ ...order(`n${++n}`, 'b1', 't1', 1), ...(b as object) }),
+      'POST /batches/b2/orders': (b: unknown) => (++b2Calls === 1 ? apiError(400, 'validation_failed') : { ...order(`n${++n}`, 'b2', 't2', 1), ...(b as object) }),
+      'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }),
+    }));
+    await screen.findByText('Servo');
+    await click(screen.getByRole('checkbox', { name: 'Select Servo' }));
+    await click(screen.getByRole('checkbox', { name: 'Select Lens' }));
+    await click(screen.getByRole('button', { name: 'Create external order (2)' }));
+    const dialog = await screen.findByRole('dialog');
+    await click(within(dialog).getByRole('button', { name: 'Create external order' }));
+    await within(dialog).findByText(/1 draft orders were already created/);
+    expect(posts(calls, '/vendor-transactions')).toHaveLength(0);
+    await click(within(dialog).getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('vt page')).toBeTruthy();
+    expect(posts(calls, '/batches/b1/orders')).toHaveLength(1);
+    expect(posts(calls, '/batches/b2/orders')).toHaveLength(2);
+    expect(posts(calls, '/vendor-transactions').map((c) => c.body)).toEqual([{ orderIds: ['n1', 'n2'], currency: 'USD', vendor: 'Acme' }]);
+  });
+
+  it('shows the items of purchasable batches as selectable and others disabled', async () => {
+    show(routes({ 'GET /batches/b1/orders': { items: [] }, 'GET /batches/b2/orders': { items: [] }, 'GET /batches/b3/orders': { items: [] } }));
+    await screen.findByText('Locked');
+    expect((screen.getByRole('checkbox', { name: 'Select Locked' }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: 'Select Servo' }) as HTMLInputElement).disabled).toBe(false);
+    await click(screen.getByRole('checkbox', { name: 'Select all items of Acme' }));
+    expect(screen.getByRole('button', { name: 'Create external order (2)' })).toBeTruthy();
+  });
+
   it('creates one external order from orders of two batches, without a vendor order number', async () => {
     const { calls } = show(routes({ 'POST /vendor-transactions': (b: unknown) => ({ id: 'vNew', ...(b as object), batchIds: ['b1', 'b2'] }) }));
-    await screen.findByText(/Gamma/);
+    await screen.findByText('Draft orders');
     const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' });
     // rows: Acme/b1, Acme/b2, Acme/b3 (disabled) in batch order
     await act(async () => { fireEvent.click(boxes[0]!); });
@@ -63,7 +124,7 @@ describe('PlaceOrdersPage', () => {
 
   it('does not let a non-purchaser batch be selected', async () => {
     show(routes());
-    await screen.findByText(/Gamma/);
+    await screen.findByText('Draft orders');
     const boxes = screen.getAllByRole('checkbox', { name: 'Select order #1' }) as HTMLInputElement[];
     expect(boxes.map((b) => b.disabled)).toEqual([false, false, true]);
     const group = screen.getByRole('checkbox', { name: 'Select all orders of Acme' });

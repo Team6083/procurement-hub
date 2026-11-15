@@ -120,7 +120,7 @@
   },
   "place": {
     "title": "下單",
-    "description": "列出你可下單之所有下單階段批次的草稿訂單。可跨批次與團隊勾選，一起購買。",
+    "description": "列出你可下單之所有下單階段批次中已核准的品項與草稿訂單。可跨批次與團隊勾選，一起購買。",
     "ready": "待下單",
     "vendorGroup": "廠商：{{vendor}}",
     "selectVendor": "選取 {{vendor}} 的所有訂單",
@@ -128,7 +128,7 @@
     "team": "團隊",
     "createExternal": "建立外部下單（{{count}}）",
     "empty": "沒有待下單的項目",
-    "emptyBody": "處於下單階段之批次的草稿訂單會顯示在這裡。",
+    "emptyBody": "處於下單階段之批次的已核准品項與草稿訂單會顯示在這裡。",
     "notPurchaser": "只有該批次的下單人可以下單。",
     "inProgress": "外部下單",
     "external": "外部下單",
@@ -137,6 +137,17 @@
     "loadError": "部分批次無法載入。",
     "noExternal": "還沒有外部下單",
     "noExternalBody": "你建立的外部下單會顯示在這裡。",
-    "items": "品項"
+    "items": "品項",
+    "noVendor": "未指定廠商",
+    "selectItemsOf": "選取 {{vendor}} 的所有品項",
+    "selectItem": "選取 {{name}}",
+    "item": "品項",
+    "quantity": "數量",
+    "estimate": "預估單價",
+    "noItems": "沒有等待下單的已核准品項。",
+    "drafts": "草稿訂單",
+    "draftsHint": "已在批次中建立的訂單。勾選的草稿會與勾選的品項併入同一筆外部下單。",
+    "partial": "已建立 {{count}} 張草稿訂單並保留。重試只會建立尚缺的部分。",
+    "retry": "重試"
   }
 }

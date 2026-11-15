@@ -12,12 +12,17 @@ import { ErrorAlert, Notice } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { TableShell } from '../components/ui/table';
 import { callerFor } from '../features/batches/rules';
-import { ExternalOrderModal } from '../features/orders/ExternalOrderModal';
+import { PlaceOrderDialog, type PlaceSnapshot } from '../features/orders/PlaceOrderDialog';
 import { OrderStatusBadge, money } from '../features/orders/OrderBadges';
-import { availableRows, externalOrderGroups, groupByVendor, selectedRows, toggleGroup } from '../features/orders/placeOrders';
+import {
+  availableRows, externalOrderGroups, groupByVendor, groupItemsByVendor, planOrders, readyItemRows, selectedItemRows, selectedRows, toggleGroup, toggleItemGroup,
+} from '../features/orders/placeOrders';
 import { paths } from '../paths';
 
-/** Place orders (spec 10.3): draft orders of every ordering batch, selectable across batches and teams, plus the external orders in progress. */
+/**
+ * Place orders (spec 10.3): approved items waiting for an order from every ordering batch plus existing draft orders, selectable across
+ * batches and teams (items and drafts can go into one external order), and the external orders in progress.
+ */
 export function PlaceOrdersPage() {
   const { t } = useTranslation('orders');
   const { me } = useMe();
@@ -31,24 +36,29 @@ export function PlaceOrdersPage() {
   const batches = useMemo(() => (list.data?.pages ?? []).flatMap((p) => p.items), [list.data]);
   const batchIds = useMemo(() => batches.map((b) => b.id), [batches]);
   const orderQs = useOrdersOf(batchIds);
+  const itemQs = useItemsOf(batchIds);
   const [selection, setSelection] = useState<Record<string, boolean>>({});
-  const [external, setExternal] = useState(false);
+  const [itemSelection, setItemSelection] = useState<Record<string, boolean>>({});
+  const [snapshot, setSnapshot] = useState<PlaceSnapshot | null>(null);
 
   const ordersByBatch = Object.fromEntries(batchIds.map((id, i) => [id, orderQs[i]?.data]));
+  const itemsByBatch = Object.fromEntries(batchIds.map((id, i) => [id, itemQs[i]?.data as Item[] | undefined]));
   const callerOf = (b: { teamId: string }) => callerFor(me, b.teamId);
   const rows = availableRows(batches, ordersByBatch, callerOf);
   const groups = groupByVendor(rows);
+  const itemRows = readyItemRows(batches, itemsByBatch, callerOf);
+  const itemGroups = groupItemsByVendor(itemRows);
   const chosen = selectedRows(rows, selection);
-  const chosenBatchIds = [...new Set(chosen.map((r) => r.batch.id))];
-  const itemQs = useItemsOf(chosenBatchIds);
-  const chosenItems = itemQs.flatMap((q) => (q.data ?? []) as Item[]);
+  const chosenItems = selectedItemRows(itemRows, itemSelection);
+  const total = chosen.length + chosenItems.length;
   const inProgress = externalOrderGroups(batches, ordersByBatch);
   const teamName = (id: string) => teams.data?.find((x) => x.id === id)?.name ?? '';
   const batchLabel = (b: { number: number; title: string }) => `#${b.number} ${b.title}`;
+  const open = () => setSnapshot({ plans: planOrders(chosenItems), drafts: chosen.map((r) => r.order), items: [...chosenItems.map((r) => r.item), ...chosen.flatMap((r) => (itemsByBatch[r.batch.id] ?? []).filter((i) => r.order.itemIds.includes(i.id)))] });
 
-  const loading = list.isPending || (batchIds.length > 0 && orderQs.some((q) => q.isPending)) || hasNextPage;
-  const failed = orderQs.some((q) => q.error);
-  const mayOrder = rows.some((r) => r.selectable);
+  const loading = list.isPending || (batchIds.length > 0 && (orderQs.some((q) => q.isPending) || itemQs.some((q) => q.isPending))) || hasNextPage;
+  const failed = orderQs.some((q) => q.error) || itemQs.some((q) => q.error);
+  const mayOrder = rows.some((r) => r.selectable) || itemRows.some((r) => r.selectable);
 
   return (
     <Stack gap="8">
@@ -59,19 +69,75 @@ export function PlaceOrdersPage() {
       <Stack gap="3">
         <SectionHeader
           title={t('place.ready')}
-          count={loading ? undefined : rows.length}
+          count={loading ? undefined : itemRows.length}
           mb="0"
           actions={mayOrder && (
-            <Button disabled={chosen.length === 0} onClick={() => setExternal(true)}>
-              {t('place.createExternal', { count: chosen.length })}
+            <Button disabled={total === 0} onClick={open}>
+              {t('place.createExternal', { count: total })}
             </Button>
           )}
         />
         {loading ? (
           <Skeleton h="24" rounded="l3" />
-        ) : rows.length === 0 ? (
+        ) : itemRows.length === 0 && rows.length === 0 ? (
           <EmptyState icon={<LuShoppingCart />} title={t('place.empty')} description={t('place.emptyBody')} />
+        ) : itemRows.length === 0 ? (
+          <Text color="fg.muted">{t('place.noItems')}</Text>
         ) : (
+          <TableShell minW="900px">
+            <Table.Header>
+              <Table.Row>
+                <Table.ColumnHeader w="8" />
+                <Table.ColumnHeader>{t('place.item')}</Table.ColumnHeader>
+                <Table.ColumnHeader textAlign="end">{t('place.quantity')}</Table.ColumnHeader>
+                <Table.ColumnHeader textAlign="end">{t('place.estimate')}</Table.ColumnHeader>
+                <Table.ColumnHeader>{t('place.batch')}</Table.ColumnHeader>
+                <Table.ColumnHeader>{t('place.team')}</Table.ColumnHeader>
+              </Table.Row>
+            </Table.Header>
+            <Table.Body>
+              {itemGroups.flatMap((g) => {
+                const vendor = g.vendor || t('place.noVendor');
+                const pickable = g.rows.filter((r) => r.selectable);
+                const all = pickable.length > 0 && pickable.every((r) => itemSelection[r.item.id]);
+                return [
+                  <Table.Row key={`g:${g.vendor}`} bg="bg.muted">
+                    <Table.Cell>
+                      {pickable.length > 0 && (
+                        <Checkbox.Root size="sm" checked={all} onCheckedChange={(e) => setItemSelection((s) => toggleItemGroup(s, g.rows, !!e.checked))}>
+                          <Checkbox.HiddenInput aria-label={t('place.selectItemsOf', { vendor })} />
+                          <Checkbox.Control />
+                        </Checkbox.Root>
+                      )}
+                    </Table.Cell>
+                    <Table.Cell colSpan={5} fontWeight="semibold">{vendor}</Table.Cell>
+                  </Table.Row>,
+                  ...g.rows.map(({ item, batch, selectable }) => (
+                    <Table.Row key={item.id}>
+                      <Table.Cell>
+                        <Checkbox.Root size="sm" disabled={!selectable} checked={!!itemSelection[item.id] && selectable} onCheckedChange={(e) => setItemSelection((s) => ({ ...s, [item.id]: !!e.checked }))}>
+                          <Checkbox.HiddenInput aria-label={t('place.selectItem', { name: item.name })} title={selectable ? undefined : t('place.notPurchaser')} />
+                          <Checkbox.Control />
+                        </Checkbox.Root>
+                      </Table.Cell>
+                      <Table.Cell>{item.name}</Table.Cell>
+                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{item.quantity}</Table.Cell>
+                      <Table.Cell textAlign="end" fontVariantNumeric="tabular-nums">{money(item.estimatedUnitPrice.amount)} {item.estimatedUnitPrice.currency}</Table.Cell>
+                      <Table.Cell><RouteAnchor to={paths.batch(batch.id)}>{batchLabel(batch)}</RouteAnchor></Table.Cell>
+                      <Table.Cell>{teamName(batch.teamId)}</Table.Cell>
+                    </Table.Row>
+                  )),
+                ];
+              })}
+            </Table.Body>
+          </TableShell>
+        )}
+      </Stack>
+
+      {!loading && rows.length > 0 && (
+        <Stack gap="3">
+          <SectionHeader title={t('place.drafts')} count={rows.length} mb="0" />
+          <Text color="fg.muted">{t('place.draftsHint')}</Text>
           <TableShell minW="800px">
             <Table.Header>
               <Table.Row>
@@ -118,8 +184,8 @@ export function PlaceOrdersPage() {
               })}
             </Table.Body>
           </TableShell>
-        )}
-      </Stack>
+        </Stack>
+      )}
 
       <Stack gap="3">
         <SectionHeader title={t('place.inProgress')} count={loading ? undefined : inProgress.length} mb="0" />
@@ -156,7 +222,7 @@ export function PlaceOrdersPage() {
         )}
       </Stack>
 
-      <ExternalOrderModal opened={external} orders={chosen.map((r) => r.order)} items={chosenItems} onClose={() => { setExternal(false); setSelection({}); }} />
+      <PlaceOrderDialog snapshot={snapshot} onClose={() => setSnapshot(null)} onPlaced={() => { setSelection({}); setItemSelection({}); }} />
     </Stack>
   );
 }
