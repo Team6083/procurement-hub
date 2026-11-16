@@ -31,7 +31,8 @@ func (f fakeProv) Provision(context.Context, *auth.Principal) (*domain.User, err
 
 type fakeML struct{ sawAdmin *bool }
 
-func (f fakeML) ActorFor(_ context.Context, _ *domain.User, admin bool) (authz.Actor, error) {
+func (f fakeML) ActorFor(_ context.Context, _ *domain.User, p *auth.Principal) (authz.Actor, error) {
+	admin := p.IsSystemAdmin
 	*f.sawAdmin = admin
 	return authz.Actor{IsSystemAdmin: admin}, nil
 }

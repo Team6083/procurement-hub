@@ -314,7 +314,7 @@ func (s *Items) transitionItem(ctx context.Context, actor string, b *domain.Batc
 // transitionItemSet is transitionItem that also sets `extra` fields.
 func (s *Items) transitionItemSet(ctx context.Context, actor string, b *domain.Batch, it *domain.Item, version int64,
 	ev domain.ItemEvent, action, comment string, review *domain.Review, extra bson.D) (*domain.Item, error) {
-	to, err := domain.NextItemStatus(it.Status, ev, it.ReceivedQuantity)
+	to, err := domain.NextItemStatus(it.Status, ev)
 	if err != nil {
 		return nil, ruleFromDomain(err)
 	}
@@ -334,7 +334,7 @@ func (s *Items) transitionItemSet(ctx context.Context, actor string, b *domain.B
 			domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)})); err != nil {
 			return err
 		}
-		return s.batches.reevaluateTx(ctx, b.ID)
+		return s.st.BumpBatch(ctx, b.ID) // review actions exclude confirm_review (spec §10)
 	})
 	return out, err
 }
@@ -406,7 +406,7 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 				return Invalid("decisions", d.ItemID.Hex()+" is not an item of this batch")
 			}
 			meta := decisionEvent[d.Decision]
-			to, err := domain.NextItemStatus(it.Status, meta.ev, it.ReceivedQuantity)
+			to, err := domain.NextItemStatus(it.Status, meta.ev)
 			if err != nil {
 				return Rule("item_not_reviewable", "Item #%d is %s and cannot be %s.", it.SeqNo, it.Status, meta.recorded)
 			}
@@ -425,7 +425,7 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 		if err := s.audit.Record(ctx, evs...); err != nil {
 			return err
 		}
-		if err := s.batches.reevaluateTx(ctx, b.ID); err != nil {
+		if err := s.st.BumpBatch(ctx, b.ID); err != nil {
 			return err
 		}
 		nb, err := s.st.GetBatch(ctx, b.ID)
@@ -461,36 +461,176 @@ func (s *Items) ForceReject(ctx context.Context, actor authz.Actor, id bson.Obje
 		&domain.Review{Decision: "rejected", By: actor.UserID, At: s.batches.now(), Comment: reason, Forced: true})
 }
 
-// MarkUnpurchasable closes an approved item the purchaser cannot buy
-// (purchasers, batch `ordering`, reason required). The batch may advance
-// automatically in the same transaction (spec §10.1).
-func (s *Items) MarkUnpurchasable(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
+// UndoReview returns an approved, rejected or returned item to pending
+// before the review is confirmed (spec §10.2, §10.5). The reviewer who made
+// the decision and team admins may undo.
+func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
 	it, b, t, err := s.loadItem(ctx, actor, id)
 	if err != nil {
 		return nil, err
 	}
-	if !actor.HasBatchRole(t.ID, authzAssignments(b.Assignments), authz.BatchPurchaser) {
-		return nil, ErrForbidden
-	}
 	if t.Archived {
 		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
-	if b.Status != domain.BatchOrdering {
-		return nil, Rule("batch_not_ordering", "Items can only be marked unpurchasable while the batch is in ordering.")
+	if it.Review == nil || !(actor.IsTeamAdmin(t.ID) || it.Review.By == actor.UserID) {
+		return nil, ErrForbidden
 	}
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
 		return nil, Invalid("reason", "required")
 	}
-	if it.Status == domain.ItemApproved && it.OrderID != nil {
-		return nil, Rule("item_in_order", "Remove the item from its order first.")
+	if b.Status != domain.BatchReviewing {
+		return nil, &BlockedError{Blockers: []Blocker{{Type: "batch", ID: b.ID.Hex(), Label: "review confirmed"}}}
 	}
-	return s.transitionItemSet(ctx, actor.UserID.Hex(), b, it, version, domain.EvUnpurchasable, "item.unpurchasable", reason, nil,
-		bson.D{{Key: "closeReason", Value: reason}})
+	prev := it.Review.Decision
+	var out *domain.Item
+	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		to, err := domain.NextItemStatus(it.Status, domain.EvUndoDecision)
+		if err != nil {
+			return ruleFromDomain(err)
+		}
+		ni, err := s.st.UpdateItem(ctx, it.ID, version, bson.D{{Key: "status", Value: to}, {Key: "review", Value: nil}})
+		if err != nil {
+			return mapStore(err)
+		}
+		out = ni
+		if err := s.st.BumpBatch(ctx, b.ID); err != nil {
+			return err
+		}
+		if err := s.st.Emit(ctx, store.EventRecord{Type: "item." + prev, Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex(), Undone: true}); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, ni, "item.review_undone", reason,
+			domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)}))
+	})
+	return out, err
+}
+
+// Copy creates a new pending item in the same batch from a withdrawn one
+// (spec §10.2): the requester or a team admin, while the batch accepts items.
+func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Item, error) {
+	it, _, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	if it.Status != domain.ItemWithdrawn {
+		return nil, Rule("invalid_transition", "Only withdrawn items can be copied.")
+	}
+	if it.RequesterID != actor.UserID && !actor.IsTeamAdmin(t.ID) {
+		return nil, ErrForbidden
+	}
+	return s.Add(ctx, actor, it.BatchID, ItemInput{
+		SubgroupID: it.SubgroupID, Name: it.Name, Vendor: it.Vendor, SKU: it.SKU, Quantity: it.Quantity,
+		EstimatedUnitPrice: it.EstimatedUnitPrice, Priority: it.Priority, Purpose: it.Purpose, Notes: it.Notes, ProductURL: it.ProductURL,
+	})
+}
+
+// purchasingGate loads an item for a purchaser action: the item must be
+// approved in a review-confirmed batch that is not purchased outside.
+func (s *Items) purchasingGate(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Item, *domain.Batch, error) {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !actor.IsPurchaser {
+		return nil, nil, ErrForbidden
+	}
+	if t.Archived {
+		return nil, nil, Rule("team_archived", "Archived teams are read-only.")
+	}
+	if it.Status != domain.ItemApproved || b.ReviewConfirmation == nil || b.ReviewConfirmation.PurchaseOutside {
+		return nil, nil, Rule("invalid_transition", "Only approved items of a review-confirmed batch can be marked.")
+	}
+	return it, b, nil
+}
+
+// MarkUnpurchasable marks an approved item as not buyable, or "don't buy the
+// remaining quantity" when it already has placed lines (spec §10.2).
+func (s *Items) MarkUnpurchasable(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
+	it, b, err := s.purchasingGate(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, Invalid("reason", "required")
+	}
+	return s.setUnpurchasable(ctx, actor, b, it, version, reason, true)
+}
+
+// UndoUnpurchasable removes the mark (spec §10.5).
+func (s *Items) UndoUnpurchasable(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*domain.Item, error) {
+	it, b, err := s.purchasingGate(ctx, actor, id)
+	if err != nil {
+		return nil, err
+	}
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return nil, Invalid("reason", "required")
+	}
+	if it.Unpurchasable == nil {
+		return nil, Rule("invalid_transition", "The item is not marked unpurchasable.")
+	}
+	return s.setUnpurchasable(ctx, actor, b, it, version, reason, false)
+}
+
+func (s *Items) setUnpurchasable(ctx context.Context, actor authz.Actor, b *domain.Batch, it *domain.Item, version int64, reason string, mark bool) (*domain.Item, error) {
+	var out *domain.Item
+	err := s.st.WithTx(ctx, func(ctx context.Context) error {
+		if mark {
+			if it.Unpurchasable != nil {
+				return Rule("invalid_transition", "The item is already marked unpurchasable.")
+			}
+			lines, err := s.batches.linesOf(ctx, it.ID)
+			if err != nil {
+				return err
+			}
+			var blockers []Blocker
+			for _, l := range lines {
+				if l.Status == domain.LineDraft {
+					blockers = append(blockers, Blocker{Type: "vendor_order_line", ID: l.ID.Hex(), Label: "draft line"})
+				}
+			}
+			if len(blockers) > 0 {
+				return &BlockedError{Blockers: blockers}
+			}
+		}
+		var val any
+		if mark {
+			val = domain.UnpurchasableMark{By: actor.UserID, At: s.batches.now(), Reason: reason}
+		}
+		ni, err := s.st.UpdateItem(ctx, it.ID, version, bson.D{{Key: "unpurchasable", Value: val}})
+		if err != nil {
+			return mapStore(err)
+		}
+		// The write above bumped the item; refresh recomputes on that version.
+		if err := s.batches.refreshItem(ctx, b, ni); err != nil {
+			return err
+		}
+		if out, err = s.st.GetItem(ctx, it.ID); err != nil {
+			return mapStore(err)
+		}
+		if err := s.st.BumpBatch(ctx, b.ID); err != nil {
+			return err
+		}
+		if err := s.batches.DeriveStatus(ctx, b.ID); err != nil {
+			return err
+		}
+		action, typ := "item.unpurchasable", "item.unpurchasable"
+		if !mark {
+			action = "item.unpurchasable_undone"
+		}
+		if err := s.st.Emit(ctx, store.EventRecord{Type: typ, Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex(), Undone: !mark}); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, out, action, reason,
+			domain.AuditChange{Field: "unpurchasable", From: it.Unpurchasable != nil, To: mark}))
+	})
+	return out, err
 }
 
 func authzAssignments(a domain.Assignments) authz.Assignments {
-	return authz.Assignments{Approvers: a.Approvers, Purchasers: a.Purchasers, Receivers: a.Receivers}
+	return authz.Assignments{Approvers: a.Approvers, Purchasers: a.Purchasers}
 }
 
 func itoa(i int) string { return strconvItoa(i) }

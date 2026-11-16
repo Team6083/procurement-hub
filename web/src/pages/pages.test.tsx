@@ -74,7 +74,7 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
 
     expect(screen.queryByRole('tab', { name: 'Review' })).toBeNull();
-    expect(screen.getByRole('tab', { name: 'Orders' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Purchasing' })).toBeTruthy();
     // An approver's items open on the pending filter, shown as one set filter.
     expect(screen.getByRole('button', { name: /^Filter\s*1$/ })).toBeTruthy();
 

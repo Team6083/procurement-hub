@@ -51,7 +51,8 @@ export interface paths {
         };
         /**
          * Search users who have logged in at least once
-         * @description Only system admins and members of at least one team may search (otherwise 403).
+         * @description Only system admins, purchasers, receivers and members of at least one team may search (otherwise 403).
+         *     `role=purchaser|receiver` limits results to users whose `roleSnapshot` has that role (assignment candidates only, never authorization).
          *     `q` must contain at least 2 characters after trimming (otherwise 400 `invalid_request`).
          *     At most 20 users are returned. Not paginated: the response is `{items}` only.
          */
@@ -381,8 +382,8 @@ export interface paths {
         };
         get?: never;
         /**
-         * Replace approvers, purchasers and receivers (team admin)
-         * @description Every assignee must be a member of the batch's team (otherwise 400 `invalid_request` on that field). Duplicates are removed. 422 `batch_closed` / `team_archived`.
+         * Replace approvers and purchasers (team admin)
+         * @description Approvers must be members of the batch's team; purchasers must hold the purchaser role in `users.roleSnapshot` (otherwise 400 `invalid_request` on that field). Duplicates are removed. 422 `batch_closed` / `team_archived`.
          */
         put: operations["setBatchAssignments"];
         post?: never;
@@ -405,17 +406,17 @@ export interface paths {
         put?: never;
         /**
          * Manual lifecycle action
-         * @description Permissions: `withdraw_proposal` only by the proposer (batch origin `proposed`, `createdBy` = caller);
-         *     every other action by team admins and system admins. Guards:
-         *     `open` (from proposed/draft) needs complete assignments (422 `assignments_incomplete`) and a future
-         *     deadline, taken from the body or else the batch (`deadline_required`, `deadline_not_in_future`);
-         *     `start_review` (proposed/draft) needs complete assignments and at least one pending item (`no_pending_items`);
-         *     `close` (collecting) moves to reviewing, or cancels the batch itself when no pending/returned items exist;
-         *     `reopen` (reviewing) needs a future `deadline`;
-         *     `cancel` (draft/collecting/reviewing) needs `reason` (`reason_required`);
-         *     `reject_proposal` (proposed) needs `reason`;
-         *     `withdraw_proposal` (proposed). A wrong source state yields 409 `invalid_transition`.
-         *     The batch may also advance automatically (reviewing -> ordering/completed) after the action; the response is the final state.
+         * @description Permissions: `withdraw_proposal` only by the proposer; `restore_proposal` by team admins (and the proposer for a
+         *     withdrawn proposal); `confirm_review` / `unconfirm_review` by approvers and team admins; the rest by team admins.
+         *     Guards: `open` (proposed/draft) needs an approver (422 `assignments_incomplete`) and a future deadline;
+         *     `start_review` needs an approver and a pending item; `close` (collecting) moves to reviewing, or cancels the batch
+         *     itself (`no_items`); `reopen` needs a future `deadline`; `cancel` (draft/collecting/reviewing, never after
+         *     confirmation) and `reject_proposal` need `reason`; `uncancel` needs `reason` and, for a batch cancelled while
+         *     collecting, a future `deadline`; it returns 409 `invalid_transition` for a withdrawn proposal (use `restore_proposal`);
+         *     `confirm_review` needs every item approved or rejected (422 `items_undecided`) and derives the status
+         *     (`purchaseOutside` completes the batch); `unconfirm_review` needs `reason` and is blocked (409
+         *     `blocked_by_dependency`) while an item has a placed line or the unpurchasable mark; it removes draft vendor order
+         *     lines of the batch's items. After confirmation the status is derived from item fulfillment.
          */
         post: operations["transitionBatch"];
         delete?: never;
@@ -472,8 +473,7 @@ export interface paths {
          * @description 1 to 1000 decisions, no duplicate items. `return` and `reject` require a non-blank comment
          *     (400 `invalid_request` on `decisions`). A decision on an item that is not pending fails with
          *     422 `item_not_reviewable`; a batch not under review with 422 `batch_not_reviewing`.
-         *     The batch may advance automatically (e.g. to `ordering`); the returned batch is the final state and
-         *     `ETag` is its version. This endpoint does not use `If-Match`; item versions are checked internally (409 possible).
+         *     Review decisions never advance the batch (use `confirm_review`); `ETag` is the batch version, which every decision bumps. This endpoint does not use `If-Match`; item versions are checked internally (409 possible).
          */
         post: operations["reviewItems"];
         delete?: never;
@@ -586,11 +586,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Close an approved item that cannot be bought (purchasers and team admins, batch `ordering`)
-         * @description Requires a non-blank `reason` (400 `invalid_request`). The batch must be `ordering` (422 `batch_not_ordering`), the item
-         *     `approved` (else 409 `invalid_transition`) and not part of an order (422 `item_in_order`: remove it from the order first).
-         *     The batch may advance automatically in the same transaction (to `receiving`, or `completed` when every approved item is
-         *     unpurchasable); the response is the updated item. System admins have no implicit purchaser role (403).
+         * Mark an approved item unpurchasable, or "do not buy the remaining quantity" (purchasers)
+         * @description Requires a non-blank `reason`. The item must be `approved` in a review-confirmed batch that is not purchased outside
+         *     (409 `invalid_transition`) and have no draft vendor order lines (409 `blocked_by_dependency`). With placed lines the
+         *     mark means the remaining quantity is not bought. The batch status is re-derived in the same transaction.
+         *     System admins have no implicit purchaser role (403).
          */
         post: operations["markItemUnpurchasable"];
         delete?: never;
@@ -599,179 +599,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/batches/{id}/orders": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BatchId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * List the batch's team orders (anyone who can read the batch)
-         * @description Returns all orders by number, cancelled ones included, not paginated (`{items}` only).
-         */
-        get: operations["listBatchOrders"];
-        put?: never;
-        /**
-         * Create a draft team order from approved items (purchasers and team admins, batch `ordering`)
-         * @description `vendor` is required (at most 200 characters) and `itemIds` lists 1 or more distinct items of the batch. Every item must be
-         *     `approved` and in no live order (422 `item_not_orderable`); an id that is not an item of this batch is 400. The batch
-         *     must be `ordering` (422 `batch_not_ordering`). System admins have no implicit purchaser role (403). Orders are numbered
-         *     per batch. No `If-Match`; the new order's version is in `ETag`.
-         */
-        post: operations["createOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/orders/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /**
-         * Cancel a draft order and release its items (purchasers and team admins)
-         * @description The order is kept with status `cancelled` and returned. Same restrictions as `PATCH`
-         *     (422 `order_not_draft`, `order_in_transaction`, `batch_not_ordering`).
-         */
-        delete: operations["cancelOrder"];
-        options?: never;
-        head?: never;
-        /**
-         * Change a draft order's vendor and/or items (purchasers and team admins)
-         * @description Only the fields present change; `itemIds`, when present, replaces the whole item set (added items must be approved and in
-         *     no live order, removed items are released). Only a draft order outside any external order can change (422
-         *     `order_not_draft`, `order_in_transaction`: cancel the external order first), while the batch is `ordering` or
-         *     `receiving` (422 `batch_not_ordering`).
-         */
-        patch: operations["patchOrder"];
-        trace?: never;
-    };
-    "/vendor-transactions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a draft external order from draft team orders (purchaser of every involved batch)
-         * @description The orders may belong to several teams and batches. The caller must be able to read at least one of them (else 404, also
-         *     for unknown ids) and be purchaser of every involved batch (team admins implicitly; system admins not: 403). Every order
-         *     must be a draft outside any external order (422 `order_not_available`) and every batch `ordering` (422
-         *     `batch_not_ordering`). `currency` must be a supported currency (the vendor's billing currency). `vendor` defaults to
-         *     the orders' common vendor and is required (400) when they differ. No `If-Match`; the version is in `ETag`.
-         */
-        post: operations["createVendorTransaction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/vendor-transactions/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        /**
-         * External order details (anyone who can read at least one of its orders)
-         * @description Orders the caller cannot read are not listed and their ids, teams, batches and allocations are left out of the response;
-         *     only `hiddenOrderCount` and `hiddenOrdersTotalBase` (the sum of their base totals) describe them (spec §8.2).
-         *     Otherwise 404.
-         */
-        get: operations["getVendorTransaction"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Edit prices, shared costs, allocation and the charged amount (purchaser of every involved batch)
-         * @description A partial update: only fields present change (`sharedCosts`, `allocations` and `itemPrices` replace or merge as described
-         *     on their schemas). Allowed while the external order is `draft` or `placed` (422 `vendor_transaction_cancelled`), also after
-         *     the batch moved on, because bills arrive late. Costs (spec §11) are recalculated in the same transaction and every
-         *     change is audited on each involved batch.
-         *
-         *     Validation (400 `invalid_request`, `details.fields`): money fits the minor unit of its currency (shared costs and
-         *     prices: the transaction currency; `chargedAmountBase`: the base currency), a `discount` is not positive, prices use the
-         *     transaction currency and are not negative, `itemPrices` name items of this external order.
-         *
-         *     Business rules (422): `allocations` must name every order once; if any share differs from the proportional share the
-         *     shares are a manual override: they must add up to the total of the shared costs (`allocation_sum_mismatch`) and a
-         *     non-blank `allocationOverrideReason` is required (`allocation_override_reason_required`). Changing `sharedCosts`
-         *     while a manual override exists without sending new `allocations` fails with `allocation_sum_mismatch` unless the new
-         *     total still equals the stored shares; send `allocations: null` to go back to proportional allocation.
-         *     `cost_basis_zero`: a non-zero charged amount cannot be spread while the priced total is zero.
-         */
-        patch: operations["patchVendorTransaction"];
-        trace?: never;
-    };
-    "/vendor-transactions/{id}/place": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Place a draft external order (purchaser of every involved batch)
-         * @description In one transaction: the external order and its orders become `placed`, their items `ordered`, and each batch's automatic
-         *     transition is evaluated (`ordering` to `receiving`, or `completed`). 422 `vendor_transaction_not_draft`, `batch_not_ordering`.
-         *     No request body.
-         */
-        post: operations["placeVendorTransaction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/vendor-transactions/{id}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a draft external order and release its orders (purchaser of every involved batch)
-         * @description The team orders go back to plain drafts and their actual prices are cleared. A placed external order cannot be cancelled
-         *     (422 `vendor_transaction_not_draft`); problems after placing are handled with item exceptions and adjustments. No request body.
-         */
-        post: operations["cancelVendorTransaction"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/items/{id}/receipts": {
+    "/items/{id}/unpurchasable/undo": {
         parameters: {
             query?: never;
             header?: never;
@@ -780,29 +608,20 @@ export interface paths {
             };
             cookie?: never;
         };
-        /**
-         * Receiving records of an item (anyone who can read the batch)
-         * @description Oldest first, not paginated (`{items}` only).
-         */
-        get: operations["listItemReceipts"];
+        get?: never;
         put?: never;
         /**
-         * Record goods received (receivers, purchasers and team admins, batch `receiving`)
-         * @description `quantity` (at least 1) more units arrived. The item becomes `partially_received`, or `received` when the ordered
-         *     quantity is complete; `receivedQuantity` is the sum of the receipts. Receiving more than was ordered is 422
-         *     `receipt_exceeds_quantity` (report extra goods as an exception). The item must be `ordered` or `partially_received`
-         *     (else 409 `invalid_transition`, e.g. while it has an open exception) and the batch `receiving` (422 `batch_not_receiving`).
-         *     System admins have no implicit role (403). `If-Match` is the item's version; the response carries the item's new
-         *     version in `ETag`. When this closes the last open item the batch completes in the same transaction (see `batch.status`).
+         * Remove the unpurchasable mark (purchasers)
+         * @description Requires `reason`. Restores the remaining quantity to the queue.
          */
-        post: operations["recordItemReceipt"];
+        post: operations["undoItemUnpurchasable"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/items/{id}/exceptions": {
+    "/items/{id}/review/undo": {
         parameters: {
             query?: never;
             header?: never;
@@ -811,75 +630,35 @@ export interface paths {
             };
             cookie?: never;
         };
-        /**
-         * Exceptions of an item, resolved ones included (anyone who can read the batch)
-         * @description Oldest first, not paginated (`{items}` only). Not listed in the specification's endpoint table: it is the only way for a
-         *     client to learn the id (and version) of the open exception that `POST /exceptions/{id}/resolve` needs.
-         */
-        get: operations["listItemExceptions"];
+        get?: never;
         put?: never;
         /**
-         * Report a problem with an item (receivers, purchasers and team admins, batch `receiving`)
-         * @description `type` is `quantity_mismatch`, `wrong_item` or `damaged`; `description` is required. The item must be `ordered` or
-         *     `partially_received` (else 409 `invalid_transition`; an item has at most one open exception) and becomes `exception`;
-         *     the batch cannot complete until a purchaser resolves it. `If-Match` is the item's version; `ETag` is its new version.
+         * Undo a review decision, including force-reject
+         * @description Requires `reason`. Allowed to the reviewer who decided and to team admins, only while the batch is not review-confirmed (otherwise 409 `blocked_by_dependency`). The item returns to `pending` and `review` is cleared.
          */
-        post: operations["reportItemException"];
+        post: operations["undoItemReview"];
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/exceptions/{id}/resolve": {
+    "/items/{id}/copy": {
         parameters: {
             query?: never;
             header?: never;
             path: {
-                id: string;
+                id: components["parameters"]["ItemId"];
             };
             cookie?: never;
         };
         get?: never;
         put?: never;
         /**
-         * Disposition an open exception (purchasers and team admins, batch `receiving`)
-         * @description `exchange` (return or exchange) sends the item back to `ordered`, or to `partially_received` when some units were already
-         *     received. `accept` closes the item as `accepted_short` with `receivedQuantity` as its final quantity (422
-         *     `nothing_received` when nothing arrived: cancel instead). `cancel` closes it as `not_obtained`. For `accept` and `cancel`
-         *     `note` is required (it becomes the item's `closeReason`) and `refundAmountBase` (a positive base-currency amount, at most
-         *     the base currency's decimals; 400 with `exchange`) records a refund: a negative adjustment bound to the item is added to its
-         *     order, whose `adjustmentsBase` and `totalBase` are recomputed in the same transaction. A resolved exception is 422
-         *     `exception_resolved`. When this closes the last open item the batch completes in the same transaction. `If-Match` is the
-         *     exception's version; `ETag` is its new version.
+         * Copy a withdrawn item into a new pending item of the same batch
+         * @description Allowed to the requester and team admins while the batch accepts items (422 `batch_not_collecting` otherwise). Takes no body and no `If-Match`.
          */
-        post: operations["resolveItemException"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/orders/{id}/adjustments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Book a refund or cost correction on a placed order (purchasers and team admins)
-         * @description `amountBase` is a non-zero base-currency decimal (refunds are negative; at most the base currency's decimals), `reason`
-         *     is required, and the optional `itemId` must be an item of the order (it then also reduces that item's actual cost in
-         *     exports). The order must be `placed` (422 `order_not_placed`). Its `adjustmentsBase` and `totalBase` are recomputed in the
-         *     same transaction. Allowed in any batch status. `If-Match` is the order's version; `ETag` is its new version. System admins
-         *     have no implicit purchaser role (403).
-         */
-        post: operations["addOrderAdjustment"];
+        post: operations["copyItem"];
         delete?: never;
         options?: never;
         head?: never;
@@ -895,11 +674,11 @@ export interface paths {
         };
         /**
          * Work waiting for the caller
-         * @description `batchesToOrder` lists batches in `ordering` where the caller is a purchaser (team admins implicitly) and approved items
-         *     still wait for an order or an unpurchasable mark; `count` is the number of those items. `itemsToReceive` lists batches in
-         *     `receiving` where the caller is a receiver (team admins implicitly) with the number of `ordered` or `partially_received`
-         *     items; `openExceptions` lists batches in `receiving` where the caller is a purchaser (team admins implicitly) with the
-         *     number of items in `exception`.
+         * @description Everyone gets `proposalsToHandle`, `itemsToReview`, `returnedItems` and `reviewsToConfirm` (reviewing batches where the
+         *     caller is an approver and every item is decided). Purchasers also get `itemsToPurchase` (approved items with remaining
+         *     quantity, grouped by vendor name; `vendor` null for items without one; `myBatches` counts those in batches where the
+         *     caller is the assigned purchaser), `draftVendorOrders`, `openProblems`, `linesToClose`; purchasers and receivers get
+         *     `deliveriesToMatch`.
          */
         get: operations["getMyTasks"];
         put?: never;
@@ -1003,6 +782,10 @@ export interface components {
             version: number;
             memberships: components["schemas"]["MyMembership"][];
             isSystemAdmin: boolean;
+            /** @description From PURCHASER_ROLES in the current token; system admins do not hold it implicitly. */
+            isPurchaser: boolean;
+            /** @description From RECEIVER_ROLES in the current token. */
+            isReceiver: boolean;
         };
         PatchMeRequest: {
             /** @description Saves the user's choice. It cannot be cleared back to null. */
@@ -1180,13 +963,14 @@ export interface components {
             currency: string;
         };
         /** @enum {string} */
-        BatchStatus: "proposed" | "proposal_rejected" | "draft" | "collecting" | "reviewing" | "ordering" | "receiving" | "completed" | "cancelled";
+        BatchStatus: "proposed" | "proposal_rejected" | "draft" | "collecting" | "reviewing" | "purchasing" | "receiving" | "completed" | "cancelled";
         /** @enum {string} */
-        BatchAction: "open" | "start_review" | "close" | "reopen" | "cancel" | "reject_proposal" | "withdraw_proposal";
+        BatchAction: "open" | "start_review" | "close" | "reopen" | "cancel" | "uncancel" | "reject_proposal" | "withdraw_proposal" | "restore_proposal" | "confirm_review" | "unconfirm_review";
         Assignments: {
+            /** @description Team members. */
             approvers: string[];
+            /** @description Optional; steers notifications and tasks only, grants nothing. */
             purchasers: string[];
-            receivers: string[];
         };
         Batch: {
             id: string;
@@ -1208,6 +992,14 @@ export interface components {
              * @enum {string}
              */
             visibilityOverride: "" | "public" | "members";
+            /** @description Set while cancelled (or after uncancel is possible). */
+            statusBeforeCancel?: string;
+            reviewConfirmation: {
+                by: string;
+                /** Format: date-time */
+                at: string;
+                purchaseOutside: boolean;
+            } | null;
             statusReason: string;
             /** Format: date-time */
             statusChangedAt: string;
@@ -1238,16 +1030,19 @@ export interface components {
         AssignmentsRequest: {
             approvers?: string[];
             purchasers?: string[];
-            receivers?: string[];
         };
         TransitionRequest: {
             action: components["schemas"]["BatchAction"];
             reason?: string;
             /** Format: date-time */
             deadline?: string | null;
+            /** @description confirm_review only: buy outside the system; the batch completes. */
+            purchaseOutside?: boolean;
         };
         /** @enum {string} */
-        ItemStatus: "pending" | "withdrawn" | "approved" | "returned" | "rejected" | "ordered" | "unpurchasable" | "partially_received" | "received" | "exception" | "accepted_short" | "not_obtained";
+        ItemStatus: "pending" | "withdrawn" | "approved" | "returned" | "rejected";
+        /** @enum {string} */
+        Fulfillment: "external" | "unpurchasable" | "not_ordered" | "partially_ordered" | "received" | "closed" | "partially_received" | "ordered";
         Review: {
             /** @enum {string} */
             decision: "approved" | "returned" | "rejected";
@@ -1289,12 +1084,19 @@ export interface components {
             status: components["schemas"]["ItemStatus"];
             review: components["schemas"]["Review"] | null;
             lookup: components["schemas"]["LookupInfo"] | null;
-            orderId: string | null;
-            actualUnitPrice: components["schemas"]["Money"] | null;
-            /** @description Decimal string. */
-            actualCostBase: string | null;
+            unpurchasable: {
+                by: string;
+                /** Format: date-time */
+                at: string;
+                reason: string;
+            } | null;
+            fulfillment: components["schemas"]["Fulfillment"] | null;
+            plannedQuantity: number;
+            toPurchaseQuantity: number;
+            orderedQuantity: number;
             receivedQuantity: number;
-            closeReason: string;
+            /** @description Decimal string; placed lines only. */
+            costBase: string | null;
             /** @description Reserved. */
             customFields: {
                 [key: string]: unknown;
@@ -1339,272 +1141,30 @@ export interface components {
         };
         BatchTask: {
             batch: components["schemas"]["Batch"];
-            /** @description Number of pending items (itemsToReview) or of approved items not yet ordered or marked unpurchasable (batchesToOrder); 0 otherwise. */
+            /** @description Pending items (itemsToReview), decided items (reviewsToConfirm); 0 for proposals. */
             count: number;
+        };
+        CountTask: {
+            count: number;
+        };
+        VendorTask: {
+            vendor: string | null;
+            count: number;
+            myBatches: number;
         };
         MyTasks: {
             proposalsToHandle: components["schemas"]["BatchTask"][];
             itemsToReview: components["schemas"]["BatchTask"][];
             returnedItems: components["schemas"]["Item"][];
-            batchesToOrder: components["schemas"]["BatchTask"][];
-            itemsToReceive: components["schemas"]["BatchTask"][];
-            openExceptions: components["schemas"]["BatchTask"][];
+            reviewsToConfirm: components["schemas"]["BatchTask"][];
+            itemsToPurchase?: components["schemas"]["VendorTask"][];
+            draftVendorOrders?: components["schemas"]["CountTask"];
+            openProblems?: components["schemas"]["CountTask"];
+            linesToClose?: components["schemas"]["CountTask"];
+            deliveriesToMatch?: components["schemas"]["CountTask"];
         };
         UnpurchasableRequest: {
             reason: string;
-        };
-        Receipt: {
-            id: string;
-            itemId: string;
-            orderId: string;
-            teamId: string;
-            quantity: number;
-            receivedBy: string;
-            /** Format: date-time */
-            receivedAt: string;
-            note: string;
-            /** @description Reserved; always empty. */
-            attachments: string[];
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: int64 */
-            version: number;
-        };
-        ReceiptList: {
-            items: components["schemas"]["Receipt"][];
-        };
-        ReceiptRequest: {
-            quantity: number;
-            note?: string;
-        };
-        ReceiptResult: {
-            receipt: components["schemas"]["Receipt"];
-            item: components["schemas"]["Item"];
-            batch: components["schemas"]["Batch"];
-        };
-        /** @enum {string} */
-        ExceptionType: "quantity_mismatch" | "wrong_item" | "damaged";
-        /** @enum {string} */
-        ExceptionAction: "exchange" | "accept" | "cancel";
-        ExceptionResolution: {
-            action: components["schemas"]["ExceptionAction"];
-            by: string;
-            /** Format: date-time */
-            at: string;
-            note: string;
-            /** @description Decimal string, base currency; the refund as a positive amount. */
-            refundAmountBase: string | null;
-        };
-        ItemException: {
-            id: string;
-            itemId: string;
-            teamId: string;
-            type: components["schemas"]["ExceptionType"];
-            description: string;
-            reportedBy: string;
-            /** Format: date-time */
-            reportedAt: string;
-            /** @description Null while the exception is open. */
-            resolution: components["schemas"]["ExceptionResolution"] | null;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: int64 */
-            version: number;
-        };
-        ExceptionList: {
-            items: components["schemas"]["ItemException"][];
-        };
-        ExceptionRequest: {
-            type: components["schemas"]["ExceptionType"];
-            description: string;
-        };
-        ResolveExceptionRequest: {
-            action: components["schemas"]["ExceptionAction"];
-            /** @description Required with `accept` and `cancel`. */
-            note?: string;
-            /** @description Positive decimal string in the base currency; `accept` and `cancel` only. */
-            refundAmountBase?: string | null;
-        };
-        Adjustment: {
-            id: string;
-            orderId: string;
-            teamId: string;
-            itemId: string | null;
-            /** @description Decimal string, base currency; refunds are negative. */
-            amountBase: string;
-            reason: string;
-            createdBy: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: int64 */
-            version: number;
-        };
-        AdjustmentRequest: {
-            /** @description Non-zero decimal string in the base currency; negative for a refund. */
-            amountBase: string;
-            reason: string;
-            itemId?: string | null;
-        };
-        AdjustmentResult: {
-            adjustment: components["schemas"]["Adjustment"];
-            order: components["schemas"]["Order"];
-        };
-        ExceptionResult: {
-            exception: components["schemas"]["ItemException"];
-            item: components["schemas"]["Item"];
-            batch: components["schemas"]["Batch"];
-            /** @description The refund booked by `resolve`; null otherwise. */
-            adjustment: components["schemas"]["Adjustment"] | null;
-        };
-        /**
-         * @description Status of a team order and of an external order.
-         * @enum {string}
-         */
-        OrderStatus: "draft" | "placed" | "cancelled";
-        Order: {
-            id: string;
-            teamId: string;
-            batchId: string;
-            /** @description Per-batch order number. */
-            number: number;
-            vendor: string;
-            /** @description Kept on cancelled orders for history. */
-            itemIds: string[];
-            vendorTransactionId: string | null;
-            status: components["schemas"]["OrderStatus"];
-            /** @description Decimal string, base currency; 0 until costs are computed. */
-            itemsCostBase: string;
-            /** @description Decimal string, base currency (this order's allocation of the shared costs). */
-            sharedCostBase: string;
-            /** @description Decimal string, base currency; sum of the order's adjustments (refunds are negative). */
-            adjustmentsBase: string;
-            /** @description Decimal string: itemsCostBase + sharedCostBase + adjustmentsBase. */
-            totalBase: string;
-            /** @description True while the figures are not final: prices are missing, or they were converted with a reference rate. */
-            costsProvisional: boolean;
-            createdBy: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: int64 */
-            version: number;
-        };
-        OrderList: {
-            items: components["schemas"]["Order"][];
-        };
-        CreateOrderRequest: {
-            vendor: string;
-            itemIds: string[];
-        };
-        PatchOrderRequest: {
-            vendor?: string;
-            /** @description Replaces the item set. */
-            itemIds?: string[];
-        };
-        /** @enum {string} */
-        SharedCostType: "shipping" | "fee" | "tax" | "discount" | "other";
-        SharedCost: {
-            type: components["schemas"]["SharedCostType"];
-            /** @description Decimal string in the external order's currency; negative for discounts. */
-            amount: string;
-            note: string;
-        };
-        SharedCostRequest: {
-            type: components["schemas"]["SharedCostType"];
-            /** @description Decimal string in the external order's currency, at most its minor-unit digits; a discount must not be positive. */
-            amount: string;
-            note?: string;
-        };
-        Allocation: {
-            orderId: string;
-            /** @description Decimal string in the external order's currency. */
-            shareOfSharedCosts: string;
-            /** @description True when the share was set by hand instead of proportionally to the item subtotals. */
-            overridden: boolean;
-        };
-        VendorTransaction: {
-            id: string;
-            vendor: string;
-            externalOrderNo: string;
-            /** @description The vendor's billing currency. */
-            currency: string;
-            orderIds: string[];
-            teamIds: string[];
-            batchIds: string[];
-            status: components["schemas"]["OrderStatus"];
-            /** Format: date-time */
-            placedAt: string | null;
-            placedBy: string | null;
-            sharedCosts: components["schemas"]["SharedCost"][];
-            /** @description Decimal string: what was actually charged, in the base currency. */
-            chargedAmountBase: string | null;
-            allocations: components["schemas"]["Allocation"][];
-            allocationOverrideReason: string;
-            /** Format: date-time */
-            expectedDeliveryDate: string | null;
-            paymentNote: string;
-            createdBy: string;
-            /** Format: date-time */
-            createdAt: string;
-            /** Format: date-time */
-            updatedAt: string;
-            /** Format: int64 */
-            version: number;
-        };
-        OrderDetail: {
-            order: components["schemas"]["Order"];
-            /** @description The order's item lines, with `actualUnitPrice` and `actualCostBase`. */
-            items: components["schemas"]["Item"][];
-        };
-        /**
-         * @description An external order as seen by one caller. Orders the caller cannot read are omitted from `orders`, `orderIds`, `teamIds`,
-         *     `batchIds` and `allocations`; `hiddenOrderCount` and `hiddenOrdersTotalBase` summarise them.
-         */
-        VendorTransactionView: components["schemas"]["VendorTransaction"] & {
-            orders: components["schemas"]["OrderDetail"][];
-            hiddenOrderCount: number;
-            /** @description Decimal string, base currency. */
-            hiddenOrdersTotalBase: string;
-        };
-        CreateVendorTransactionRequest: {
-            orderIds: string[];
-            /** @description A supported currency code. */
-            currency: string;
-            vendor?: string;
-            externalOrderNo?: string;
-        };
-        PatchVendorTransactionRequest: {
-            vendor?: string;
-            externalOrderNo?: string;
-            paymentNote?: string;
-            /** Format: date-time */
-            expectedDeliveryDate?: string | null;
-            /** @description Replaces the whole list of shared costs. */
-            sharedCosts?: components["schemas"]["SharedCostRequest"][];
-            /** @description Decimal string in the base currency, at most its minor-unit digits, not negative. `null` clears it. */
-            chargedAmountBase?: string | null;
-            /**
-             * @description One entry per order: a share of the total of the shared costs, in the external order's currency. Entries that differ from
-             *     the proportional share are overrides. `null` resets to proportional allocation.
-             */
-            allocations?: {
-                orderId: string;
-                shareOfSharedCosts: string;
-            }[] | null;
-            /** @description Required while any allocation is overridden. */
-            allocationOverrideReason?: string;
-            /** @description Merged by item. A null price clears the item's actual price. */
-            itemPrices?: {
-                itemId: string;
-                actualUnitPrice: components["schemas"]["Money"] | null;
-            }[];
         };
         AuditChange: {
             field: string;
@@ -1653,13 +1213,13 @@ export interface components {
         };
         /**
          * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
-         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`;
+         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
          *     503 `upstream_unavailable`;
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "batch_not_ordering" | "item_not_orderable" | "item_in_order" | "order_not_draft" | "order_in_transaction" | "order_not_available" | "vendor_transaction_not_draft" | "vendor_transaction_cancelled" | "allocation_sum_mismatch" | "allocation_override_reason_required" | "cost_basis_zero" | "batch_not_receiving" | "receipt_exceeds_quantity" | "item_not_ordered" | "exception_resolved" | "nothing_received" | "order_not_placed";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch";
     };
     responses: {
         /**
@@ -1759,9 +1319,7 @@ export interface components {
          *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-         *     `batch_not_ordering`, `item_not_orderable`, `item_in_order`, `order_not_draft`, `order_in_transaction`, `order_not_available`,
-         *     `vendor_transaction_not_draft`, `vendor_transaction_cancelled`, `allocation_sum_mismatch`, `allocation_override_reason_required`, `cost_basis_zero`,
-         *     `batch_not_receiving`, `receipt_exceeds_quantity`, `item_not_ordered`, `exception_resolved`, `nothing_received`, `order_not_placed`.
+         *     `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -1785,8 +1343,6 @@ export interface components {
         Cursor: string;
         BatchId: string;
         ItemId: string;
-        OrderId: string;
-        VendorTransactionId: string;
         /**
          * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
          *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
@@ -1895,6 +1451,7 @@ export interface operations {
         parameters: {
             query: {
                 q: string;
+                role?: "purchaser" | "receiver";
             };
             header?: never;
             path?: never;
@@ -2679,7 +2236,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `version_conflict` (stale If-Match) or `invalid_transition` (action not allowed in the current status). */
+            /** @description `version_conflict` (stale If-Match), `invalid_transition` or `blocked_by_dependency`. */
             409: {
                 headers: {
                     "X-Request-ID": components["headers"]["XRequestID"];
@@ -3020,349 +2577,7 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
-    listBatchOrders: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BatchId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OrderList"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    createOrder: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["BatchId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    cancelOrder: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The cancelled order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    patchOrder: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchOrderRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Order"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    createVendorTransaction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateVendorTransactionRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorTransactionView"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    getVendorTransaction: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorTransactionView"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    patchVendorTransaction: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PatchVendorTransactionRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated external order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorTransactionView"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    placeVendorTransaction: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Placed external order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorTransactionView"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    cancelVendorTransaction: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["VendorTransactionId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Cancelled external order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorTransactionView"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    listItemReceipts: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: components["parameters"]["ItemId"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ReceiptList"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    recordItemReceipt: {
+    undoItemUnpurchasable: {
         parameters: {
             query?: never;
             header: {
@@ -3380,25 +2595,25 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": components["schemas"]["ReceiptRequest"];
+                "application/json": components["schemas"]["UnpurchasableRequest"];
             };
         };
         responses: {
-            /** @description Created */
-            201: {
+            /** @description Item */
+            200: {
                 headers: {
                     ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ReceiptResult"];
+                    "application/json": components["schemas"]["Item"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `version_conflict` or `invalid_transition`. */
+            /** @description `version_conflict`, `invalid_transition` or `blocked_by_dependency`. */
             409: {
                 headers: {
                     "X-Request-ID": components["headers"]["XRequestID"];
@@ -3414,7 +2629,59 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
-    listItemExceptions: {
+    undoItemReview: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UnpurchasableRequest"];
+            };
+        };
+        responses: {
+            /** @description Item */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Item"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `version_conflict`, `invalid_transition` or `blocked_by_dependency`. */
+            409: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    copyItem: {
         parameters: {
             query?: never;
             header?: never;
@@ -3425,58 +2692,21 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExceptionList"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    reportItemException: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["ItemId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ExceptionRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
+            /** @description Item */
             201: {
                 headers: {
                     ETag: components["headers"]["ETag"];
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ExceptionResult"];
+                    "application/json": components["schemas"]["Item"];
                 };
             };
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            /** @description `version_conflict` or `invalid_transition`. */
+            /** @description `version_conflict`, `invalid_transition` or `blocked_by_dependency`. */
             409: {
                 headers: {
                     "X-Request-ID": components["headers"]["XRequestID"];
@@ -3488,111 +2718,6 @@ export interface operations {
             };
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    resolveItemException: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ResolveExceptionRequest"];
-            };
-        };
-        responses: {
-            /** @description The resolved exception, the updated item and batch, and the refund adjustment if any */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ExceptionResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description `version_conflict` or `invalid_transition`. */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["XRequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    addOrderAdjustment: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                id: components["parameters"]["OrderId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["AdjustmentRequest"];
-            };
-        };
-        responses: {
-            /** @description Created */
-            201: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AdjustmentResult"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description `version_conflict`. */
-            409: {
-                headers: {
-                    "X-Request-ID": components["headers"]["XRequestID"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Error"];
-                };
-            };
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };

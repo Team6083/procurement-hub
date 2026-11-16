@@ -79,12 +79,13 @@ func (s *Store) UpsertUser(ctx context.Context, sub, username, email, displayNam
 
 // MarkSynced refreshes profile fields and lastSyncedTokenIat, but only moves
 // the timestamp forward.
-func (s *Store) MarkSynced(ctx context.Context, userID bson.ObjectID, iat time.Time, username, email, displayName string) error {
+func (s *Store) MarkSynced(ctx context.Context, userID bson.ObjectID, iat time.Time, username, email, displayName string, snap domain.RoleSnapshot) error {
 	_, err := s.c("users").UpdateOne(ctx,
 		bson.D{{Key: "_id", Value: userID}, {Key: "lastSyncedTokenIat", Value: bson.D{{Key: "$lt", Value: iat}}}},
 		bson.D{{Key: "$set", Value: bson.D{
 			{Key: "lastSyncedTokenIat", Value: iat}, {Key: "username", Value: username},
 			{Key: "email", Value: email}, {Key: "displayName", Value: displayName},
+			{Key: "roleSnapshot", Value: snap},
 			{Key: "updatedAt", Value: time.Now().UTC()},
 		}}})
 	return err
@@ -99,14 +100,22 @@ func (s *Store) GetUser(ctx context.Context, id bson.ObjectID) (*domain.User, er
 }
 
 // SearchUsers matches username, email or display name by case-insensitive prefix/substring.
-func (s *Store) SearchUsers(ctx context.Context, q string, limit int64) ([]domain.User, error) {
+// role is "", "purchaser" or "receiver"; the latter two filter on roleSnapshot.
+func (s *Store) SearchUsers(ctx context.Context, q, role string, limit int64) ([]domain.User, error) {
 	if limit <= 0 || limit > 50 {
 		limit = 20
 	}
 	re := bson.Regex{Pattern: regexp.QuoteMeta(q), Options: "i"}
-	cur, err := s.c("users").Find(ctx, bson.D{{Key: "$or", Value: bson.A{
+	filter := bson.D{{Key: "$or", Value: bson.A{
 		bson.D{{Key: "username", Value: re}}, bson.D{{Key: "email", Value: re}}, bson.D{{Key: "displayName", Value: re}},
-	}}}, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "username", Value: 1}}))
+	}}}
+	if q == "" {
+		filter = bson.D{}
+	}
+	if role != "" {
+		filter = append(filter, bson.E{Key: "roleSnapshot." + role, Value: true})
+	}
+	cur, err := s.c("users").Find(ctx, filter, options.Find().SetLimit(limit).SetSort(bson.D{{Key: "username", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}

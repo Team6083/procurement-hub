@@ -44,9 +44,6 @@ func ensureAssignments(a *domain.Assignments) {
 	if a.Purchasers == nil {
 		a.Purchasers = []bson.ObjectID{}
 	}
-	if a.Receivers == nil {
-		a.Receivers = []bson.ObjectID{}
-	}
 }
 
 func (s *Store) GetBatch(ctx context.Context, id bson.ObjectID) (*domain.Batch, error) {
@@ -181,13 +178,12 @@ func (s *Store) ItemCounts(ctx context.Context, batchID bson.ObjectID) (domain.I
 	return counts, nil
 }
 
-// RemoveAssignee removes a user from every non-terminal batch assignment in a
-// team (used when a member leaves, spec §8.1). It returns the affected batches.
+// RemoveAssignee removes a user from the approver assignments of every batch in a
+// team (used when a member leaves, spec §8.1). Purchaser assignments are global
+// and stay. It returns the affected batches.
 func (s *Store) RemoveAssignee(ctx context.Context, teamID, userID bson.ObjectID) ([]bson.ObjectID, error) {
 	filter := bson.D{{Key: "teamId", Value: teamID}, {Key: "$or", Value: bson.A{
 		bson.D{{Key: "assignments.approvers", Value: userID}},
-		bson.D{{Key: "assignments.purchasers", Value: userID}},
-		bson.D{{Key: "assignments.receivers", Value: userID}},
 	}}}
 	cur, err := s.c("batches").Find(ctx, filter, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
 	if err != nil {
@@ -205,8 +201,6 @@ func (s *Store) RemoveAssignee(ctx context.Context, teamID, userID bson.ObjectID
 	_, err = s.c("batches").UpdateMany(ctx, filter, bson.D{
 		{Key: "$pull", Value: bson.D{
 			{Key: "assignments.approvers", Value: userID},
-			{Key: "assignments.purchasers", Value: userID},
-			{Key: "assignments.receivers", Value: userID},
 		}},
 		{Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}},
 		{Key: "$set", Value: bson.D{{Key: "updatedAt", Value: time.Now().UTC()}}},
@@ -250,6 +244,67 @@ func (s *Store) BatchesByIDs(ctx context.Context, ids []bson.ObjectID) ([]domain
 func (s *Store) ItemsByRequester(ctx context.Context, userID bson.ObjectID, status domain.ItemStatus) ([]domain.Item, error) {
 	cur, err := s.c("items").Find(ctx, bson.D{{Key: "requesterId", Value: userID}, {Key: "status", Value: status}},
 		options.Find().SetLimit(500))
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Item
+	return out, cur.All(ctx, &out)
+}
+
+// BumpBatch increments the batch version without changing anything else. Review
+// actions use it inside their transaction so they conflict with confirm_review
+// (spec §10 intro).
+func (s *Store) BumpBatch(ctx context.Context, id bson.ObjectID) error {
+	res, err := s.c("batches").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}}, bson.D{
+		{Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}},
+		{Key: "$set", Value: bson.D{{Key: "updatedAt", Value: time.Now().UTC()}}},
+	})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ItemsByBatchStatus lists a batch's items with a review status.
+func (s *Store) ItemsByBatchStatus(ctx context.Context, batchID bson.ObjectID, status domain.ItemStatus) ([]domain.Item, error) {
+	cur, err := s.c("items").Find(ctx, bson.D{{Key: "batchId", Value: batchID}, {Key: "status", Value: status}},
+		options.Find().SetSort(bson.D{{Key: "seqNo", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Item
+	return out, cur.All(ctx, &out)
+}
+
+// EventRecord is one domain event for the notification pipeline (spec §12.2).
+// Delivery is M6; until then the outbox only accumulates.
+type EventRecord struct {
+	ID       bson.ObjectID `bson:"_id,omitempty"`
+	At       time.Time     `bson:"at"`
+	Type     string        `bson:"type"` // e.g. batch.review_confirmed, item.ordered.undone
+	Actor    string        `bson:"actor"`
+	TeamID   bson.ObjectID `bson:"teamId,omitempty"`
+	BatchID  bson.ObjectID `bson:"batchId,omitempty"`
+	ObjectID string        `bson:"objectId"`
+	Undone   bool          `bson:"undone"`
+}
+
+// Emit appends an event to the outbox; call it inside the state change's transaction.
+func (s *Store) Emit(ctx context.Context, e EventRecord) error {
+	e.At = time.Now().UTC()
+	_, err := s.c("eventOutbox").InsertOne(ctx, e)
+	return err
+}
+
+// ItemsToPurchase lists approved items with remaining quantity in review-confirmed
+// batches that are not purchased outside (the purchasing queue, spec §16.2).
+func (s *Store) ItemsToPurchase(ctx context.Context) ([]domain.Item, error) {
+	cur, err := s.c("items").Find(ctx, bson.D{
+		{Key: "status", Value: domain.ItemApproved}, {Key: "toPurchaseQuantity", Value: bson.D{{Key: "$gt", Value: 0}}},
+	})
 	if err != nil {
 		return nil, err
 	}

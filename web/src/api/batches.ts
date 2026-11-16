@@ -116,7 +116,7 @@ function useBatchCall<TVars>(
 }
 
 export const useTransition = (batchId: string) =>
-  useBatchCall<{ action: BatchAction; reason?: string; deadline?: string }>(batchId, (api, headers, body) =>
+  useBatchCall<{ action: BatchAction; reason?: string; deadline?: string; purchaseOutside?: boolean }>(batchId, (api, headers, body) =>
     api.full.post<Batch>(`/batches/${batchId}/transitions`, body, { headers }),
   );
 
@@ -148,11 +148,14 @@ export function usePutItem(batchId: string) {
   });
 }
 
+export type ItemAction = 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable' | 'unpurchasable/undo' | 'review/undo';
+const REASON_ACTIONS: ItemAction[] = ['force-reject', 'unpurchasable', 'unpurchasable/undo', 'review/undo'];
+
 export function useItemAction(batchId: string) {
   const api = useApi();
-  return useGuardedMutation<{ item: Item; action: 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable'; reason?: string }, Item>({
+  return useGuardedMutation<{ item: Item; action: ItemAction; reason?: string }, Item>({
     mutationFn: ({ item, action, reason }) =>
-      api.post<Item>(`/items/${item.id}/${action}`, action === 'force-reject' || action === 'unpurchasable' ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
+      api.post<Item>(`/items/${item.id}/${action}`, REASON_ACTIONS.includes(action) ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
     ...useItemsChanged(batchId),
   });
 }

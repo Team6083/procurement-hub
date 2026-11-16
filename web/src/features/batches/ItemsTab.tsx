@@ -2,20 +2,22 @@ import { Button, Card, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuBan, LuUndo2, LuX } from 'react-icons/lu';
+import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuUndo2, LuX } from 'react-icons/lu';
 import { useItemAction } from '../../api/batches';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { SelectField } from '../../components/ui/select';
-import { OrderBar } from '../orders/OrderBar';
-import { canCreateOrder } from '../orders/rules';
+import { UndoDialog } from '../../components/UndoDialog';
 import { EstimateSummary, useEstimateText } from './EstimateSummary';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
-import { TO_ORDER, countsTowardEstimate, filterItems, type ItemFilters } from './filters';
+import { TO_PURCHASE, countsTowardEstimate, filterItems, type ItemFilters } from './filters';
 import { ReviewBar } from './ReviewBar';
-import { canAddItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, isMember, showResubmit, type Caller } from './rules';
+import {
+  canAddItem, canCopyItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, canUndoReview, canUndoUnpurchasable,
+  inPurchasing, isMember, showResubmit, type Caller,
+} from './rules';
 
 interface Props {
   batch: Batch;
@@ -30,9 +32,9 @@ const distinct = (xs: string[]) => [...new Set(xs.filter(Boolean))].sort();
 
 export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId }: Props) {
   const { t } = useTranslation('batches');
-  // The status filter starts where this caller works (pending for approvers, approved-without-order for purchasers); once
+  // The status filter starts where this caller works (pending for approvers, approved-and-still-to-purchase for purchasers); once
   // chosen it sticks until the batch changes status, then the default for the new status applies again.
-  const defaultStatus = canReview(batch, caller) ? 'pending' : canCreateOrder(batch, caller) ? TO_ORDER : undefined;
+  const defaultStatus = canReview(batch, caller) ? 'pending' : caller.isPurchaser && inPurchasing(batch) ? TO_PURCHASE : undefined;
   const [others, setOthers] = useState<Omit<ItemFilters, 'status'>>({});
   const [search, setSearch] = useState('');
   const [chosen, setChosen] = useState<{ key: string; value: string | undefined } | null>(null);
@@ -42,6 +44,8 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
   const [unbuyable, setUnbuyable] = useState<Item | null>(null);
   const [forcing, setForcing] = useState<Item | null>(null);
+  const [undoing, setUndoing] = useState<{ item: Item; what: 'review' | 'unpurchasable' } | null>(null);
+  const [copyFrom, setCopyFrom] = useState<Item | null>(null);
   const action = useItemAction(batch.id);
   const internal = isMember(caller) || caller.isSystemAdmin;
 
@@ -56,12 +60,11 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const set = (k: keyof Omit<ItemFilters, 'status'>) => (v: string) => setOthers((f) => ({ ...f, [k]: v || undefined }));
   const setStatus = (v: string) => setChosen({ key: `${batch.status}:${defaultStatus ?? ''}`, value: v || undefined });
   const decidable = selected.filter((i) => i.status === 'pending');
-  const orderable = selected.filter((i) => i.status === 'approved' && !i.orderId);
   const clearSelection = () => setPicked([]);
   const activeCount = [...Object.values(others), status].filter(Boolean).length;
   const clearFilters = () => { setOthers({}); setStatus(''); };
   const statusOptions = [
-    ...(items.some((i) => i.status === 'approved' && !i.orderId) ? [{ value: TO_ORDER, label: t('filters.toOrder') }] : []),
+    ...(items.some((i) => i.status === 'approved' && i.toPurchaseQuantity > 0) ? [{ value: TO_PURCHASE, label: t('filters.toPurchase') }] : []),
     ...distinct(items.map((i) => i.status)).map((s) => ({ value: s, label: t(`itemStatus.${s}`, { defaultValue: s }) })),
   ];
 
@@ -89,6 +92,15 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     if (canMarkUnpurchasable(it, batch, caller)) {
       out.push({ value: 'unpurchasable', icon: <LuBan />, label: t('item.unpurchasable'), danger: true, onSelect: () => { action.reset(); setUnbuyable(it); } });
     }
+    if (canUndoUnpurchasable(it, batch, caller)) {
+      out.push({ value: 'unpurchasable-undo', icon: <LuUndo2 />, label: t('item.unpurchasableUndo'), onSelect: () => { action.reset(); setUndoing({ item: it, what: 'unpurchasable' }); } });
+    }
+    if (canUndoReview(it, batch, caller)) {
+      out.push({ value: 'review-undo', icon: <LuUndo2 />, label: t('item.undoReview'), onSelect: () => { action.reset(); setUndoing({ item: it, what: 'review' }); } });
+    }
+    if (canCopyItem(it, batch, caller)) {
+      out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
+    }
     if (canForceReject(it, batch, caller)) {
       out.push({ value: 'force-reject', icon: <LuX />, label: t('review.forceReject'), danger: true, onSelect: () => { action.reset(); setForcing(it); } });
     }
@@ -104,7 +116,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         activeCount={activeCount}
         onClear={clearFilters}
         actions={canAddItem(batch, caller) && (
-          <Button size="sm" onClick={() => setEditing('new')}>
+          <Button size="sm" onClick={() => { setCopyFrom(null); setEditing('new'); }}>
             <LuPlus />
             {t('item.add')}
           </Button>
@@ -148,10 +160,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       <SelectionBar count={selected.length} onClear={clearSelection}>
         <Text textStyle="sm" color="fg.muted" fontVariantNumeric="tabular-nums">{selectedEstimate}</Text>
         {internal && batch.status === 'reviewing' && <ReviewBar batch={batch} caller={caller} selected={decidable} onDone={clearSelection} />}
-        <OrderBar batch={batch} caller={caller} selected={orderable} onDone={clearSelection} />
       </SelectionBar>
 
-      <ItemFormModal opened={editing !== null} onClose={() => setEditing(null)} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} />
+      <ItemFormModal opened={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
       <ReasonModal
         opened={!!withdrawing}
         title={t('item.withdraw')}
@@ -174,6 +185,16 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         error={forcing ? action.error : null}
         onClose={() => setForcing(null)}
         onConfirm={(reason) => forcing && action.mutate({ item: forcing, action: 'force-reject', reason }, { onSuccess: () => setForcing(null) })}
+      />
+      <UndoDialog
+        opened={!!undoing}
+        title={undoing?.what === 'review' ? t('item.undoReview') : t('item.unpurchasableUndo')}
+        body={undoing?.what === 'review' ? t('item.undoReviewHelp', { name: undoing.item.name }) : t('item.unpurchasableUndoHelp', { name: undoing?.item.name })}
+        confirmLabel={undoing?.what === 'review' ? t('item.undoReview') : t('item.unpurchasableUndo')}
+        loading={action.isPending}
+        error={undoing ? action.error : null}
+        onClose={() => setUndoing(null)}
+        onConfirm={(reason) => undoing && action.mutate({ item: undoing.item, action: undoing.what === 'review' ? 'review/undo' : 'unpurchasable/undo', reason }, { onSuccess: () => setUndoing(null) })}
       />
       <ReasonModal
         opened={!!unbuyable}

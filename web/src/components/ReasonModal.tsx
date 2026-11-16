@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { ErrorAlert } from './ErrorAlert';
 import { AppDialog } from './ui/dialog';
 import { FormField } from './ui/field';
+import { BlockerList } from './UndoDialog';
 
 interface Props {
   opened: boolean;
@@ -32,6 +33,7 @@ function Inner({ body, confirmLabel, danger, reasonLabel, loading, error, onConf
           <Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} />
         </FormField>
       )}
+      <BlockerList error={error} />
       <ErrorAlert error={error} />
       <HStack justify="flex-end">
         <Button variant="outline" onClick={onClose}>{t('actions.cancel')}</Button>

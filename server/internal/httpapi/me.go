@@ -40,6 +40,8 @@ type meResp struct {
 	*domain.User
 	Memberships   []membershipResp `json:"memberships"`
 	IsSystemAdmin bool             `json:"isSystemAdmin"`
+	IsPurchaser   bool             `json:"isPurchaser"`
+	IsReceiver    bool             `json:"isReceiver"`
 }
 
 func (a *MeAPI) respondMe(w http.ResponseWriter, r *http.Request, status int, u *domain.User) {
@@ -54,7 +56,8 @@ func (a *MeAPI) respondMe(w http.ResponseWriter, r *http.Request, status int, u 
 		out = append(out, membershipResp(m))
 	}
 	setETag(w, u.Version)
-	WriteJSON(w, status, meResp{User: u, Memberships: out, IsSystemAdmin: c.Actor.IsSystemAdmin})
+	WriteJSON(w, status, meResp{User: u, Memberships: out, IsSystemAdmin: c.Actor.IsSystemAdmin,
+		IsPurchaser: c.Actor.IsPurchaser, IsReceiver: c.Actor.IsReceiver})
 }
 
 func (a *MeAPI) me(w http.ResponseWriter, r *http.Request) {
@@ -92,7 +95,7 @@ type userResp struct {
 }
 
 func (a *MeAPI) users(w http.ResponseWriter, r *http.Request) {
-	us, err := a.Users.Search(r.Context(), CallerFrom(r.Context()).Actor, r.URL.Query().Get("q"))
+	us, err := a.Users.Search(r.Context(), CallerFrom(r.Context()).Actor, r.URL.Query().Get("q"), r.URL.Query().Get("role"))
 	if err != nil {
 		fail(w, r, err)
 		return

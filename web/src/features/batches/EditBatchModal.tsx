@@ -1,7 +1,8 @@
-import { Button, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
+import { Button, HStack, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePatchBatch, useSetAssignments } from '../../api/batches';
+import { useRoleHolders } from '../../api/members';
 import type { Batch, PatchBatchRequest, TeamMember } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Checklist } from '../../components/ui/checklist';
@@ -24,8 +25,9 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
   const [override, setOverride] = useState<string>(batch.visibilityOverride || 'inherit');
   const [a, setA] = useState(batch.assignments.approvers);
   const [p, setP] = useState(batch.assignments.purchasers);
-  const [r, setR] = useState(batch.assignments.receivers);
+  const purchasers = useRoleHolders('purchaser');
   const options = members.map((m) => ({ value: m.userId, label: m.displayName || m.username }));
+  const purchaserOptions = (purchasers.data ?? []).map((u) => ({ value: u.id, label: u.displayName || u.username }));
   const newDeadline = fromLocalInput(deadline);
 
   const save = async () => {
@@ -41,8 +43,8 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
     try {
       if (Object.keys(body).length > 0) await patch.mutateAsync(body);
       const as = batch.assignments;
-      if (!sameIds(a, as.approvers) || !sameIds(p, as.purchasers) || !sameIds(r, as.receivers)) {
-        await assign.mutateAsync({ approvers: a, purchasers: p, receivers: r });
+      if (!sameIds(a, as.approvers) || !sameIds(p, as.purchasers)) {
+        await assign.mutateAsync({ approvers: a, purchasers: p });
       }
       onClose();
     } catch {
@@ -68,8 +70,8 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
         options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
       />
       <Checklist label={t('assignments.approvers')} options={options} value={a} onChange={setA} />
-      <Checklist label={t('assignments.purchasers')} options={options} value={p} onChange={setP} />
-      <Checklist label={t('assignments.receivers')} options={options} value={r} onChange={setR} />
+      <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={p} onChange={setP} emptyText={t('assignments.none')} />
+      <Text fontSize="sm" color="fg.muted">{t('assignments.purchasersHelp')}</Text>
       <ErrorAlert error={patch.error ?? assign.error} />
       <HStack justify="flex-end">
         <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>

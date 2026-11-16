@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"net/http"
 	"time"
 
@@ -8,6 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/audit"
+	"github.com/team6083/procurement-hub/server/internal/authz"
 	"github.com/team6083/procurement-hub/server/internal/domain"
 	"github.com/team6083/procurement-hub/server/internal/service"
 )
@@ -35,6 +37,9 @@ func (a *BatchesAPI) Mount(r chi.Router) {
 	r.Post("/items/{id}/resubmit", a.resubmitItem)
 	r.Post("/items/{id}/force-reject", a.forceReject)
 	r.Post("/items/{id}/unpurchasable", a.unpurchasable)
+	r.Post("/items/{id}/unpurchasable/undo", a.undoUnpurchasable)
+	r.Post("/items/{id}/review/undo", a.undoReview)
+	r.Post("/items/{id}/copy", a.copyItem)
 	r.Get("/me/tasks", a.tasks)
 	r.Get("/audit", a.audit)
 	r.Get("/teams/{teamId}/audit", a.teamAudit)
@@ -159,7 +164,6 @@ func (a *BatchesAPI) assignments(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Approvers  []string `json:"approvers"`
 		Purchasers []string `json:"purchasers"`
-		Receivers  []string `json:"receivers"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
@@ -186,10 +190,6 @@ func (a *BatchesAPI) assignments(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	if in.Receivers, err = parse("receivers", req.Receivers); err != nil {
-		fail(w, r, err)
-		return
-	}
 	b, err := a.Batches.SetAssignments(r.Context(), a.actor(r).Actor, id, ver, in)
 	respondBatch(w, r, http.StatusOK, b, err)
 }
@@ -208,6 +208,8 @@ func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
 		Action   domain.BatchAction `json:"action"`
 		Reason   string             `json:"reason"`
 		Deadline *time.Time         `json:"deadline"`
+		// PurchaseOutside applies to confirm_review only.
+		PurchaseOutside bool `json:"purchaseOutside"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
@@ -218,7 +220,7 @@ func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
 		req.Deadline = &d
 	}
 	b, err := a.Batches.Transition(r.Context(), a.actor(r).Actor, id, ver, service.TransitionInput{
-		Action: req.Action, Reason: req.Reason, Deadline: req.Deadline,
+		Action: req.Action, Reason: req.Reason, Deadline: req.Deadline, PurchaseOutside: req.PurchaseOutside,
 	})
 	respondBatch(w, r, http.StatusOK, b, err)
 }
@@ -373,6 +375,45 @@ func (a *BatchesAPI) unpurchasable(w http.ResponseWriter, r *http.Request) {
 	respondItem(w, r, http.StatusOK, it, err)
 }
 
+// reasonItemAction handles the item POSTs that take If-Match and {reason}.
+func (a *BatchesAPI) reasonItemAction(w http.ResponseWriter, r *http.Request, do func(ctx context.Context, actor authz.Actor, id bson.ObjectID, ver int64, reason string) (*domain.Item, error)) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	var req struct {
+		Reason string `json:"reason"`
+	}
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := do(r.Context(), a.actor(r).Actor, id, ver, req.Reason)
+	respondItem(w, r, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) undoUnpurchasable(w http.ResponseWriter, r *http.Request) {
+	a.reasonItemAction(w, r, a.Items.UndoUnpurchasable)
+}
+
+func (a *BatchesAPI) undoReview(w http.ResponseWriter, r *http.Request) {
+	a.reasonItemAction(w, r, a.Items.UndoReview)
+}
+
+func (a *BatchesAPI) copyItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	it, err := a.Items.Copy(r.Context(), a.actor(r).Actor, id)
+	respondItem(w, r, http.StatusCreated, it, err)
+}
+
 func (a *BatchesAPI) review(w http.ResponseWriter, r *http.Request) {
 	id, ok := idParam(w, r, "id")
 	if !ok {
@@ -415,10 +456,21 @@ func (a *BatchesAPI) tasks(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, map[string]any{
+	res := map[string]any{
 		"proposalsToHandle": t.ProposalsToHandle, "itemsToReview": t.ItemsToReview, "returnedItems": t.ReturnedItems,
-		"batchesToOrder": t.BatchesToOrder, "itemsToReceive": t.ItemsToReceive, "openExceptions": t.OpenExceptions,
-	})
+		"reviewsToConfirm": t.ReviewsToConfirm,
+	}
+	if t.ItemsToPurchase != nil || t.DraftVendorOrders != nil {
+		res["itemsToPurchase"] = t.ItemsToPurchase
+		if res["itemsToPurchase"] == nil || len(t.ItemsToPurchase) == 0 {
+			res["itemsToPurchase"] = []service.VendorTask{}
+		}
+		res["draftVendorOrders"], res["openProblems"], res["linesToClose"] = t.DraftVendorOrders, t.OpenProblems, t.LinesToClose
+	}
+	if t.DeliveriesToMatch != nil {
+		res["deliveriesToMatch"] = t.DeliveriesToMatch
+	}
+	WriteJSON(w, http.StatusOK, res)
 }
 
 func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {

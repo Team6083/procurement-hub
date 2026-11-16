@@ -17,7 +17,6 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 
-	"github.com/team6083/procurement-hub/server/internal/domain"
 	"github.com/team6083/procurement-hub/server/internal/migrations"
 	"github.com/team6083/procurement-hub/server/internal/mongotest"
 	"github.com/team6083/procurement-hub/server/internal/ops"
@@ -83,7 +82,7 @@ func TestRunFreshThenNoop(t *testing.T) {
 		t.Fatal(err)
 	}
 	all := migrations.All()
-	if len(applied) != len(all) || applied[0] != "0001_reference_rates_decimal" {
+	if len(applied) != len(all) || applied[0] != "0001_initial" {
 		t.Fatalf("applied = %v, want all %d", applied, len(all))
 	}
 	recs := recorded(t, st.DB)
@@ -112,95 +111,9 @@ func TestRunFreshThenNoop(t *testing.T) {
 	if err != nil || len(again) != 0 {
 		t.Fatalf("re-run applied %v, err %v; want no-op", again, err)
 	}
-	if recorded(t, st.DB)["0001_reference_rates_decimal"]["appVersion"] != "1.2.3" {
+	if recorded(t, st.DB)["0001_initial"]["appVersion"] != "1.2.3" {
 		t.Error("re-run rewrote the existing record")
 	}
-}
-
-func insertTeams(t *testing.T, db *mongo.Database, docs ...bson.D) {
-	t.Helper()
-	for _, d := range docs {
-		if _, err := db.Collection("teams").InsertOne(context.Background(), d); err != nil {
-			t.Fatal(err)
-		}
-	}
-}
-
-func teamDoc(slug string, rates ...any) bson.D {
-	arr := bson.A{}
-	for i := 0; i+1 < len(rates); i += 2 {
-		arr = append(arr, bson.D{
-			{Key: "currency", Value: rates[i]}, {Key: "rateToBase", Value: rates[i+1]},
-			{Key: "updatedAt", Value: time.Now()}, {Key: "updatedBy", Value: "x"},
-		})
-	}
-	return bson.D{{Key: "slug", Value: slug}, {Key: "name", Value: slug}, {Key: "referenceRates", Value: arr}}
-}
-
-func dec(t *testing.T, s string) bson.Decimal128 {
-	t.Helper()
-	d, err := bson.ParseDecimal128(s)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return d
-}
-
-// checkRates asserts every rateToBase is Decimal128 with the wanted values,
-// and that the team decodes through the domain model (Decimal128 only).
-func checkRates(t *testing.T, db *mongo.Database, slug string, want map[string]string) {
-	t.Helper()
-	var raw bson.Raw
-	if err := db.Collection("teams").FindOne(context.Background(), bson.D{{Key: "slug", Value: slug}}).Decode(&raw); err != nil {
-		t.Fatal(err)
-	}
-	vals, err := raw.Lookup("referenceRates").Array().Values()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(vals) != len(want) {
-		t.Fatalf("%s: %d rates, want %d", slug, len(vals), len(want))
-	}
-	for _, v := range vals {
-		doc := v.Document()
-		cur := doc.Lookup("currency").StringValue()
-		rv := doc.Lookup("rateToBase")
-		if rv.Type != bson.TypeDecimal128 {
-			t.Fatalf("%s %s: rateToBase type %v, want Decimal128", slug, cur, rv.Type)
-		}
-		if got := rv.Decimal128().String(); got != want[cur] {
-			t.Errorf("%s %s: rateToBase = %s, want %s", slug, cur, got, want[cur])
-		}
-		if doc.Lookup("updatedBy").StringValue() != "x" {
-			t.Errorf("%s %s: other fields lost: %v", slug, cur, doc)
-		}
-	}
-	var team domain.Team
-	if err := bson.Unmarshal(raw, &team); err != nil {
-		t.Fatalf("%s: decode as domain.Team: %v", slug, err)
-	}
-}
-
-// 0001 converts string rates to Decimal128 and leaves Decimal128 ones alone.
-func TestReferenceRatesConverted(t *testing.T) {
-	st := mongotest.EmptyStore(t, "ph_mig")
-	insertTeams(t, st.DB,
-		teamDoc("legacy", "TWD", "0.031", "JPY", "0.0067"),
-		teamDoc("mixed", "TWD", dec(t, "0.032"), "JPY", "0.0068"),
-		teamDoc("modern", "TWD", dec(t, "0.033")),
-		bson.D{{Key: "slug", Value: "norates"}, {Key: "referenceRates", Value: bson.A{}}},
-	)
-	// Legacy strings are no longer readable through the domain model.
-	var team domain.Team
-	if err := st.DB.Collection("teams").FindOne(context.Background(), bson.D{{Key: "slug", Value: "legacy"}}).Decode(&team); err == nil {
-		t.Fatal("string rateToBase decoded without migration; legacy read path should be gone")
-	}
-	if _, err := (&migrations.Runner{DB: st.DB, Owner: "a"}).Run(context.Background()); err != nil {
-		t.Fatal(err)
-	}
-	checkRates(t, st.DB, "legacy", map[string]string{"TWD": "0.031", "JPY": "0.0067"})
-	checkRates(t, st.DB, "mixed", map[string]string{"TWD": "0.032", "JPY": "0.0068"})
-	checkRates(t, st.DB, "modern", map[string]string{"TWD": "0.033"})
 }
 
 // A migration interrupted after doing (part of) its work but before being
@@ -208,26 +121,17 @@ func TestReferenceRatesConverted(t *testing.T) {
 func TestRerunPartiallyAppliedMigration(t *testing.T) {
 	st := mongotest.EmptyStore(t, "ph_mig")
 	ctx := context.Background()
-	insertTeams(t, st.DB, teamDoc("a", "TWD", "0.031"), teamDoc("b", "JPY", "0.0067"))
-
-	// Simulate a crash mid-way: indexes exist, team "a" converted, nothing
-	// recorded; then another legacy row appears.
 	m := migrations.All()[0]
 	if err := m.Up(ctx, st.DB); err != nil {
 		t.Fatal(err)
 	}
-	insertTeams(t, st.DB, teamDoc("c", "TWD", "1.5"))
 	if len(recorded(t, st.DB)) != 0 {
 		t.Fatal("Up alone should not record")
 	}
-
 	applied, err := (&migrations.Runner{DB: st.DB, Owner: "a"}).Run(ctx)
 	if err != nil || len(applied) != len(migrations.All()) {
 		t.Fatalf("applied %v, err %v", applied, err)
 	}
-	checkRates(t, st.DB, "a", map[string]string{"TWD": "0.031"})
-	checkRates(t, st.DB, "b", map[string]string{"JPY": "0.0067"})
-	checkRates(t, st.DB, "c", map[string]string{"TWD": "1.5"})
 	// Index creation was idempotent: no duplicates or errors, same set.
 	if n := len(indexNames(t, st.DB, "items")); n != 5 { // _id + 4 from §9.2
 		t.Errorf("items has %d indexes, want 5", n)
@@ -371,30 +275,5 @@ func TestReadinessUntilMigrated(t *testing.T) {
 	}
 	if code, body := probe(); code != http.StatusOK {
 		t.Fatalf("after migrate: %d %v, want 200", code, body)
-	}
-}
-
-// 0002 makes (batchId, number) unique on orders and is safe to run again.
-func TestOrderIndexes(t *testing.T) {
-	st := mongotest.Store(t, "ph_mig")
-	ctx := context.Background()
-	batch := bson.NewObjectID()
-	orders := st.DB.Collection("orders")
-	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: batch}, {Key: "number", Value: 1}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: batch}, {Key: "number", Value: 1}}); !mongo.IsDuplicateKeyError(err) {
-		t.Fatalf("duplicate order number: err = %v, want a duplicate key error", err)
-	}
-	if _, err := orders.InsertOne(ctx, bson.D{{Key: "batchId", Value: bson.NewObjectID()}, {Key: "number", Value: 1}}); err != nil {
-		t.Fatalf("same number in another batch: %v", err)
-	}
-	// Running the migration again changes nothing.
-	for _, m := range migrations.All() {
-		if m.ID == "0002_order_indexes" {
-			if err := m.Up(ctx, st.DB); err != nil {
-				t.Fatal(err)
-			}
-		}
 	}
 }

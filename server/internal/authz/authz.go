@@ -12,6 +12,10 @@ import (
 type Actor struct {
 	UserID        bson.ObjectID
 	IsSystemAdmin bool
+	// IsPurchaser / IsReceiver are global roles from the current token (spec §8.1);
+	// system admins do not hold them implicitly.
+	IsPurchaser bool
+	IsReceiver  bool
 	// TeamRoles maps team → effective membership role.
 	TeamRoles map[bson.ObjectID]domain.Role
 }
@@ -31,32 +35,17 @@ func (a Actor) CanSeeTeamInternals(team bson.ObjectID) bool {
 	return a.IsSystemAdmin || a.IsMember(team)
 }
 
-// BatchRole is a per-batch assignment role.
+// BatchRole is a per-batch assignment role. Only approvers are batch-scoped;
+// purchasing and receiving are global roles (spec §8.1).
 type BatchRole string
 
-const (
-	BatchApprover  BatchRole = "approver"
-	BatchPurchaser BatchRole = "purchaser"
-	BatchReceiver  BatchRole = "receiver"
-)
+const BatchApprover BatchRole = "approver"
 
-// Assignments mirrors batch.assignments.
+// Assignments mirrors batch.assignments. Purchasers only steer notifications
+// and /me/tasks; they grant nothing.
 type Assignments struct {
 	Approvers  []bson.ObjectID
 	Purchasers []bson.ObjectID
-	Receivers  []bson.ObjectID
-}
-
-func (as Assignments) list(r BatchRole) []bson.ObjectID {
-	switch r {
-	case BatchApprover:
-		return as.Approvers
-	case BatchPurchaser:
-		return as.Purchasers
-	case BatchReceiver:
-		return as.Receivers
-	}
-	return nil
 }
 
 func contains(ids []bson.ObjectID, id bson.ObjectID) bool {
@@ -68,16 +57,16 @@ func contains(ids []bson.ObjectID, id bson.ObjectID) bool {
 	return false
 }
 
-// HasBatchRole: explicit assignees, plus team admins who implicitly hold every
-// batch role in their team (spec §8.1). System admins do not implicitly act.
+// HasBatchRole: explicit approvers, plus team admins who implicitly hold the
+// approver role in their team (spec §8.1). System admins do not implicitly act.
 func (a Actor) HasBatchRole(team bson.ObjectID, as Assignments, r BatchRole) bool {
-	return a.IsTeamAdmin(team) || contains(as.list(r), a.UserID)
+	return a.IsTeamAdmin(team) || contains(as.Approvers, a.UserID)
 }
 
-// IsExplicitAssignee is true only for explicit assignment (used for notification
-// recipients; team admins' implicit roles do not count).
-func IsExplicitAssignee(userID bson.ObjectID, as Assignments, r BatchRole) bool {
-	return contains(as.list(r), userID)
+// IsExplicitApprover is true only for explicit assignment (used for notification
+// recipients; team admins' implicit role does not count).
+func IsExplicitApprover(userID bson.ObjectID, as Assignments) bool {
+	return contains(as.Approvers, userID)
 }
 
 // EffectiveVisibility = batch override ?? team visibility (spec §8.2).
@@ -91,25 +80,4 @@ func EffectiveVisibility(team domain.Visibility, override domain.Visibility) dom
 // CanReadBatch: system admin, team member, or effective visibility public.
 func (a Actor) CanReadBatch(team bson.ObjectID, teamVis, override domain.Visibility) bool {
 	return a.IsSystemAdmin || a.IsMember(team) || EffectiveVisibility(teamVis, override) == domain.VisibilityPublic
-}
-
-// BatchRef identifies one batch for checks that span several batches.
-type BatchRef struct {
-	TeamID      bson.ObjectID
-	Assignments Assignments
-}
-
-// HasBatchRoleOnAll is true when the actor holds the role on every batch
-// (spec §8.3: external orders need the purchaser of each involved batch).
-// With no batches there is nothing to hold, so it is false.
-func (a Actor) HasBatchRoleOnAll(refs []BatchRef, r BatchRole) bool {
-	if len(refs) == 0 {
-		return false
-	}
-	for _, ref := range refs {
-		if !a.HasBatchRole(ref.TeamID, ref.Assignments, r) {
-			return false
-		}
-	}
-	return true
 }

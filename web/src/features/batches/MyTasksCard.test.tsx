@@ -8,17 +8,17 @@ import { MyTasksCard } from './MyTasksCard';
 beforeAll(() => void i18n.changeLanguage('en'));
 afterEach(cleanup);
 
-const empty = { proposalsToHandle: [], itemsToReview: [], returnedItems: [], batchesToOrder: [], itemsToReceive: [], openExceptions: [] };
+const empty = { proposalsToHandle: [], itemsToReview: [], returnedItems: [], reviewsToConfirm: [] };
 
 describe('MyTasksCard', () => {
-  it('lists batches to order with their count as a badge, linking to the batch', async () => {
-    renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, { 'GET /me/tasks': { ...empty, batchesToOrder: [{ batch: batch({ status: 'ordering' }), count: 3 }] } });
+  it('lists reviews to confirm with their count as a badge, linking to the batch', async () => {
+    renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, { 'GET /me/tasks': { ...empty, reviewsToConfirm: [{ batch: batch({ status: 'reviewing' }), count: 3 }] } });
     const link = await screen.findByRole('link', { name: /Spring order/ });
     // The count is a badge beside the link, not text inside it.
     expect(link.textContent).toBe('#7 Spring order');
-    expect(screen.getByText('3 to order')).toBeTruthy();
+    expect(screen.getByText('3 decided')).toBeTruthy();
     expect(link.getAttribute('href')).toBe('/batches/b1');
-    expect(screen.getByText('Items to order')).toBeTruthy();
+    expect(screen.getByText('Reviews to confirm')).toBeTruthy();
   });
   it('shows the empty state when nothing is waiting', async () => {
     renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, { 'GET /me/tasks': empty });

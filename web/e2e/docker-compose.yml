@@ -24,6 +24,8 @@ x-backend: &backend
     OIDC_ISSUER: http://keycloak:18180/realms/example
     OIDC_AUDIENCE: procurement-hub-api
     ADMIN_ROLES: procurement-hub-api:admin
+    PURCHASER_ROLES: procurement-hub-api:purchaser
+    RECEIVER_ROLES: procurement-hub-api:receiver
     ALLOWED_ROLES: procurement-hub-api:user
     # Test-only key; never reuse it anywhere else.
     WEBHOOK_ENCRYPTION_KEY: ZTJlLW9ubHktd2ViaG9vay1rZXktbm90LWEtc2VjcmV0IQ==

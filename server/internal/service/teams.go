@@ -11,6 +11,7 @@ import (
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/audit"
+	"github.com/team6083/procurement-hub/server/internal/auth"
 	"github.com/team6083/procurement-hub/server/internal/authz"
 	"github.com/team6083/procurement-hub/server/internal/domain"
 	"github.com/team6083/procurement-hub/server/internal/store"
@@ -31,7 +32,7 @@ func NewTeams(st *store.Store, a *audit.Log, base string, supported []string) *T
 }
 
 // ActorFor loads effective team roles for the user (httpapi.MembershipLoader).
-func (s *Teams) ActorFor(ctx context.Context, u *domain.User, isSystemAdmin bool) (authz.Actor, error) {
+func (s *Teams) ActorFor(ctx context.Context, u *domain.User, p *auth.Principal) (authz.Actor, error) {
 	ms, err := s.st.MembershipsByUser(ctx, u.ID)
 	if err != nil {
 		return authz.Actor{}, err
@@ -40,7 +41,7 @@ func (s *Teams) ActorFor(ctx context.Context, u *domain.User, isSystemAdmin bool
 	for _, m := range ms {
 		roles[m.TeamID] = m.Effective()
 	}
-	return authz.Actor{UserID: u.ID, IsSystemAdmin: isSystemAdmin, TeamRoles: roles}, nil
+	return authz.Actor{UserID: u.ID, IsSystemAdmin: p.IsSystemAdmin, IsPurchaser: p.IsPurchaser, IsReceiver: p.IsReceiver, TeamRoles: roles}, nil
 }
 
 func mapStore(err error) error {

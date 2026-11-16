@@ -33,22 +33,9 @@
     "item_not_edited": "Edit the item before resubmitting it.",
     "item_not_reviewable": "One of the items can no longer be reviewed (it may have been decided already).",
     "batch_item_limit": "This batch has reached the maximum number of items (5000).",
-    "item_not_orderable": "One of the items is no longer approved or is already in another order.",
-    "item_in_order": "This item is already in an order.",
-    "batch_not_ordering": "This batch is not in the ordering stage.",
-    "order_not_draft": "Only a draft order can be changed.",
-    "order_in_transaction": "This order is part of an external order. Cancel the external order first.",
-    "order_not_available": "One of the orders is no longer an available draft.",
-    "vendor_transaction_not_draft": "This external order has already been placed or cancelled.",
-    "vendor_transaction_cancelled": "This external order was cancelled and can no longer be edited.",
-    "allocation_sum_mismatch": "The shares must add up to the total of the shared costs.",
-    "allocation_override_reason_required": "Enter a reason for the manual split.",
-    "cost_basis_zero": "The charged amount cannot be spread while the priced total is zero. Enter the item prices first.",
-    "order_not_placed": "Adjustments can only be booked on placed orders.",
-    "batch_not_receiving": "This batch is not in the receiving stage.",
-    "receipt_exceeds_quantity": "That is more than the quantity still to arrive. Report extra goods as a problem.",
-    "item_not_ordered": "This item has not been ordered.",
-    "exception_resolved": "This problem has already been resolved.",
-    "nothing_received": "Nothing has arrived, so there is nothing to accept. Cancel the item instead."
+    "blocked_by_dependency": "Other records depend on this. Undo them first.",
+    "items_undecided": "Every item must be approved or rejected before the review can be confirmed.",
+    "line_quantity_exceeded": "That quantity exceeds what the line can still take.",
+    "team_cost_overrides_mismatch": "The team cost overrides do not match the teams on this order."
   }
 }

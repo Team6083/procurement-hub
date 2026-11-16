@@ -13,13 +13,9 @@ import { paths } from '../paths';
 import { BatchActions } from '../features/batches/BatchActions';
 import { EditBatchModal } from '../features/batches/EditBatchModal';
 import { ItemsTab } from '../features/batches/ItemsTab';
+import { PurchasingTab } from '../features/batches/PurchasingTab';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { TimelineTab } from '../features/batches/TimelineTab';
-import { OrdersTab } from '../features/orders/OrdersTab';
-import { canSeeOrders } from '../features/orders/rules';
-import { useFeatures } from '../features/flags';
-import { ReceivingTab } from '../features/receiving/ReceivingTab';
-import { canSeeReceiving } from '../features/receiving/rules';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
 import { shortDate } from '../features/dates';
@@ -28,7 +24,6 @@ export function BatchPage() {
   const { t } = useTranslation('batches');
   const { id } = useParams();
   const { me } = useMe();
-  const features = useFeatures();
   const batchQ = useBatch(id);
   const batch = batchQ.data?.data;
   const teamQ = useTeam(batch?.teamId);
@@ -45,6 +40,7 @@ export function BatchPage() {
 
   const list = items.data ?? [];
   const pendingItems = items.data ? list.filter((i) => i.status === 'pending').length : undefined;
+  const undecidedItems = items.data ? list.filter((i) => i.status === 'pending' || i.status === 'returned').length : undefined;
   const visibility = batch.visibilityOverride || full?.visibility;
   const who = (ids: string[]) => (ids.length ? ids.map(names.name).join(', ') : t('assignments.none'));
   const defaultSubgroupId = me?.memberships.find((m) => m.teamId === batch.teamId)?.defaultSubgroupId ?? '';
@@ -69,7 +65,7 @@ export function BatchPage() {
                 {t('edit.button')}
               </Button>
             )}
-            <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} />
+            <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} />
           </HStack>
         }
       />
@@ -84,7 +80,6 @@ export function BatchPage() {
               { label: t('header.visibility'), value: visibility ? t(`visibility.${visibility}`) : '—' },
               { label: t('assignments.approvers'), value: who(batch.assignments.approvers) },
               { label: t('assignments.purchasers'), value: who(batch.assignments.purchasers) },
-              { label: t('assignments.receivers'), value: who(batch.assignments.receivers) },
             ]}
           />
         </Card.Body>
@@ -93,8 +88,7 @@ export function BatchPage() {
       <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
         <Tabs.List overflowX="auto">
           <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
-          {canSeeOrders(caller) && <Tabs.Trigger value="orders">{t('tabs.orders')}</Tabs.Trigger>}
-          {canSeeReceiving(batch, caller) && <Tabs.Trigger value="receiving">{t('tabs.receiving')}</Tabs.Trigger>}
+          <Tabs.Trigger value="purchasing">{t('tabs.purchasing')}</Tabs.Trigger>
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="items">
@@ -102,16 +96,9 @@ export function BatchPage() {
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
         </Tabs.Content>
-        {canSeeOrders(caller) && (
-          <Tabs.Content value="orders">
-            {items.data && <OrdersTab batch={batch} caller={caller} items={list} />}
-          </Tabs.Content>
-        )}
-        {canSeeReceiving(batch, caller) && (
-          <Tabs.Content value="receiving">
-            {items.data && <ReceivingTab batch={batch} caller={caller} items={list} nameOf={names.name} bulkReceive={features.bulkReceive} />}
-          </Tabs.Content>
-        )}
+        <Tabs.Content value="purchasing">
+          {items.data && <PurchasingTab batch={batch} items={list} />}
+        </Tabs.Content>
         <Tabs.Content value="timeline">
           <TimelineTab batchId={batch.id} nameOf={names.name} />
         </Tabs.Content>

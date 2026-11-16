@@ -22,7 +22,7 @@ func (w *world) openBatch(t *testing.T, title string) (id string, version *resul
 	p := w.path("/batches/{}", id)
 	b = w.do(t, call{token: w.adm, method: "PATCH", path: p, ifMatch: b.ETag(), body: map[string]any{"deadline": deadline(48)}}).expect(200)
 	b = w.do(t, call{token: w.adm, method: "PUT", path: p + "/assignments", ifMatch: b.ETag(), body: map[string]any{
-		"approvers": []string{w.apprID}, "purchasers": []string{w.admID}, "receivers": []string{w.memID}}}).expect(200)
+		"approvers": []string{w.apprID}, "purchasers": []string{}}}).expect(200)
 	b = w.do(t, call{token: w.adm, method: "POST", path: p + "/transitions", ifMatch: b.ETag(), body: map[string]any{"action": "open"}}).expect(200)
 	if b.String("status") != "collecting" {
 		t.Fatalf("status = %s", b.String("status"))
@@ -106,7 +106,7 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 		t.Fatalf("batch must wait for the returned item: %s", res.Body)
 	}
 
-	// Resubmitting needs an edit first; then approving moves the batch to ordering.
+	// Resubmitting needs an edit first; then the approver confirms the review and the batch moves to purchasing.
 	ret := w.do(t, call{token: w.mem, method: "GET", path: bp + "/items"}).expect(200)
 	var returned map[string]any
 	for _, it := range ret.Items() {
@@ -126,8 +126,12 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 		t.Errorf("itemsToReview = %d", n)
 	}
 	res = w.do(t, call{token: w.appr, method: "POST", path: rp, body: decide(one(itemIDs[2], "approve", ""))}).expect(200)
-	if res.String("batch", "status") != "ordering" {
-		t.Fatalf("batch should be ordering: %s", res.Body)
+	if res.String("batch", "status") != "reviewing" {
+		t.Fatalf("batch should wait for confirmation: %s", res.Body)
+	}
+	conf := w.do(t, call{token: w.appr, method: "POST", path: bp + "/transitions", ifMatch: res.ETag(), body: map[string]any{"action": "confirm_review"}}).expect(200)
+	if conf.String("status") != "purchasing" {
+		t.Fatalf("batch should be purchasing: %s", conf.Body)
 	}
 	w.do(t, call{token: w.appr, method: "POST", path: rp, body: decide(one(itemIDs[0], "reject", "again"))}).expect(422, "batch_not_reviewing")
 }
@@ -152,8 +156,9 @@ func TestHTTPForceRejectWithdrawAndTasks(t *testing.T) {
 	w.do(t, call{token: w.appr, method: "POST", path: fr, ifMatch: a.ETag(), body: map[string]any{"reason": "x"}}).expect(403, "forbidden")
 	w.do(t, call{token: w.adm, method: "POST", path: fr, ifMatch: a.ETag(), body: map[string]any{"reason": ""}, skipRequestValidation: true}).expect(400, "invalid_request")
 	w.do(t, call{token: w.adm, method: "POST", path: fr, ifMatch: a.ETag(), body: map[string]any{"reason": "duplicate"}}).expect(200)
-	// The only live item was rejected, so the batch completes.
-	if st := w.do(t, call{token: w.adm, method: "GET", path: bp}).expect(200).String("status"); st != "completed" {
+	// The only live item was rejected; confirming the review completes the batch.
+	cur := w.do(t, call{token: w.adm, method: "GET", path: bp}).expect(200)
+	if st := w.do(t, call{token: w.appr, method: "POST", path: bp + "/transitions", ifMatch: cur.ETag(), body: map[string]any{"action": "confirm_review"}}).expect(200).String("status"); st != "completed" {
 		t.Errorf("batch status = %s", st)
 	}
 }

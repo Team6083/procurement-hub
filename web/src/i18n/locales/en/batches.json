@@ -1,9 +1,8 @@
 {
   "tabs": {
     "items": "Items",
-    "orders": "Orders",
-    "receiving": "Receiving",
-    "timeline": "Timeline"
+    "timeline": "Timeline",
+    "purchasing": "Purchasing"
   },
   "status": {
     "proposed": "Proposed",
@@ -11,34 +10,27 @@
     "draft": "Draft",
     "collecting": "Collecting",
     "reviewing": "Reviewing",
-    "ordering": "Ordering",
     "receiving": "Receiving",
     "completed": "Completed",
-    "cancelled": "Cancelled"
+    "cancelled": "Cancelled",
+    "purchasing": "Purchasing"
   },
   "itemStatus": {
     "pending": "Pending",
     "withdrawn": "Withdrawn",
     "approved": "Approved",
     "returned": "Returned",
-    "rejected": "Rejected",
-    "ordered": "Ordered",
-    "unpurchasable": "Unpurchasable",
-    "partially_received": "Partially received",
-    "received": "Received",
-    "exception": "Exception",
-    "accepted_short": "Accepted short",
-    "not_obtained": "Not obtained"
+    "rejected": "Rejected"
   },
   "filters": {
     "team": "Team",
     "status": "Status",
     "text": "Search",
     "all": "All",
-    "toOrder": "Approved, not yet ordered",
     "noMatch": "No items match these filters",
     "noMatchHint": "Change or clear a filter to see more items.",
-    "searchItems": "Search name, vendor or SKU"
+    "searchItems": "Search name, vendor or SKU",
+    "toPurchase": "Approved, still to purchase"
   },
   "list": {
     "title": "Batches",
@@ -73,8 +65,8 @@
   "assignments": {
     "approvers": "Approvers",
     "purchasers": "Purchasers",
-    "receivers": "Receivers",
-    "none": "None"
+    "none": "None",
+    "purchasersHelp": "Optional. Only used for notifications and task lists; grants nothing."
   },
   "actions": {
     "open": "Open for items",
@@ -88,16 +80,27 @@
     "deadlineRequired": "A deadline in the future is required.",
     "deadlineOptional": "Leave empty to keep the current deadline.",
     "disabled": {
-      "assignments": "Assign at least one approver, purchaser and receiver first.",
-      "noPending": "There are no pending items to review."
+      "assignments": "Assign at least one approver first.",
+      "noPending": "There are no pending items to review.",
+      "undecided": "Approve or reject every item first."
     },
     "confirm": {
       "start_review": "Start reviewing the pending items now?",
       "close": "Close collection and move to review? If there are no items the batch is cancelled.",
       "cancel": "Cancel this batch? A reason is required.",
       "reject_proposal": "Reject this proposal? A reason is required.",
-      "withdraw_proposal": "Withdraw your proposal?"
-    }
+      "withdraw_proposal": "Withdraw your proposal?",
+      "uncancel": "Undo the cancellation? A reason is required.",
+      "restore_proposal": "Restore this proposal? A reason is required.",
+      "confirm_review": "Confirm the review? Decisions are locked and purchasing can begin.",
+      "unconfirm_review": "Undo the review confirmation? Decisions unlock and draft vendor order lines of these items are removed. A reason is required."
+    },
+    "uncancel": "Undo cancel",
+    "restore_proposal": "Restore proposal",
+    "confirm_review": "Confirm review",
+    "unconfirm_review": "Undo review confirmation",
+    "purchaseOutside": "Buy outside this system (the batch completes right away)",
+    "newDeadline": "This batch was collecting and its deadline has passed: set a new deadline."
   },
   "edit": {
     "title": "Edit batch",
@@ -127,13 +130,20 @@
     "withdraw": "Withdraw",
     "withdrawConfirm": "Withdraw item {{name}}?",
     "unpurchasable": "Mark unpurchasable",
-    "unpurchasableHelp": "Mark {{name}} as unpurchasable? The item is closed and will not be ordered. A reason is required.",
+    "unpurchasableHelp": "Mark {{name}} as unpurchasable? Without placed lines the item will not be bought; with placed lines the remaining quantity will not be bought. A reason is required.",
     "unpurchasableReason": "Reason",
     "resubmit": "Resubmit",
     "resubmitNeedsEdit": "Edit the item before resubmitting it.",
     "returnedComment": "Returned: {{comment}}",
     "rejectedComment": "Rejected: {{comment}}",
-    "empty": "No items yet."
+    "empty": "No items yet.",
+    "undoReview": "Undo decision",
+    "undoReviewHelp": "Return {{name}} to pending? A reason is required.",
+    "copy": "Copy as new item",
+    "unpurchasableUndo": "Undo unpurchasable",
+    "unpurchasableUndoHelp": "Remove the unpurchasable mark from {{name}}? A reason is required.",
+    "toPurchase": "To purchase",
+    "fulfillment": "Progress"
   },
   "totals": {
     "none": "No amounts.",
@@ -193,12 +203,12 @@
     "review": "Items to review",
     "returned": "Returned items",
     "pendingCount": "{{count}} pending",
-    "order": "Items to order",
-    "toOrderCount": "{{count}} to order",
-    "receive": "Items to receive",
-    "exceptions": "Open exceptions",
-    "toReceiveCount": "{{count}} to receive",
-    "exceptionCount": "{{count}} open"
+    "confirm": "Reviews to confirm",
+    "confirmCount": "{{count}} decided",
+    "purchase": "Items to purchase",
+    "purchaseCount": "{{count}} items",
+    "purchaseMine": "{{count}} in your batches",
+    "noVendor": "No vendor"
   },
   "validation": {
     "quantity": "Enter a whole number of at least 1.",
@@ -209,5 +219,26 @@
   "people": {
     "member": "Team member",
     "former": "Former member"
+  },
+  "purchasingTab": {
+    "title": "Purchasing progress",
+    "hint": "Read-only. Purchasers create vendor orders from the Purchasing page.",
+    "notConfirmed": "Purchasing starts once the review is confirmed.",
+    "outside": "This batch is bought outside the system.",
+    "empty": "No approved items.",
+    "ordered": "Ordered",
+    "received": "Received",
+    "toPurchase": "To purchase",
+    "cost": "Cost"
+  },
+  "fulfillment": {
+    "external": "Bought outside",
+    "unpurchasable": "Unpurchasable",
+    "not_ordered": "Not ordered",
+    "partially_ordered": "Partially ordered",
+    "ordered": "Ordered",
+    "partially_received": "Partially received",
+    "received": "Received",
+    "closed": "Closed"
   }
 }

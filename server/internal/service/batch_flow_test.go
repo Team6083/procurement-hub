@@ -79,7 +79,7 @@ func (e *flowEnv) openBatch(t *testing.T) *domain.Batch {
 		t.Fatalf("create: %v %+v", err, b)
 	}
 	b, err = e.batches.SetAssignments(ctx, e.admin, b.ID, b.Version, AssignmentsInput{
-		Approvers: []bson.ObjectID{e.approver.UserID}, Purchasers: []bson.ObjectID{e.admin.UserID}, Receivers: []bson.ObjectID{e.member.UserID},
+		Approvers: []bson.ObjectID{e.approver.UserID},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -162,12 +162,44 @@ func TestReviewFlowToOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Batch.Status != domain.BatchOrdering {
-		t.Fatalf("batch should move to ordering, got %s", res.Batch.Status)
+	if res.Batch.Status != domain.BatchReviewing {
+		t.Fatalf("review never advances the batch by itself, got %s", res.Batch.Status)
 	}
-	// Decisions are final.
+	// A review decision can be undone until the review is confirmed.
+	if _, err := e.items.UndoReview(ctx, e.approver, resub.ID, res.Items[0].Version, ""); err == nil {
+		t.Error("undo needs a reason")
+	}
+	undone, err := e.items.UndoReview(ctx, e.approver, resub.ID, res.Items[0].Version, "misclick")
+	if err != nil || undone.Status != domain.ItemPending || undone.Review != nil {
+		t.Fatalf("undo review: %v %+v", err, undone)
+	}
+	if _, err := e.batches.Transition(ctx, e.approver, b.ID, res.Batch.Version+1, TransitionInput{Action: domain.ActConfirmReview}); err == nil {
+		t.Fatal("confirm with a pending item must fail")
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: resub.ID, Decision: "approve"}}); err != nil {
+		t.Fatal(err)
+	}
+	cur, _ := e.st.GetBatch(ctx, b.ID)
+	confirmed, err := e.batches.Transition(ctx, e.approver, b.ID, cur.Version, TransitionInput{Action: domain.ActConfirmReview})
+	if err != nil || confirmed.Status != domain.BatchPurchasing || confirmed.ReviewConfirmation == nil {
+		t.Fatalf("confirm: %v %+v", err, confirmed)
+	}
+	if f, _ := e.st.GetItem(ctx, its[0].ID); f.Fulfillment == nil || *f.Fulfillment != domain.FulfillNotOrdered {
+		t.Fatalf("approved item fulfillment = %v", f.Fulfillment)
+	}
+	// Decisions are locked after confirmation, and an undo says why it is blocked.
 	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: its[0].ID, Decision: "reject", Comment: "x"}}); err == nil {
-		t.Error("reviewing in ordering must fail")
+		t.Error("reviewing after confirmation must fail")
+	}
+	var be *BlockedError
+	if _, err := e.items.UndoReview(ctx, e.approver, its[0].ID, 99, "x"); !errors.As(err, &be) {
+		t.Errorf("undo after confirmation: %v", err)
+	}
+	// Unconfirm needs a reason and returns to reviewing.
+	cur, _ = e.st.GetBatch(ctx, b.ID)
+	back, err := e.batches.Transition(ctx, e.approver, b.ID, cur.Version, TransitionInput{Action: domain.ActUnconfirmReview, Reason: "typo"})
+	if err != nil || back.Status != domain.BatchReviewing || back.ReviewConfirmation != nil {
+		t.Fatalf("unconfirm: %v %+v", err, back)
 	}
 }
 
@@ -188,8 +220,9 @@ func TestAllRejectedCompletesBatch(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := e.st.GetBatch(ctx, b.ID)
-	if got.Status != domain.BatchCompleted {
-		t.Fatalf("all rejected should complete the batch, got %s", got.Status)
+	done, err := e.batches.Transition(ctx, e.admin, b.ID, got.Version, TransitionInput{Action: domain.ActConfirmReview})
+	if err != nil || done.Status != domain.BatchCompleted {
+		t.Fatalf("all rejected should complete the batch on confirmation: %v %+v", err, done)
 	}
 }
 
@@ -298,7 +331,13 @@ func TestVisibility(t *testing.T) {
 func TestRemovedMemberLosesAssignments(t *testing.T) {
 	e := newFlowEnv(t)
 	ctx := context.Background()
-	b := e.openBatch(t) // e.member is the receiver
+	b := e.openBatch(t)
+	b, err := e.batches.SetAssignments(ctx, e.admin, b.ID, b.Version, AssignmentsInput{
+		Approvers: []bson.ObjectID{e.approver.UserID, e.member.UserID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	m, err := e.st.GetMembership(ctx, e.team.ID, e.member.UserID)
 	if err != nil {
@@ -308,9 +347,9 @@ func TestRemovedMemberLosesAssignments(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, _ := e.st.GetBatch(ctx, b.ID)
-	for _, id := range got.Assignments.Receivers {
+	for _, id := range got.Assignments.Approvers {
 		if id == e.member.UserID {
-			t.Fatal("departed member is still an assigned receiver")
+			t.Fatal("departed member is still an assigned approver")
 		}
 	}
 	pg, _ := audit.New(e.st.DB).PageForBatch(ctx, b.ID, bson.ObjectID{}, 100)

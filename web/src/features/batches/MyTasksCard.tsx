@@ -55,10 +55,9 @@ export function MyTasksCard() {
   const proposals = (d?.proposalsToHandle ?? []) as TaskLike[];
   const review = (d?.itemsToReview ?? []) as TaskLike[];
   const returned = d?.returnedItems ?? [];
-  const order = (d?.batchesToOrder ?? []) as TaskLike[];
-  const receive = (d?.itemsToReceive ?? []) as TaskLike[];
-  const exceptions = (d?.openExceptions ?? []) as TaskLike[];
-  const empty = proposals.length + review.length + returned.length + order.length + receive.length + exceptions.length === 0;
+  const confirm = (d?.reviewsToConfirm ?? []) as TaskLike[];
+  const purchase = d?.itemsToPurchase ?? [];
+  const empty = proposals.length + review.length + returned.length + confirm.length + purchase.length === 0;
 
   if (tasks.isPending) return <Skeleton h="24" rounded="l3" />;
   if (tasks.error) return <ErrorAlert error={tasks.error} />;
@@ -94,23 +93,20 @@ export function MyTasksCard() {
           </Stack>
         ))}
       </TaskGroup>
-      <TaskGroup title={tb('tasks.order')} count={order.length}>
-        {order.map((x) => {
+      <TaskGroup title={tb('tasks.confirm')} count={confirm.length}>
+        {confirm.map((x) => {
           const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.toOrderCount', { count: taskCount(x) })} />;
+          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.confirmCount', { count: taskCount(x) })} />;
         })}
       </TaskGroup>
-      <TaskGroup title={tb('tasks.receive')} count={receive.length}>
-        {receive.map((x) => {
-          const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.toReceiveCount', { count: taskCount(x) })} />;
-        })}
-      </TaskGroup>
-      <TaskGroup title={tb('tasks.exceptions')} count={exceptions.length}>
-        {exceptions.map((x) => {
-          const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.exceptionCount', { count: taskCount(x) })} />;
-        })}
+      <TaskGroup title={tb('tasks.purchase')} count={purchase.length}>
+        {purchase.map((v) => (
+          <HStack key={v.vendor ?? ''} gap="2" wrap="wrap">
+            <RouteAnchor to={paths.purchasing}>{v.vendor ?? tb('tasks.noVendor')}</RouteAnchor>
+            <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseCount', { count: v.count })}</Badge>
+            {v.myBatches > 0 && <Badge variant="outline" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseMine', { count: v.myBatches })}</Badge>}
+          </HStack>
+        ))}
       </TaskGroup>
     </Stack>
   );

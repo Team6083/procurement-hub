@@ -13,7 +13,6 @@ import { createUserManager } from './auth/oidc';
 import { createSession } from './auth/session';
 import { Provider } from './components/ui/provider';
 import type { AppConfig } from './config';
-import { FeaturesContext, featuresFrom } from './features/flags';
 import { createAppRouter } from './router';
 
 // Triggers the one-time unauthenticated GET /meta on startup.
@@ -46,7 +45,6 @@ export function App({ config }: { config: AppConfig }) {
   const manager = useMemo(() => createUserManager(config), [config]);
   const session = useMemo(() => createSession(manager), [manager]);
   const access = useMemo(() => createAccessStore(), []);
-  const features = useMemo(() => featuresFrom(config), [config]);
   const queryClient = useMemo(
     () => createQueryClient(),
     [],
@@ -66,11 +64,9 @@ export function App({ config }: { config: AppConfig }) {
     <Provider>
       <QueryClientProvider client={queryClient}>
         <ApiContext.Provider value={api}>
-          <FeaturesContext.Provider value={features}>
           <AppAuthProvider manager={manager} session={session}>
             <GatedApp access={access} />
           </AppAuthProvider>
-          </FeaturesContext.Provider>
         </ApiContext.Provider>
       </QueryClientProvider>
     </Provider>

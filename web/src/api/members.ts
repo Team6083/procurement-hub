@@ -53,3 +53,12 @@ export function useUserSearch(q: string) {
     queryFn: async ({ signal }) => (await api.get<Page<User>>('/users', { query: { q: term }, signal })).items,
   });
 }
+
+/** Users whose role snapshot has the role: candidates for batch purchaser assignment (never used for authorization). */
+export function useRoleHolders(role: 'purchaser' | 'receiver') {
+  const api = useApi();
+  return useQuery({
+    queryKey: ['users', 'role', role],
+    queryFn: async ({ signal }) => (await api.get<Page<User>>('/users', { query: { role }, signal })).items,
+  });
+}

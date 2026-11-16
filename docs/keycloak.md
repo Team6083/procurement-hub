@@ -49,7 +49,7 @@ Realm and client roles reach the access token through Keycloak's default `roles`
 
 ## 3. Roles
 
-Create the application's client roles on `procurement-hub-api` (for example `admin` for system admins and `user` for people allowed to use the service). Then assign each role the token should carry to the **dedicated scope** of `procurement-hub-web` (*Client scopes → procurement-hub-web-dedicated → Scope → Assign role*). Because Full scope allowed is off, a role that is not assigned there never appears in the token, even if the user has it. Grant the roles to users or groups as usual.
+Create the application's client roles on `procurement-hub-api` (for example `admin` for system admins, `purchaser`, `receiver` and `user` for people allowed to use the service). Then assign each role the token should carry to the **dedicated scope** of `procurement-hub-web` (*Client scopes → procurement-hub-web-dedicated → Scope → Assign role*). Because Full scope allowed is off, a role that is not assigned there never appears in the token, even if the user has it. Grant the roles to users or groups as usual.
 
 `ADMIN_ROLES` and `ALLOWED_ROLES` use the notation of oauth2-proxy's `--allowed-role`:
 
@@ -62,6 +62,7 @@ Create the application's client roles on `procurement-hub-api` (for example `adm
 The first colon separates client ID from role, so a realm role name cannot contain `:` (such realm roles are ignored). A bare name never matches a client role and vice versa.
 
 - `ADMIN_ROLES` (required), for example `procurement-hub-api:admin`: system admins can administer every team but are not implicitly team members and hold no batch roles.
+- `PURCHASER_ROLES` and `RECEIVER_ROLES` (optional), for example `procurement-hub-api:purchaser` and `procurement-hub-api:receiver`: global roles for purchasing and receiving, not tied to a team. System admins do not hold them implicitly, so give the roles to the people who need them. The server stores a snapshot of both on each user at every role-mapping sync, used only to list assignable purchasers and to pick notification targets, never for authorization.
 - `ALLOWED_ROLES` (optional), for example `procurement-hub-api:user`: who may use the service at all. When set, a caller who is neither a system admin nor holds one of these roles gets `403 missing_role` on every API call, and no user record is created for them. When unset, everyone who can sign in may use the service.
 
 Roles are read from the current access token on every request and never stored, so a role change takes effect with the next access token.
@@ -92,6 +93,6 @@ The end-to-end tests import a realm configured exactly as above: [`web/e2e/keycl
 - [ ] Full scope allowed **off**; required roles assigned to the dedicated scope
 - [ ] Audience mapper adds `procurement-hub-api` to the access token; `OIDC_AUDIENCE=procurement-hub-api`
 - [ ] Group Membership mapper adds `groups` to the access token (if role-mapping rules use groups)
-- [ ] `ADMIN_ROLES` (and optionally `ALLOWED_ROLES`) name roles that appear in the access token
+- [ ] `ADMIN_ROLES` (and optionally `PURCHASER_ROLES`, `RECEIVER_ROLES`, `ALLOWED_ROLES`) name roles that appear in the access token
 - [ ] Access token lifespan 5 minutes; refresh token rotation on; **no** `offline_access`
 - [ ] Post-logout redirect URI registered, with the trailing slash

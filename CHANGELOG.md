@@ -18,7 +18,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - CI for the server (gofmt, `go vet`, golangci-lint with staticcheck, race-enabled tests against a MongoDB replica set via testcontainers, govulncheck), the web app (generated API types check, typecheck, lint, tests, build, `npm audit`) and the image build; release workflow, Dependabot, and an `examples/docker-compose.yml` for local trials.
 - `SECURITY.md`, `CONTRIBUTING.md`, `docs/configuration.md` and `docs/keycloak.md`. The README lists which features work today and which (notifications, product lookup, CSV import and export, cost report, web UI for orders and receiving) are not implemented yet, and `docs/configuration.md` marks the settings that are validated but not used yet.
 - Playwright end-to-end tests (`web/e2e`) of sign-in, access control, the team and batch flows, the update banner and a phone viewport, against Keycloak, MongoDB, the server image and the production SPA build; run in CI.
-- `features.bulkReceive` in `config.json` (off by default): receivers pick several items on the Receiving tab and receive them in full at once.
 
 ### Changed
 

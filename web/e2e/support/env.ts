@@ -27,6 +27,10 @@ export const users = {
   carol: { username: 'carol', name: 'Carol Reviewer' },
   /** Allowed to use the service but never a member of the tests' teams. */
   oscar: { username: 'oscar', name: 'Oscar Outsider' },
+  /** procurement-hub-api:purchaser (PURCHASER_ROLES). */
+  pat: { username: 'pat', name: 'Pat Purchaser' },
+  /** procurement-hub-api:receiver (RECEIVER_ROLES). */
+  rita: { username: 'rita', name: 'Rita Receiver' },
   /** Lacks the ALLOWED_ROLES role. */
   nora: { username: 'nora', name: 'Nora Norole' },
 } as const;
@@ -34,7 +38,7 @@ export const users = {
 export type UserKey = keyof typeof users;
 
 /** Users signed in once by auth.setup.ts, so they exist in the app and have an SSO session. */
-export const SIGNED_IN_USERS: UserKey[] = ['sysadmin', 'tara', 'alice', 'bob', 'carol', 'oscar'];
+export const SIGNED_IN_USERS: UserKey[] = ['sysadmin', 'tara', 'alice', 'bob', 'carol', 'oscar', 'pat', 'rita'];
 
 export const storageStatePath = (user: UserKey) => `e2e/.auth/${user}.json`;
 

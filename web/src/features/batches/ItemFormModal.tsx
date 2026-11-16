@@ -20,9 +20,11 @@ interface Props {
   /** Caller's default subgroup in this team (used for new items). */
   defaultSubgroupId: string;
   item?: Item;
+  /** A withdrawn item whose content prefills a new item (copy as new item). */
+  prefill?: Item;
 }
 
-function Inner({ onClose, batch, team, defaultSubgroupId, item }: Omit<Props, 'opened'>) {
+function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<Props, 'opened'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const add = useAddItem(batch.id);
@@ -32,7 +34,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item }: Omit<Props, 'o
   const activeDefault = team?.subgroups.some((g) => g.id === defaultSubgroupId && g.active) ? defaultSubgroupId : '';
   const form = useForm<ItemForm>({
     resolver: zodResolver(itemFormSchema),
-    defaultValues: item ? itemToForm(item) : emptyItemForm(base, activeDefault),
+    defaultValues: item ? itemToForm(item) : prefill ? itemToForm(prefill) : emptyItemForm(base, activeDefault),
   });
   const err = form.formState.errors;
   const msg = (m: string | undefined) => (m ? t(m) : undefined);

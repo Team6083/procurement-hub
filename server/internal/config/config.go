@@ -38,6 +38,9 @@ type Config struct {
 	OIDCClockSkew   time.Duration
 	OIDCGroupsClaim string
 	AdminRoles      []string
+	// PurchaserRoles / ReceiverRoles are nil when unset (spec §6.1).
+	PurchaserRoles []string
+	ReceiverRoles  []string
 	// AllowedRoles is nil when ALLOWED_ROLES is unset: access is unrestricted.
 	AllowedRoles     []string
 	RoleMappingsFile string
@@ -173,6 +176,16 @@ func Load(getenv func(string) string) (*Config, error) {
 	var err error
 	if c.AdminRoles, err = ParseRoles("ADMIN_ROLES", required("ADMIN_ROLES")); err != nil {
 		errs = append(errs, err)
+	}
+	if v := get("PURCHASER_ROLES"); v != "" {
+		if c.PurchaserRoles, err = ParseRoles("PURCHASER_ROLES", v); err != nil {
+			errs = append(errs, err)
+		}
+	}
+	if v := get("RECEIVER_ROLES"); v != "" {
+		if c.ReceiverRoles, err = ParseRoles("RECEIVER_ROLES", v); err != nil {
+			errs = append(errs, err)
+		}
 	}
 	if v := get("ALLOWED_ROLES"); v != "" {
 		if c.AllowedRoles, err = ParseRoles("ALLOWED_ROLES", v); err != nil {

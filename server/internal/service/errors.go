@@ -35,6 +35,19 @@ func Invalid(field, msg string) *ValidationError {
 	return &ValidationError{Fields: map[string]string{field: msg}}
 }
 
+// Blocker names one object that stops an undo (spec §10 intro, §10.5).
+type Blocker struct {
+	Type  string `json:"type"`
+	ID    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// BlockedError is an undo refused because later actions depend on it (HTTP 409
+// blocked_by_dependency).
+type BlockedError struct{ Blockers []Blocker }
+
+func (e *BlockedError) Error() string { return "blocked_by_dependency" }
+
 func bsonNow() time.Time { return time.Now().UTC() }
 
 func strconvItoa(i int) string { return strconv.Itoa(i) }

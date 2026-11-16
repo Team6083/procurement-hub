@@ -1,10 +1,9 @@
 import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuFileChartColumn, LuListTodo, LuPackage, LuSettings, LuShoppingCart, LuShieldCheck } from 'react-icons/lu';
+import { LuFileChartColumn, LuListTodo, LuPackage, LuPackageCheck, LuSettings, LuShoppingCart, LuShieldCheck } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
-import { useMyTasks } from '../api/batches';
 import { useMe } from '../api/me';
 import { paths } from '../paths';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
@@ -19,17 +18,17 @@ export function isActive(href: string, pathname: string): boolean {
 
 /** Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). */
 export function isWidePage(pathname: string): boolean {
-  return /^\/(batches\/[^/]+|orders|vendor-transactions\/[^/]+)\/?$/.test(pathname);
+  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?)\/?$/.test(pathname);
 }
 
 /** The team app frame (AppShell) with this app's pages and account menu. */
 export function AppFrame({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useSession();
-  const { isSystemAdmin, memberships } = useMe();
-  const tasks = useMyTasks();
-  // Purchasers are assigned per batch, so the page shows for team admins, system admins and anyone with a batch to order.
-  const canOrder = isSystemAdmin || memberships.some((m) => m.role === 'admin') || (tasks.data?.batchesToOrder ?? []).length > 0;
+  const { me, isSystemAdmin } = useMe();
+  // Purchasing and receiving are global roles (spec 8.1); a purchaser can also receive.
+  const canPurchase = !!me?.isPurchaser;
+  const canReceive = !!me?.isReceiver || canPurchase;
   const { change } = useChangeLanguage();
   const { pathname } = useLocation();
   const name = (user.profile.name as string | undefined) ?? user.profile.email ?? t('user.unknown');
@@ -37,7 +36,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const nav: NavItem[] = [
     { href: '/', label: t('nav.home'), icon: <LuListTodo /> },
     { href: '/batches', label: t('nav.batches'), icon: <LuPackage /> },
-    ...(canOrder ? [{ href: paths.placeOrders, label: t('nav.placeOrders'), icon: <LuShoppingCart /> }] : []),
+    ...(canPurchase ? [{ href: paths.purchasing, label: t('nav.purchasing'), icon: <LuShoppingCart /> }] : []),
+    ...(canReceive ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck /> }] : []),
     { href: '/reports', label: t('nav.reports'), icon: <LuFileChartColumn /> },
     ...(isSystemAdmin ? [{ href: '/admin/role-mappings', label: t('nav.admin'), icon: <LuShieldCheck /> }] : []),
     { href: '/settings', label: t('nav.settings'), icon: <LuSettings /> },

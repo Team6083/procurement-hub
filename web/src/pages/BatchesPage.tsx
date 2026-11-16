@@ -17,7 +17,7 @@ import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { BatchStatusBadge } from '../features/batches/StatusBadges';
 import { shortDate } from '../features/dates';
 
-export const BATCH_STATUSES: BatchStatus[] = ['proposed', 'proposal_rejected', 'draft', 'collecting', 'reviewing', 'ordering', 'receiving', 'completed', 'cancelled'];
+export const BATCH_STATUSES: BatchStatus[] = ['proposed', 'proposal_rejected', 'draft', 'collecting', 'reviewing', 'purchasing', 'receiving', 'completed', 'cancelled'];
 
 export function BatchesPage() {
   const { t } = useTranslation('batches');

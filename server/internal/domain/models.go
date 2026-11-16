@@ -34,13 +34,22 @@ type User struct {
 	// Locale is nil until the user chooses one (spec §0): clients then follow
 	// the browser language; server-side rendering (notifications) must fall
 	// back to the team locale or en.
-	Locale             *Locale                     `bson:"locale,omitempty" json:"locale"`
-	NotificationPrefs  map[string]NotificationPref `bson:"notificationPrefs,omitempty" json:"notificationPrefs"`
-	LastSyncedTokenIat time.Time                   `bson:"lastSyncedTokenIat" json:"-"`
-	ExternalAccounts   map[string]any              `bson:"externalAccounts,omitempty" json:"-"` // Reserved
-	CreatedAt          time.Time                   `bson:"createdAt" json:"createdAt"`
-	UpdatedAt          time.Time                   `bson:"updatedAt" json:"updatedAt"`
-	Version            int64                       `bson:"version" json:"version"`
+	Locale            *Locale                     `bson:"locale,omitempty" json:"locale"`
+	NotificationPrefs map[string]NotificationPref `bson:"notificationPrefs,omitempty" json:"notificationPrefs"`
+	// RoleSnapshot is refreshed on role-mapping sync; notification targets and
+	// assignment candidates only, never authorization (spec §7.3).
+	RoleSnapshot       RoleSnapshot   `bson:"roleSnapshot" json:"-"`
+	LastSyncedTokenIat time.Time      `bson:"lastSyncedTokenIat" json:"-"`
+	ExternalAccounts   map[string]any `bson:"externalAccounts,omitempty" json:"-"` // Reserved
+	CreatedAt          time.Time      `bson:"createdAt" json:"createdAt"`
+	UpdatedAt          time.Time      `bson:"updatedAt" json:"updatedAt"`
+	Version            int64          `bson:"version" json:"version"`
+}
+
+type RoleSnapshot struct {
+	Purchaser bool      `bson:"purchaser" json:"purchaser"`
+	Receiver  bool      `bson:"receiver" json:"receiver"`
+	At        time.Time `bson:"at" json:"at"`
 }
 
 type NotificationPref struct {

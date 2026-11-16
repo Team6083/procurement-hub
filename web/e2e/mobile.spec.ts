@@ -38,7 +38,7 @@ test('a team admin creates a draft batch and adds an item on a phone', async ({ 
   // A draft takes no items until it is opened; proposing would. Open it with assignments set.
   await page.getByRole('button', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit batch' });
-  for (const group of ['Approvers', 'Purchasers', 'Receivers']) {
+  for (const group of ['Approvers']) {
     await edit.getByRole('group', { name: group }).getByText('Tara Teamadmin').click();
   }
   await edit.getByRole('button', { name: 'Save' }).click();

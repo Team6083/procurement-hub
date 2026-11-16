@@ -1,9 +1,8 @@
 {
   "tabs": {
     "items": "品項",
-    "orders": "訂單",
-    "receiving": "點收",
-    "timeline": "時間軸"
+    "timeline": "時間軸",
+    "purchasing": "採購"
   },
   "status": {
     "proposed": "已提案",
@@ -11,34 +10,27 @@
     "draft": "草稿",
     "collecting": "收集中",
     "reviewing": "審核中",
-    "ordering": "訂購中",
     "receiving": "收貨中",
     "completed": "已完成",
-    "cancelled": "已取消"
+    "cancelled": "已取消",
+    "purchasing": "採購中"
   },
   "itemStatus": {
     "pending": "待審核",
     "withdrawn": "已撤回",
     "approved": "已核准",
     "returned": "已退回",
-    "rejected": "已駁回",
-    "ordered": "已訂購",
-    "unpurchasable": "無法購買",
-    "partially_received": "部分到貨",
-    "received": "已收貨",
-    "exception": "異常",
-    "accepted_short": "接受短少",
-    "not_obtained": "未取得"
+    "rejected": "已駁回"
   },
   "filters": {
     "team": "團隊",
     "status": "狀態",
     "text": "搜尋",
     "all": "全部",
-    "toOrder": "已核准、尚未下單",
     "noMatch": "沒有符合篩選條件的品項",
     "noMatchHint": "調整或清除篩選條件以查看更多品項。",
-    "searchItems": "搜尋名稱、廠商或 SKU"
+    "searchItems": "搜尋名稱、廠商或 SKU",
+    "toPurchase": "已核准、尚待採購"
   },
   "list": {
     "title": "批次",
@@ -73,8 +65,8 @@
   "assignments": {
     "approvers": "審核者",
     "purchasers": "採購者",
-    "receivers": "收貨者",
-    "none": "無"
+    "none": "無",
+    "purchasersHelp": "選填，只用於通知與待辦清單，不授予任何權限。"
   },
   "actions": {
     "open": "開放收集品項",
@@ -88,16 +80,27 @@
     "deadlineRequired": "必須設定未來的截止時間。",
     "deadlineOptional": "留空則維持目前的截止時間。",
     "disabled": {
-      "assignments": "請先指派至少一位審核者、採購者與收貨者。",
-      "noPending": "沒有待審核的品項。"
+      "assignments": "請先指派至少一位審核者。",
+      "noPending": "沒有待審核的品項。",
+      "undecided": "請先核准或駁回所有品項。"
     },
     "confirm": {
       "start_review": "要立即開始審核待審核品項嗎？",
       "close": "要結束收集並進入審核嗎？若沒有品項，批次會被取消。",
       "cancel": "要取消此批次嗎？必須填寫原因。",
       "reject_proposal": "要駁回此提案嗎？必須填寫原因。",
-      "withdraw_proposal": "要撤回您的提案嗎？"
-    }
+      "withdraw_proposal": "要撤回您的提案嗎？",
+      "uncancel": "要撤銷取消嗎？必須填寫原因。",
+      "restore_proposal": "要恢復此提案嗎？必須填寫原因。",
+      "confirm_review": "要審核確認嗎？審核決定會鎖定，並開始採購。",
+      "unconfirm_review": "要撤銷審核確認嗎？審核決定會解鎖，這些品項在草稿廠商訂單中的明細行會被移除。必須填寫原因。"
+    },
+    "uncancel": "撤銷取消",
+    "restore_proposal": "恢復提案",
+    "confirm_review": "審核確認",
+    "unconfirm_review": "撤銷審核確認",
+    "purchaseOutside": "在系統外採購（批次直接完成）",
+    "newDeadline": "此批次取消前在收集中，截止時間已過：請設定新的截止時間。"
   },
   "edit": {
     "title": "編輯批次",
@@ -127,13 +130,20 @@
     "withdraw": "撤回",
     "withdrawConfirm": "要撤回品項 {{name}} 嗎？",
     "unpurchasable": "標記為無法購買",
-    "unpurchasableHelp": "要將 {{name}} 標記為無法購買嗎？品項將結案且不會下單，必須填寫原因。",
+    "unpurchasableHelp": "要把 {{name}} 標記為無法採購嗎？沒有已下單明細行時不會採購；已有已下單明細行時，剩餘數量不採購。必須填寫原因。",
     "unpurchasableReason": "原因",
     "resubmit": "重新送審",
     "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
     "returnedComment": "已退回：{{comment}}",
     "rejectedComment": "已駁回：{{comment}}",
-    "empty": "尚無品項。"
+    "empty": "尚無品項。",
+    "undoReview": "撤銷決定",
+    "undoReviewHelp": "要讓 {{name}} 回到待審核嗎？必須填寫原因。",
+    "copy": "複製成新品項",
+    "unpurchasableUndo": "撤銷無法採購",
+    "unpurchasableUndoHelp": "要移除 {{name}} 的無法採購標記嗎？必須填寫原因。",
+    "toPurchase": "待採購",
+    "fulfillment": "進度"
   },
   "totals": {
     "none": "沒有金額。",
@@ -193,12 +203,12 @@
     "review": "待審核品項",
     "returned": "已退回的品項",
     "pendingCount": "{{count}} 項待審",
-    "order": "待下單的品項",
-    "toOrderCount": "{{count}} 項待下單",
-    "receive": "待點收的品項",
-    "exceptions": "未處理的異常",
-    "toReceiveCount": "{{count}} 項待點收",
-    "exceptionCount": "{{count}} 項未處理"
+    "confirm": "待審核確認",
+    "confirmCount": "{{count}} 項已決定",
+    "purchase": "待採購的品項",
+    "purchaseCount": "{{count}} 項",
+    "purchaseMine": "您負責的批次有 {{count}} 項",
+    "noVendor": "沒有廠商"
   },
   "validation": {
     "quantity": "請輸入至少為 1 的整數。",
@@ -209,5 +219,26 @@
   "people": {
     "member": "團隊成員",
     "former": "已離開的成員"
+  },
+  "purchasingTab": {
+    "title": "採購進度",
+    "hint": "唯讀。採購人員在「採購」頁建立廠商訂單。",
+    "notConfirmed": "審核確認後才會開始採購。",
+    "outside": "此批次在系統外採購。",
+    "empty": "沒有核准的品項。",
+    "ordered": "已下單",
+    "received": "已到",
+    "toPurchase": "待採購",
+    "cost": "成本"
+  },
+  "fulfillment": {
+    "external": "系統外採購",
+    "unpurchasable": "無法採購",
+    "not_ordered": "未下單",
+    "partially_ordered": "部分下單",
+    "ordered": "已下單",
+    "partially_received": "部分到貨",
+    "received": "已到貨",
+    "closed": "已結案"
   }
 }

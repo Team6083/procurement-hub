@@ -112,10 +112,11 @@ func TestMigrateCommand(t *testing.T) {
 
 func TestMigrateFailureNamesMigration(t *testing.T) {
 	mongoURI, st := scratchDB(t)
-	// A rate that is not a decimal makes 0001's conversion fail.
-	if _, err := st.DB.Collection("teams").InsertOne(context.Background(), bson.D{{Key: "slug", Value: "bad"},
-		{Key: "referenceRates", Value: bson.A{bson.D{{Key: "currency", Value: "TWD"}, {Key: "rateToBase", Value: "abc"}}}}}); err != nil {
-		t.Fatal(err)
+	// Two teams with one slug make 0001's unique slug index fail.
+	for i := 0; i < 2; i++ {
+		if _, err := st.DB.Collection("teams").InsertOne(context.Background(), bson.D{{Key: "slug", Value: "dup"}}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	t.Setenv("MONGO_URI", mongoURI)
 	t.Setenv("LOG_LEVEL", "info")
@@ -123,7 +124,7 @@ func TestMigrateFailureNamesMigration(t *testing.T) {
 	if code := run([]string{"migrate"}, &out, &errOut); code != 1 {
 		t.Fatalf("exit %d, want 1\n%s", code, out.String())
 	}
-	if !strings.Contains(out.String(), "migration 0001_reference_rates_decimal failed") {
+	if !strings.Contains(out.String(), "migration 0001_initial failed") {
 		t.Errorf("output does not name the failed migration:\n%s", out.String())
 	}
 	if n, _ := st.DB.Collection("migrations").CountDocuments(context.Background(), bson.D{}); n != 0 {

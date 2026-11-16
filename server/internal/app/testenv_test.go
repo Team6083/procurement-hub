@@ -168,6 +168,8 @@ func newEnvOpts(t *testing.T, overrides map[string]string, undiscovered bool) *e
 		"OIDC_ISSUER":            p.srv.URL, "OIDC_AUDIENCE": testAudience,
 		// Admins are identified by a *client* role, exercising the oauth2-proxy-style notation.
 		"ADMIN_ROLES":          testRoleClient + ":admin",
+		"PURCHASER_ROLES":      testRoleClient + ":purchaser",
+		"RECEIVER_ROLES":       testRoleClient + ":receiver",
 		"SUPPORTED_CURRENCIES": "USD,TWD,JPY", "BASE_CURRENCY": "USD",
 	}
 	for k, v := range overrides {
@@ -188,7 +190,7 @@ func newEnvOpts(t *testing.T, overrides map[string]string, undiscovered bool) *e
 
 	verifier, err := auth.NewVerifier(auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
-		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
+		AdminRoles: cfg.AdminRoles, PurchaserRoles: cfg.PurchaserRoles, ReceiverRoles: cfg.ReceiverRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -222,14 +224,24 @@ func newEnvOpts(t *testing.T, overrides map[string]string, undiscovered bool) *e
 // user returns a bearer token for a user; admin grants the system-admin client role.
 func (e *env) user(t *testing.T, name string, admin bool, groups ...string) string {
 	t.Helper()
+	return e.userWithRoles(t, name, admin, nil, groups...)
+}
+
+// userWithRoles is user plus extra roles on the API client (e.g. "purchaser").
+func (e *env) userWithRoles(t *testing.T, name string, admin bool, extra []string, groups ...string) string {
+	t.Helper()
 	claims := map[string]any{
 		"sub": "sub-" + name, "preferred_username": name, "email": name + "@example.org", "name": strings.ToUpper(name[:1]) + name[1:],
 	}
 	if len(groups) > 0 {
 		claims["groups"] = groups
 	}
+	roles := append([]string(nil), extra...)
 	if admin {
-		claims["resource_access"] = map[string]any{testRoleClient: map[string]any{"roles": []string{"admin"}}}
+		roles = append(roles, "admin")
+	}
+	if len(roles) > 0 {
+		claims["resource_access"] = map[string]any{testRoleClient: map[string]any{"roles": roles}}
 	}
 	return e.idp.token(t, claims)
 }

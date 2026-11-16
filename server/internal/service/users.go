@@ -85,13 +85,17 @@ func (s *Users) UpdateProfile(ctx context.Context, userID bson.ObjectID, version
 
 // Search finds users who have logged in at least once. Only members of some
 // team or system admins may search, to limit directory enumeration.
-func (s *Users) Search(ctx context.Context, actor authz.Actor, q string) ([]domain.User, error) {
-	if !actor.IsSystemAdmin && len(actor.TeamRoles) == 0 {
+func (s *Users) Search(ctx context.Context, actor authz.Actor, q, role string) ([]domain.User, error) {
+	if !actor.IsSystemAdmin && !actor.IsPurchaser && !actor.IsReceiver && len(actor.TeamRoles) == 0 {
 		return nil, ErrForbidden
 	}
+	if role != "" && role != "purchaser" && role != "receiver" {
+		return nil, Invalid("role", "must be purchaser or receiver")
+	}
 	q = strings.TrimSpace(q)
-	if len(q) < 2 {
+	// With role= the query may be empty: the role holders are the candidate list.
+	if len(q) < 2 && !(role != "" && q == "") {
 		return nil, Invalid("q", "at least 2 characters")
 	}
-	return s.st.SearchUsers(ctx, q, 20)
+	return s.st.SearchUsers(ctx, q, role, 20)
 }

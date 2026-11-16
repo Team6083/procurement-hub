@@ -270,7 +270,7 @@ func sameTime(a, b *time.Time) bool {
 // ---- assignments ----
 
 type AssignmentsInput struct {
-	Approvers, Purchasers, Receivers []bson.ObjectID
+	Approvers, Purchasers []bson.ObjectID
 }
 
 func dedupe(ids []bson.ObjectID) []bson.ObjectID {
@@ -285,8 +285,9 @@ func dedupe(ids []bson.ObjectID) []bson.ObjectID {
 	return out
 }
 
-// SetAssignments replaces the batch's approvers/purchasers/receivers. All
-// assignees must be members of the batch's team (spec §8.1).
+// SetAssignments replaces the batch's approvers and purchasers. Approvers must
+// be team members; purchasers must have the role in users.roleSnapshot and
+// grant nothing (spec §8.1).
 func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, in AssignmentsInput) (*domain.Batch, error) {
 	b, t, err := s.load(ctx, actor, id)
 	if err != nil {
@@ -301,7 +302,7 @@ func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson
 	if isClosedStatus(b.Status) {
 		return nil, Rule("batch_closed", "This batch can no longer be edited.")
 	}
-	next := domain.Assignments{Approvers: dedupe(in.Approvers), Purchasers: dedupe(in.Purchasers), Receivers: dedupe(in.Receivers)}
+	next := domain.Assignments{Approvers: dedupe(in.Approvers), Purchasers: dedupe(in.Purchasers)}
 	members, err := s.st.MembershipsByTeam(ctx, t.ID)
 	if err != nil {
 		return nil, err
@@ -310,11 +311,15 @@ func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson
 	for _, m := range members {
 		isMember[m.UserID] = true
 	}
-	for field, ids := range map[string][]bson.ObjectID{"approvers": next.Approvers, "purchasers": next.Purchasers, "receivers": next.Receivers} {
-		for _, uid := range ids {
-			if !isMember[uid] {
-				return nil, Invalid(field, uid.Hex()+" is not a member of this team")
-			}
+	for _, uid := range next.Approvers {
+		if !isMember[uid] {
+			return nil, Invalid("approvers", uid.Hex()+" is not a member of this team")
+		}
+	}
+	for _, uid := range next.Purchasers {
+		u, err := s.st.GetUser(ctx, uid)
+		if err != nil || !u.RoleSnapshot.Purchaser {
+			return nil, Invalid("purchasers", uid.Hex()+" is not a purchaser")
 		}
 	}
 	var out *domain.Batch
@@ -333,9 +338,10 @@ func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson
 // ---- transitions ----
 
 type TransitionInput struct {
-	Action   domain.BatchAction
-	Reason   string
-	Deadline *time.Time
+	Action          domain.BatchAction
+	Reason          string
+	Deadline        *time.Time
+	PurchaseOutside bool
 }
 
 // Transition performs a manual lifecycle action (spec §16.2).
@@ -353,6 +359,15 @@ func (s *Batches) Transition(ctx context.Context, actor authz.Actor, id bson.Obj
 		if !isProposer {
 			return nil, ErrForbidden
 		}
+	case domain.ActRestoreProposal:
+		// A withdrawn proposal may also be restored by its proposer.
+		if !actor.CanAdminTeam(t.ID) && !(isProposer && b.Status == domain.BatchCancelled) {
+			return nil, ErrForbidden
+		}
+	case domain.ActConfirmReview, domain.ActUnconfirmReview:
+		if !actor.HasBatchRole(t.ID, authzAssignments(b.Assignments), authz.BatchApprover) {
+			return nil, ErrForbidden
+		}
 	default:
 		if !actor.CanAdminTeam(t.ID) {
 			return nil, ErrForbidden
@@ -365,6 +380,11 @@ func (s *Batches) Transition(ctx context.Context, actor authz.Actor, id bson.Obj
 func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.Batch, version int64, in TransitionInput, isProposer bool) (*domain.Batch, error) {
 	var out *domain.Batch
 	err := s.st.WithTx(ctx, func(ctx context.Context) error {
+		cur, err := s.st.GetBatch(ctx, b.ID)
+		if err != nil {
+			return mapStore(err)
+		}
+		b = cur
 		counts, err := s.st.ItemCounts(ctx, b.ID)
 		if err != nil {
 			return err
@@ -376,18 +396,44 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 		res, err := domain.ApplyAction(b.Status, domain.ActionInput{
 			Action: in.Action, Now: s.now(), Deadline: deadline, Assignments: b.Assignments,
 			Reason: strings.TrimSpace(in.Reason), Items: counts, ActorIsProposer: isProposer,
+			StatusBeforeCancel: b.StatusBeforeCancel,
 		})
 		if err != nil {
 			return ruleFromDomain(err)
 		}
-		set := bson.D{
-			{Key: "status", Value: res.To}, {Key: "statusReason", Value: res.Reason},
-			{Key: "statusChangedAt", Value: s.now()},
+		to := res.To
+		var confirmation *domain.ReviewConfirmation
+		var blockers []Blocker
+		switch in.Action {
+		case domain.ActConfirmReview:
+			by, _ := bson.ObjectIDFromHex(actorLabel)
+			confirmation = &domain.ReviewConfirmation{By: by, At: s.now(), PurchaseOutside: in.PurchaseOutside}
+		case domain.ActUnconfirmReview:
+			if blockers, err = s.unconfirmBlockers(ctx, b); err != nil {
+				return err
+			}
+			if len(blockers) > 0 {
+				return &BlockedError{Blockers: blockers}
+			}
 		}
-		changes := []domain.AuditChange{{Field: "status", From: string(b.Status), To: string(res.To)}}
-		if (in.Action == domain.ActOpen || in.Action == domain.ActReopen) && deadline != nil {
+		set := bson.D{
+			{Key: "status", Value: to}, {Key: "statusReason", Value: res.Reason},
+			{Key: "statusChangedAt", Value: s.now()},
+			{Key: "statusBeforeCancel", Value: res.StatusBeforeCancel},
+		}
+		changes := []domain.AuditChange{{Field: "status", From: string(b.Status), To: string(to)}}
+		if res.SetDeadline && deadline != nil {
 			set = append(set, bson.E{Key: "deadline", Value: *deadline})
 			changes = append(changes, domain.AuditChange{Field: "deadline", From: b.Deadline, To: *deadline})
+		}
+		if in.Action == domain.ActOpen && deadline != nil && b.Deadline == nil {
+			set = append(set, bson.E{Key: "deadline", Value: *deadline})
+		}
+		switch in.Action {
+		case domain.ActConfirmReview:
+			set = append(set, bson.E{Key: "reviewConfirmation", Value: confirmation})
+		case domain.ActUnconfirmReview:
+			set = append(set, bson.E{Key: "reviewConfirmation", Value: nil})
 		}
 		nb, err := s.st.UpdateBatch(ctx, b.ID, version, set)
 		if err != nil {
@@ -407,14 +453,24 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 		evs := []domain.AuditEvent{s.event(actorLabel, nb, "batch."+string(in.Action), changes...)}
 		if res.Reason != "" {
 			evs[0].Comment = res.Reason
+		} else if in.Reason != "" {
+			evs[0].Comment = strings.TrimSpace(in.Reason)
 		}
-		auto, err := s.autoEvaluate(ctx, nb, "system:auto-transition")
-		if err != nil {
+		switch in.Action {
+		case domain.ActConfirmReview:
+			if err := s.afterConfirm(ctx, nb, &evs); err != nil {
+				return err
+			}
+			if nb, err = s.st.GetBatch(ctx, nb.ID); err != nil {
+				return err
+			}
+		case domain.ActUnconfirmReview:
+			if err := s.afterUnconfirm(ctx, nb, actorLabel, &evs); err != nil {
+				return err
+			}
+		}
+		if err := s.emitBatchEvent(ctx, actorLabel, nb, in.Action); err != nil {
 			return err
-		}
-		if auto != nil {
-			nb = auto.batch
-			evs = append(evs, auto.event)
 		}
 		out = nb
 		return s.audit.Record(ctx, evs...)
@@ -422,43 +478,119 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 	return out, err
 }
 
-type autoResult struct {
-	batch *domain.Batch
-	event domain.AuditEvent
+// emitBatchEvent writes the notification event for a manual transition
+// (spec §12.2); undo actions emit "<event>.undone". Sending is M6.
+func (s *Batches) emitBatchEvent(ctx context.Context, actor string, b *domain.Batch, a domain.BatchAction) error {
+	typ := "batch." + string(a)
+	undone := false
+	switch a {
+	case domain.ActUnconfirmReview:
+		typ, undone = "batch.review_confirmed", true
+	case domain.ActUncancel:
+		typ, undone = "batch.cancelled", true
+	case domain.ActRestoreProposal:
+		typ, undone = "batch.proposal_decided", true
+	case domain.ActConfirmReview:
+		typ = "batch.review_confirmed"
+	case domain.ActRejectProposal, domain.ActWithdrawProposal:
+		typ = "batch.proposal_decided"
+	}
+	return s.st.Emit(ctx, store.EventRecord{Type: typ, Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectID: b.ID.Hex(), Undone: undone})
 }
 
-// autoEvaluate applies automatic transitions (§10.1) inside the caller's
-// transaction. It returns nil when nothing changed.
-func (s *Batches) autoEvaluate(ctx context.Context, b *domain.Batch, actor string) (*autoResult, error) {
-	counts, err := s.st.ItemCounts(ctx, b.ID)
+// DeriveStatus re-derives the status of a review-confirmed batch from the
+// fulfillment of its approved items (spec §10.1) inside the caller's
+// transaction. Automatic changes are audited as system:derive and bump the
+// batch version.
+func (s *Batches) DeriveStatus(ctx context.Context, batchID bson.ObjectID) error {
+	b, err := s.st.GetBatch(ctx, batchID)
 	if err != nil {
-		return nil, err
+		return mapStore(err)
 	}
-	to, changed := domain.AutoTransition(b.Status, counts)
-	if !changed {
-		return nil, nil
+	if b.ReviewConfirmation == nil {
+		return nil
+	}
+	items, err := s.st.ItemsByBatchStatus(ctx, b.ID, domain.ItemApproved)
+	if err != nil {
+		return err
+	}
+	var fs []domain.Fulfillment
+	for _, it := range items {
+		if it.Fulfillment != nil {
+			fs = append(fs, *it.Fulfillment)
+		}
+	}
+	to := domain.DeriveBatchStatus(fs)
+	if to == b.Status {
+		return nil
 	}
 	nb, err := s.st.UpdateBatch(ctx, b.ID, b.Version, bson.D{
 		{Key: "status", Value: to}, {Key: "statusChangedAt", Value: s.now()}, {Key: "statusReason", Value: ""},
 	})
 	if err != nil {
-		return nil, mapStore(err)
-	}
-	return &autoResult{batch: nb, event: s.event(actor, nb, "batch.auto_transition",
-		domain.AuditChange{Field: "status", From: string(b.Status), To: string(to)})}, nil
-}
-
-// Reevaluate runs the automatic transitions for a batch in its own transaction.
-func (s *Batches) reevaluateTx(ctx context.Context, batchID bson.ObjectID) error {
-	b, err := s.st.GetBatch(ctx, batchID)
-	if err != nil {
 		return mapStore(err)
 	}
-	auto, err := s.autoEvaluate(ctx, b, "system:auto-transition")
-	if err != nil || auto == nil {
+	return s.audit.Record(ctx, s.event(audit.SystemActor("derive"), nb, "batch.status_derived",
+		domain.AuditChange{Field: "status", From: string(b.Status), To: string(to)}))
+}
+
+// unconfirmBlockers: items linked to placed lines or marked unpurchasable
+// (spec §10.1, §10.5).
+func (s *Batches) unconfirmBlockers(ctx context.Context, b *domain.Batch) ([]Blocker, error) {
+	items, err := s.st.ItemsByBatchStatus(ctx, b.ID, domain.ItemApproved)
+	if err != nil {
+		return nil, err
+	}
+	var out []Blocker
+	for _, it := range items {
+		if it.Unpurchasable != nil {
+			out = append(out, Blocker{Type: "item", ID: it.ID.Hex(), Label: "#" + itoa(it.SeqNo) + " " + it.Name + " (unpurchasable)"})
+		}
+		placed, err := s.placedLinesOf(ctx, it.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, placed...)
+	}
+	return out, nil
+}
+
+// afterConfirm initialises the computed purchasing fields of the approved
+// items and derives the batch status.
+func (s *Batches) afterConfirm(ctx context.Context, b *domain.Batch, evs *[]domain.AuditEvent) error {
+	items, err := s.st.ItemsByBatchStatus(ctx, b.ID, domain.ItemApproved)
+	if err != nil {
 		return err
 	}
-	return s.audit.Record(ctx, auto.event)
+	for _, it := range items {
+		if err := s.refreshItem(ctx, b, &it); err != nil {
+			return err
+		}
+	}
+	return s.DeriveStatus(ctx, b.ID)
+}
+
+// afterUnconfirm clears computed fields and removes draft lines of the
+// batch's items (their content is written to audit).
+func (s *Batches) afterUnconfirm(ctx context.Context, b *domain.Batch, actor string, evs *[]domain.AuditEvent) error {
+	items, err := s.st.ItemsByBatchStatus(ctx, b.ID, domain.ItemApproved)
+	if err != nil {
+		return err
+	}
+	for _, it := range items {
+		removed, err := s.removeDraftLinesOf(ctx, b, &it, actor)
+		if err != nil {
+			return err
+		}
+		*evs = append(*evs, removed...)
+		if _, err := s.st.UpdateItem(ctx, it.ID, it.Version, bson.D{
+			{Key: "fulfillment", Value: nil}, {Key: "plannedQuantity", Value: 0}, {Key: "toPurchaseQuantity", Value: 0},
+			{Key: "orderedQuantity", Value: 0}, {Key: "receivedQuantity", Value: 0}, {Key: "costBase", Value: nil},
+		}); err != nil {
+			return mapStore(err)
+		}
+	}
+	return nil
 }
 
 // ---- deadline jobs ----
@@ -511,7 +643,7 @@ func ruleFromDomain(err error) error {
 	case errors.Is(err, domain.ErrInvalidTransition):
 		return Rule("invalid_transition", "%s", err.Error())
 	case errors.Is(err, domain.ErrAssignmentsIncomplete):
-		return Rule(err.Error(), "Approvers, purchasers and receivers must each have at least one assignee.")
+		return Rule(err.Error(), "A batch needs at least one approver.")
 	case errors.Is(err, domain.ErrDeadlineRequired):
 		return Rule(err.Error(), "A deadline is required.")
 	case errors.Is(err, domain.ErrDeadlinePast):
@@ -520,6 +652,8 @@ func ruleFromDomain(err error) error {
 		return Rule(err.Error(), "The batch has no pending items to review.")
 	case errors.Is(err, domain.ErrReasonRequired):
 		return Rule(err.Error(), "A reason is required.")
+	case errors.Is(err, domain.ErrItemsUndecided):
+		return Rule(err.Error(), "Every item must be approved or rejected before confirming the review.")
 	case errors.Is(err, domain.ErrNotProposer):
 		return ErrForbidden
 	}

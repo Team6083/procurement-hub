@@ -24,7 +24,7 @@ type Provisioner interface {
 
 // MembershipLoader returns the user's effective role per team.
 type MembershipLoader interface {
-	ActorFor(ctx context.Context, u *domain.User, isSystemAdmin bool) (authz.Actor, error)
+	ActorFor(ctx context.Context, u *domain.User, p *auth.Principal) (authz.Actor, error)
 }
 
 type reqCtxKey struct{}
@@ -79,7 +79,7 @@ func Authenticate(v TokenVerifier, allowedRoles []string, prov Provisioner, ml M
 				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))
 				return
 			}
-			actor, err := ml.ActorFor(r.Context(), u, p.IsSystemAdmin)
+			actor, err := ml.ActorFor(r.Context(), u, p)
 			if err != nil {
 				slog.ErrorContext(r.Context(), "loading memberships failed", "error", err)
 				WriteError(w, NewError(http.StatusInternalServerError, "internal_error", "Internal error."))

@@ -3,13 +3,13 @@ import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
 import { auditActionKey, isZeroId } from './audit';
-import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
+import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
-const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [], receivers: n ? ['r1'] : [] });
+const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });
 const batch = (o: Partial<Batch> = {}): Batch =>
   ({ id: 'b', teamId: 't', number: 1, title: 'x', description: '', status: 'draft', origin: 'created', createdBy: 'creator', deadline: null,
-    assignments: asm(1), visibilityOverride: '', statusReason: '', statusChangedAt: '', createdAt: '', updatedAt: '', version: 1, ...o }) as Batch;
-const caller = (o: Partial<Caller> = {}): Caller => ({ userId: 'u1', isSystemAdmin: false, teamRole: 'member', archived: false, ...o });
+    assignments: asm(1), reviewConfirmation: null, visibilityOverride: '', statusReason: '', statusChangedAt: '', createdAt: '', updatedAt: '', version: 1, ...o }) as Batch;
+const caller = (o: Partial<Caller> = {}): Caller => ({ userId: 'u1', isSystemAdmin: false, teamRole: 'member', archived: false, isPurchaser: false, isReceiver: false, ...o });
 const item = (o: Partial<Item> = {}) => ({ requesterId: 'u1', status: 'pending', updatedAt: '2026-01-02T00:00:00Z', review: null, ...o }) as Item;
 const names = (b: Batch, c: Caller, p?: number) => availableActions(b, c, p).map((a) => a.action);
 
@@ -24,8 +24,20 @@ describe('batch action availability', () => {
     expect(names(batch({ status: 'draft' }), a, 2)).toEqual(['open', 'start_review', 'cancel']);
     expect(names(batch({ status: 'proposed', origin: 'proposed', createdBy: 'x' }), a, 2)).toEqual(['open', 'start_review', 'reject_proposal']);
     expect(names(batch({ status: 'collecting' }), a)).toEqual(['close', 'cancel']);
-    expect(names(batch({ status: 'reviewing' }), a)).toEqual(['reopen', 'cancel']);
-    for (const s of ['ordering', 'receiving', 'completed', 'cancelled', 'proposal_rejected'] as const) expect(names(batch({ status: s }), a)).toEqual([]);
+    expect(names(batch({ status: 'reviewing' }), a)).toEqual(['reopen', 'cancel', 'confirm_review']);
+    for (const s of ['purchasing', 'receiving', 'completed'] as const) expect(names(batch({ status: s }), a)).toEqual([]);
+    expect(names(batch({ status: 'proposal_rejected' }), a)).toEqual(['restore_proposal']);
+    expect(names(batch({ status: 'cancelled', statusBeforeCancel: 'collecting' }), a)).toEqual(['uncancel']);
+    // A withdrawn proposal is restored, never uncancelled.
+    expect(names(batch({ status: 'cancelled', statusBeforeCancel: 'proposed' }), a)).toEqual(['restore_proposal']);
+  });
+  it('approvers confirm and unconfirm the review', () => {
+    const approver = caller({ userId: 'a1' });
+    const confirmed = { by: 'a1', at: '', purchaseOutside: false };
+    expect(availableActions(batch({ status: 'reviewing' }), approver, 0, 2)).toEqual([{ action: 'confirm_review', disabled: 'undecided' }]);
+    expect(names(batch({ status: 'reviewing' }), approver, 0)).toEqual(['confirm_review']);
+    expect(names(batch({ status: 'purchasing', reviewConfirmation: confirmed }), approver)).toEqual(['unconfirm_review']);
+    expect(names(batch({ status: 'reviewing' }), caller())).toEqual([]);
   });
   it('proposer who is also admin gets both', () => {
     expect(names(batch({ status: 'proposed', origin: 'proposed', createdBy: 'u1' }), caller({ teamRole: 'admin' }), 1)).toContain('withdraw_proposal');
@@ -144,20 +156,21 @@ describe('filters, urls, forms, audit helpers', () => {
 });
 
 describe('canMarkUnpurchasable', () => {
-  const ordering = batch({ status: 'ordering', assignments: { approvers: [], purchasers: ['u1'], receivers: [] } });
-  const approved = item({ status: 'approved', orderId: null });
-  it('is offered to assigned purchasers and team admins on approved, unordered items while ordering', () => {
-    expect(canMarkUnpurchasable(approved, ordering, caller())).toBe(true);
-    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x', teamRole: 'admin' }))).toBe(true);
+  const confirmed = batch({ status: 'purchasing', reviewConfirmation: { by: 'a1', at: '', purchaseOutside: false } });
+  const approved = item({ status: 'approved', unpurchasable: null });
+  const buyer = () => caller({ isPurchaser: true });
+  it('is offered to purchasers (a global role) on unmarked approved items of a confirmed batch', () => {
+    expect(canMarkUnpurchasable(approved, confirmed, buyer())).toBe(true);
+    expect(canUndoUnpurchasable(item({ status: 'approved', unpurchasable: { by: 'x', at: '', reason: 'r' } }), confirmed, buyer())).toBe(true);
   });
-  it('hides it from other members and from system admins without a team role', () => {
-    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x' }))).toBe(false);
-    expect(canMarkUnpurchasable(approved, ordering, caller({ userId: 'x', teamRole: undefined, isSystemAdmin: true }))).toBe(false);
+  it('is hidden from team admins, members and system admins without the purchaser role', () => {
+    expect(canMarkUnpurchasable(approved, confirmed, caller({ teamRole: 'admin' }))).toBe(false);
+    expect(canMarkUnpurchasable(approved, confirmed, caller({ isSystemAdmin: true, teamRole: undefined }))).toBe(false);
   });
-  it('requires an approved item outside an order, an ordering batch and a live team', () => {
-    expect(canMarkUnpurchasable(item({ status: 'pending' }), ordering, caller())).toBe(false);
-    expect(canMarkUnpurchasable(item({ status: 'approved', orderId: 'o1' }), ordering, caller())).toBe(false);
-    expect(canMarkUnpurchasable(approved, { ...ordering, status: 'receiving' }, caller())).toBe(false);
-    expect(canMarkUnpurchasable(approved, ordering, caller({ archived: true }))).toBe(false);
+  it('requires a confirmed batch that is not bought outside, an approved unmarked item and a live team', () => {
+    expect(canMarkUnpurchasable(item({ status: 'pending' }), confirmed, buyer())).toBe(false);
+    expect(canMarkUnpurchasable(approved, batch({ status: 'reviewing' }), buyer())).toBe(false);
+    expect(canMarkUnpurchasable(approved, { ...confirmed, reviewConfirmation: { by: 'a1', at: '', purchaseOutside: true } }, buyer())).toBe(false);
+    expect(canMarkUnpurchasable(approved, confirmed, { ...buyer(), archived: true })).toBe(false);
   });
 });

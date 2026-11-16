@@ -14,7 +14,9 @@
     "client": {
       "procurement-hub-api": [
         { "name": "admin", "description": "System admin (ADMIN_ROLES=procurement-hub-api:admin)" },
-        { "name": "user", "description": "May use the service (ALLOWED_ROLES=procurement-hub-api:user)" }
+        { "name": "user", "description": "May use the service (ALLOWED_ROLES=procurement-hub-api:user)" },
+        { "name": "purchaser", "description": "Global purchaser (PURCHASER_ROLES=procurement-hub-api:purchaser)" },
+        { "name": "receiver", "description": "Global receiver (RECEIVER_ROLES=procurement-hub-api:receiver)" }
       ]
     }
   },
@@ -80,7 +82,7 @@
     }
   ],
   "clientScopeMappings": {
-    "procurement-hub-api": [{ "client": "procurement-hub-web", "roles": ["admin", "user"] }]
+    "procurement-hub-api": [{ "client": "procurement-hub-web", "roles": ["admin", "user", "purchaser", "receiver"] }]
   },
   "users": [
     {
@@ -142,6 +144,26 @@
       "enabled": true,
       "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
       "clientRoles": { "procurement-hub-api": ["user"] }
+    },
+    {
+      "username": "pat",
+      "email": "pat@example.org",
+      "emailVerified": true,
+      "firstName": "Pat",
+      "lastName": "Purchaser",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user", "purchaser"] }
+    },
+    {
+      "username": "rita",
+      "email": "rita@example.org",
+      "emailVerified": true,
+      "firstName": "Rita",
+      "lastName": "Receiver",
+      "enabled": true,
+      "credentials": [{ "type": "password", "value": "e2e-password", "temporary": false }],
+      "clientRoles": { "procurement-hub-api": ["user", "receiver"] }
     },
     {
       "username": "nora",

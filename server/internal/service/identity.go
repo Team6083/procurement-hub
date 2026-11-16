@@ -46,7 +46,8 @@ func (s *Identity) Provision(ctx context.Context, p *auth.Principal) (*domain.Us
 	if err := s.SyncMemberships(ctx, u, p); err != nil {
 		return nil, err
 	}
-	if err := s.st.MarkSynced(ctx, u.ID, p.IssuedAt, p.PreferredUsername, p.Email, p.Name); err != nil {
+	if err := s.st.MarkSynced(ctx, u.ID, p.IssuedAt, p.PreferredUsername, p.Email, p.Name,
+		domain.RoleSnapshot{Purchaser: p.IsPurchaser, Receiver: p.IsReceiver, At: time.Now().UTC()}); err != nil {
 		return nil, err
 	}
 	s.cache.put(p.Sub, p.IssuedAt)

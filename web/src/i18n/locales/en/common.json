@@ -10,7 +10,8 @@
     "admin": "Role mappings",
     "teams": "Teams",
     "menu": "Menu",
-    "placeOrders": "Place orders"
+    "purchasing": "Purchasing",
+    "receiving": "Receiving"
   },
   "language": {
     "label": "Language",
@@ -36,7 +37,8 @@
     "reports": "Reports",
     "roleMappings": "Role mappings",
     "notFound": "Page not found",
-    "placeOrders": "Place orders"
+    "purchasing": "Purchasing",
+    "receiving": "Receiving"
   },
   "actions": {
     "save": "Save",
@@ -57,5 +59,13 @@
   },
   "settingsPage": {
     "languageHelp": "Your language is saved to your profile."
+  },
+  "undo": {
+    "reason": "Reason",
+    "blockedTitle": "Undo these first:",
+    "blockedLine": "Line",
+    "blockedItem": "Item",
+    "blockedBatch": "Batch",
+    "blockedVendorOrder": "Vendor order"
   }
 }

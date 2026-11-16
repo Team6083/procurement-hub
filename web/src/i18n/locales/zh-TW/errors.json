@@ -33,22 +33,9 @@
     "item_not_edited": "請先編輯品項才能重新送審。",
     "item_not_reviewable": "其中有品項已無法審核（可能已被決定）。",
     "batch_item_limit": "此批次的品項已達上限（5000 項）。",
-    "item_not_orderable": "其中有品項已不是已核准狀態，或已在其他訂單中。",
-    "item_in_order": "此品項已在訂單中。",
-    "batch_not_ordering": "此批次不在下單階段。",
-    "order_not_draft": "只有草稿訂單可以修改。",
-    "order_in_transaction": "此訂單屬於一筆外部下單，請先取消該外部下單。",
-    "order_not_available": "其中有訂單已不是可用的草稿。",
-    "vendor_transaction_not_draft": "此外部下單已下單或已取消。",
-    "vendor_transaction_cancelled": "此外部下單已取消，無法再編輯。",
-    "allocation_sum_mismatch": "分攤金額加總必須等於共同費用合計。",
-    "allocation_override_reason_required": "請填寫手動分攤的原因。",
-    "cost_basis_zero": "品項總額為零時無法分攤扣款金額，請先填入品項單價。",
-    "order_not_placed": "只有已下單的訂單可以登錄調整。",
-    "batch_not_receiving": "此批次不在點收階段。",
-    "receipt_exceeds_quantity": "超過尚未到貨的數量。多出的貨請回報為異常。",
-    "item_not_ordered": "此品項尚未下單。",
-    "exception_resolved": "這個問題已經處理過了。",
-    "nothing_received": "尚未收到任何貨，沒有可接受的數量。請改為取消品項。"
+    "blocked_by_dependency": "還有其他紀錄依賴這筆資料，請先撤銷它們。",
+    "items_undecided": "所有品項都核准或駁回後才能審核確認。",
+    "line_quantity_exceeded": "數量超過這一行還能收的數量。",
+    "team_cost_overrides_mismatch": "團隊分攤覆寫與這張訂單的團隊不符。"
   }
 }

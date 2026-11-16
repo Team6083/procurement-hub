@@ -9,33 +9,34 @@ import { callerFor } from './rules';
 beforeAll(() => void i18n.changeLanguage('en'));
 afterEach(cleanup);
 
-const ordering = batch({ status: 'ordering', assignments: { approvers: [], purchasers: ['u1'], receivers: [] } });
-const items = [item(1, { name: 'Wheel', status: 'approved', version: 4 }), item(2, { name: 'Gear', status: 'approved', orderId: 'o1' }), item(3, { name: 'Old', status: 'unpurchasable' })];
+const ordering = batch({ status: 'purchasing', assignments: { approvers: [], purchasers: ['u1'] }, reviewConfirmation: { by: 'u1', at: '2026-01-01T00:00:00Z', purchaseOutside: false } });
+const items = [item(1, { name: 'Wheel', status: 'approved', version: 4, toPurchaseQuantity: 1 }), item(2, { name: 'Gear', status: 'approved', unpurchasable: { by: 'u1', at: '2026-01-01T00:00:00Z', reason: 'x' } }), item(3, { name: 'Old', status: 'rejected' })];
 const caller = (role: 'admin' | 'member' = 'member', userId = 'u1') =>
-  callerFor({ id: userId, isSystemAdmin: false, memberships: [{ teamId: 't1', role }] as never }, 't1');
+  callerFor({ id: userId, isSystemAdmin: false, isPurchaser: userId === 'u1', isReceiver: false, memberships: [{ teamId: 't1', role }] as never }, 't1');
 
 function show(c = caller(), b = ordering, routes = {}) {
   return renderWithApi(<ItemsTab batch={b} team={team()} caller={c} items={items} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, routes);
 }
 
 describe('ItemsTab unpurchasable action', () => {
-  it('offers the action only on approved items outside an order, in the row menu, and shows the unpurchasable status', async () => {
+  it('offers mark on unmarked approved items and undo on marked ones, in the row menu', async () => {
     show();
     fireEvent.change(await filterSelect('Status'), { target: { value: '' } });
-    // Only the approved, unordered row has any action.
-    expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(1);
+    // The rejected row has no action.
+    expect(screen.getAllByRole('button', { name: 'More actions' })).toHaveLength(2);
     expect(await openRowMenu(rowWith('Wheel'))).toEqual(['Mark unpurchasable']);
-    expect(screen.getAllByText('Unpurchasable').length).toBeGreaterThan(0);
+    await closeMenu();
+    expect(await openRowMenu(rowWith('Gear'))).toEqual(['Undo unpurchasable']);
   });
-  it('hides the action from non-purchasers and outside ordering', () => {
+  it('hides the action from non-purchasers and before the review is confirmed', () => {
     show(caller('member', 'someone'));
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
     cleanup();
-    show(caller(), batch({ ...ordering, status: 'receiving' }));
+    show(caller(), batch({ ...ordering, status: 'reviewing', reviewConfirmation: null }));
     expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
   });
   it('posts the reason with the item version in If-Match', async () => {
-    const { calls } = show(caller(), ordering, { 'POST /items/i1/unpurchasable': item(1, { status: 'unpurchasable', version: 5 }) });
+    const { calls } = show(caller(), ordering, { 'POST /items/i1/unpurchasable': item(1, { status: 'approved', version: 5 }) });
     await openRowMenu(rowWith('Wheel'));
     await chooseMenuItem('Mark unpurchasable');
     const dialog = await screen.findByRole('dialog');
@@ -50,7 +51,7 @@ describe('ItemsTab unpurchasable action', () => {
   });
 });
 
-const reviewing = batch({ status: 'reviewing', assignments: { approvers: ['u1'], purchasers: [], receivers: [] } });
+const reviewing = batch({ status: 'reviewing', assignments: { approvers: ['u1'], purchasers: [] } });
 const reviewItems = [
   item(1, { name: 'Servo', status: 'pending' }),
   item(2, { name: 'Cable', status: 'pending' }),
@@ -122,47 +123,5 @@ describe('ItemsTab review workspace', () => {
     fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Duplicate' } });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Force reject' })); });
     await waitFor(() => expect(calls.find((c) => c.path === '/items/i1/force-reject')?.body).toEqual({ reason: 'Duplicate' }));
-  });
-});
-
-const orderItems = [
-  item(1, { name: 'Servo', status: 'ordered', orderId: 'o1', vendor: 'Acme' }),
-  item(2, { name: 'Wheel', status: 'approved', vendor: 'Acme' }),
-  item(3, { name: 'Gear', status: 'approved', vendor: 'Acme' }),
-  item(4, { name: 'Pending thing', status: 'pending' }),
-];
-const showOrdering = (c = caller(), routes = {}) =>
-  renderWithApi(<ItemsTab batch={ordering} team={team()} caller={c} items={orderItems} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, routes);
-
-describe('ItemsTab order creation', () => {
-  it('defaults a purchaser to approved items outside any order', async () => {
-    showOrdering();
-    expect((await statusFilter()).value).toBe('to_order');
-    expect(screen.getAllByRole('checkbox', { name: 'Select row' })).toHaveLength(2);
-  });
-
-  it('creates an order from the selected approved items with their common vendor', async () => {
-    const { calls } = showOrdering(caller(), { 'POST /batches/b1/orders': (b: unknown) => ({ id: 'o9', ...(b as object) }) });
-    expect(screen.queryByRole('textbox', { name: 'Vendor' })).toBeNull();
-    const boxes = screen.getAllByRole('checkbox', { name: 'Select row' });
-    await act(async () => { fireEvent.click(boxes[0]!); });
-    await act(async () => { fireEvent.click(boxes[1]!); });
-    expect((screen.getByRole('textbox', { name: 'Vendor' }) as HTMLInputElement).value).toBe('Acme');
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Create order from 2 items' })); });
-    await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ vendor: 'Acme', itemIds: ['i2', 'i3'] }));
-  });
-
-  it('only counts approved unordered items from a mixed selection', async () => {
-    showOrdering();
-    fireEvent.change(await statusFilter(), { target: { value: '' } });
-    for (const box of screen.getAllByRole('checkbox', { name: 'Select row' })) await act(async () => { fireEvent.click(box); });
-    expect(screen.getByRole('button', { name: 'Create order from 2 items' })).toBeTruthy();
-  });
-
-  it('hides order creation from non-purchasers', async () => {
-    showOrdering(caller('member', 'someone'));
-    expect((await statusFilter()).value).toBe('');
-    await act(async () => { fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select row' })[1]!); });
-    expect(screen.queryByRole('textbox', { name: 'Vendor' })).toBeNull();
   });
 });

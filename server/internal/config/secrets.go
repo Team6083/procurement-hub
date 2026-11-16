@@ -70,6 +70,8 @@ func (c *Config) LogValue() slog.Value {
 		slog.String("OIDC_CLOCK_SKEW", c.OIDCClockSkew.String()),
 		slog.String("OIDC_GROUPS_CLAIM", c.OIDCGroupsClaim),
 		slog.String("ADMIN_ROLES", strings.Join(c.AdminRoles, ",")),
+		slog.String("PURCHASER_ROLES", strings.Join(c.PurchaserRoles, ",")),
+		slog.String("RECEIVER_ROLES", strings.Join(c.ReceiverRoles, ",")),
 		slog.String("ALLOWED_ROLES", allowed),
 		slog.String("ROLE_MAPPINGS_FILE", c.RoleMappingsFile),
 		slog.String("WEBHOOK_ENCRYPTION_KEY", secret(len(c.WebhookKey) > 0)),

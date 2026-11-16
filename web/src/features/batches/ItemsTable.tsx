@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Icon, Link, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, HStack, Icon, Link, Text } from '@chakra-ui/react';
 import { type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { DataTable } from '../../components/DataTable';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -10,7 +10,7 @@ import { priorityLabel, type PriorityKey } from '../teams/priority';
 import { format, parseDecSafe } from './decimal';
 import { lineTotal } from './estimates';
 import { safeHttpUrl } from './itemForm';
-import { ItemStatusBadge } from './StatusBadges';
+import { FulfillmentBadge, ItemStatusBadge } from './StatusBadges';
 
 type SortKey = 'name' | 'requester' | 'subgroup' | 'priority' | 'quantity' | 'unitPrice' | 'lineTotal' | 'vendor' | 'status';
 interface Sort { key: SortKey; desc: boolean }
@@ -114,7 +114,12 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
       cell: (it) => `${format(parseDecSafe(it.estimatedUnitPrice.amount))} ${it.estimatedUnitPrice.currency}`,
     }),
     col('lineTotal', t('item.lineTotal'), { numeric: true, cell: (it) => `${format(lineTotal(it))} ${it.estimatedUnitPrice.currency}` }),
-    col('status', t('item.status'), { cell: (it) => <ItemStatusBadge status={it.status} /> }),
+    col('status', t('item.status'), { cell: (it) => (
+      <HStack gap="1" wrap="wrap">
+        <ItemStatusBadge status={it.status} />
+        {it.fulfillment && <FulfillmentBadge value={it.fulfillment} />}
+      </HStack>
+    ) }),
   ];
 
   return (

@@ -25,6 +25,10 @@ type Principal struct {
 	Roles             []string
 	IssuedAt          time.Time
 	IsSystemAdmin     bool
+	// IsPurchaser/IsReceiver come from PURCHASER_ROLES / RECEIVER_ROLES and are
+	// global; system admins do not implicitly hold them (spec §8.1).
+	IsPurchaser bool
+	IsReceiver  bool
 }
 
 type ctxKey struct{}
@@ -87,11 +91,14 @@ func ClientRoles(claims map[string]any) []string {
 	return out
 }
 
+// RoleLists holds the ADMIN_ROLES, PURCHASER_ROLES and RECEIVER_ROLES settings.
+type RoleLists struct{ Admin, Purchaser, Receiver []string }
+
 // PrincipalFromClaims builds a Principal from decoded claims. Roles holds the
 // realm roles (bare names, from realm_access.roles) followed by client roles
 // ("<client id>:<role>", spec §7.3). The principal is a system admin if any
 // adminRoles entry is among them.
-func PrincipalFromClaims(claims map[string]any, groupsClaim string, adminRoles []string) (*Principal, error) {
+func PrincipalFromClaims(claims map[string]any, groupsClaim string, rl RoleLists) (*Principal, error) {
 	str := func(k string) string { s, _ := claims[k].(string); return s }
 	sub := str("sub")
 	if sub == "" {
@@ -108,7 +115,9 @@ func PrincipalFromClaims(claims map[string]any, groupsClaim string, adminRoles [
 	if iat, ok := claims["iat"].(float64); ok {
 		p.IssuedAt = time.Unix(int64(iat), 0).UTC()
 	}
-	p.IsSystemAdmin = HasAnyRole(p.Roles, adminRoles)
+	p.IsSystemAdmin = HasAnyRole(p.Roles, rl.Admin)
+	p.IsPurchaser = HasAnyRole(p.Roles, rl.Purchaser)
+	p.IsReceiver = HasAnyRole(p.Roles, rl.Receiver)
 	return p, nil
 }
 
@@ -153,7 +162,10 @@ type VerifierConfig struct {
 	Audience    string
 	GroupsClaim string
 	AdminRoles  []string // realm role, or "<client id>:<client role>"; any match grants system admin
-	ClockSkew   time.Duration
+	// PurchaserRoles and ReceiverRoles use the same syntax (optional).
+	PurchaserRoles []string
+	ReceiverRoles  []string
+	ClockSkew      time.Duration
 	// SigningAlgs is the signature algorithm allowlist; empty means
 	// DefaultSigningAlgs. The token header never widens it (spec §7.2).
 	SigningAlgs []string
@@ -289,7 +301,7 @@ func (v *Verifier) Verify(ctx context.Context, raw string) (*Principal, error) {
 	if err := checkType(claims); err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}
-	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, v.cfg.AdminRoles)
+	p, err := PrincipalFromClaims(claims, v.cfg.GroupsClaim, RoleLists{Admin: v.cfg.AdminRoles, Purchaser: v.cfg.PurchaserRoles, Receiver: v.cfg.ReceiverRoles})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalidToken, err)
 	}

@@ -100,14 +100,14 @@ test('a member proposes a batch with two items', async ({ browser }) => {
 test('the team admin sets assignments and opens the batch for collection', async ({ browser }) => {
   const page = await as(browser, 'tara', batchPath);
   await expectBatchStatus(page, 'Proposed');
-  // Opening needs every assignment first.
+  // Opening needs an approver first.
   await expect(page.getByRole('button', { name: 'Open for items' })).toBeDisabled();
 
   await page.getByRole('button', { name: 'Edit' }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit batch' });
   await dialog.getByRole('group', { name: 'Approvers' }).getByText(users.carol.name).click();
-  await dialog.getByRole('group', { name: 'Purchasers' }).getByText(users.tara.name).click();
-  await dialog.getByRole('group', { name: 'Receivers' }).getByText(users.tara.name).click();
+  // Purchasers come from the role snapshot (pat holds the purchaser role) and are optional.
+  await dialog.getByRole('group', { name: 'Purchasers' }).getByText(users.pat.name).click();
   await dialog.getByRole('button', { name: 'Save' }).click();
   await expect(dialog).toBeHidden();
   await expect(page.getByText(users.carol.name)).toBeVisible();
@@ -186,7 +186,7 @@ test('the reviewer approves, returns and rejects; the batch stays in review (21.
   await expectBatchStatus(page, 'Reviewing');
 });
 
-test('the requester edits and resubmits the returned item; its approval moves the batch to ordering (21.4)', async ({ browser }) => {
+test('the requester edits and resubmits the returned item; its approval and the review confirmation move the batch to purchasing (21.4)', async ({ browser }) => {
   const page = await as(browser, 'alice', batchPath);
   const row = itemRow(page, items.servo.name);
   await expect(row).toContainText('Returned: Which model? Add the SKU.');
@@ -205,7 +205,10 @@ test('the requester edits and resubmits the returned item; its approval moves th
 
   const carol = await as(browser, 'carol', batchPath);
   await decide(carol, items.servo.name, 'approve', null);
-  await expectBatchStatus(carol, 'Ordering');
+  await expectBatchStatus(carol, 'Reviewing');
+  await carol.getByRole('button', { name: 'Confirm review' }).click();
+  await carol.getByRole('dialog', { name: 'Confirm review' }).getByRole('button', { name: 'Confirm review' }).click();
+  await expectBatchStatus(carol, 'Purchasing');
   await (await statusFilter(carol)).selectOption({ label: 'All' });
   await carol.keyboard.press('Escape');
   await expect(itemRow(carol, items.kit.name)).toContainText('Approved');

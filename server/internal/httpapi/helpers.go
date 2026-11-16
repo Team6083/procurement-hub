@@ -64,8 +64,13 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		ve *service.ValidationError
 		re *service.RuleError
 		ae *APIError
+		be *service.BlockedError
 	)
 	switch {
+	case errors.As(err, &be):
+		e := NewError(http.StatusConflict, "blocked_by_dependency", "Other records depend on this; undo them first.")
+		e.Details = map[string]any{"blockers": be.Blockers}
+		WriteError(w, e)
 	case errors.As(err, &ae):
 		WriteError(w, ae)
 	case errors.As(err, &ve):

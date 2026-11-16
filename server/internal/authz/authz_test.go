@@ -45,54 +45,20 @@ func TestBatchRoles(t *testing.T) {
 	if !(Actor{UserID: appr, TeamRoles: roles}).HasBatchRole(team, as, BatchApprover) {
 		t.Error("assigned approver should hold role")
 	}
-	if (Actor{UserID: appr, TeamRoles: roles}).HasBatchRole(team, as, BatchPurchaser) {
-		t.Error("approver must not be purchaser")
-	}
 	adminActor := Actor{UserID: admin, TeamRoles: map[bson.ObjectID]domain.Role{team: domain.RoleAdmin}}
-	for _, r := range []BatchRole{BatchApprover, BatchPurchaser, BatchReceiver} {
-		if !adminActor.HasBatchRole(team, as, r) {
-			t.Errorf("team admin should implicitly hold %s", r)
-		}
-		if IsExplicitAssignee(admin, as, r) {
-			t.Errorf("team admin is not an explicit %s", r)
-		}
+	if !adminActor.HasBatchRole(team, as, BatchApprover) {
+		t.Error("team admin should implicitly be an approver")
 	}
-	if (Actor{UserID: plain, TeamRoles: roles}).HasBatchRole(team, as, BatchReceiver) {
+	if IsExplicitApprover(admin, as) {
+		t.Error("team admin is not an explicit approver")
+	}
+	if (Actor{UserID: plain, TeamRoles: roles}).HasBatchRole(team, as, BatchApprover) {
 		t.Error("plain member holds no batch role")
 	}
 	if (Actor{UserID: plain, IsSystemAdmin: true}).HasBatchRole(team, as, BatchApprover) {
 		t.Error("system admin must not implicitly hold batch roles")
 	}
-}
-
-func TestHasBatchRoleOnAll(t *testing.T) {
-	teamA, teamB := bson.NewObjectID(), bson.NewObjectID()
-	buyer, admin := bson.NewObjectID(), bson.NewObjectID()
-	refA := BatchRef{TeamID: teamA, Assignments: Assignments{Purchasers: []bson.ObjectID{buyer}}}
-	refB := BatchRef{TeamID: teamB, Assignments: Assignments{Purchasers: []bson.ObjectID{buyer}}}
-	refBOther := BatchRef{TeamID: teamB, Assignments: Assignments{Purchasers: []bson.ObjectID{bson.NewObjectID()}}}
-	member := map[bson.ObjectID]domain.Role{teamA: domain.RoleMember, teamB: domain.RoleMember}
-
-	tests := []struct {
-		name string
-		a    Actor
-		refs []BatchRef
-		want bool
-	}{
-		{"purchaser of both", Actor{UserID: buyer, TeamRoles: member}, []BatchRef{refA, refB}, true},
-		{"purchaser of one only", Actor{UserID: buyer, TeamRoles: member}, []BatchRef{refA, refBOther}, false},
-		{"team admin of one covers it, the other needs assignment",
-			Actor{UserID: admin, TeamRoles: map[bson.ObjectID]domain.Role{teamB: domain.RoleAdmin, teamA: domain.RoleMember}},
-			[]BatchRef{refBOther, refA}, false},
-		{"team admin of both",
-			Actor{UserID: admin, TeamRoles: map[bson.ObjectID]domain.Role{teamB: domain.RoleAdmin, teamA: domain.RoleAdmin}},
-			[]BatchRef{refBOther, refA}, true},
-		{"system admin has no implicit role", Actor{UserID: admin, IsSystemAdmin: true}, []BatchRef{refA}, false},
-		{"nothing to hold", Actor{UserID: buyer, TeamRoles: member}, nil, false},
-	}
-	for _, tt := range tests {
-		if got := tt.a.HasBatchRoleOnAll(tt.refs, BatchPurchaser); got != tt.want {
-			t.Errorf("%s: got %v want %v", tt.name, got, tt.want)
-		}
+	if (Actor{UserID: plain, IsSystemAdmin: true}).IsPurchaser {
+		t.Error("system admin is not implicitly a purchaser")
 	}
 }

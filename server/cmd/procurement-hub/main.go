@@ -153,7 +153,7 @@ func serve() error {
 	// /readyz at 503 (check "oidc") instead of stopping serve (spec §18.2).
 	verifier, err := auth.NewVerifier(auth.VerifierConfig{
 		IssuerURL: cfg.OIDCIssuer, Audience: cfg.OIDCAudience, GroupsClaim: cfg.OIDCGroupsClaim,
-		AdminRoles: cfg.AdminRoles, ClockSkew: cfg.OIDCClockSkew,
+		AdminRoles: cfg.AdminRoles, PurchaserRoles: cfg.PurchaserRoles, ReceiverRoles: cfg.ReceiverRoles, ClockSkew: cfg.OIDCClockSkew,
 	})
 	if err != nil {
 		return err

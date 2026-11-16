@@ -81,7 +81,7 @@ export function team(over: Partial<Team> = {}): Team {
 export function me(over: Partial<Me> = {}): Me {
   return {
     id: 'u1', username: 'alice', email: 'alice@example.org', displayName: 'Alice', locale: null, notificationPrefs: null,
-    createdAt: at, updatedAt: at, version: 1, isSystemAdmin: false,
+    createdAt: at, updatedAt: at, version: 1, isSystemAdmin: false, isPurchaser: false, isReceiver: false,
     memberships: [{ teamId: 't1', slug: 'robotics', name: 'Robotics', role: 'admin', ssoRole: '', manualRole: 'admin', defaultSubgroupId: 'g1' }],
     ...over,
   };
@@ -94,7 +94,7 @@ export function member(id: string, name: string): TeamMember {
 export function batch(over: Partial<Batch> = {}): Batch {
   return {
     id: 'b1', teamId: 't1', number: 7, title: 'Spring order', description: 'Parts for the arm', status: 'reviewing', origin: 'created',
-    createdBy: 'u1', deadline: '2026-03-01T16:30:00Z', assignments: { approvers: ['u1'], purchasers: [], receivers: [] },
+    createdBy: 'u1', deadline: '2026-03-01T16:30:00Z', assignments: { approvers: ['u1'], purchasers: [] }, reviewConfirmation: null,
     visibilityOverride: '', statusReason: '', statusChangedAt: at, createdAt: at, updatedAt: at, version: 2, ...over,
   };
 }
@@ -103,7 +103,7 @@ export function item(seqNo: number, over: Partial<Item> = {}): Item {
   return {
     id: `i${seqNo}`, teamId: 't1', batchId: 'b1', seqNo, requesterId: 'u1', subgroupId: 'g1', name: `Item ${seqNo}`, vendor: 'Acme', sku: '',
     quantity: 1, estimatedUnitPrice: { amount: '10', currency: 'USD' }, priority: 3, purpose: '', notes: '', productUrl: '',
-    status: 'pending', review: null, lookup: null, orderId: null, actualUnitPrice: null, actualCostBase: null, receivedQuantity: 0,
-    closeReason: '', customFields: null, createdAt: at, updatedAt: at, version: 1, ...over,
+    status: 'pending', review: null, lookup: null, unpurchasable: null, fulfillment: null, plannedQuantity: 0, toPurchaseQuantity: 0,
+    orderedQuantity: 0, receivedQuantity: 0, costBase: null, customFields: null, createdAt: at, updatedAt: at, version: 1, ...over,
   };
 }

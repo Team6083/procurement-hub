@@ -10,13 +10,13 @@ import (
 
 func fullAssign() Assignments {
 	id := bson.NewObjectID()
-	return Assignments{Approvers: []bson.ObjectID{id}, Purchasers: []bson.ObjectID{id}, Receivers: []bson.ObjectID{id}}
+	return Assignments{Approvers: []bson.ObjectID{id}, Purchasers: []bson.ObjectID{id}}
 }
 
 func TestApplyAction(t *testing.T) {
 	now := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	future, past := now.Add(time.Hour), now.Add(-time.Hour)
-	partial := Assignments{Approvers: []bson.ObjectID{bson.NewObjectID()}}
+	partial := Assignments{}
 
 	tests := []struct {
 		name string
@@ -41,12 +41,22 @@ func TestApplyAction(t *testing.T) {
 		{"reopen past deadline", BatchReviewing, ActionInput{Action: ActReopen, Deadline: &past}, "", "", ErrDeadlinePast},
 		{"cancel collecting", BatchCollecting, ActionInput{Action: ActCancel, Reason: "x"}, BatchCancelled, "x", nil},
 		{"cancel needs reason", BatchCollecting, ActionInput{Action: ActCancel}, "", "", ErrReasonRequired},
-		{"cancel ordering forbidden", BatchOrdering, ActionInput{Action: ActCancel, Reason: "x"}, "", "", ErrInvalidTransition},
+		{"cancel purchasing forbidden", BatchPurchasing, ActionInput{Action: ActCancel, Reason: "x"}, "", "", ErrInvalidTransition},
 		{"cancel completed forbidden", BatchCompleted, ActionInput{Action: ActCancel, Reason: "x"}, "", "", ErrInvalidTransition},
 		{"reject proposal", BatchProposed, ActionInput{Action: ActRejectProposal, Reason: "no"}, BatchProposalRejected, "no", nil},
 		{"reject proposal needs reason", BatchProposed, ActionInput{Action: ActRejectProposal}, "", "", ErrReasonRequired},
 		{"reject non-proposal", BatchDraft, ActionInput{Action: ActRejectProposal, Reason: "no"}, "", "", ErrInvalidTransition},
 		{"withdraw by proposer", BatchProposed, ActionInput{Action: ActWithdrawProposal, ActorIsProposer: true}, BatchCancelled, "", nil},
+		{"restore rejected proposal", BatchProposalRejected, ActionInput{Action: ActRestoreProposal, Reason: "x"}, BatchProposed, "", nil},
+		{"restore withdrawn proposal", BatchCancelled, ActionInput{Action: ActRestoreProposal, Reason: "x", StatusBeforeCancel: BatchProposed}, BatchProposed, "", nil},
+		{"uncancel withdrawn proposal is invalid", BatchCancelled, ActionInput{Action: ActUncancel, Reason: "x", StatusBeforeCancel: BatchProposed}, "", "", ErrInvalidTransition},
+		{"uncancel reviewing", BatchCancelled, ActionInput{Action: ActUncancel, Reason: "x", StatusBeforeCancel: BatchReviewing}, BatchReviewing, "", nil},
+		{"uncancel collecting needs deadline", BatchCancelled, ActionInput{Action: ActUncancel, Reason: "x", StatusBeforeCancel: BatchCollecting}, "", "", ErrDeadlineRequired},
+		{"uncancel collecting with deadline", BatchCancelled, ActionInput{Action: ActUncancel, Reason: "x", StatusBeforeCancel: BatchCollecting, Deadline: &future}, BatchCollecting, "", nil},
+		{"confirm with pending", BatchReviewing, ActionInput{Action: ActConfirmReview, Items: ItemCounts{ItemPending: 1}}, "", "", ErrItemsUndecided},
+		{"confirm ok", BatchReviewing, ActionInput{Action: ActConfirmReview, Items: ItemCounts{ItemApproved: 2}}, BatchReviewing, "", nil},
+		{"cancel after confirmation forbidden", BatchReceiving, ActionInput{Action: ActCancel, Reason: "x"}, "", "", ErrInvalidTransition},
+		{"unconfirm", BatchPurchasing, ActionInput{Action: ActUnconfirmReview, Reason: "x"}, BatchReviewing, "", nil},
 		{"withdraw by other", BatchProposed, ActionInput{Action: ActWithdrawProposal}, "", "", ErrNotProposer},
 		{"unknown action", BatchDraft, ActionInput{Action: "explode"}, "", "", ErrInvalidTransition},
 	}
@@ -70,33 +80,51 @@ func TestApplyAction(t *testing.T) {
 	}
 }
 
-func TestAutoTransition(t *testing.T) {
+func TestDeriveFulfillment(t *testing.T) {
+	ln := func(ss ...LineStatus) []LineView {
+		var out []LineView
+		for _, s := range ss {
+			out = append(out, LineView{Status: s})
+		}
+		return out
+	}
 	tests := []struct {
-		name    string
-		from    BatchStatus
-		c       ItemCounts
-		to      BatchStatus
-		changed bool
+		name string
+		in   FulfillmentInput
+		want Fulfillment
 	}{
-		{"reviewing: pending blocks", BatchReviewing, ItemCounts{ItemPending: 1, ItemApproved: 5}, BatchReviewing, false},
-		{"reviewing: returned blocks", BatchReviewing, ItemCounts{ItemReturned: 1, ItemApproved: 5}, BatchReviewing, false},
-		{"reviewing: all decided -> ordering", BatchReviewing, ItemCounts{ItemApproved: 18, ItemRejected: 1}, BatchOrdering, true},
-		{"reviewing: all rejected -> completed", BatchReviewing, ItemCounts{ItemRejected: 3}, BatchCompleted, true},
-		{"ordering: unordered approved blocks", BatchOrdering, ItemCounts{ItemApproved: 1, ItemOrdered: 2}, BatchOrdering, false},
-		{"ordering: all handled -> receiving", BatchOrdering, ItemCounts{ItemOrdered: 2, ItemUnpurchasable: 1}, BatchReceiving, true},
-		{"ordering: all unpurchasable -> completed", BatchOrdering, ItemCounts{ItemUnpurchasable: 2}, BatchCompleted, true},
-		{"receiving: open items block", BatchReceiving, ItemCounts{ItemReceived: 3, ItemPartiallyReceived: 1}, BatchReceiving, false},
-		{"receiving: open exception blocks", BatchReceiving, ItemCounts{ItemReceived: 3, ItemException: 1}, BatchReceiving, false},
-		{"receiving: all closed -> completed", BatchReceiving, ItemCounts{ItemReceived: 2, ItemAcceptedShort: 1, ItemNotObtained: 1}, BatchCompleted, true},
-		{"collecting: no auto", BatchCollecting, ItemCounts{ItemPending: 1}, BatchCollecting, false},
-		{"completed stays", BatchCompleted, ItemCounts{}, BatchCompleted, false},
+		{"external wins", FulfillmentInput{External: true, Unpurchasable: true}, FulfillExternal},
+		{"unpurchasable", FulfillmentInput{Unpurchasable: true, Lines: ln(LineDraft)}, FulfillUnpurchasable},
+		{"not ordered", FulfillmentInput{ToPurchaseQty: 3}, FulfillNotOrdered},
+		{"partially ordered by remaining qty", FulfillmentInput{ToPurchaseQty: 4, Lines: ln(LineOrdered)}, FulfillPartiallyOrdered},
+		{"partially ordered by draft line", FulfillmentInput{Lines: ln(LineOrdered, LineDraft)}, FulfillPartiallyOrdered},
+		{"unpurchasable remaining with placed line", FulfillmentInput{Unpurchasable: true, Lines: ln(LineOrdered)}, FulfillOrdered},
+		{"received", FulfillmentInput{Lines: ln(LineReceived, LineReceived)}, FulfillReceived},
+		{"closed", FulfillmentInput{Lines: ln(LineReceived, LineShortAccepted)}, FulfillClosed},
+		{"partially received", FulfillmentInput{Lines: ln(LineReceived, LineOrdered)}, FulfillPartiallyReceived},
+		{"ordered", FulfillmentInput{Lines: ln(LineOrdered)}, FulfillOrdered},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, changed := AutoTransition(tt.from, tt.c)
-			if got != tt.to || changed != tt.changed {
-				t.Fatalf("got %s,%v want %s,%v", got, changed, tt.to, tt.changed)
-			}
-		})
+		if got := DeriveFulfillment(tt.in); got != tt.want {
+			t.Errorf("%s: got %s want %s", tt.name, got, tt.want)
+		}
+	}
+}
+
+func TestDeriveBatchStatus(t *testing.T) {
+	tests := []struct {
+		in   []Fulfillment
+		want BatchStatus
+	}{
+		{nil, BatchCompleted},
+		{[]Fulfillment{FulfillNotOrdered, FulfillReceived}, BatchPurchasing},
+		{[]Fulfillment{FulfillPartiallyOrdered}, BatchPurchasing},
+		{[]Fulfillment{FulfillOrdered, FulfillReceived}, BatchReceiving},
+		{[]Fulfillment{FulfillReceived, FulfillClosed, FulfillUnpurchasable, FulfillExternal}, BatchCompleted},
+	}
+	for _, tt := range tests {
+		if got := DeriveBatchStatus(tt.in); got != tt.want {
+			t.Errorf("%v: got %s want %s", tt.in, got, tt.want)
+		}
 	}
 }

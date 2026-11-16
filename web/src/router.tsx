@@ -10,7 +10,6 @@ import { BASE_PATH } from './config';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { HomePage } from './pages/HomePage';
-import { PlaceOrdersPage } from './pages/PlaceOrdersPage';
 import { Placeholder } from './pages/Placeholder';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -22,7 +21,6 @@ import { TeamMembersTab } from './pages/TeamMembersTab';
 import { TeamOverview } from './pages/TeamOverview';
 import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
-import { VendorTransactionPage } from './pages/VendorTransactionPage';
 
 function Layout() {
   return (
@@ -61,8 +59,8 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/batches', element: <BatchesPage /> },
           { path: '/batches/:id', element: <BatchPage /> },
-          { path: '/orders', element: <PlaceOrdersPage /> },
-          { path: '/vendor-transactions/:id', element: <VendorTransactionPage /> },
+          { path: '/purchasing', element: <Placeholder titleKey="pages.purchasing" /> },
+          { path: '/receiving', element: <Placeholder titleKey="pages.receiving" /> },
           { path: '/settings', element: <SettingsPage /> },
           {
             path: '/teams/:slug',
