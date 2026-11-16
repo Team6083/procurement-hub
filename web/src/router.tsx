@@ -9,9 +9,13 @@ import { LocaleSync } from './components/LocaleSync';
 import { BASE_PATH } from './config';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
+import { DeliveriesPage } from './pages/DeliveriesPage';
+import { DeliveryNewPage } from './pages/DeliveryNewPage';
+import { DeliveryPage } from './pages/DeliveryPage';
 import { HomePage } from './pages/HomePage';
 import { Placeholder } from './pages/Placeholder';
 import { PurchasingPage } from './pages/PurchasingPage';
+import { ReceivingPage } from './pages/ReceivingPage';
 import { VendorOrderPage } from './pages/VendorOrderPage';
 import { VendorOrdersPage } from './pages/VendorOrdersPage';
 import { ReferenceRatesPage } from './pages/ReferenceRatesPage';
@@ -66,7 +70,10 @@ export const routes: RouteObject[] = [
           { path: '/purchasing', element: <PurchasingPage /> },
           { path: '/vendor-orders', element: <VendorOrdersPage /> },
           { path: '/vendor-orders/:id', element: <VendorOrderPage /> },
-          { path: '/receiving', element: <Placeholder titleKey="pages.receiving" /> },
+          { path: '/receiving', element: <ReceivingPage /> },
+          { path: '/deliveries', element: <DeliveriesPage /> },
+          { path: '/deliveries/new', element: <DeliveryNewPage /> },
+          { path: '/deliveries/:id', element: <DeliveryPage /> },
           { path: '/settings', element: <SettingsPage /> },
           {
             path: '/teams/:slug',

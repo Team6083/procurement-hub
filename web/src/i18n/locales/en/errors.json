@@ -35,7 +35,7 @@
     "batch_item_limit": "This batch has reached the maximum number of items (5000).",
     "blocked_by_dependency": "Other records depend on this. Undo them first.",
     "items_undecided": "Every item must be approved or rejected before the review can be confirmed.",
-    "line_quantity_exceeded": "That quantity exceeds what the line can still take.",
+    "line_quantity_exceeded": "Line #{{lineNo}} can take only {{remaining}} more. Lower the quantity; the rest can stay pending or be marked as not needing a match.",
     "team_cost_overrides_mismatch": "The team cost overrides do not match the teams on this order.",
     "item_not_purchasable": "This item cannot be ordered: it must be approved in a review-confirmed batch and not marked unpurchasable.",
     "item_already_on_order": "This item already has a line on this order.",
@@ -46,6 +46,7 @@
     "order_has_no_lines": "The order has no lines.",
     "line_missing_price": "Every line needs a unit price before the order can be placed.",
     "order_not_placed": "Ledger entries can only be added to a placed order.",
-    "line_not_closable": "Only lines that are short and have no open problem can be closed."
+    "line_not_closable": "Only lines that are short and have no open problem can be closed.",
+    "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one."
   }
 }

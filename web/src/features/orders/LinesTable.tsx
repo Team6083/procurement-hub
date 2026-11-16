@@ -81,6 +81,12 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
             <Stack gap="1" align="flex-end">
               <span>{l.receivedQuantity} / {l.expectedQuantity}</span>
               {l.openProblemQuantity > 0 && <Badge colorPalette="red" variant="subtle">{t('line.problem', { count: l.openProblemQuantity })}</Badge>}
+              {/* deliveryId is only filled for purchasers, receivers and system admins, who can open the delivery. */}
+              {l.problems.filter((p) => p.deliveryId).map((p) => (
+                <RouteAnchor key={p.id} to={paths.delivery(p.deliveryId!)} fontSize="xs" color="fg.muted">
+                  {t('line.problemLink', { count: p.quantity, type: t(`receiving:problemType.${p.type}`), state: p.resolution ? t(`receiving:problem.actions.${p.resolution}`) : t('receiving:problem.open') })}
+                </RouteAnchor>
+              ))}
             </Stack>
           ),
         }]

@@ -83,7 +83,8 @@
     "problem": "{{count}} with a problem",
     "status": "Status",
     "total": "Total (base)",
-    "unknownTeam": "Unknown team"
+    "unknownTeam": "Unknown team",
+    "problemLink": "{{count}} {{type}} ({{state}}): open delivery"
   },
   "amount": {
     "format": "Enter a number.",

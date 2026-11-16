@@ -58,3 +58,15 @@ export type QueueGroup = components['schemas']['QueueGroup'];
 export type QueueItem = components['schemas']['QueueItem'];
 export type LineStatus = components['schemas']['LineStatus'];
 export type OrderStatus = VendorOrder['status'];
+
+export type Delivery = components['schemas']['Delivery'];
+export type DeliverySummary = components['schemas']['DeliverySummary'];
+export type DeliveryLine = components['schemas']['DeliveryLine'];
+export type MatchView = components['schemas']['MatchView'];
+export type MatchState = components['schemas']['MatchState'];
+export type Candidate = components['schemas']['Candidate'];
+export type Problem = components['schemas']['Problem'];
+export type ProblemSummary = components['schemas']['ProblemSummary'];
+export type ProblemAction = components['schemas']['ResolveProblemRequest']['action'];
+export type DeliveryLineRequest = components['schemas']['DeliveryLineRequest'];
+export type MatchRequest = components['schemas']['MatchRequest'];

@@ -1,0 +1,151 @@
+{
+  "access": {
+    "denied": "Receiving is only for purchasers, receivers and system admins.",
+    "readOnly": "System admins can view receiving but not register or change deliveries."
+  },
+  "voided": "Voided",
+  "matchState": {
+    "unmatched": "Unmatched",
+    "partial": "Partly matched",
+    "matched": "Matched",
+    "not_needed": "No match needed"
+  },
+  "problemType": {
+    "damaged": "damaged",
+    "wrong_item": "wrong item"
+  },
+  "list": {
+    "title": "Deliveries",
+    "intro": "Every box registered, newest first.",
+    "number": "Delivery",
+    "lines": "Lines",
+    "state": "State",
+    "pending": "{{count}} pending",
+    "done": "Done",
+    "created": "Registered",
+    "search": "Search DL number, source or note",
+    "voidedFilter": "Voided",
+    "all": "All",
+    "active": "Not voided",
+    "from": "Received from",
+    "to": "Received to",
+    "empty": "No deliveries yet.",
+    "loadMore": "Load more"
+  },
+  "box": {
+    "title": "Register a box",
+    "intro": "One line per kind of thing in the box. Type or scan the SKU or the name; matching orders show up as you type.",
+    "receivedAt": "Received on",
+    "source": "Source",
+    "sourceHelp": "Usually the vendor or carrier.",
+    "note": "Note",
+    "lineN": "Line {{n}}",
+    "removeLine": "Remove line {{n}}",
+    "sku": "SKU",
+    "name": "Name",
+    "good": "Good quantity",
+    "problem": "With a problem",
+    "problemType": "Problem",
+    "problemNote": "Problem details",
+    "choose": "Choose",
+    "addLine": "Add line",
+    "save": "Save box",
+    "whatRequired": "Enter a SKU or a name.",
+    "countInvalid": "Enter a whole number.",
+    "atLeastOne": "At least one unit.",
+    "problemTypeRequired": "Choose what is wrong."
+  },
+  "candidates": {
+    "title": "Match to an order line (optional)",
+    "typeToSearch": "Type at least 2 characters of the SKU or name to see open order lines.",
+    "none": "No open order line matches. Save anyway and match later.",
+    "skuMatch": "SKU match",
+    "capacity": "lacks {{count}}",
+    "willMatch": "Gets {{good}} good, {{problem}} with a problem",
+    "leftPending": "{{count}} more than the chosen lines lack; they stay pending."
+  },
+  "line": {
+    "title": "Lines",
+    "good": "{{count}} good",
+    "problem": "{{count}} {{type}}",
+    "matchedTo": "Matched to",
+    "matchQty": "{{good}} good, {{problem}} with a problem",
+    "noMatchReason": "No match needed: {{reason}}",
+    "pendingRest": "{{count}} still pending. If the vendor sent more than ordered, mark the rest as not needing a match.",
+    "match": "Match"
+  },
+  "match": {
+    "title": "Match line #{{n}}: {{name}}",
+    "help": "The box line has {{good}} good and {{problem}} with a problem. The system's suggestion is filled in; change it if needed. A problem quantity opens a problem on that order line.",
+    "good": "Good",
+    "problem": "With a problem",
+    "goodFor": "Good units for VO-{{order}} line #{{n}}",
+    "problemFor": "Problem units for VO-{{order}} line #{{n}}",
+    "overHint": "This line lacks only {{short}}; the extra {{extra}} will stay pending.",
+    "totals": "Assigned: {{good}} of {{goodOf}} good, {{problem}} of {{problemOf}} with a problem",
+    "tooMany": "More than the box line holds.",
+    "restReason": "Reason for the extra units",
+    "restHelp": "Used by \"Save and mark the rest\".",
+    "overReason": "Vendor sent more than ordered",
+    "save": "Save matches",
+    "saveAndMarkRest": "Save and mark the rest as not needed"
+  },
+  "noMatch": {
+    "action": "Mark no match needed",
+    "help": "For gifts, over-deliveries or things bought outside the system. On a partly matched line the rest counts as not needed.",
+    "reason": "Reason",
+    "undo": "Undo no match needed",
+    "undoHelp": "The line goes back to the matching worklist."
+  },
+  "void": {
+    "action": "Void delivery",
+    "help": "Its matches and their unresolved problems are voided too.",
+    "done": "Voided: {{reason}}"
+  },
+  "receiving": {
+    "title": "Receiving",
+    "intro": "Delivery lines waiting for a match, and for purchasers the problems to settle and the short lines to decide on."
+  },
+  "pending": {
+    "title": "Waiting for a match",
+    "line": "Line",
+    "delivery": "Delivery",
+    "quantity": "Quantity",
+    "matched": "Matched",
+    "empty": "Every delivery line is matched."
+  },
+  "problem": {
+    "title": "Problems",
+    "openTitle": "Open",
+    "resolvedTitle": "Resolved",
+    "openEmpty": "No open problems.",
+    "resolvedEmpty": "No resolved problems.",
+    "line": "Order line",
+    "type": "Problem",
+    "note": "Note",
+    "open": "Open",
+    "resolve": "Settle problem",
+    "unresolve": "Undo settlement",
+    "unresolveHelp": "The problem is open again; a refund entry it created is voided.",
+    "summary": "VO-{{order}} line #{{n}} {{name}}: {{count}} {{type}}",
+    "action": "How to settle",
+    "actions": {
+      "exchange": "Exchange",
+      "return_no_replace": "Return, no replacement",
+      "accept": "Accept as is"
+    },
+    "actionHelp": {
+      "exchange": "Wait for the vendor to send a replacement; it is matched like any delivery.",
+      "return_no_replace": "The units are returned and no longer expected; you can record a refund.",
+      "accept": "The units count as received."
+    },
+    "refund": "Refund (base currency)",
+    "refundHelp": "Optional, entered as a positive amount; it becomes a ledger entry on the line."
+  },
+  "toClose": {
+    "title": "Short lines to decide on",
+    "received": "Received / expected",
+    "missing": "Missing",
+    "empty": "No short lines waiting."
+  }
+}

@@ -13,7 +13,8 @@
     "purchasing": "Purchasing",
     "receiving": "Receiving",
     "vendors": "Vendors",
-    "rates": "Reference rates"
+    "rates": "Reference rates",
+    "deliveries": "Deliveries"
   },
   "language": {
     "label": "Language",

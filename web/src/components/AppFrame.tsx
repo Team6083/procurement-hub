@@ -1,7 +1,7 @@
 import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuFileChartColumn, LuListTodo, LuPackage, LuPackageCheck, LuCoins, LuSettings, LuShoppingCart, LuShieldCheck, LuStore } from 'react-icons/lu';
+import { LuFileChartColumn, LuListTodo, LuPackage, LuPackageCheck, LuCoins, LuSettings, LuShoppingCart, LuShieldCheck, LuStore, LuTruck } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
 import { useMe } from '../api/me';
@@ -18,7 +18,7 @@ export function isActive(href: string, pathname: string): boolean {
 
 /** Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). */
 export function isWidePage(pathname: string): boolean {
-  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?)\/?$/.test(pathname);
+  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?|receiving|deliveries)\/?$/.test(pathname);
 }
 
 /** The team app frame (AppShell) with this app's pages and account menu. */
@@ -37,7 +37,9 @@ export function AppFrame({ children }: { children: ReactNode }) {
     { href: '/', label: t('nav.home'), icon: <LuListTodo /> },
     { href: '/batches', label: t('nav.batches'), icon: <LuPackage /> },
     ...(canPurchase ? [{ href: paths.purchasing, label: t('nav.purchasing'), icon: <LuShoppingCart /> }] : []),
-    ...(canReceive ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck /> }] : []),
+    // Receiving is for purchasers and receivers; system admins may look but not change anything (spec 8.2).
+    ...(canReceive || isSystemAdmin ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck /> }] : []),
+    ...(canReceive || isSystemAdmin ? [{ href: paths.deliveries, label: t('nav.deliveries'), icon: <LuTruck /> }] : []),
     { href: '/reports', label: t('nav.reports'), icon: <LuFileChartColumn /> },
     ...(isSystemAdmin || canPurchase ? [{ href: '/admin/vendors', label: t('nav.vendors'), icon: <LuStore /> }] : []),
     ...(isSystemAdmin ? [{ href: '/admin/reference-rates', label: t('nav.rates'), icon: <LuCoins /> }] : []),

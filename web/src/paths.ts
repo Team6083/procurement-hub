@@ -2,6 +2,9 @@
 export const paths = {
   purchasing: '/purchasing',
   receiving: '/receiving',
+  deliveries: '/deliveries',
+  newDelivery: '/deliveries/new',
+  delivery: (id: string) => `/deliveries/${encodeURIComponent(id)}`,
   team: (slug: string, tab = '') => `/teams/${encodeURIComponent(slug)}${tab && `/${tab}`}`,
   batch: (id: string) => `/batches/${encodeURIComponent(id)}`,
   vendorOrder: (id: string) => `/vendor-orders/${encodeURIComponent(id)}`,
