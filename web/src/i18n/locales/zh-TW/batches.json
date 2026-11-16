@@ -224,6 +224,8 @@
     "former": "已離開的成員"
   },
   "purchasingTab": {
+    "batchCost": "批次成本",
+    "costIncomplete": "尚無法計算",
     "title": "採購進度",
     "hint": "唯讀。採購人員在「採購」頁建立廠商訂單。",
     "notConfirmed": "審核確認後才會開始採購。",

@@ -3,9 +3,11 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/audit"
@@ -51,8 +53,68 @@ func (s *Batches) load(ctx context.Context, actor authz.Actor, id bson.ObjectID)
 	return b, t, nil
 }
 
+// loadRestrictable is load plus the purchaser/receiver exception of spec §8.2:
+// a review-confirmed batch they cannot otherwise read is readable in the
+// restricted view (restricted = true). Not confirmed: 404.
+func (s *Batches) loadRestrictable(ctx context.Context, actor authz.Actor, id bson.ObjectID) (b *domain.Batch, t *domain.Team, restricted bool, err error) {
+	b, err = s.st.GetBatch(ctx, id)
+	if err != nil {
+		return nil, nil, false, mapStore(err)
+	}
+	t, err = s.st.GetTeam(ctx, b.TeamID)
+	if err != nil {
+		return nil, nil, false, mapStore(err)
+	}
+	if actor.CanReadBatch(t.ID, t.Visibility, b.VisibilityOverride) {
+		return b, t, false, nil
+	}
+	if (actor.IsPurchaser || actor.IsReceiver) && b.ReviewConfirmation != nil {
+		return b, t, true, nil
+	}
+	return nil, nil, false, ErrNotFound
+}
+
 func (s *Batches) Get(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Batch, *domain.Team, error) {
-	return s.load(ctx, actor, id)
+	b, t, _, err := s.loadRestrictable(ctx, actor, id)
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := s.hydrateCost(ctx, b); err != nil {
+		return nil, nil, err
+	}
+	return b, t, nil
+}
+
+// hydrateCost fills the computed batch cost (spec §11 step 9): the sum of the
+// costs of its items that have placed lines; null (costIncomplete) when any is
+// not computable, and null without incomplete when nothing is placed.
+func (s *Batches) hydrateCost(ctx context.Context, b *domain.Batch) error {
+	if b == nil || b.ReviewConfirmation == nil {
+		return nil
+	}
+	items, err := s.st.ItemsByBatchStatus(ctx, b.ID, domain.ItemApproved)
+	if err != nil {
+		return err
+	}
+	var sums []domain.CostSum
+	for _, it := range items {
+		if it.OrderedQuantity <= 0 {
+			sums = append(sums, domain.CostSum{})
+			continue
+		}
+		var v *decimal.Decimal
+		if it.CostBase != nil {
+			d := it.CostBase.Decimal
+			v = &d
+		}
+		sums = append(sums, domain.SumPlaced([]*decimal.Decimal{v}))
+	}
+	c := domain.BatchCost(sums)
+	b.CostIncomplete = c.Incomplete
+	if c.Value != nil {
+		b.CostBase = &domain.Decimal{Decimal: *c.Value}
+	}
+	return nil
 }
 
 type CreateBatchInput struct {
@@ -95,6 +157,11 @@ func (s *Batches) Create(ctx context.Context, actor authz.Actor, teamID bson.Obj
 		action := "batch.created"
 		if b.Status == domain.BatchProposed {
 			action = "batch.proposed"
+		}
+		if b.Status == domain.BatchProposed {
+			if err := s.st.Emit(ctx, store.EventRecord{Type: "batch.proposed", Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: b.ID.Hex()}); err != nil {
+				return err
+			}
 		}
 		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, action, domain.AuditChange{Field: "status", From: "", To: string(b.Status)}))
 	})
@@ -257,6 +324,9 @@ func (s *Batches) Update(ctx context.Context, actor authz.Actor, id bson.ObjectI
 		}
 		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), nb, "batch.updated", changes...))
 	})
+	if err == nil {
+		err = s.hydrateCost(ctx, out)
+	}
 	return out, err
 }
 
@@ -329,9 +399,26 @@ func (s *Batches) SetAssignments(ctx context.Context, actor authz.Actor, id bson
 			return mapStore(err)
 		}
 		out = nb
+		added := func(old, now []bson.ObjectID) []bson.ObjectID {
+			var r []bson.ObjectID
+			for _, id := range now {
+				if !slices.Contains(old, id) {
+					r = append(r, id)
+				}
+			}
+			return r
+		}
+		for _, uid := range append(added(b.Assignments.Approvers, next.Approvers), added(b.Assignments.Purchasers, next.Purchasers)...) {
+			if err := s.st.Emit(ctx, store.EventRecord{Type: "assignment.added", Actor: actor.UserID.Hex(), TeamID: nb.TeamID, BatchID: nb.ID, ObjectID: nb.ID.Hex(), Recipient: uid.Hex()}); err != nil {
+				return err
+			}
+		}
 		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), nb, "batch.assignments_changed",
 			domain.AuditChange{Field: "assignments", From: b.Assignments, To: next}))
 	})
+	if err == nil {
+		err = s.hydrateCost(ctx, out)
+	}
 	return out, err
 }
 
@@ -365,7 +452,7 @@ func (s *Batches) Transition(ctx context.Context, actor authz.Actor, id bson.Obj
 			return nil, ErrForbidden
 		}
 	case domain.ActConfirmReview, domain.ActUnconfirmReview:
-		if !actor.HasBatchRole(t.ID, authzAssignments(b.Assignments), authz.BatchApprover) {
+		if !actor.CanConfirmReview(t.ID, authzAssignments(b.Assignments)) {
 			return nil, ErrForbidden
 		}
 	default:
@@ -390,8 +477,8 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 			return err
 		}
 		deadline := in.Deadline
-		if in.Action == domain.ActOpen && deadline == nil {
-			deadline = b.Deadline
+		if (in.Action == domain.ActOpen || in.Action == domain.ActUncancel) && deadline == nil {
+			deadline = b.Deadline // uncancel only needs a new one when this has passed
 		}
 		res, err := domain.ApplyAction(b.Status, domain.ActionInput{
 			Action: in.Action, Now: s.now(), Deadline: deadline, Assignments: b.Assignments,
@@ -422,7 +509,7 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 			{Key: "statusBeforeCancel", Value: res.StatusBeforeCancel},
 		}
 		changes := []domain.AuditChange{{Field: "status", From: string(b.Status), To: string(to)}}
-		if res.SetDeadline && deadline != nil {
+		if res.SetDeadline && deadline != nil && !sameTime(deadline, b.Deadline) {
 			set = append(set, bson.E{Key: "deadline", Value: *deadline})
 			changes = append(changes, domain.AuditChange{Field: "deadline", From: b.Deadline, To: *deadline})
 		}
@@ -469,31 +556,51 @@ func (s *Batches) transition(ctx context.Context, actorLabel string, b *domain.B
 				return err
 			}
 		}
-		if err := s.emitBatchEvent(ctx, actorLabel, nb, in.Action); err != nil {
+		if err := s.emitBatchEvent(ctx, actorLabel, b, nb, in.Action); err != nil {
 			return err
 		}
 		out = nb
 		return s.audit.Record(ctx, evs...)
 	})
+	if err == nil {
+		err = s.hydrateCost(ctx, out)
+	}
 	return out, err
 }
 
 // emitBatchEvent writes the notification event for a manual transition
-// (spec §12.2); undo actions emit "<event>.undone". Sending is M6.
-func (s *Batches) emitBatchEvent(ctx context.Context, actor string, b *domain.Batch, a domain.BatchAction) error {
-	typ := "batch." + string(a)
-	undone := false
+// using the spec §12.2 names; undo actions emit "<event>.undone" (the store
+// appends the suffix). Transitions with no catalog event emit nothing.
+// Sending is M6.
+func (s *Batches) emitBatchEvent(ctx context.Context, actor string, pre, b *domain.Batch, a domain.BatchAction) error {
+	typ, undone := "", false
 	switch a {
-	case domain.ActUnconfirmReview:
-		typ, undone = "batch.review_confirmed", true
+	case domain.ActOpen, domain.ActReopen:
+		typ = "batch.opened"
+	case domain.ActStartReview:
+		typ = "batch.review_started"
+	case domain.ActClose:
+		typ = "batch.review_started"
+		if b.Status == domain.BatchCancelled { // no items left: automatic cancel
+			typ = "batch.cancelled"
+		}
+	case domain.ActCancel:
+		typ = "batch.cancelled"
 	case domain.ActUncancel:
 		typ, undone = "batch.cancelled", true
+	case domain.ActRejectProposal:
+		typ = "batch.proposal_rejected"
 	case domain.ActRestoreProposal:
-		typ, undone = "batch.proposal_decided", true
+		if pre.Status == domain.BatchProposalRejected {
+			typ, undone = "batch.proposal_rejected", true
+		}
 	case domain.ActConfirmReview:
 		typ = "batch.review_confirmed"
-	case domain.ActRejectProposal, domain.ActWithdrawProposal:
-		typ = "batch.proposal_decided"
+	case domain.ActUnconfirmReview:
+		typ, undone = "batch.review_confirmed", true
+	}
+	if typ == "" {
+		return nil
 	}
 	return s.st.Emit(ctx, store.EventRecord{Type: typ, Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectID: b.ID.Hex(), Undone: undone})
 }

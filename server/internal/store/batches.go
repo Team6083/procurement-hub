@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -289,12 +290,17 @@ type EventRecord struct {
 	TeamID   bson.ObjectID `bson:"teamId,omitempty"`
 	BatchID  bson.ObjectID `bson:"batchId,omitempty"`
 	ObjectID string        `bson:"objectId"`
-	Undone   bool          `bson:"undone"`
+	// Recipient names a single target user (hex id) for events addressed to one person.
+	Recipient string `bson:"recipient,omitempty"`
+	Undone    bool   `bson:"undone"`
 }
 
 // Emit appends an event to the outbox; call it inside the state change's transaction.
 func (s *Store) Emit(ctx context.Context, e EventRecord) error {
 	e.At = time.Now().UTC()
+	if e.Undone && !strings.HasSuffix(e.Type, ".undone") {
+		e.Type += ".undone" // spec §12.2: <event>.undone
+	}
 	_, err := s.c("eventOutbox").InsertOne(ctx, e)
 	return err
 }

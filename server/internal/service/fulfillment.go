@@ -12,11 +12,13 @@ import (
 // itemLine is the slice of a linked vendor order line the item's computed
 // fields depend on (non-cancelled orders only; spec §9.1, §10.2).
 type itemLine struct {
-	ID       bson.ObjectID
-	Status   domain.LineStatus
-	Quantity int
-	Received int
-	CostBase *domain.Decimal // nil while incomplete
+	ID            bson.ObjectID
+	VendorOrderID bson.ObjectID
+	LineNo        int
+	Status        domain.LineStatus
+	Quantity      int
+	Received      int
+	CostBase      *domain.Decimal // nil while incomplete
 }
 
 // linesOf loads the linked lines of an item on non-cancelled orders; a line
@@ -31,7 +33,7 @@ func (s *Batches) linesOf(ctx context.Context, itemID bson.ObjectID) ([]itemLine
 		if l.Status == domain.LineCancelled {
 			continue
 		}
-		out = append(out, itemLine{ID: l.ID, Status: l.Status, Quantity: l.Quantity, Received: l.ReceivedQty, CostBase: l.TotalBase})
+		out = append(out, itemLine{ID: l.ID, VendorOrderID: l.VendorOrderID, LineNo: l.LineNo, Status: l.Status, Quantity: l.Quantity, Received: l.ReceivedQty, CostBase: l.TotalBase})
 	}
 	return out, nil
 }

@@ -63,6 +63,12 @@ func (a Actor) HasBatchRole(team bson.ObjectID, as Assignments, r BatchRole) boo
 	return a.IsTeamAdmin(team) || contains(as.Approvers, a.UserID)
 }
 
+// CanConfirmReview: explicit approvers and everyone holding the Team-admin
+// permission, which includes system admins (spec §8.1, §8.3).
+func (a Actor) CanConfirmReview(team bson.ObjectID, as Assignments) bool {
+	return a.CanAdminTeam(team) || contains(as.Approvers, a.UserID)
+}
+
 // IsExplicitApprover is true only for explicit assignment (used for notification
 // recipients; team admins' implicit role does not count).
 func IsExplicitApprover(userID bson.ObjectID, as Assignments) bool {

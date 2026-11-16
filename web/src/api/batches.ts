@@ -51,7 +51,9 @@ export function useItems(batchId: string | undefined) {
   return useQuery({
     queryKey: itemsKey(batchId),
     enabled: !!batchId,
-    queryFn: async ({ signal }) => (await api.get<{ items: ItemWithLines[] }>(`/batches/${batchId}/items`, { signal })).items,
+    // Purchasers and receivers outside the team get a restricted item projection without `lines`.
+    queryFn: async ({ signal }) =>
+      (await api.get<{ items: ItemWithLines[] }>(`/batches/${batchId}/items`, { signal })).items.map((i) => ({ ...i, lines: i.lines ?? [] })),
   });
 }
 

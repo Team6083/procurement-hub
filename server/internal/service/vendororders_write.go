@@ -943,6 +943,7 @@ func (s *VendorOrders) CloseLine(ctx context.Context, actor authz.Actor, lineID 
 			return nil, err
 		}
 		m := &orderMutation{events: []domain.AuditEvent{s.lineEvent(actor, o, l, "vendor_order.line_closed", reason, ch("closure", nil, string(in.Type)))}}
+		m.emit = append(m.emit, lineClosedEvent(actor, o, l, false))
 		if l.ItemID != nil {
 			m.also = []bson.ObjectID{*l.ItemID}
 		}
@@ -979,7 +980,10 @@ func (s *VendorOrders) ReopenLine(ctx context.Context, actor authz.Actor, lineID
 		if err := s.st.UpdateLine(ctx, l.ID, bson.D{{Key: "closure", Value: nil}}); err != nil {
 			return nil, err
 		}
-		return &orderMutation{events: []domain.AuditEvent{s.lineEvent(actor, o, l, "vendor_order.line_reopened", reason, ch("closure", string(l.Closure.Type), nil))}}, nil
+		return &orderMutation{
+			events: []domain.AuditEvent{s.lineEvent(actor, o, l, "vendor_order.line_reopened", reason, ch("closure", string(l.Closure.Type), nil))},
+			emit:   []store.EventRecord{lineClosedEvent(actor, o, l, true)},
+		}, nil
 	})
 }
 
@@ -1013,4 +1017,9 @@ var _ = authz.Actor{}
 // NewLineFields builds the replaceable line fields.
 func NewLineFields(teamID *bson.ObjectID, name, sku *string, qty *int, price *domain.Decimal) lineFields {
 	return lineFields{TeamID: teamID, Name: name, SKU: sku, Quantity: qty, UnitPrice: price}
+}
+
+func lineClosedEvent(actor authz.Actor, o *domain.VendorOrder, l *domain.VendorOrderLine, undone bool) store.EventRecord {
+	return store.EventRecord{Type: "line.closed", Actor: actor.UserID.Hex(), TeamID: l.TeamID, BatchID: derefID(l.BatchID),
+		ObjectID: o.ID.Hex(), Undone: undone}
 }

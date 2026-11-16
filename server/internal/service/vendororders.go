@@ -195,6 +195,11 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 			}
 			if priv {
 				ps.Version, ps.Note = p.Version, p.Note
+				if p.DeliveryMatchID != nil {
+					if m, err := s.st.GetMatch(ctx, *p.DeliveryMatchID); err == nil {
+						ps.DeliveryID = &m.DeliveryID
+					}
+				}
 			}
 			lv.Problems = append(lv.Problems, ps)
 		}
@@ -372,11 +377,15 @@ func (s *VendorOrders) List(ctx context.Context, actor authz.Actor, in ListOrder
 
 // QueueItem is an approved item with quantity still to purchase.
 type QueueItem struct {
-	domain.Item
-	TeamName      string `json:"teamName"`
-	BatchNumber   int    `json:"batchNumber"`
-	BatchTitle    string `json:"batchTitle"`
-	DraftQuantity int    `json:"draftQuantity"`
+	PurchaserItem
+	PlannedQuantity    int    `json:"plannedQuantity"`
+	ToPurchaseQuantity int    `json:"toPurchaseQuantity"`
+	OrderedQuantity    int    `json:"orderedQuantity"`
+	ReceivedQuantity   int    `json:"receivedQuantity"`
+	TeamName           string `json:"teamName"`
+	BatchNumber        int    `json:"batchNumber"`
+	BatchTitle         string `json:"batchTitle"`
+	DraftQuantity      int    `json:"draftQuantity"`
 }
 
 // QueueGroup is the queue entries of one vendor (VendorID nil: "other").
@@ -441,7 +450,8 @@ func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilt
 			groups[key] = g
 			keys = append(keys, key)
 		}
-		g.Items = append(g.Items, QueueItem{Item: it, TeamName: tn, BatchNumber: b.Number, BatchTitle: b.Title,
+		g.Items = append(g.Items, QueueItem{PurchaserItem: purchaserItem(&it), PlannedQuantity: it.PlannedQuantity,
+			ToPurchaseQuantity: it.ToPurchaseQuantity, OrderedQuantity: it.OrderedQuantity, ReceivedQuantity: it.ReceivedQuantity, TeamName: tn, BatchNumber: b.Number, BatchTitle: b.Title,
 			DraftQuantity: it.PlannedQuantity - it.OrderedQuantity})
 	}
 	sort.Slice(keys, func(i, j int) bool {

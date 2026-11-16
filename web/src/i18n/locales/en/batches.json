@@ -224,6 +224,8 @@
     "former": "Former member"
   },
   "purchasingTab": {
+    "batchCost": "Batch cost",
+    "costIncomplete": "Not computable yet",
     "title": "Purchasing progress",
     "hint": "Read-only. Purchasers create vendor orders from the Purchasing page.",
     "notConfirmed": "Purchasing starts once the review is confirmed.",

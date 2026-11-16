@@ -367,3 +367,97 @@ func TestRemovedMemberLosesAssignments(t *testing.T) {
 		t.Errorf("stale remove: %v", err)
 	}
 }
+
+// reviewedBatch runs a collecting batch through review (item "a" approved,
+// "b" rejected) and leaves it under review, unconfirmed.
+func (e *flowEnv) reviewedBatch(t *testing.T) (*domain.Batch, *domain.Item) {
+	t.Helper()
+	ctx := context.Background()
+	b := e.openBatch(t)
+	a, r := e.item(t, e.member, b.ID, "a"), e.item(t, e.member, b.ID, "b")
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActClose})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{
+		{ItemID: a.ID, Decision: "approve"}, {ItemID: r.ID, Decision: "reject", Comment: "no"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	b, err = e.st.GetBatch(ctx, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b, a
+}
+
+// Spec §8.2: a purchaser sees only approved items of a review-confirmed batch
+// they cannot otherwise read; before confirmation it is a 404.
+func TestPurchaserReadsMembersOnlyConfirmedBatch(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	vis := domain.VisibilityMembers
+	if _, err := e.teams.Update(ctx, e.admin, e.team.ID, e.team.Version, TeamPatch{Visibility: &vis}); err != nil {
+		t.Fatal(err)
+	}
+	purchaser := authz.Actor{UserID: bson.NewObjectID(), IsPurchaser: true}
+	b, a := e.reviewedBatch(t)
+	if _, _, err := e.batches.Get(ctx, purchaser, b.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unconfirmed batch must be 404: %v", err)
+	}
+	if _, err := e.items.List(ctx, purchaser, b.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("unconfirmed items must be 404: %v", err)
+	}
+	if _, err := e.batches.Transition(ctx, e.approver, b.ID, b.Version, TransitionInput{Action: domain.ActConfirmReview}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := e.batches.Get(ctx, purchaser, b.ID); err != nil {
+		t.Fatalf("confirmed batch: %v", err)
+	}
+	got, err := e.items.List(ctx, purchaser, b.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, ok := got.([]PurchaserItem)
+	if !ok || len(items) != 1 || items[0].ID != a.ID {
+		t.Fatalf("restricted view: %#v", got)
+	}
+	// Purchasing actions work without team visibility.
+	cur, _ := e.st.GetItem(ctx, a.ID)
+	if _, err := e.items.MarkUnpurchasable(ctx, purchaser, a.ID, cur.Version, "discontinued"); err != nil {
+		t.Fatalf("mark unpurchasable: %v", err)
+	}
+	// A plain outsider still gets nothing.
+	if _, _, err := e.batches.Get(ctx, authz.Actor{UserID: bson.NewObjectID()}, b.ID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("outsider: %v", err)
+	}
+}
+
+// Spec §10.1: uncancelling a collecting batch keeps its deadline while it is
+// still in the future.
+func TestUncancelCollectingKeepsDeadline(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b := e.openBatch(t)
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActCancel, Reason: "oops"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b, err = e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActUncancel, Reason: "undo"})
+	if err != nil || b.Status != domain.BatchCollecting || b.Deadline == nil {
+		t.Fatalf("uncancel: %v %+v", err, b)
+	}
+}
+
+// Spec §8.1: system admins hold every Team-admin permission, including
+// confirming a review, without being members.
+func TestSystemAdminConfirmsReview(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b, _ := e.reviewedBatch(t)
+	sysadmin := authz.Actor{UserID: bson.NewObjectID(), IsSystemAdmin: true}
+	b, err := e.batches.Transition(ctx, sysadmin, b.ID, b.Version, TransitionInput{Action: domain.ActConfirmReview})
+	if err != nil || b.ReviewConfirmation == nil {
+		t.Fatalf("confirm: %v %+v", err, b)
+	}
+}

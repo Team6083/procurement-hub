@@ -98,6 +98,35 @@ func (s *Items) event(actor string, b *domain.Batch, it *domain.Item, action str
 	}
 }
 
+// PurchaserItem is the item projection purchasers and receivers get (spec
+// §8.2): name, SKU, vendor, quantity, estimated unit price, purpose, priority,
+// product link, requester, team and batch. No notes, review or lookup data.
+type PurchaserItem struct {
+	ID                 bson.ObjectID     `json:"id"`
+	TeamID             bson.ObjectID     `json:"teamId"`
+	BatchID            bson.ObjectID     `json:"batchId"`
+	SeqNo              int               `json:"seqNo"`
+	RequesterID        bson.ObjectID     `json:"requesterId"`
+	Name               string            `json:"name"`
+	VendorID           *bson.ObjectID    `json:"vendorId"`
+	VendorName         string            `json:"vendorName"`
+	SKU                string            `json:"sku"`
+	Quantity           int               `json:"quantity"`
+	EstimatedUnitPrice domain.Money      `json:"estimatedUnitPrice"`
+	Priority           int               `json:"priority"`
+	Purpose            string            `json:"purpose"`
+	ProductURL         string            `json:"productUrl"`
+	Status             domain.ItemStatus `json:"status"`
+	Version            int64             `json:"version"`
+}
+
+func purchaserItem(it *domain.Item) PurchaserItem {
+	return PurchaserItem{ID: it.ID, TeamID: it.TeamID, BatchID: it.BatchID, SeqNo: it.SeqNo, RequesterID: it.RequesterID,
+		Name: it.Name, VendorID: it.VendorID, VendorName: it.VendorName, SKU: it.SKU, Quantity: it.Quantity,
+		EstimatedUnitPrice: it.EstimatedUnitPrice, Priority: it.Priority, Purpose: it.Purpose, ProductURL: it.ProductURL,
+		Status: it.Status, Version: it.Version}
+}
+
 // ItemView is an item with the summary of its linked vendor order lines.
 type ItemView struct {
 	domain.Item
@@ -106,13 +135,26 @@ type ItemView struct {
 
 // List returns a batch's items to anyone who can read the batch. Every linked
 // line is visible to them because they can read the batch (spec §8.2).
-func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.ObjectID) ([]ItemView, error) {
-	if _, _, err := s.batches.load(ctx, actor, batchID); err != nil {
+// For a purchaser or receiver who cannot otherwise read a review-confirmed
+// batch the result is []PurchaserItem: approved items, purchasing fields only
+// (spec §8.2).
+func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.ObjectID) (any, error) {
+	_, _, restricted, err := s.batches.loadRestrictable(ctx, actor, batchID)
+	if err != nil {
 		return nil, err
 	}
 	items, err := s.st.ListItems(ctx, batchID)
 	if err != nil {
 		return nil, err
+	}
+	if restricted {
+		out := []PurchaserItem{}
+		for i := range items {
+			if items[i].Status == domain.ItemApproved {
+				out = append(out, purchaserItem(&items[i]))
+			}
+		}
+		return out, nil
 	}
 	ids := make([]bson.ObjectID, len(items))
 	for i := range items {
@@ -379,11 +421,21 @@ func (s *Items) transitionItemSet(ctx context.Context, actor string, b *domain.B
 	}
 	var out *domain.Item
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		if ev == domain.EvForceReject {
+			if err := s.requireReviewing(ctx, b.ID); err != nil {
+				return err
+			}
+		}
 		ni, err := s.st.UpdateItem(ctx, it.ID, version, set)
 		if err != nil {
 			return mapStore(err)
 		}
 		out = ni
+		if ev == domain.EvForceReject {
+			if err := s.st.Emit(ctx, store.EventRecord{Type: "item.rejected", Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex()}); err != nil {
+				return err
+			}
+		}
 		if err := s.audit.Record(ctx, s.event(actor, b, ni, action, comment,
 			domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)})); err != nil {
 			return err
@@ -451,6 +503,9 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 
 	res := &ReviewResult{}
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.requireReviewing(ctx, b.ID); err != nil {
+			return err
+		}
 		res.Items = res.Items[:0]
 		var evs []domain.AuditEvent
 		now := s.batches.now()
@@ -475,6 +530,11 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 			res.Items = append(res.Items, *ni)
 			evs = append(evs, s.event(actor.UserID.Hex(), b, ni, meta.action, comment,
 				domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)}))
+			if d.Decision != "approve" {
+				if err := s.st.Emit(ctx, store.EventRecord{Type: meta.action, Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex()}); err != nil {
+					return err
+				}
+			}
 		}
 		if err := s.audit.Record(ctx, evs...); err != nil {
 			return err
@@ -526,7 +586,7 @@ func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.Objec
 	if t.Archived {
 		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
-	if it.Review == nil || !(actor.IsTeamAdmin(t.ID) || it.Review.By == actor.UserID) {
+	if it.Review == nil || !(actor.CanAdminTeam(t.ID) || it.Review.By == actor.UserID) {
 		return nil, ErrForbidden
 	}
 	reason = strings.TrimSpace(reason)
@@ -539,6 +599,12 @@ func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.Objec
 	prev := it.Review.Decision
 	var out *domain.Item
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
+		// The confirmation may have happened since the check above.
+		if cur, err := s.st.GetBatch(ctx, b.ID); err != nil {
+			return mapStore(err)
+		} else if cur.Status != domain.BatchReviewing {
+			return &BlockedError{Blockers: []Blocker{{Type: "batch", ID: b.ID.Hex(), Label: "review confirmed"}}}
+		}
 		to, err := domain.NextItemStatus(it.Status, domain.EvUndoDecision)
 		if err != nil {
 			return ruleFromDomain(err)
@@ -551,8 +617,10 @@ func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.Objec
 		if err := s.st.BumpBatch(ctx, b.ID); err != nil {
 			return err
 		}
-		if err := s.st.Emit(ctx, store.EventRecord{Type: "item." + prev, Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex(), Undone: true}); err != nil {
-			return err
+		if prev == "returned" || prev == "rejected" { // approvals have no catalog event
+			if err := s.st.Emit(ctx, store.EventRecord{Type: "item." + prev, Actor: actor.UserID.Hex(), TeamID: b.TeamID, BatchID: b.ID, ObjectID: it.ID.Hex(), Undone: true}); err != nil {
+				return err
+			}
 		}
 		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, ni, "item.review_undone", reason,
 			domain.AuditChange{Field: "status", From: string(it.Status), To: string(to)}))
@@ -562,7 +630,7 @@ func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.Objec
 
 // Copy creates a new pending item in the same batch from a withdrawn one
 // (spec §10.2): the requester or a team admin, while the batch accepts items.
-func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Item, error) {
+func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) (*domain.Item, error) {
 	it, _, t, err := s.loadItem(ctx, actor, id)
 	if err != nil {
 		return nil, err
@@ -570,8 +638,11 @@ func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID) (
 	if it.Status != domain.ItemWithdrawn {
 		return nil, Rule("invalid_transition", "Only withdrawn items can be copied.")
 	}
-	if it.RequesterID != actor.UserID && !actor.IsTeamAdmin(t.ID) {
+	if it.RequesterID != actor.UserID && !actor.CanAdminTeam(t.ID) {
 		return nil, ErrForbidden
+	}
+	if it.Version != version {
+		return nil, ErrVersionConflict
 	}
 	return s.Add(ctx, actor, it.BatchID, ItemInput{
 		SubgroupID: it.SubgroupID, Name: it.Name, VendorID: it.VendorID, VendorName: it.VendorName, SKU: it.SKU, Quantity: it.Quantity,
@@ -582,12 +653,21 @@ func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID) (
 // purchasingGate loads an item for a purchaser action: the item must be
 // approved in a review-confirmed batch that is not purchased outside.
 func (s *Items) purchasingGate(ctx context.Context, actor authz.Actor, id bson.ObjectID) (*domain.Item, *domain.Batch, error) {
-	it, b, t, err := s.loadItem(ctx, actor, id)
+	if !actor.IsPurchaser {
+		if _, _, _, err := s.loadItem(ctx, actor, id); err != nil {
+			return nil, nil, err
+		}
+		return nil, nil, ErrForbidden
+	}
+	// Purchasers work on any review-confirmed batch without the team
+	// visibility check (spec §8.2, §8.3).
+	it, err := s.st.GetItem(ctx, id)
+	if err != nil {
+		return nil, nil, mapStore(err)
+	}
+	b, t, _, err := s.batches.loadRestrictable(ctx, actor, it.BatchID)
 	if err != nil {
 		return nil, nil, err
-	}
-	if !actor.IsPurchaser {
-		return nil, nil, ErrForbidden
 	}
 	if t.Archived {
 		return nil, nil, Rule("team_archived", "Archived teams are read-only.")
@@ -642,7 +722,11 @@ func (s *Items) setUnpurchasable(ctx context.Context, actor authz.Actor, b *doma
 			var blockers []Blocker
 			for _, l := range lines {
 				if l.Status == domain.LineDraft {
-					blockers = append(blockers, Blocker{Type: "vendor_order_line", ID: l.ID.Hex(), Label: "draft line"})
+					label := "draft line"
+					if o, err := s.st.GetVendorOrder(ctx, l.VendorOrderID); err == nil {
+						label = "VO-" + itoa(o.Number) + " draft line #" + itoa(l.LineNo)
+					}
+					blockers = append(blockers, Blocker{Type: "vendor_order_line", ID: l.ID.Hex(), Label: label, ParentID: l.VendorOrderID.Hex()})
 				}
 			}
 			if len(blockers) > 0 {
@@ -688,3 +772,17 @@ func authzAssignments(a domain.Assignments) authz.Assignments {
 }
 
 func itoa(i int) string { return strconvItoa(i) }
+
+// requireReviewing re-reads the batch inside the caller's transaction and
+// fails unless it is still under review (guards review actions against a
+// concurrent confirm_review, spec §10 intro).
+func (s *Items) requireReviewing(ctx context.Context, batchID bson.ObjectID) error {
+	cur, err := s.st.GetBatch(ctx, batchID)
+	if err != nil {
+		return mapStore(err)
+	}
+	if cur.Status != domain.BatchReviewing {
+		return Rule("batch_not_reviewing", "Batch is not under review.")
+	}
+	return nil
+}

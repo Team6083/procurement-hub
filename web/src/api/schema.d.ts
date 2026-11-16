@@ -499,6 +499,8 @@ export interface paths {
         /**
          * List the batch's items (anyone who can read the batch)
          * @description Returns all items, not paginated (`{items}` only). Withdrawn items are included.
+         *     A purchaser or receiver who cannot otherwise read the batch (spec §8.2) gets the restricted
+         *     view of a review-confirmed batch instead: approved items only, as `PurchaserItem`; not confirmed is 404.
          */
         get: operations["listBatchItems"];
         put?: never;
@@ -718,7 +720,7 @@ export interface paths {
         put?: never;
         /**
          * Copy a withdrawn item into a new pending item of the same batch
-         * @description Allowed to the requester and team admins while the batch accepts items (422 `batch_not_collecting` otherwise). Takes no body and no `If-Match`.
+         * @description Allowed to the requester and team admins while the batch accepts items (422 `batch_not_collecting` otherwise). Takes no body; `If-Match` carries the withdrawn item's version (428 `if_match_required`, 409 `version_conflict`).
          */
         post: operations["copyItem"];
         delete?: never;
@@ -1713,6 +1715,10 @@ export interface components {
             updatedAt: string;
             /** Format: int64 */
             version: number;
+            /** @description Batch cost (spec §11 step 9): sum of the costs of items with placed lines. Null when nothing is placed or when `costIncomplete`. Set on single-batch responses once the review is confirmed. */
+            costBase?: string | null;
+            /** @description True when a placed item's cost cannot be computed. */
+            costIncomplete?: boolean;
         };
         CreateBatchRequest: {
             title: string;
@@ -2082,7 +2088,11 @@ export interface components {
             items: components["schemas"]["VendorOrderSummary"][];
             nextCursor: string | null;
         };
-        QueueItem: components["schemas"]["Item"] & {
+        QueueItem: components["schemas"]["PurchaserItem"] & {
+            plannedQuantity: number;
+            toPurchaseQuantity: number;
+            orderedQuantity: number;
+            receivedQuantity: number;
             teamName: string;
             batchNumber: number;
             batchTitle: string;
@@ -2194,7 +2204,27 @@ export interface components {
             lines: components["schemas"]["LinkedLine"][];
         };
         ItemList: {
-            items: components["schemas"]["ItemWithLines"][];
+            items: (components["schemas"]["ItemWithLines"] | components["schemas"]["PurchaserItem"])[];
+        };
+        /** @description The purchasing fields of an approved item (spec §8.2). */
+        PurchaserItem: {
+            id: string;
+            teamId: string;
+            batchId: string;
+            seqNo: number;
+            requesterId: string;
+            name: string;
+            vendorId: string | null;
+            vendorName: string;
+            sku: string;
+            quantity: number;
+            estimatedUnitPrice: components["schemas"]["Money"];
+            priority: number;
+            purpose: string;
+            productUrl: string;
+            status: string;
+            /** Format: int64 */
+            version: number;
         };
         AuditEventPage: {
             items: components["schemas"]["AuditEvent"][];
@@ -4050,7 +4080,14 @@ export interface operations {
     copyItem: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
             path: {
                 id: components["parameters"]["ItemId"];
             };
@@ -4084,6 +4121,7 @@ export interface operations {
             };
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };

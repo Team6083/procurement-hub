@@ -184,7 +184,7 @@ export function useAddItemsToOrder() {
 /** POST /items/{id}/unpurchasable: "do not buy the remaining quantity" (or the whole item). */
 export function useMarkUnpurchasable() {
   const api = useApi();
-  return useGuardedMutation<{ item: Item; reason: string }, Item>({
+  return useGuardedMutation<{ item: Pick<Item, 'id' | 'version'>; reason: string }, Item>({
     mutationFn: ({ item, reason }) => api.post<Item>(`/items/${item.id}/unpurchasable`, { reason }, { headers: ifMatchHeader(item.version) }),
     invalidate: [queueKey, tasksKey, ['batch']],
   });

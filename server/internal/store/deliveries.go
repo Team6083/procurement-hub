@@ -167,6 +167,15 @@ func (s *Store) InsertMatch(ctx context.Context, m *domain.DeliveryMatch) error 
 	return nil
 }
 
+// GetMatch loads one delivery match.
+func (s *Store) GetMatch(ctx context.Context, id bson.ObjectID) (*domain.DeliveryMatch, error) {
+	var m domain.DeliveryMatch
+	if err := s.c("deliveryMatches").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&m); err != nil {
+		return nil, mapErr(err)
+	}
+	return &m, nil
+}
+
 func (s *Store) findMatches(ctx context.Context, f bson.D) ([]domain.DeliveryMatch, error) {
 	cur, err := s.c("deliveryMatches").Find(ctx, f, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 	if err != nil {

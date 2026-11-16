@@ -4,7 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
 import type { Batch, ItemWithLines } from '../../api/types';
 import { DataTable } from '../../components/DataTable';
+import { useMeta } from '../../api/meta';
 import { Notice } from '../../components/ErrorAlert';
+import { formatMoney } from '../orders/money';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { FulfillmentBadge } from './StatusBadges';
@@ -16,7 +18,9 @@ type Col = DataColumn<ItemWithLines>;
  * Purchasers act on the Purchasing page; this tab is how everyone else follows along.
  */
 export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithLines[] }) {
-  const { t } = useTranslation('batches');
+  const { t, i18n } = useTranslation('batches');
+  const { data: meta } = useMeta();
+  const baseCurrency = meta?.baseCurrency ?? 'USD';
   const columns: Col[] = [
     { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => `#${i.seqNo} ${i.name}` },
     { key: 'fulfillment', header: t('item.fulfillment'), cell: (i) => (i.fulfillment ? <FulfillmentBadge value={i.fulfillment} /> : '—') },
@@ -47,6 +51,10 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithL
   return (
     <Stack gap="3">
       <Text color="fg.muted" textStyle="sm">{batch.reviewConfirmation.purchaseOutside ? t('purchasingTab.outside') : t('purchasingTab.hint')}</Text>
+      <Text fontWeight="medium" data-testid="batch-cost">
+        {t('purchasingTab.batchCost')}:{' '}
+        {batch.costIncomplete ? t('purchasingTab.costIncomplete') : formatMoney(batch.costBase, baseCurrency, i18n.language)}
+      </Text>
       <DataTable
         aria-label={t('tabs.purchasing')}
         rows={approved}

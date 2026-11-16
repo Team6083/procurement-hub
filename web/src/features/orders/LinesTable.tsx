@@ -94,7 +94,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
     if (order.status === 'draft' || placed) out.push({ value: 'edit', icon: <LuPencil />, label: t('line.edit'), onSelect: () => onEdit(l) });
     if (order.status === 'draft') out.push({ value: 'remove', icon: <LuTrash2 />, label: t('line.remove'), danger: true, onSelect: () => onRemove(l) });
     if (placed && l.closure) out.push({ value: 'reopen', icon: <LuUndo2 />, label: t('close.reopen'), onSelect: () => onReopen(l) });
-    if (placed && !l.closure && l.status === 'partially_received' && l.openProblemQuantity === 0) {
+    if (placed && !l.closure && l.receivedQuantity < l.expectedQuantity && l.openProblemQuantity === 0) {
       out.push({ value: 'close', icon: <LuX />, label: t('close.action'), danger: true, onSelect: () => onClose(l) });
     }
     return out;

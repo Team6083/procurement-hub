@@ -780,7 +780,10 @@ paths:
     get:
       operationId: listBatchItems
       summary: List the batch's items (anyone who can read the batch)
-      description: "Returns all items, not paginated (`{items}` only). Withdrawn items are included."
+      description: |
+        Returns all items, not paginated (`{items}` only). Withdrawn items are included.
+        A purchaser or receiver who cannot otherwise read the batch (spec §8.2) gets the restricted
+        view of a review-confirmed batch instead: approved items only, as `PurchaserItem`; not confirmed is 404.
       responses:
         "200":
           description: OK
@@ -1103,7 +1106,9 @@ paths:
     post:
       operationId: copyItem
       summary: Copy a withdrawn item into a new pending item of the same batch
-      description: Allowed to the requester and team admins while the batch accepts items (422 `batch_not_collecting` otherwise). Takes no body and no `If-Match`.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      description: Allowed to the requester and team admins while the batch accepts items (422 `batch_not_collecting` otherwise). Takes no body; `If-Match` carries the withdrawn item's version (428 `if_match_required`, 409 `version_conflict`).
       responses:
         "201":
           description: Item
@@ -1125,6 +1130,7 @@ paths:
               schema: { $ref: "#/components/schemas/Error" }
         "413": { $ref: "#/components/responses/PayloadTooLarge" }
         "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /me/tasks:
     get:
@@ -2509,6 +2515,10 @@ components:
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
+        costBase:
+          type: [string, "null"]
+          description: "Batch cost (spec §11 step 9): sum of the costs of items with placed lines. Null when nothing is placed or when `costIncomplete`. Set on single-batch responses once the review is confirmed."
+        costIncomplete: { type: boolean, description: True when a placed item's cost cannot be computed. }
     CreateBatchRequest:
       type: object
       additionalProperties: false
@@ -2879,10 +2889,14 @@ components:
         nextCursor: { type: [string, "null"] }
     QueueItem:
       allOf:
-        - $ref: "#/components/schemas/Item"
+        - $ref: "#/components/schemas/PurchaserItem"
         - type: object
-          required: [teamName, batchNumber, batchTitle, draftQuantity]
+          required: [plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, teamName, batchNumber, batchTitle, draftQuantity]
           properties:
+            plannedQuantity: { type: integer }
+            toPurchaseQuantity: { type: integer }
+            orderedQuantity: { type: integer }
+            receivedQuantity: { type: integer }
             teamName: { type: string }
             batchNumber: { type: integer }
             batchTitle: { type: string }
@@ -3023,7 +3037,33 @@ components:
       type: object
       required: [items]
       properties:
-        items: { type: array, items: { $ref: "#/components/schemas/ItemWithLines" } }
+        items:
+          type: array
+          items:
+            anyOf:
+              - $ref: "#/components/schemas/ItemWithLines"
+              - $ref: "#/components/schemas/PurchaserItem"
+    PurchaserItem:
+      type: object
+      description: The purchasing fields of an approved item (spec §8.2).
+      required: [id, teamId, batchId, seqNo, requesterId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, productUrl, status, version]
+      properties:
+        id: { type: string }
+        teamId: { type: string }
+        batchId: { type: string }
+        seqNo: { type: integer }
+        requesterId: { type: string }
+        name: { type: string }
+        vendorId: { type: [string, "null"] }
+        vendorName: { type: string }
+        sku: { type: string }
+        quantity: { type: integer }
+        estimatedUnitPrice: { $ref: "#/components/schemas/Money" }
+        priority: { type: integer }
+        purpose: { type: string }
+        productUrl: { type: string }
+        status: { type: string }
+        version: { type: integer, format: int64 }
     AuditEventPage:
       type: object
       required: [items, nextCursor]

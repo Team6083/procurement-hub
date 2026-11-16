@@ -89,6 +89,10 @@ type Batch struct {
 	CreatedAt          time.Time           `bson:"createdAt" json:"createdAt"`
 	UpdatedAt          time.Time           `bson:"updatedAt" json:"updatedAt"`
 	Version            int64               `bson:"version" json:"version"`
+	// CostBase is the computed batch cost (spec §11 step 9), set when served;
+	// CostIncomplete is true when some placed item's cost is not computable.
+	CostBase       *Decimal `bson:"-" json:"costBase"`
+	CostIncomplete bool     `bson:"-" json:"costIncomplete"`
 }
 
 // ItemCounts summarises non-withdrawn items by status for guards.
@@ -218,15 +222,12 @@ func ApplyAction(from BatchStatus, in ActionInput) (ActionResult, error) {
 		}
 		res := ActionResult{To: in.StatusBeforeCancel}
 		if in.StatusBeforeCancel == BatchCollecting {
-			// The deadline may have passed meanwhile; a new one is then required.
-			if in.Deadline != nil {
-				if err := futureDeadline(); err != nil {
-					return ActionResult{}, err
-				}
-				res.SetDeadline = true
-			} else if err := futureDeadline(); err != nil {
+			// The service defaults Deadline to the batch's own; it must still be
+			// in the future, otherwise a new one is required.
+			if err := futureDeadline(); err != nil {
 				return ActionResult{}, err
 			}
+			res.SetDeadline = true
 		}
 		return res, nil
 

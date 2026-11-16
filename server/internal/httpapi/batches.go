@@ -282,7 +282,7 @@ func (a *BatchesAPI) listItems(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
-	WriteJSON(w, http.StatusOK, wholeList(items))
+	WriteJSON(w, http.StatusOK, map[string]any{"items": items})
 }
 
 func (a *BatchesAPI) addItem(w http.ResponseWriter, r *http.Request) {
@@ -423,7 +423,12 @@ func (a *BatchesAPI) copyItem(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	it, err := a.Items.Copy(r.Context(), a.actor(r).Actor, id)
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	it, err := a.Items.Copy(r.Context(), a.actor(r).Actor, id, ver)
 	respondItem(w, r, http.StatusCreated, it, err)
 }
 

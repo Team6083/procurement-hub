@@ -206,7 +206,8 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 				Changes: []domain.AuditChange{{Field: "status", From: string(stored.Status), To: string(l.Status)}},
 			})
 		}
-		if stored.Status != l.Status && (l.Status == domain.LineReceived || l.Status == domain.LineNotObtained) {
+		// Manual closures emit line.closed with the user as actor (CloseLine).
+		if l.Closure == nil && stored.Status != l.Status && (l.Status == domain.LineReceived || l.Status == domain.LineNotObtained) {
 			if err := s.st.Emit(ctx, store.EventRecord{Type: "line.closed", Actor: audit.SystemActor("derive"), TeamID: l.TeamID,
 				BatchID: derefID(l.BatchID), ObjectID: o.ID.Hex()}); err != nil {
 				return nil, false, err
