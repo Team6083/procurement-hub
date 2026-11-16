@@ -114,10 +114,18 @@ func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.DraftVendorOrders, out.OpenProblems, out.LinesToClose = &CountTask{Count: drafts}, &CountTask{}, &CountTask{Count: len(toClose)}
+		open, err := s.st.CountOpenProblems(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.DraftVendorOrders, out.OpenProblems, out.LinesToClose = &CountTask{Count: drafts}, &CountTask{Count: open}, &CountTask{Count: len(toClose)}
 	}
 	if actor.IsPurchaser || actor.IsReceiver {
-		out.DeliveriesToMatch = &CountTask{}
+		n, err := s.st.CountPendingDeliveryLines(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.DeliveriesToMatch = &CountTask{Count: n}
 	}
 	return out, nil
 }

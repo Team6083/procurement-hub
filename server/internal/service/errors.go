@@ -18,6 +18,8 @@ var (
 type RuleError struct {
 	Code    string
 	Message string
+	// Details is extra machine-readable data for the error body (may be nil).
+	Details map[string]any
 }
 
 func (e *RuleError) Error() string { return e.Code + ": " + e.Message }

@@ -109,3 +109,14 @@ func (s *Timeline) ForTeam(ctx context.Context, actor authz.Actor, teamID, after
 	}
 	return s.visible(ctx, actor, pg), nil
 }
+
+// ForDelivery returns a delivery's timeline (purchasers, receivers and system admins only).
+func (s *Timeline) ForDelivery(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int) (*audit.Page, error) {
+	if !privileged(actor) {
+		return nil, ErrNotFound
+	}
+	if _, err := s.st.GetDelivery(ctx, id); err != nil {
+		return nil, mapStore(err)
+	}
+	return s.audit.PageForObject(ctx, "delivery", id.Hex(), after, limit)
+}

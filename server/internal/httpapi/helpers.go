@@ -86,7 +86,11 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		if re.Code == "invalid_transition" {
 			status = http.StatusConflict // spec §16.1
 		}
-		WriteError(w, NewError(status, re.Code, re.Message))
+		e := NewError(status, re.Code, re.Message)
+		if re.Details != nil {
+			e.Details = re.Details
+		}
+		WriteError(w, e)
 	case errors.Is(err, service.ErrForbidden):
 		WriteError(w, NewError(http.StatusForbidden, "forbidden", "You are not allowed to do this."))
 	case errors.Is(err, service.ErrNotFound):

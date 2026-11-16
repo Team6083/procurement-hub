@@ -511,8 +511,10 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 		pg, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	case "vendor_order":
 		pg, err = a.Timeline.ForVendorOrder(r.Context(), a.actor(r).Actor, id, cursor, limit)
+	case "delivery":
+		pg, err = a.Timeline.ForDelivery(r.Context(), a.actor(r).Actor, id, cursor, limit)
 	default:
-		fail(w, r, service.Invalid("objectType", "must be batch, item or vendor_order"))
+		fail(w, r, service.Invalid("objectType", "must be batch, item, vendor_order or delivery"))
 		return
 	}
 	if err != nil {

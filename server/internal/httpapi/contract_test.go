@@ -42,6 +42,7 @@ func TestRoutesMatchOpenAPI(t *testing.T) {
 		(&VendorsAPI{}).Mount(r)
 		(&BatchesAPI{}).Mount(r)
 		(&VendorOrdersAPI{}).Mount(r)
+		(&DeliveriesAPI{}).Mount(r)
 	})
 	registered := map[string]bool{}
 	err = chi.Walk(r, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {

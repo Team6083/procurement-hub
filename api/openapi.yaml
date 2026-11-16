@@ -1135,7 +1135,7 @@ paths:
         caller is an approver and every item is decided). Purchasers also get `itemsToPurchase` (approved items with remaining
         quantity, grouped by vendor name; `vendor` null for items without one; `myBatches` counts those in batches where the
         caller is the assigned purchaser), `draftVendorOrders`, `openProblems`, `linesToClose`; purchasers and receivers get
-        `deliveriesToMatch`.
+        `deliveriesToMatch` (delivery lines that are unmatched or partial); `openProblems` counts unresolved problems.
       responses:
         "200":
           description: OK
@@ -1148,12 +1148,12 @@ paths:
   /audit:
     get:
       operationId: getAudit
-      summary: Timeline of a batch (including its items' events), an item or a vendor order
+      summary: Timeline of a batch (including its items' events), an item, a vendor order or a delivery (purchasers, receivers and system admins; 404 for others)
       description: Cursor-paginated, oldest event first. Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
-        - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item, vendor_order] } }
+        - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item, vendor_order, delivery] } }
         - { name: objectId, in: query, required: true, schema: { type: string } }
       responses:
         "200":
@@ -1678,6 +1678,339 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /deliveries:
+    get:
+      operationId: listDeliveries
+      summary: "List deliveries (purchasers, receivers, system admins; 404 for others)"
+      description: Cursor-paginated, newest first. `q` matches `DL-<n>`, the source or the note; `from`/`to` bound `receivedAt`.
+      parameters:
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+        - { name: voided, in: query, schema: { type: string, enum: ["true", "false"] } }
+        - { name: from, in: query, schema: { type: string, format: date } }
+        - { name: to, in: query, schema: { type: string, format: date } }
+        - { name: q, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: createDelivery
+      summary: "Register one box, optionally matching its lines (purchasers, receivers)"
+      description: |
+        Free-form lines (name or SKU, good quantity, problem quantity with type). A line may carry `matches` to placed, unclosed vendor order lines;
+        every match with a problem quantity creates an open problem. Matching is all or nothing (422 `line_quantity_exceeded` with `details.remaining`).
+        Emits `delivery.needs_matching` when lines stay pending.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateDeliveryRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /deliveries/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: getDelivery
+      summary: "One delivery with its lines and active matches"
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /deliveries/{id}/void:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: voidDelivery
+      summary: "Void a delivery (undo); its matches and their unresolved problems are voided"
+      description: Needs a `reason`. Blocked (409 `blocked_by_dependency`) while a match's problem is resolved or its line is manually closed. `If-Match` is the delivery version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Voided delivery
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /delivery-lines:
+    get:
+      operationId: listDeliveryLines
+      summary: "Matching worklist: delivery lines by match state (default unmatched and partial)"
+      description: Lines of non-voided deliveries, oldest first, at most 500; not paginated. Each line carries `deliveryVersion` for `If-Match`.
+      parameters:
+        - { name: matchState, in: query, description: "Comma list of unmatched, partial, matched, not_needed.", schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryLineList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /delivery-lines/{id}/suggestions:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: getDeliveryLineSuggestions
+      summary: "Candidate vendor order lines for a delivery line with a suggested split"
+      description: Exact SKU first, then name similarity; only placed, unclosed lines that can still take units. Older orders first. The suggested split fills the unmatched rest of the delivery line.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /delivery-lines/{id}/matches:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      operationId: setDeliveryLineMatches
+      summary: "Set the matches of a delivery line (diffed by vendorOrderLineId, all or nothing)"
+      description: |
+        Same quantities are kept, changed ones are voided and recreated, missing ones voided. 422 `line_quantity_exceeded` (`details.remaining`) when a line cannot take the quantity,
+        422 `line_not_matchable` for lines that are not on a placed order or are closed, 409 `blocked_by_dependency` when voiding a match is blocked by a resolved problem or a closure.
+        `If-Match` is the delivery version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SetMatchesRequest" }
+      responses:
+        "200":
+          description: Updated delivery
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /delivery-lines/{id}/no-match:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: markDeliveryLineNoMatch
+      summary: "Mark a pending delivery line as needing no match"
+      description: Needs a `reason` (for example a vendor over-delivery). Allowed for unmatched and partial lines; the rest of a partial line counts as not needed. `If-Match` is the delivery version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated delivery
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /delivery-lines/{id}/no-match/undo:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: undoDeliveryLineNoMatch
+      summary: "Put a delivery line back on the matching worklist"
+      description: Needs a `reason`. `If-Match` is the delivery version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated delivery
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /purchasing/match-candidates:
+    get:
+      operationId: getMatchCandidates
+      summary: "Candidate vendor order lines for a box line that is not saved yet"
+      description: Same rules as the suggestions of a saved line, without a suggested split. `sku` or `name` is required (400 otherwise). Purchasers and receivers.
+      parameters:
+        - { name: sku, in: query, schema: { type: string } }
+        - { name: name, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/CandidateList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /problems:
+    get:
+      operationId: listProblems
+      summary: "Delivery problems, not voided (purchasers, receivers, system admins; 404 for others)"
+      description: Newest first, at most 500; not paginated. Each problem carries its own `version` for `If-Match`.
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [open, resolved] } }
+        - { name: vendorOrderId, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProblemList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /problems/{id}/resolve:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: resolveProblem
+      summary: "Settle an open problem (purchasers)"
+      description: |
+        `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refundBase`, entered positive, stored as a negative ledger entry on the line)
+        or `accept` (counts as received). `refundBase` with any other action yields 400. `If-Match` is the problem version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResolveProblemRequest" }
+      responses:
+        "200":
+          description: Resolved problem
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /problems/{id}/unresolve:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: unresolveProblem
+      summary: "Undo a problem resolution (purchasers); its refund entry is voided"
+      description: Needs a `reason`. Blocked (409 `blocked_by_dependency`) while the line is manually closed; 422 `line_quantity_exceeded` when the undo would break the quantity inequality. `If-Match` is the problem version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Reopened problem
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Problem" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
 components:
   securitySchemes:
     bearerAuth:
@@ -1822,7 +2155,7 @@ components:
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
         `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`,
         `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
-        `line_missing_price`, `order_not_placed`, `line_not_closable`.
+        `line_missing_price`, `order_not_placed`, `line_not_closable`, `line_not_matchable`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -2762,3 +3095,212 @@ components:
         - line_missing_price
         - order_not_placed
         - line_not_closable
+        - line_not_matchable
+    VoidInfo:
+      type: object
+      required: [reason, by, at]
+      properties:
+        reason: { type: string }
+        by: { type: string }
+        at: { type: string, format: date-time }
+    MatchState:
+      type: string
+      enum: [unmatched, partial, matched, not_needed]
+    MatchView:
+      type: object
+      required: [id, vendorOrderLineId, vendorOrderId, vendorOrderNumber, lineNo, lineName, goodQuantity, problemQuantity, problemId]
+      properties:
+        id: { type: string }
+        vendorOrderLineId: { type: string }
+        vendorOrderId: { type: string }
+        vendorOrderNumber: { type: integer }
+        lineNo: { type: integer }
+        lineName: { type: string }
+        goodQuantity: { type: integer }
+        problemQuantity: { type: integer }
+        problemId: { type: [string, "null"], description: The open or resolved problem this match produced. }
+    DeliveryLine:
+      type: object
+      required: [id, deliveryId, lineNo, name, sku, goodQuantity, problemQuantity, problemType, problemNote, noMatch, matchState, deliveryNumber, deliveryVersion, receivedAt, source, matches, matchedGoodQuantity, matchedProblemQuantity]
+      properties:
+        id: { type: string }
+        deliveryId: { type: string }
+        lineNo: { type: integer }
+        name: { type: string }
+        sku: { type: string }
+        goodQuantity: { type: integer }
+        problemQuantity: { type: integer }
+        problemType: { type: string, enum: [damaged, wrong_item, ""] }
+        problemNote: { type: string }
+        noMatch:
+          oneOf:
+            - type: object
+              required: [reason, by, at]
+              properties:
+                reason: { type: string }
+                by: { type: string }
+                at: { type: string, format: date-time }
+            - { type: "null" }
+        matchState: { $ref: "#/components/schemas/MatchState" }
+        deliveryNumber: { type: integer }
+        deliveryVersion: { type: integer, format: int64, description: The delivery version to send in If-Match. }
+        receivedAt: { type: string, format: date }
+        source: { type: string }
+        matches: { type: array, items: { $ref: "#/components/schemas/MatchView" } }
+        matchedGoodQuantity: { type: integer }
+        matchedProblemQuantity: { type: integer }
+    DeliveryLineList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DeliveryLine" } }
+    Delivery:
+      type: object
+      required: [id, number, receivedAt, source, note, voided, createdBy, createdAt, updatedAt, version, lines]
+      properties:
+        id: { type: string }
+        number: { type: integer, description: "Displayed as DL-<number>." }
+        receivedAt: { type: string, format: date }
+        source: { type: string }
+        note: { type: string }
+        voided:
+          oneOf:
+            - { $ref: "#/components/schemas/VoidInfo" }
+            - { type: "null" }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        lines: { type: array, items: { $ref: "#/components/schemas/DeliveryLine" } }
+    DeliverySummary:
+      type: object
+      required: [id, number, receivedAt, source, note, voided, createdBy, createdAt, updatedAt, version, lineCount, pendingLineCount]
+      properties:
+        id: { type: string }
+        number: { type: integer }
+        receivedAt: { type: string, format: date }
+        source: { type: string }
+        note: { type: string }
+        voided:
+          oneOf:
+            - { $ref: "#/components/schemas/VoidInfo" }
+            - { type: "null" }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        lineCount: { type: integer }
+        pendingLineCount: { type: integer }
+    DeliveryPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/DeliverySummary" } }
+        nextCursor: { type: [string, "null"] }
+    MatchRequest:
+      type: object
+      additionalProperties: false
+      required: [vendorOrderLineId, goodQuantity, problemQuantity]
+      properties:
+        vendorOrderLineId: { type: string }
+        goodQuantity: { type: integer, minimum: 0 }
+        problemQuantity: { type: integer, minimum: 0 }
+    SetMatchesRequest:
+      type: object
+      additionalProperties: false
+      required: [matches]
+      properties:
+        matches: { type: array, items: { $ref: "#/components/schemas/MatchRequest" } }
+    DeliveryLineRequest:
+      type: object
+      additionalProperties: false
+      required: [goodQuantity]
+      properties:
+        name: { type: string }
+        sku: { type: string }
+        goodQuantity: { type: integer, minimum: 0 }
+        problemQuantity: { type: integer, minimum: 0 }
+        problemType: { type: string, enum: [damaged, wrong_item, ""], description: Required when `problemQuantity` > 0. }
+        problemNote: { type: string }
+        matches: { type: array, items: { $ref: "#/components/schemas/MatchRequest" } }
+    CreateDeliveryRequest:
+      type: object
+      additionalProperties: false
+      required: [lines]
+      properties:
+        receivedAt: { type: string, format: date, description: Defaults to today (UTC). }
+        source: { type: string }
+        note: { type: string }
+        lines: { type: array, minItems: 1, items: { $ref: "#/components/schemas/DeliveryLineRequest" } }
+    Candidate:
+      type: object
+      required: [vendorOrderLineId, vendorOrderId, vendorOrderNumber, vendorName, placedAt, lineNo, name, sku, quantity, receivedQuantity, capacity, matchedBy, score, suggestedGoodQuantity, suggestedProblemQuantity]
+      properties:
+        vendorOrderLineId: { type: string }
+        vendorOrderId: { type: string }
+        vendorOrderNumber: { type: integer }
+        vendorName: { type: string }
+        placedAt: { type: [string, "null"], format: date-time }
+        lineNo: { type: integer }
+        name: { type: string }
+        sku: { type: string }
+        quantity: { type: integer }
+        receivedQuantity: { type: integer }
+        capacity: { type: integer, description: How many more units the line can take. }
+        matchedBy: { type: string, enum: [sku, name] }
+        score: { type: number }
+        suggestedGoodQuantity: { type: integer }
+        suggestedProblemQuantity: { type: integer }
+    CandidateList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Candidate" } }
+    Problem:
+      type: object
+      required: [id, vendorOrderLineId, deliveryMatchId, quantity, type, note, resolution, voided, createdAt, updatedAt, version, vendorOrderId, vendorOrderNumber, lineNo, lineName, teamId, deliveryId, deliveryNumber]
+      properties:
+        id: { type: string }
+        vendorOrderLineId: { type: string }
+        deliveryMatchId: { type: [string, "null"] }
+        quantity: { type: integer }
+        type: { type: string, enum: [damaged, wrong_item] }
+        note: { type: string }
+        resolution:
+          oneOf:
+            - type: object
+              required: [action, refundEntryId, note, by, at]
+              properties:
+                action: { type: string, enum: [exchange, return_no_replace, accept] }
+                refundEntryId: { type: [string, "null"] }
+                note: { type: string }
+                by: { type: string }
+                at: { type: string, format: date-time }
+            - { type: "null" }
+        voided:
+          oneOf:
+            - { $ref: "#/components/schemas/VoidInfo" }
+            - { type: "null" }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64, description: The problem version to send in If-Match. }
+        vendorOrderId: { type: string }
+        vendorOrderNumber: { type: integer }
+        lineNo: { type: integer }
+        lineName: { type: string }
+        teamId: { type: string }
+        deliveryId: { type: [string, "null"] }
+        deliveryNumber: { type: [integer, "null"] }
+    ProblemList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Problem" } }
+    ResolveProblemRequest:
+      type: object
+      additionalProperties: false
+      required: [action]
+      properties:
+        action: { type: string, enum: [exchange, return_no_replace, accept] }
+        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency; only with return_no_replace. }
+        note: { type: string }

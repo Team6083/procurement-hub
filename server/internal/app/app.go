@@ -65,6 +65,7 @@ func NewHandler(d Deps) (http.Handler, *App) {
 		domain.Currencies{Base: cfg.BaseCurrency, BaseDecimals: cfg.BaseCurrencyDecimals})
 	items := service.NewItems(st, log, batches)
 	orders := service.NewVendorOrders(st, log, batches, cfg.SupportedCurrencies)
+	deliveries := service.NewDeliveries(st, log, batches, orders)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(httpapi.Authenticate(d.Verifier, d.Config.AllowedRoles, identity, teams))
@@ -76,6 +77,7 @@ func NewHandler(d Deps) (http.Handler, *App) {
 			Timeline: service.NewTimeline(st, log, batches, items, orders),
 		}).Mount(r)
 		(&httpapi.VendorOrdersAPI{Orders: orders}).Mount(r)
+		(&httpapi.DeliveriesAPI{Deliveries: deliveries}).Mount(r)
 	})
 	return r, &App{Batches: batches, Orders: orders}
 }
