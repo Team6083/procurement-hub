@@ -9,6 +9,8 @@ interface Blocker {
   type: string;
   id: string;
   label: string;
+  /** The vendor order a line-level blocker lives on. */
+  parentId?: string;
 }
 
 /** The objects that stop an undo (409 blocked_by_dependency, details.blockers), each linked when it has a page. */
@@ -17,9 +19,14 @@ export function BlockerList({ error }: { error: unknown }) {
   if (!(error instanceof ApiError) || error.code !== 'blocked_by_dependency') return null;
   const blockers = (Array.isArray(error.details.blockers) ? error.details.blockers : []) as Blocker[];
   if (blockers.length === 0) return null;
-  const href = (b: Blocker) => (b.type === 'batch' ? paths.batch(b.id) : b.type === 'vendor_order' ? paths.vendorOrder(b.id) : undefined);
+  const href = (b: Blocker) =>
+    b.type === 'batch' ? paths.batch(b.id)
+      : b.type === 'vendor_order' ? paths.vendorOrder(b.id)
+        : b.parentId ? paths.vendorOrder(b.parentId)
+          : undefined;
   const kind: Record<string, string> = {
     vendor_order_line: t('undo.blockedLine'), item: t('undo.blockedItem'), batch: t('undo.blockedBatch'), vendor_order: t('undo.blockedVendorOrder'),
+    delivery: t('undo.blockedDelivery'), problem: t('undo.blockedProblem'), line_closure: t('undo.blockedClosure'), ledger_entry: t('undo.blockedLedger'),
   };
   return (
     <div>

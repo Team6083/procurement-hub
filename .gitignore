@@ -12,3 +12,6 @@ web/wrangler.generated.jsonc
 web/e2e/.auth/
 web/playwright-report/
 web/test-results/
+
+# Local-only compose override (builds the image from ../server)
+examples/docker-compose.override.yml

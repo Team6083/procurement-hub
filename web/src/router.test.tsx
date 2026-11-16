@@ -40,6 +40,9 @@ vi.mock('./pages/TeamSettingsShell', async () => {
 vi.mock('./pages/settings/GeneralSettings', () => ({ GeneralSettings: stub('settings-general') }));
 vi.mock('./pages/settings/SubgroupsSettings', () => ({ SubgroupsSettings: stub('settings-subgroups') }));
 vi.mock('./pages/VendorsPage', () => ({ VendorsPage: stub('vendors') }));
+vi.mock('./pages/PurchasingPage', () => ({ PurchasingPage: stub('purchasing') }));
+vi.mock('./pages/VendorOrdersPage', () => ({ VendorOrdersPage: stub('vendor-orders') }));
+vi.mock('./pages/VendorOrderPage', () => ({ VendorOrderPage: stub('vendor-order') }));
 vi.mock('./pages/ReferenceRatesPage', () => ({ ReferenceRatesPage: stub('reference-rates') }));
 vi.mock('./pages/settings/MembersSettings', () => ({ MembersSettings: stub('settings-members') }));
 

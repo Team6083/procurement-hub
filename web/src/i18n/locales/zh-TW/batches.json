@@ -232,7 +232,8 @@
     "ordered": "已下單",
     "received": "已到",
     "toPurchase": "待採購",
-    "cost": "成本"
+    "cost": "成本",
+    "orders": "訂單"
   },
   "fulfillment": {
     "external": "系統外採購",

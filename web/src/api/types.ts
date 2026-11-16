@@ -46,3 +46,15 @@ export type ReviewResult = components['schemas']['ReviewResult'];
 export type Fulfillment = components['schemas']['Fulfillment'];
 export type VendorTask = components['schemas']['VendorTask'];
 export type Vendor = components['schemas']['Vendor'];
+
+export type ItemWithLines = components['schemas']['ItemWithLines'];
+export type LinkedLine = components['schemas']['LinkedLine'];
+export type VendorOrder = components['schemas']['VendorOrder'];
+export type VendorOrderSummary = components['schemas']['VendorOrderSummary'];
+export type VendorOrderLine = components['schemas']['VendorOrderLine'];
+export type LedgerEntry = components['schemas']['LedgerEntry'];
+export type OrderTotals = components['schemas']['OrderTotals'];
+export type QueueGroup = components['schemas']['QueueGroup'];
+export type QueueItem = components['schemas']['QueueItem'];
+export type LineStatus = components['schemas']['LineStatus'];
+export type OrderStatus = VendorOrder['status'];

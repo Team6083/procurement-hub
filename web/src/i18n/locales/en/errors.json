@@ -36,6 +36,16 @@
     "blocked_by_dependency": "Other records depend on this. Undo them first.",
     "items_undecided": "Every item must be approved or rejected before the review can be confirmed.",
     "line_quantity_exceeded": "That quantity exceeds what the line can still take.",
-    "team_cost_overrides_mismatch": "The team cost overrides do not match the teams on this order."
+    "team_cost_overrides_mismatch": "The team cost overrides do not match the teams on this order.",
+    "item_not_purchasable": "This item cannot be ordered: it must be approved in a review-confirmed batch and not marked unpurchasable.",
+    "item_already_on_order": "This item already has a line on this order.",
+    "order_not_draft": "Lines can only be added or removed while the order is a draft.",
+    "order_locked": "The vendor and currency cannot change once the order is placed.",
+    "line_locked": "The quantity and team are locked once the order is placed.",
+    "unit_price_required": "A placed line must keep its unit price.",
+    "order_has_no_lines": "The order has no lines.",
+    "line_missing_price": "Every line needs a unit price before the order can be placed.",
+    "order_not_placed": "Ledger entries can only be added to a placed order.",
+    "line_not_closable": "Only lines that are short and have no open problem can be closed."
   }
 }

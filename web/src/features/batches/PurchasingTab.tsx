@@ -2,18 +2,20 @@ import { Card, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, type DataColumn } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
-import type { Batch, Item } from '../../api/types';
+import type { Batch, ItemWithLines } from '../../api/types';
 import { DataTable } from '../../components/DataTable';
 import { Notice } from '../../components/ErrorAlert';
+import { RouteAnchor } from '../../components/RouteLinks';
+import { paths } from '../../paths';
 import { FulfillmentBadge } from './StatusBadges';
 
-type Col = DataColumn<Item>;
+type Col = DataColumn<ItemWithLines>;
 
 /**
  * Read-only purchasing progress of the batch's approved items: fulfillment, quantities and cost.
  * Purchasers act on the Purchasing page; this tab is how everyone else follows along.
  */
-export function PurchasingTab({ batch, items }: { batch: Batch; items: Item[] }) {
+export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithLines[] }) {
   const { t } = useTranslation('batches');
   const columns: Col[] = [
     { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => `#${i.seqNo} ${i.name}` },
@@ -21,6 +23,16 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: Item[] })
     { key: 'ordered', header: t('purchasingTab.ordered'), numeric: true, cell: (i) => `${i.orderedQuantity} / ${i.quantity}` },
     { key: 'received', header: t('purchasingTab.received'), numeric: true, cell: (i) => i.receivedQuantity },
     { key: 'toPurchase', header: t('purchasingTab.toPurchase'), numeric: true, cell: (i) => i.toPurchaseQuantity },
+    {
+      key: 'orders', header: t('purchasingTab.orders'),
+      cell: (i) => (i.lines.length === 0 ? '—' : (
+        <Stack gap="0">
+          {i.lines.map((l) => (
+            <RouteAnchor key={l.id} to={paths.vendorOrder(l.vendorOrderId)}>{`VO-${l.vendorOrderNumber} (${l.quantity})`}</RouteAnchor>
+          ))}
+        </Stack>
+      )),
+    },
     { key: 'cost', header: t('purchasingTab.cost'), numeric: true, cell: (i) => i.costBase ?? '—' },
   ];
   const approved = items.filter((i) => i.status === 'approved');

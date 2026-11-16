@@ -36,6 +36,16 @@
     "blocked_by_dependency": "還有其他紀錄依賴這筆資料，請先撤銷它們。",
     "items_undecided": "所有品項都核准或駁回後才能審核確認。",
     "line_quantity_exceeded": "數量超過這一行還能收的數量。",
-    "team_cost_overrides_mismatch": "團隊分攤覆寫與這張訂單的團隊不符。"
+    "team_cost_overrides_mismatch": "團隊分攤覆寫與這張訂單的團隊不符。",
+    "item_not_purchasable": "這個品項無法下單：必須是已審核確認批次中的核准品項，且未標記無法採購。",
+    "item_already_on_order": "這個品項在這張訂單中已經有一行。",
+    "order_not_draft": "只有草稿訂單可以新增或移除明細行。",
+    "order_locked": "已下單後不能更改廠商與幣別。",
+    "line_locked": "已下單後數量與團隊不能更改。",
+    "unit_price_required": "已下單的明細行必須保留單價。",
+    "order_has_no_lines": "訂單沒有明細行。",
+    "line_missing_price": "每一行都要有單價才能按已下單。",
+    "order_not_placed": "只有已下單的訂單可以新增金流紀錄。",
+    "line_not_closable": "只有數量短少且沒有未處理問題的明細行可以結案。"
   }
 }

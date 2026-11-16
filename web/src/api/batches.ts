@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './context';
 import type {
-  AssignmentsRequest, AuditEvent, Batch, BatchAction, Item, ItemRequest, MyTasks, Page, PatchBatchRequest, ReviewRequest, ReviewResult,
+  AssignmentsRequest, AuditEvent, Batch, BatchAction, Item, ItemRequest, ItemWithLines, MyTasks, Page, PatchBatchRequest, ReviewRequest, ReviewResult,
 } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
 import { ifMatchHeader, type Versioned } from './versioned';
@@ -51,7 +51,7 @@ export function useItems(batchId: string | undefined) {
   return useQuery({
     queryKey: itemsKey(batchId),
     enabled: !!batchId,
-    queryFn: async ({ signal }) => (await api.get<Page<Item>>(`/batches/${batchId}/items`, { signal })).items,
+    queryFn: async ({ signal }) => (await api.get<{ items: ItemWithLines[] }>(`/batches/${batchId}/items`, { signal })).items,
   });
 }
 

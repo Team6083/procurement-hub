@@ -68,6 +68,10 @@
     "blockedLine": "明細行",
     "blockedItem": "品項",
     "blockedBatch": "批次",
-    "blockedVendorOrder": "廠商訂單"
+    "blockedVendorOrder": "廠商訂單",
+    "blockedDelivery": "到貨紀錄",
+    "blockedProblem": "到貨問題",
+    "blockedClosure": "明細行結案",
+    "blockedLedger": "金流紀錄"
   }
 }

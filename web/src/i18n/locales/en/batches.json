@@ -232,7 +232,8 @@
     "ordered": "Ordered",
     "received": "Received",
     "toPurchase": "To purchase",
-    "cost": "Cost"
+    "cost": "Cost",
+    "orders": "Orders"
   },
   "fulfillment": {
     "external": "Bought outside",

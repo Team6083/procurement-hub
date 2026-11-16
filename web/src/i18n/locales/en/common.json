@@ -68,6 +68,10 @@
     "blockedLine": "Line",
     "blockedItem": "Item",
     "blockedBatch": "Batch",
-    "blockedVendorOrder": "Vendor order"
+    "blockedVendorOrder": "Vendor order",
+    "blockedDelivery": "Delivery",
+    "blockedProblem": "Problem",
+    "blockedClosure": "Line closure",
+    "blockedLedger": "Ledger entry"
   }
 }

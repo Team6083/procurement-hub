@@ -18,7 +18,8 @@ export async function openRowMenu(row: HTMLElement): Promise<string[]> {
 /** Picks an item of the open row menu. */
 export async function chooseMenuItem(name: string | RegExp): Promise<void> {
   // Ark's menu acts on the highlighted item; in jsdom the keyboard is what reliably moves the highlight.
-  const item = screen.getByRole('menuitem', { name });
+  // Menus closed earlier in a test may still be mounted while they animate out; the last match is the one just opened.
+  const item = screen.getAllByRole('menuitem', { name }).at(-1)!;
   const menu = item.closest('[role="menu"]') as HTMLElement;
   for (let i = 0; i < 20 && item.getAttribute('data-highlighted') === null; i++) {
     await act(async () => { fireEvent.keyDown(menu, { key: 'ArrowDown' }); });

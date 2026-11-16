@@ -11,6 +11,9 @@ import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { HomePage } from './pages/HomePage';
 import { Placeholder } from './pages/Placeholder';
+import { PurchasingPage } from './pages/PurchasingPage';
+import { VendorOrderPage } from './pages/VendorOrderPage';
+import { VendorOrdersPage } from './pages/VendorOrdersPage';
 import { ReferenceRatesPage } from './pages/ReferenceRatesPage';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -60,7 +63,9 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/batches', element: <BatchesPage /> },
           { path: '/batches/:id', element: <BatchPage /> },
-          { path: '/purchasing', element: <Placeholder titleKey="pages.purchasing" /> },
+          { path: '/purchasing', element: <PurchasingPage /> },
+          { path: '/vendor-orders', element: <VendorOrdersPage /> },
+          { path: '/vendor-orders/:id', element: <VendorOrderPage /> },
           { path: '/receiving', element: <Placeholder titleKey="pages.receiving" /> },
           { path: '/settings', element: <SettingsPage /> },
           {
