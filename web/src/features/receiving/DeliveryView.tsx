@@ -2,13 +2,13 @@ import { Button, Card, Skeleton, Stack } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuUndo2 } from 'react-icons/lu';
+import { LuBan } from 'react-icons/lu';
 import { useDelivery, useNoMatch, useVoidDelivery } from '../../api/deliveries';
 import type { DeliveryLine } from '../../api/types';
 import { ErrorAlert, Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
-import { shortDate } from '../dates';
+import { shortDate, shortDay } from '../dates';
 import { useReceivingAccess } from './access';
 import { DeliveryLineCard } from './DeliveryLineCard';
 import { MatchEditor } from './MatchEditor';
@@ -34,28 +34,30 @@ export function DeliveryView({ id }: { id: string }) {
   const closeMark = () => { setMarking(null); noMatch.reset(); };
 
   return (
-    <Stack gap="4">
-      <PageHeader
-        mb="0" title={`DL-${d.number}`} badge={d.voided ? <VoidedBadge /> : undefined}
-        actions={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuUndo2 />{t('void.action')}</Button>}
-      />
-      {d.voided && <Notice status="warning">{t('void.done', { reason: d.voided.reason })}</Notice>}
-      <Card.Root size="sm">
-        <Card.Body>
-          <FactList
-            minChildWidth={{ base: '9rem', md: '12rem' }}
-            items={[
-              { label: t('box.receivedAt'), value: d.receivedAt },
-              { label: t('box.source'), value: d.source || '—' },
-              { label: t('box.note'), value: d.note || '—' },
-              { label: t('list.created'), value: shortDate(d.createdAt) },
-            ]}
-          />
-        </Card.Body>
-      </Card.Root>
+    <Stack gap="6" maxW="5xl">
+      <Stack gap="4">
+        <PageHeader
+          mb="0" title={`DL-${d.number}`} badge={d.voided ? <VoidedBadge /> : undefined}
+          actions={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuBan />{t('void.action')}</Button>}
+        />
+        {d.voided && <Notice status="warning">{t('void.done', { reason: d.voided.reason })}</Notice>}
+        <Card.Root size="sm">
+          <Card.Body>
+            <FactList
+              minChildWidth={{ base: '9rem', md: '12rem' }}
+              items={[
+                { label: t('box.receivedAt'), value: shortDay(d.receivedAt) },
+                { label: t('box.source'), value: d.source || '—' },
+                { label: t('box.note'), value: d.note || '—' },
+                { label: t('list.created'), value: shortDate(d.createdAt) },
+              ]}
+            />
+          </Card.Body>
+        </Card.Root>
+      </Stack>
 
       <Stack gap="2">
-        <SectionHeader as="h2" title={t('line.title')} count={d.lines.length} />
+        <SectionHeader as="h2" mb="0" title={t('line.title')} count={d.lines.length} />
         {d.lines.map((l) => (
           <DeliveryLineCard
             key={l.id} line={l} canWrite={canWrite}

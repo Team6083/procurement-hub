@@ -5,19 +5,16 @@
   "nav": {
     "home": "My tasks",
     "batches": "Batches",
-    "reports": "Reports",
-    "settings": "Settings",
-    "admin": "Role mappings",
+    "admin": "Admin",
     "teams": "Teams",
     "menu": "Menu",
     "purchasing": "Purchasing",
     "receiving": "Receiving",
     "vendors": "Vendors",
     "rates": "Reference rates",
-    "deliveries": "Deliveries"
+    "roleMappings": "Role mappings"
   },
   "language": {
-    "label": "Language",
     "en": "English",
     "zh-TW": "繁體中文"
   },
@@ -34,7 +31,6 @@
   "pages": {
     "home": "My tasks",
     "batches": "Batches",
-    "settings": "Settings",
     "team": "Team",
     "batch": "Batch",
     "reports": "Reports",
@@ -59,9 +55,6 @@
     "placeholder": "Search by name or email",
     "minChars": "Type at least 2 characters.",
     "none": "No users found. Users appear here after their first login."
-  },
-  "settingsPage": {
-    "languageHelp": "Your language is saved to your profile."
   },
   "undo": {
     "reason": "Reason",

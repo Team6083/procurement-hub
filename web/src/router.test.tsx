@@ -25,7 +25,10 @@ vi.mock('./pages/HomePage', async () => {
 });
 vi.mock('./pages/BatchesPage', () => ({ BatchesPage: stub('batches') }));
 vi.mock('./pages/BatchPage', () => ({ BatchPage: stub('batch') }));
-vi.mock('./pages/SettingsPage', () => ({ SettingsPage: stub('settings') }));
+vi.mock('./pages/AdminLayout', async () => {
+  const { Outlet } = await import('react-router');
+  return { AdminLayout: () => <Outlet /> };
+});
 vi.mock('./pages/RoleMappingsPage', () => ({ RoleMappingsPage: stub('role-mappings') }));
 vi.mock('./pages/TeamShell', async () => {
   const { Outlet } = await import('react-router');
@@ -73,7 +76,6 @@ describe('routes (spec section 17.1)', () => {
   it.each([
     ['/batches', 'batches {} /batches'],
     ['/batches/42', 'batch {"id":"42"} /batches/42'],
-    ['/settings', 'settings {} /settings'],
     ['/admin/role-mappings', 'role-mappings {} /admin/role-mappings'],
     ['/admin/vendors', 'vendors {} /admin/vendors'],
     ['/admin/reference-rates', 'reference-rates {} /admin/reference-rates'],

@@ -53,7 +53,7 @@ function NewDelivery() {
   };
 
   return (
-    <Stack gap="4">
+    <Stack gap="4" maxW="5xl">
       <PageHeader mb="0" title={t('box.title')} description={t('box.intro')} />
       <Card.Root size="sm">
         <Card.Body>
@@ -80,8 +80,8 @@ function NewDelivery() {
 
       <ErrorAlert error={create.error} />
       <HStack justify="space-between" wrap="wrap" gap="2">
-        <Button variant="outline" onClick={add}><LuPlus />{t('box.addLine')}</Button>
-        <Button colorPalette="brand" loading={create.isPending} onClick={save}><LuSave />{t('box.save')}</Button>
+        <Button size="sm" variant="outline" onClick={add}><LuPlus />{t('box.addLine')}</Button>
+        <Button size="sm" loading={create.isPending} onClick={save}><LuSave />{t('box.save')}</Button>
       </HStack>
     </Stack>
   );

@@ -50,7 +50,7 @@ describe('DeliveryView match flow', () => {
     // The damaged unit does not fit: a hint, not an error, and the shortcut to mark the rest.
     fireEvent.change(problem, { target: { value: '1' } });
     expect(within(dialog).getByText('This line lacks only 3; the extra 1 will stay pending.')).toBeTruthy();
-    expect(within(dialog).getByRole('button', { name: 'Save and mark the rest as not needed' })).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Save, rest not needed' })).toBeTruthy();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Save matches' }));
     await waitFor(() => expect(calls.some((c) => c.method === 'PUT')).toBe(true));

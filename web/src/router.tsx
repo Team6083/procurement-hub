@@ -1,12 +1,13 @@
 import { Spinner, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
+import { Navigate, Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
 import { AppCommitProvider } from '@team6083/ui';
 import { useVersionMismatch } from './api/versionGuard';
 import { AppFrame } from './components/AppFrame';
 import { LocaleSync } from './components/LocaleSync';
 import { BASE_PATH } from './config';
+import { AdminLayout } from './pages/AdminLayout';
 import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { DeliveriesPage } from './pages/DeliveriesPage';
@@ -15,12 +16,12 @@ import { DeliveryPage } from './pages/DeliveryPage';
 import { HomePage } from './pages/HomePage';
 import { Placeholder } from './pages/Placeholder';
 import { PurchasingPage } from './pages/PurchasingPage';
+import { ReceivingLayout } from './pages/ReceivingLayout';
 import { ReceivingPage } from './pages/ReceivingPage';
 import { VendorOrderPage } from './pages/VendorOrderPage';
 import { VendorOrdersPage } from './pages/VendorOrdersPage';
 import { ReferenceRatesPage } from './pages/ReferenceRatesPage';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
-import { SettingsPage } from './pages/SettingsPage';
 import { GeneralSettings } from './pages/settings/GeneralSettings';
 import { MembersSettings } from './pages/settings/MembersSettings';
 import { SubgroupsSettings } from './pages/settings/SubgroupsSettings';
@@ -70,11 +71,15 @@ export const routes: RouteObject[] = [
           { path: '/purchasing', element: <PurchasingPage /> },
           { path: '/vendor-orders', element: <VendorOrdersPage /> },
           { path: '/vendor-orders/:id', element: <VendorOrderPage /> },
-          { path: '/receiving', element: <ReceivingPage /> },
-          { path: '/deliveries', element: <DeliveriesPage /> },
+          {
+            element: <ReceivingLayout />,
+            children: [
+              { path: '/receiving', element: <ReceivingPage /> },
+              { path: '/deliveries', element: <DeliveriesPage /> },
+            ],
+          },
           { path: '/deliveries/new', element: <DeliveryNewPage /> },
           { path: '/deliveries/:id', element: <DeliveryPage /> },
-          { path: '/settings', element: <SettingsPage /> },
           {
             path: '/teams/:slug',
             element: <TeamShell />,
@@ -93,9 +98,16 @@ export const routes: RouteObject[] = [
             ],
           },
           { path: '/reports', element: <Placeholder titleKey="pages.reports" /> },
-          { path: '/admin/role-mappings', element: <RoleMappingsPage /> },
-          { path: '/admin/vendors', element: <VendorsPage /> },
-          { path: '/admin/reference-rates', element: <ReferenceRatesPage /> },
+          {
+            path: '/admin',
+            element: <AdminLayout />,
+            children: [
+              { index: true, element: <Navigate to="vendors" replace /> },
+              { path: 'vendors', element: <VendorsPage /> },
+              { path: 'reference-rates', element: <ReferenceRatesPage /> },
+              { path: 'role-mappings', element: <RoleMappingsPage /> },
+            ],
+          },
           { path: '/auth/callback', element: <Callback /> },
           { path: '*', element: <Placeholder titleKey="pages.notFound" /> },
         ],

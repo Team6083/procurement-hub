@@ -1,10 +1,10 @@
-import { Button, HStack, Input, Stack } from '@chakra-ui/react';
+import { Button, Dialog, HStack, Input, Stack } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAddLine, usePutLine, type LineBody } from '../../api/vendorOrders';
 import type { TeamSummary, VendorOrder, VendorOrderLine } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { currencyFractionDigits, validateAmount } from '../money';
@@ -42,27 +42,30 @@ function Form({ order, teams, line, onClose }: Omit<Props, 'opened'>) {
   };
 
   return (
-    <Stack gap="3">
-      <SelectField
-        label={t('line.team')} value={teamId} onChange={setTeamId} placeholder={t('line.chooseTeam')} disabled={placed || linked}
-        options={teams.map((x) => ({ value: x.id, label: x.name }))}
-      />
-      <FormField label={t('line.name')} required><Input value={name} onChange={(e) => setName(e.currentTarget.value)} /></FormField>
-      <FormField label={t('line.sku')}><Input value={sku} onChange={(e) => setSku(e.currentTarget.value)} /></FormField>
-      <HStack align="flex-start">
-        <FormField label={t('line.quantity')} errorText={qtyOk ? undefined : t('line.quantityInvalid')} disabled={placed}>
-          <Input value={quantity} inputMode="numeric" onChange={(e) => setQuantity(e.currentTarget.value)} />
-        </FormField>
-        <FormField label={t('line.unitPrice', { currency: order.currency })} errorText={priceError ? t(`amount.${priceError}`) : undefined}>
-          <Input value={price} inputMode="decimal" onChange={(e) => setPrice(e.currentTarget.value)} />
-        </FormField>
-      </HStack>
-      <ErrorAlert error={mutation.error} />
-      <HStack justify="flex-end">
-        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button loading={mutation.isPending} disabled={!valid} onClick={submit}>{t('common:actions.save')}</Button>
-      </HStack>
-    </Stack>
+    <>
+      <Dialog.Body>
+        <Stack gap="3">
+          <SelectField
+            label={t('line.team')} value={teamId} onChange={setTeamId} placeholder={t('line.chooseTeam')} disabled={placed || linked}
+            options={teams.map((x) => ({ value: x.id, label: x.name }))}
+          />
+          <FormField label={t('line.name')} required><Input value={name} onChange={(e) => setName(e.currentTarget.value)} /></FormField>
+          <FormField label={t('line.sku')}><Input value={sku} onChange={(e) => setSku(e.currentTarget.value)} /></FormField>
+          <HStack gap="3" align="flex-start">
+            <FormField label={t('line.quantity')} errorText={qtyOk ? undefined : t('line.quantityInvalid')} disabled={placed}>
+              <Input value={quantity} inputMode="numeric" onChange={(e) => setQuantity(e.currentTarget.value)} />
+            </FormField>
+            <FormField label={t('line.unitPrice', { currency: order.currency })} errorText={priceError ? t(`amount.${priceError}`) : undefined}>
+              <Input value={price} inputMode="decimal" onChange={(e) => setPrice(e.currentTarget.value)} />
+            </FormField>
+          </HStack>
+          <ErrorAlert error={mutation.error} />
+        </Stack>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" loading={mutation.isPending} disabled={!valid} onClick={submit}>{t('common:actions.save')}</Button>
+      </DialogFooter>
+    </>
   );
 }
 

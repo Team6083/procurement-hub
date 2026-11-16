@@ -29,7 +29,7 @@ function GeneralForm_({ team }: { team: Team }) {
   return (
     <form onSubmit={submit} noValidate>
       <fieldset disabled={team.archived} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-        <Stack maxW="640px" gap="4">
+        <Stack maxW="640px" gap="3">
           <FormField label={t('general.name')} errorText={msg(err.name?.message)}>
             <Input {...form.register('name')} />
           </FormField>
@@ -67,7 +67,7 @@ function GeneralForm_({ team }: { team: Team }) {
           />
           <Separator />
           <Text fontWeight="semibold">{t('general.priorityLabels')}</Text>
-          <Text fontSize="sm" color="fg.muted">{t('general.priorityHelp')}</Text>
+          <Text color="fg.muted">{t('general.priorityHelp')}</Text>
           {PRIORITIES.map((k: PriorityKey) => (
             <FormField key={k} label={t('priority.level', { n: k })} errorText={msg(err.priority?.[k]?.message)}>
               <Input placeholder={t(`priority.default.${k}`)} {...form.register(`priority.${k}`)} />
@@ -76,7 +76,7 @@ function GeneralForm_({ team }: { team: Team }) {
           <ErrorAlert error={save.error} />
           {save.isSuccess && !form.formState.isDirty && <Text fontSize="sm" color="fg.success">{t('common:actions.saved')}</Text>}
           <HStack>
-            <Button type="submit" loading={save.isPending} disabled={!form.formState.isDirty}>{t('common:actions.save')}</Button>
+            <Button size="sm" type="submit" loading={save.isPending} disabled={!form.formState.isDirty}>{t('common:actions.save')}</Button>
           </HStack>
         </Stack>
       </fieldset>
@@ -93,9 +93,9 @@ function ArchiveControl({ team }: { team: Team }) {
     <Stack gap="2" maxW="640px">
       <Separator />
       <Text fontWeight="semibold">{t('general.archive.title')}</Text>
-      <Text fontSize="sm" color="fg.muted">{t('general.archive.help')}</Text>
+      <Text color="fg.muted">{t('general.archive.help')}</Text>
       <HStack>
-        <Button colorPalette={team.archived ? 'brand' : 'red'} variant="subtle" loading={toggle.isPending} onClick={() => toggle.mutate(!team.archived)}>
+        <Button size="sm" colorPalette={team.archived ? undefined : 'red'} variant="subtle" loading={toggle.isPending} onClick={() => toggle.mutate(!team.archived)}>
           {team.archived ? t('general.archive.unarchive') : t('general.archive.archive')}
         </Button>
       </HStack>

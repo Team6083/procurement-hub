@@ -46,44 +46,46 @@ export function BatchPage() {
   const defaultSubgroupId = me?.memberships.find((m) => m.teamId === batch.teamId)?.defaultSubgroupId ?? '';
 
   return (
-    <Stack gap="4">
-      <PageHeader
-        mb="0"
-        title={`#${batch.number} ${batch.title}`}
-        badge={
-          <HStack gap="2">
-            <BatchStatusBadge status={batch.status} />
-            {batch.origin === 'proposed' && <Badge variant="outline">{t('header.proposed')}</Badge>}
-          </HStack>
-        }
-        description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
-        actions={
-          <HStack wrap="wrap">
-            {canEditBatch(batch, caller) && (
-              <Button size="sm" variant="outline" onClick={open}>
-                <LuPencil />
-                {t('edit.button')}
-              </Button>
-            )}
-            <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} />
-          </HStack>
-        }
-      />
-      {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
-      {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
-      <Card.Root size="sm">
-        <Card.Body>
-          <FactList
-            minChildWidth={{ base: '9rem', md: '12rem' }}
-            items={[
-              { label: t('header.deadline'), value: shortDate(batch.deadline) },
-              { label: t('header.visibility'), value: visibility ? t(`visibility.${visibility}`) : '—' },
-              { label: t('assignments.approvers'), value: who(batch.assignments.approvers) },
-              { label: t('assignments.purchasers'), value: who(batch.assignments.purchasers) },
-            ]}
-          />
-        </Card.Body>
-      </Card.Root>
+    <Stack gap="6">
+      <Stack gap="4">
+        <PageHeader
+          mb="0"
+          title={`#${batch.number} ${batch.title}`}
+          badge={
+            <HStack gap="2">
+              <BatchStatusBadge status={batch.status} />
+              {batch.origin === 'proposed' && <Badge variant="outline">{t('header.proposed')}</Badge>}
+            </HStack>
+          }
+          description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
+          actions={
+            <HStack gap="2" wrap="wrap">
+              {canEditBatch(batch, caller) && (
+                <Button size="sm" variant="outline" onClick={open}>
+                  <LuPencil />
+                  {t('edit.button')}
+                </Button>
+              )}
+              <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} />
+            </HStack>
+          }
+        />
+        {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
+        {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
+        <Card.Root size="sm" maxW="5xl">
+          <Card.Body>
+            <FactList
+              minChildWidth={{ base: '9rem', md: '12rem' }}
+              items={[
+                { label: t('header.deadline'), value: shortDate(batch.deadline) },
+                { label: t('header.visibility'), value: visibility ? t(`visibility.${visibility}`) : '—' },
+                { label: t('assignments.approvers'), value: who(batch.assignments.approvers) },
+                { label: t('assignments.purchasers'), value: who(batch.assignments.purchasers) },
+              ]}
+            />
+          </Card.Body>
+        </Card.Root>
+      </Stack>
 
       <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
         <Tabs.List overflowX="auto">

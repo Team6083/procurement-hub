@@ -22,11 +22,11 @@ function RateRow({ currency, rate, base, canEdit }: { currency: string; rate: Re
     <Card.Root size="sm">
       <Card.Body gap="2">
         <HStack justify="space-between" wrap="wrap" gap="3">
-          <Text fontWeight="medium">{currency}</Text>
+          <Text fontWeight="semibold">{currency}</Text>
           {canEdit ? (
             <HStack gap="2" flex="1" justify="flex-end" wrap="wrap">
               <FormField flex="1" errorText={invalid ? t('rates.invalid') : undefined}>
-                <Input size="sm" aria-label={t('rates.rate', { currency, base })} value={value} inputMode="decimal"
+                <Input aria-label={t('rates.rate', { currency, base })} value={value} inputMode="decimal"
                   onChange={(e) => setValue(e.currentTarget.value)} />
               </FormField>
               <Button size="sm" loading={put.isPending} disabled={!value.trim() || invalid || value.trim() === rate?.rateToBase}

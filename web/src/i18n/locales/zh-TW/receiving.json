@@ -85,10 +85,10 @@
     "totals": "已分配：可用 {{good}} / {{goodOf}}，有問題 {{problem}} / {{problemOf}}",
     "tooMany": "超過這一行到貨的數量。",
     "restReason": "多出部分的原因",
-    "restHelp": "「儲存並把剩下的標記為不需對應」會用到。",
+    "restHelp": "「儲存，其餘不需對應」會用到。",
     "overReason": "廠商多寄",
     "save": "儲存對應",
-    "saveAndMarkRest": "儲存並把剩下的標記為不需對應"
+    "saveAndMarkRest": "儲存，其餘不需對應"
   },
   "noMatch": {
     "action": "標記不需對應",
@@ -147,5 +147,9 @@
     "received": "已到 / 應到",
     "missing": "短少",
     "empty": "沒有待決定的短少明細行。"
+  },
+  "tabs": {
+    "workbench": "工作台",
+    "deliveries": "到貨紀錄"
   }
 }

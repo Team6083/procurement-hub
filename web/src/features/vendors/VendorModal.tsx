@@ -1,11 +1,11 @@
-import { Button, HStack, Input, Stack, Switch, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Input, Stack, Switch, Textarea } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeta } from '../../api/meta';
 import { useCreateVendor, usePutVendor, type VendorBody } from '../../api/vendors';
 import type { Vendor } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { safeHttpUrl } from '../batches/itemForm';
@@ -34,29 +34,32 @@ function Inner({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void
     else create.mutate(body, { onSuccess: onClose });
   };
   return (
-    <Stack gap="4">
-      <FormField label={t('vendors.name')}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} /></FormField>
-      <FormField label={t('vendors.aliases')} helperText={t('vendors.aliasesHelp')}>
-        <Textarea value={aliases} onChange={(e) => setAliases(e.currentTarget.value)} autoresize rows={2} />
-      </FormField>
-      <SelectField label={t('vendors.currency')} value={currency} onChange={setCurrency} options={currencies.length ? currencies : [base]} />
-      <FormField label={t('vendors.website')} errorText={badUrl ? t('vendors.badUrl') : undefined}>
-        <Input value={website} onChange={(e) => setWebsite(e.currentTarget.value)} inputMode="url" />
-      </FormField>
-      <FormField label={t('vendors.notes')}><Textarea value={notes} onChange={(e) => setNotes(e.currentTarget.value)} autoresize rows={2} /></FormField>
-      {vendor && (
-        <Switch.Root checked={active} onCheckedChange={(e) => setActive(e.checked)}>
-          <Switch.HiddenInput />
-          <Switch.Control />
-          <Switch.Label>{t('vendors.active')}</Switch.Label>
-        </Switch.Root>
-      )}
-      <ErrorAlert error={mutation.error} />
-      <HStack justify="flex-end">
-        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button loading={mutation.isPending} disabled={!name.trim() || badUrl} onClick={save}>{t('common:actions.save')}</Button>
-      </HStack>
-    </Stack>
+    <>
+      <Dialog.Body>
+        <Stack gap="3">
+          <FormField label={t('vendors.name')}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} /></FormField>
+          <FormField label={t('vendors.aliases')} helperText={t('vendors.aliasesHelp')}>
+            <Textarea value={aliases} onChange={(e) => setAliases(e.currentTarget.value)} autoresize rows={2} />
+          </FormField>
+          <SelectField label={t('vendors.currency')} value={currency} onChange={setCurrency} options={currencies.length ? currencies : [base]} />
+          <FormField label={t('vendors.website')} errorText={badUrl ? t('vendors.badUrl') : undefined}>
+            <Input value={website} onChange={(e) => setWebsite(e.currentTarget.value)} inputMode="url" />
+          </FormField>
+          <FormField label={t('vendors.notes')}><Textarea value={notes} onChange={(e) => setNotes(e.currentTarget.value)} autoresize rows={2} /></FormField>
+          {vendor && (
+            <Switch.Root checked={active} onCheckedChange={(e) => setActive(e.checked)}>
+              <Switch.HiddenInput />
+              <Switch.Control />
+              <Switch.Label>{t('vendors.active')}</Switch.Label>
+            </Switch.Root>
+          )}
+          <ErrorAlert error={mutation.error} />
+        </Stack>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" loading={mutation.isPending} disabled={!name.trim() || badUrl} onClick={save}>{t('common:actions.save')}</Button>
+      </DialogFooter>
+    </>
   );
 }
 

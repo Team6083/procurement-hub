@@ -1,8 +1,8 @@
-import { Badge, Button, Card, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Badge, Button, Card, Dialog, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, PageHeader, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuShoppingCart } from 'react-icons/lu';
+import { LuBan, LuReceiptText, LuShoppingCart, LuStore } from 'react-icons/lu';
 import { useMe } from '../api/me';
 import type { QueueGroup, QueueItem } from '../api/types';
 import { useMarkUnpurchasable, useQueue } from '../api/vendorOrders';
@@ -70,7 +70,12 @@ export function PurchasingPage() {
     <Stack gap="4">
       <PageHeader
         mb="0" title={t('queue.title')} description={t('queue.intro')}
-        actions={<RouteButton size="sm" variant="outline" to="/vendor-orders">{t('list.title')}</RouteButton>}
+        actions={
+          <>
+            <RouteButton size="sm" variant="outline" to={paths.adminVendors}><LuStore />{t('common:nav.vendors')}</RouteButton>
+            <RouteButton size="sm" variant="outline" to={paths.vendorOrders}><LuReceiptText />{t('list.title')}</RouteButton>
+          </>
+        }
       />
       {!me?.isPurchaser && <Notice>{t('queue.purchasersOnly')}</Notice>}
       {queue.isPending && <Skeleton h="24" rounded="l3" />}
@@ -107,7 +112,7 @@ export function PurchasingPage() {
         />
       )}
       <AppDialog open={!!opened} onClose={() => setOpened(null)} size="xl" title={t('queue.orderDialog')}>
-        {opened && <VendorOrderView id={opened} embedded />}
+        <Dialog.Body>{opened && <VendorOrderView id={opened} embedded />}</Dialog.Body>
       </AppDialog>
       <ReasonModal
         opened={!!marking} danger title={marking && marking.plannedQuantity > 0 ? t('queue.skipRemaining') : t('queue.unpurchasable')}

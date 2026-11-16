@@ -20,7 +20,7 @@ export function HomePage() {
   const roleOf = (id: string) => memberships.find((m) => m.teamId === id)?.role;
 
   return (
-    <Stack gap="8">
+    <Stack gap="6">
       <Box>
         <PageHeader title={t('common:pages.home')} />
         <MyTasksCard />

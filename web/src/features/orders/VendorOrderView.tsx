@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Button, Card, HStack, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,7 @@ import { ErrorAlert, Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { currencyFractionDigits } from '../money';
-import { shortDate } from '../dates';
+import { shortDate, shortDay } from '../dates';
 import { Breakdown } from './Breakdown';
 import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
@@ -54,6 +54,8 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const draft = order.status === 'draft';
   const vendor = order.vendorName;
   const close = () => { setUndo(null); action.reset(); };
+  // Inside the purchasing page's dialog the dialog title is the heading, so the sections step down a level.
+  const h = embedded ? 'h3' : 'h2';
 
   const header = (
     <>
@@ -75,38 +77,40 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   );
 
   return (
-    <Stack gap="4">
-      {embedded ? (
-        <HStack justify="space-between" wrap="wrap">
-          <HStack gap="2"><Text fontWeight="semibold">{`VO-${order.number}`}</Text><Text color="fg.muted">{vendor}</Text>{header}</HStack>
-          {actions}
-        </HStack>
-      ) : (
-        <PageHeader mb="0" title={`VO-${order.number} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
-      )}
-      {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
-      {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}
-      {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
-      {!undo && <ErrorAlert error={action.error} />}
-      <Card.Root size="sm">
-        <Card.Body>
-          <FactList
-            minChildWidth={{ base: '9rem', md: '12rem' }}
-            items={[
-              { label: t('details.currency'), value: order.currency },
-              { label: t('details.externalNo'), value: order.externalOrderNo || '—' },
-              { label: t('details.placedAt'), value: shortDate(order.placedAt) },
-              { label: t('details.delivery'), value: order.expectedDeliveryDate || '—' },
-              ...(order.restricted ? [] : [{ label: t('details.charged'), value: formatMoney(order.chargedAmountBase, baseCurrency, i18n.language) }]),
-            ]}
-          />
-        </Card.Body>
-      </Card.Root>
+    <Stack gap="6">
+      <Stack gap="4">
+        {embedded ? (
+          <HStack justify="space-between" wrap="wrap">
+            <HStack gap="2"><Text fontWeight="semibold">{`VO-${order.number}`}</Text><Text color="fg.muted">{vendor}</Text>{header}</HStack>
+            {actions}
+          </HStack>
+        ) : (
+          <PageHeader mb="0" title={`VO-${order.number} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
+        )}
+        {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
+        {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}
+        {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
+        {!undo && <ErrorAlert error={action.error} />}
+        <Card.Root size="sm" maxW="5xl">
+          <Card.Body>
+            <FactList
+              minChildWidth={{ base: '9rem', md: '10rem' }}
+              items={[
+                { label: t('details.currency'), value: order.currency },
+                { label: t('details.externalNo'), value: order.externalOrderNo || '—' },
+                { label: t('details.placedAt'), value: shortDate(order.placedAt) },
+                { label: t('details.delivery'), value: shortDay(order.expectedDeliveryDate) },
+                ...(order.restricted ? [] : [{ label: t('details.charged'), value: formatMoney(order.chargedAmountBase, baseCurrency, i18n.language) }]),
+              ]}
+            />
+          </Card.Body>
+        </Card.Root>
+      </Stack>
 
       <Stack gap="2">
         <SectionHeader
-          as="h3" title={t('line.title')} count={order.lines.length}
-          actions={canWrite && draft && <Button size="xs" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>}
+          as={h} mb="0" title={t('line.title')} count={order.lines.length}
+          actions={canWrite && draft && <Button size="sm" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>}
         />
         <LinesTable
           order={order} baseCurrency={baseCurrency} teamName={teamName} canWrite={canWrite}
@@ -114,18 +118,20 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         />
       </Stack>
 
-      <Breakdown order={order} baseCurrency={baseCurrency} />
+      {/* The calculation beside the form that changes it; wide screens only, the dialog stays one column. */}
+      <SimpleGrid columns={{ base: 1, lg: embedded ? 1 : 2 }} gap="6" alignItems="start">
+        <Breakdown order={order} baseCurrency={baseCurrency} headingAs={h} />
+        {canWrite && order.status !== 'cancelled' && (
+          <DetailsForm
+            key={JSON.stringify([order.vendorId, order.currency, order.externalOrderNo, order.expectedDeliveryDate, order.paymentNote, order.chargedAmountBase, order.sharedCosts, order.teamCostOverrides, order.overrideReason, order.teamIds])}
+            order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} teamName={teamName} baseDigits={baseDigits} headingAs={h}
+          />
+        )}
+      </SimpleGrid>
+      <LedgerSection order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} canWrite={canWrite} headingAs={h} />
 
-      {canWrite && order.status !== 'cancelled' && (
-        <DetailsForm
-          key={JSON.stringify([order.vendorId, order.currency, order.externalOrderNo, order.expectedDeliveryDate, order.paymentNote, order.chargedAmountBase, order.sharedCosts, order.teamCostOverrides, order.overrideReason, order.teamIds])}
-          order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} teamName={teamName} baseDigits={baseDigits}
-        />
-      )}
-      <LedgerSection order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} canWrite={canWrite} />
-
-      <Stack gap="2">
-        <SectionHeader as="h3" title={t('timeline.title')} />
+      <Stack gap="2" maxW="5xl">
+        <SectionHeader as={h} mb="0" title={t('timeline.title')} />
         <OrderTimeline orderId={order.id} />
       </Stack>
 

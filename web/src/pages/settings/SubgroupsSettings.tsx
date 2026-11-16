@@ -26,7 +26,7 @@ function AddSubgroup({ team }: { team: Team }) {
       <Stack gap="2" maxW="480px">
         <Flex align="flex-end" gap="2">
           <FormField flex="1" label={t('subgroups.name')}>
-            <Input size="sm" value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
+            <Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
           </FormField>
           <Button size="sm" type="submit" loading={add.isPending} disabled={!name.trim() || team.archived}>{t('subgroups.add')}</Button>
         </Flex>
@@ -76,7 +76,7 @@ function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
               <Button
                 size="xs"
                 variant="subtle"
-                colorPalette={group.active ? 'red' : 'brand'}
+                colorPalette={group.active ? 'red' : undefined}
                 disabled={team.archived}
                 loading={patch.isPending}
                 onClick={() => patch.mutate({ active: !group.active })}

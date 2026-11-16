@@ -1,4 +1,4 @@
-import { Button, Card, Checkbox, HStack, IconButton, Input, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, Card, Checkbox, HStack, IconButton, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -31,13 +31,14 @@ interface Props {
   supported: string[];
   teamName: (id: string) => string;
   baseDigits: number;
+  headingAs?: 'h2' | 'h3';
 }
 
 /**
  * The editable order fields: vendor order number, shared costs, optional per-team allocation, the amount actually
  * charged, delivery date and note. PUT replaces them all, so the form always sends the whole set.
  */
-export function DetailsForm({ order, vendors, supported, teamName, baseDigits }: Props) {
+export function DetailsForm({ order, vendors, supported, teamName, baseDigits, headingAs = 'h2' }: Props) {
   const { t } = useTranslation('purchasing');
   const put = usePutOrder(order.id);
   const draft = order.status === 'draft';
@@ -76,35 +77,35 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits }:
 
   return (
     <Stack gap="2">
-      <SectionHeader as="h3" title={t('details.title')} />
+      <SectionHeader as={headingAs} mb="0" title={t('details.title')} />
       <Card.Root size="sm">
-        <Card.Body gap="4">
+        <Card.Body gap="3">
           {draft && (
-            <HStack align="flex-start" wrap="wrap">
+            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <SelectField label={t('details.vendor')} value={vendorId} onChange={setVendorId} options={vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => ({ value: v.id, label: v.name }))} />
               <SelectField label={t('details.currency')} value={currency} onChange={setCurrency} options={supported} />
-            </HStack>
+            </SimpleGrid>
           )}
-          <HStack align="flex-start" wrap="wrap">
-            <FormField label={t('details.externalNo')} flex="1"><Input value={externalNo} onChange={(e) => { setSaved(false); setExternalNo(e.currentTarget.value); }} /></FormField>
-            <FormField label={t('details.delivery')} flex="1"><Input type="date" value={delivery} onChange={(e) => { setSaved(false); setDelivery(e.currentTarget.value); }} /></FormField>
-          </HStack>
+          <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+            <FormField label={t('details.externalNo')}><Input value={externalNo} onChange={(e) => { setSaved(false); setExternalNo(e.currentTarget.value); }} /></FormField>
+            <FormField label={t('details.delivery')}><Input type="date" value={delivery} onChange={(e) => { setSaved(false); setDelivery(e.currentTarget.value); }} /></FormField>
+          </SimpleGrid>
 
           <Stack gap="2">
-            <Text fontWeight="medium" fontSize="sm">{t('details.sharedCosts', { currency })}</Text>
-            {costs.length === 0 && <Text fontSize="sm" color="fg.muted">{t('details.noSharedCosts')}</Text>}
+            <Text fontWeight="medium">{t('details.sharedCosts', { currency })}</Text>
+            {costs.length === 0 && <Text color="fg.muted">{t('details.noSharedCosts')}</Text>}
             {costs.map((c, i) => (
-              <HStack key={i} align="flex-start" wrap="wrap">
+              <HStack key={i} gap="2" align="flex-start" wrap="wrap">
                 <SelectField aria-label={t('details.costType')} value={c.type} onChange={(v) => setCost(i, { type: v })} options={TYPES.map((x) => ({ value: x, label: t(`details.costTypes.${x}`) }))} />
                 <FormField errorText={c.amount && costErrors[i] ? t(`amount.${costErrors[i]}`) : undefined} flex="1">
                   <Input aria-label={t('details.costAmount')} placeholder={t('details.costAmount')} value={c.amount} inputMode="decimal" onChange={(e) => setCost(i, { amount: e.currentTarget.value })} />
                 </FormField>
                 <FormField flex="2"><Input aria-label={t('details.costNote')} placeholder={t('details.costNote')} value={c.note} onChange={(e) => setCost(i, { note: e.currentTarget.value })} /></FormField>
-                <IconButton size="sm" variant="ghost" aria-label={t('details.removeCost')} onClick={() => { setSaved(false); setCosts(costs.filter((_, k) => k !== i)); }}><LuTrash2 /></IconButton>
+                <IconButton variant="ghost" aria-label={t('details.removeCost')} onClick={() => { setSaved(false); setCosts(costs.filter((_, k) => k !== i)); }}><LuTrash2 /></IconButton>
               </HStack>
             ))}
             <div>
-              <Button size="xs" variant="outline" onClick={() => { setSaved(false); setCosts([...costs, { type: 'shipping', amount: '', note: '' }]); }}><LuPlus />{t('details.addCost')}</Button>
+              <Button size="sm" variant="outline" onClick={() => { setSaved(false); setCosts([...costs, { type: 'shipping', amount: '', note: '' }]); }}><LuPlus />{t('details.addCost')}</Button>
             </div>
           </Stack>
 
@@ -122,7 +123,7 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits }:
                       <Input value={overrides[id] ?? ''} inputMode="decimal" onChange={(e) => { setSaved(false); setOverrides({ ...overrides, [id]: e.currentTarget.value }); }} />
                     </FormField>
                   ))}
-                  {mismatch && <Text fontSize="sm" color="red.fg">{t('details.overrideMismatch', { total: format(sum(costs)), allocated: format(overrideSum) })}</Text>}
+                  {mismatch && <Text color="fg.error">{t('details.overrideMismatch', { total: format(sum(costs)), allocated: format(overrideSum) })}</Text>}
                   <FormField label={t('details.overrideReason')} required><Textarea value={reason} onChange={(e) => { setSaved(false); setReason(e.currentTarget.value); }} autoresize rows={2} /></FormField>
                 </Stack>
               )}
@@ -136,7 +137,7 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits }:
           <ErrorAlert error={put.error} />
           {saved && <Notice status="info">{t('details.saved')}</Notice>}
           <HStack justify="flex-end">
-            <Button loading={put.isPending} disabled={!valid} onClick={() => put.mutate(body(), { onSuccess: () => setSaved(true) })}>{t('common:actions.save')}</Button>
+            <Button size="sm" loading={put.isPending} disabled={!valid} onClick={() => put.mutate(body(), { onSuccess: () => setSaved(true) })}>{t('common:actions.save')}</Button>
           </HStack>
         </Card.Body>
       </Card.Root>

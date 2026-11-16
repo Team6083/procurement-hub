@@ -32,8 +32,8 @@ function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
 function TaskGroup({ title, count, children }: { title: string; count: number; children: ReactNode }) {
   if (count === 0) return null;
   return (
-    <Stack gap="0">
-      <SectionHeader as="h3" title={title} count={count} mb="2" />
+    <Stack gap="2">
+      <SectionHeader as="h3" title={title} count={count} mb="0" />
       <Card.Root size="sm">
         <Card.Body gap="2" alignItems="flex-start">
           {children}

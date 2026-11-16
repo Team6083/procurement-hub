@@ -10,7 +10,7 @@ import { ProvisionalBadge } from './StatusBadges';
  * The calculation, step by step (spec section 17.2): original total, conversion factor, target, ledger and net,
  * with the invariant check (net equals the sum of the line totals) and the reasons an amount is missing.
  */
-export function Breakdown({ order, baseCurrency }: { order: VendorOrder; baseCurrency: string }) {
+export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: VendorOrder; baseCurrency: string; headingAs?: 'h2' | 'h3' }) {
   const { t, i18n } = useTranslation('purchasing');
   const tt = order.totals;
   const c = (v: string | null | undefined) => formatMoney(v, order.currency, i18n.language);
@@ -19,10 +19,10 @@ export function Breakdown({ order, baseCurrency }: { order: VendorOrder; baseCur
   if (order.restricted) {
     return (
       <Stack gap="2">
-        <SectionHeader as="h3" title={t('breakdown.title')} />
+        <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
         <Card.Root size="sm">
           <Card.Body gap="2">
-            <Text fontSize="sm" color="fg.muted">{t('breakdown.restricted')}</Text>
+            <Text color="fg.muted">{t('breakdown.restricted')}</Text>
             <HStack gap="2"><Text fontWeight="medium">{t('breakdown.visibleTotal')}</Text><Text>{b(order.visibleTotalBase)}</Text>{tt.provisional && <ProvisionalBadge />}</HStack>
             {order.otherTeams && (
               <Text fontSize="sm">{t('breakdown.otherTeams', { count: order.otherTeams.lines })}: {b(order.otherTeams.totalBase)}</Text>
@@ -36,10 +36,11 @@ export function Breakdown({ order, baseCurrency }: { order: VendorOrder; baseCur
 
   return (
     <Stack gap="2">
-      <SectionHeader as="h3" title={t('breakdown.title')} />
+      <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
       <Card.Root size="sm">
         <Card.Body gap="3">
           <Totals
+            maxW="none"
             lines={[
               { label: t('breakdown.lines'), value: c(tt.linesC) },
               { label: t('breakdown.shared'), value: c(tt.sharedC) },

@@ -47,15 +47,15 @@ export function VendorOrdersPage() {
     <Stack gap="4">
       <PageHeader
         mb="0" title={t('list.title')} description={t('list.intro')}
-        actions={me?.isPurchaser && <RouteButton size="sm" to={paths.purchasing}><LuShoppingCart />{t('queue.title')}</RouteButton>}
+        actions={me?.isPurchaser && <RouteButton size="sm" variant="outline" to={paths.purchasing}><LuShoppingCart />{t('queue.title')}</RouteButton>}
       />
       <FilterBar
         mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters({})}
       >
-        <SelectField label={t('line.status')} placeholder={t('list.all')} value={filters.status} onChange={set('status')}
+        <SelectField size="sm" label={t('line.status')} placeholder={t('list.all')} value={filters.status} onChange={set('status')}
           options={['draft', 'placed', 'cancelled'].map((s) => ({ value: s, label: t(`orderStatus.${s}`) }))} />
-        <SelectField label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
-        <SelectField label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
+        <SelectField size="sm" label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
+        <SelectField size="sm" label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
       </FilterBar>
       {list.isPending && <Skeleton h="24" rounded="l3" />}
       {list.error && <ErrorAlert error={list.error} />}
@@ -66,7 +66,7 @@ export function VendorOrdersPage() {
         />
       )}
       {list.hasNextPage && (
-        <HStack><Button variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button></HStack>
+        <HStack><Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button></HStack>
       )}
     </Stack>
   );

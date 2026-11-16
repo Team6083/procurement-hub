@@ -1,4 +1,4 @@
-import { Button, HStack, Input, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { usePatchBatch, useSetAssignments } from '../../api/batches';
@@ -6,7 +6,7 @@ import { useRoleHolders } from '../../api/members';
 import type { Batch, PatchBatchRequest, TeamMember } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Checklist } from '../../components/ui/checklist';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { deadlineChange, fromLocalInput, toLocalInput } from './datetime';
@@ -53,31 +53,34 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
   };
 
   return (
-    <Stack gap="4">
-      <FormField label={t('create.title')}>
-        <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
-      </FormField>
-      <FormField label={t('create.description')}>
-        <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
-      </FormField>
-      <FormField label={t('header.deadline')}>
-        <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
-      </FormField>
-      <SelectField
-        label={t('header.visibility')}
-        value={override}
-        onChange={(v) => v && setOverride(v)}
-        options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
-      />
-      <Checklist label={t('assignments.approvers')} options={options} value={a} onChange={setA} />
-      <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={p} onChange={setP} emptyText={t('assignments.none')} />
-      <Text fontSize="sm" color="fg.muted">{t('assignments.purchasersHelp')}</Text>
-      <ErrorAlert error={patch.error ?? assign.error} />
-      <HStack justify="flex-end">
-        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
-        <Button loading={patch.isPending || assign.isPending} disabled={!title.trim() || newDeadline === undefined} onClick={() => void save()}>{t('common:actions.save')}</Button>
-      </HStack>
-    </Stack>
+    <>
+      <Dialog.Body>
+        <Stack gap="3">
+          <FormField label={t('create.title')}>
+            <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
+          </FormField>
+          <FormField label={t('create.description')}>
+            <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
+          </FormField>
+          <FormField label={t('header.deadline')}>
+            <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
+          </FormField>
+          <SelectField
+            label={t('header.visibility')}
+            value={override}
+            onChange={(v) => v && setOverride(v)}
+            options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
+          />
+          <Checklist label={t('assignments.approvers')} options={options} value={a} onChange={setA} />
+          <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={p} onChange={setP} emptyText={t('assignments.none')} />
+          <Text color="fg.muted">{t('assignments.purchasersHelp')}</Text>
+          <ErrorAlert error={patch.error ?? assign.error} />
+        </Stack>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" loading={patch.isPending || assign.isPending} disabled={!title.trim() || newDeadline === undefined} onClick={() => void save()}>{t('common:actions.save')}</Button>
+      </DialogFooter>
+    </>
   );
 }
 

@@ -47,7 +47,7 @@ export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id:
       </Timeline.Root>
       {audit.hasNextPage && (
         <HStack>
-          <Button variant="outline" loading={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>{t('list.loadMore')}</Button>
+          <Button size="sm" variant="outline" loading={audit.isFetchingNextPage} onClick={() => void audit.fetchNextPage()}>{t('list.loadMore')}</Button>
         </HStack>
       )}
     </Stack>

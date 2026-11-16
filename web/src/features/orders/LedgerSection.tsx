@@ -1,4 +1,4 @@
-import { Badge, Button, Card, HStack, Input, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Badge, Button, Card, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { EmptyState, SectionHeader, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -7,7 +7,7 @@ import { useAddLedger, useVoidLedger } from '../../api/vendorOrders';
 import type { LedgerEntry, VendorOrder } from '../../api/types';
 import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { UndoDialog } from '../../components/UndoDialog';
@@ -22,31 +22,34 @@ function AddForm({ order, baseDigits, onClose }: { order: VendorOrder; baseDigit
   const [reason, setReason] = useState('');
   const err = amount.trim() ? validateAmount(amount, { digits: baseDigits, sign: 'any', nonZero: true }) : 'format';
   return (
-    <Stack gap="3">
-      <FormField label={t('ledger.amount')} helperText={t('ledger.amountHelp')} errorText={amount.trim() && err ? t(`amount.${err}`) : undefined}>
-        <Input value={amount} inputMode="decimal" onChange={(e) => setAmount(e.currentTarget.value)} />
-      </FormField>
-      <SelectField
-        label={t('ledger.line')} value={lineId} onChange={setLineId} placeholder={t('ledger.spread')}
-        options={order.lines.map((l) => ({ value: l.id, label: `#${l.lineNo} ${l.name}` }))}
-      />
-      <FormField label={t('undo.reason')} required><Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} /></FormField>
-      <ErrorAlert error={add.error} />
-      <HStack justify="flex-end">
-        <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
+    <>
+      <Dialog.Body>
+        <Stack gap="3">
+          <FormField label={t('ledger.amount')} helperText={t('ledger.amountHelp')} errorText={amount.trim() && err ? t(`amount.${err}`) : undefined}>
+            <Input value={amount} inputMode="decimal" onChange={(e) => setAmount(e.currentTarget.value)} />
+          </FormField>
+          <SelectField
+            label={t('ledger.line')} value={lineId} onChange={setLineId} placeholder={t('ledger.spread')}
+            options={order.lines.map((l) => ({ value: l.id, label: `#${l.lineNo} ${l.name}` }))}
+          />
+          <FormField label={t('undo.reason')} required><Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} /></FormField>
+          <ErrorAlert error={add.error} />
+        </Stack>
+      </Dialog.Body>
+      <DialogFooter>
         <Button
-          loading={add.isPending} disabled={!!err || !reason.trim()}
+          size="sm" loading={add.isPending} disabled={!!err || !reason.trim()}
           onClick={() => add.mutate({ amountBase: amount.trim(), vendorOrderLineId: lineId || null, reason: reason.trim() }, { onSuccess: onClose })}
         >
           {t('ledger.add')}
         </Button>
-      </HStack>
-    </Stack>
+      </DialogFooter>
+    </>
   );
 }
 
 /** Adjustments after placing (refunds negative); voiding is an undo with a reason. */
-export function LedgerSection({ order, baseCurrency, baseDigits, canWrite }: { order: VendorOrder; baseCurrency: string; baseDigits: number; canWrite: boolean }) {
+export function LedgerSection({ order, baseCurrency, baseDigits, canWrite, headingAs = 'h2' }: { order: VendorOrder; baseCurrency: string; baseDigits: number; canWrite: boolean; headingAs?: 'h2' | 'h3' }) {
   const { t, i18n } = useTranslation('purchasing');
   const [adding, setAdding] = useState(false);
   const [voiding, setVoiding] = useState<LedgerEntry | null>(null);
@@ -68,9 +71,9 @@ export function LedgerSection({ order, baseCurrency, baseDigits, canWrite }: { o
   return (
     <Stack gap="2">
       <SectionHeader
-        as="h3" title={t('ledger.title')} count={order.ledger.length}
+        as={headingAs} mb="0" title={t('ledger.title')} count={order.ledger.length}
         actions={canWrite && order.status === 'placed' && (
-          <Button size="xs" variant="outline" onClick={() => setAdding(true)}><LuPlus />{t('ledger.add')}</Button>
+          <Button size="sm" variant="outline" onClick={() => setAdding(true)}><LuPlus />{t('ledger.add')}</Button>
         )}
       />
       <DataTable

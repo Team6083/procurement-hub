@@ -1,23 +1,22 @@
 import { Badge, Button, Card, HStack, Input, Skeleton, Stack } from '@chakra-ui/react';
-import { EmptyState, FilterBar, PageHeader, type DataColumn } from '@team6083/ui';
+import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuPackageOpen, LuPlus } from 'react-icons/lu';
+import { LuPackageOpen } from 'react-icons/lu';
 import { useDeliveryList, type DeliveryFilters } from '../api/deliveries';
 import type { DeliverySummary } from '../api/types';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { RouteAnchor, RouteButton } from '../components/RouteLinks';
+import { RouteAnchor } from '../components/RouteLinks';
 import { FormField } from '../components/ui/field';
 import { SelectField } from '../components/ui/select';
-import { shortDate } from '../features/dates';
-import { ReceivingGuard, useReceivingAccess } from '../features/receiving/access';
+import { shortDate, shortDay } from '../features/dates';
 import { VoidedBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
 
-function Deliveries() {
+/** /deliveries: every registered box, newest first; the second tab of the Receiving page (ReceivingLayout). */
+export function DeliveriesPage() {
   const { t } = useTranslation('receiving');
-  const { canWrite } = useReceivingAccess();
   const [filters, setFilters] = useState<DeliveryFilters>({ voided: 'false' });
   const [search, setSearch] = useState('');
   const list = useDeliveryList({ ...filters, q: search });
@@ -26,7 +25,7 @@ function Deliveries() {
 
   const columns: DataColumn<DeliverySummary>[] = [
     { key: 'no', header: t('list.number'), priority: 'primary', cell: (d) => <RouteAnchor to={paths.delivery(d.id)}>{`DL-${d.number}`}</RouteAnchor> },
-    { key: 'received', header: t('box.receivedAt'), cell: (d) => d.receivedAt },
+    { key: 'received', header: t('box.receivedAt'), cell: (d) => shortDay(d.receivedAt) },
     { key: 'source', header: t('box.source'), cell: (d) => d.source || '—' },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (d) => d.lineCount },
     {
@@ -41,14 +40,10 @@ function Deliveries() {
 
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0" title={t('list.title')} description={t('list.intro')}
-        actions={canWrite && <RouteButton size="sm" colorPalette="brand" to={paths.newDelivery}><LuPlus />{t('box.title')}</RouteButton>}
-      />
       <FilterBar
         mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters({})}
       >
-        <SelectField
+        <SelectField size="sm"
           label={t('list.voidedFilter')} placeholder={t('list.all')} value={filters.voided} onChange={(v) => setFilters({ ...filters, voided: (v || undefined) as DeliveryFilters['voided'] })}
           options={[{ value: 'false', label: t('list.active') }, { value: 'true', label: t('voided') }]}
         />
@@ -68,17 +63,8 @@ function Deliveries() {
         />
       )}
       {list.hasNextPage && (
-        <HStack><Button variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button></HStack>
+        <HStack><Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button></HStack>
       )}
     </Stack>
-  );
-}
-
-/** /deliveries: every registered box, newest first. */
-export function DeliveriesPage() {
-  return (
-    <ReceivingGuard>
-      <Deliveries />
-    </ReceivingGuard>
   );
 }

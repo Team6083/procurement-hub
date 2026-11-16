@@ -1,4 +1,4 @@
-import { Button, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Input, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,7 @@ import type { Team } from '../../api/types';
 import { useGuardedMutation } from '../../api/useGuardedMutation';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { UserSearchSelect } from '../../components/UserSearchSelect';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { paths } from '../../paths';
 import { createTeamSchema, type CreateTeamForm } from './schemas';
@@ -37,37 +37,38 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
   const msg = (m: string | undefined) => (m ? t(m) : undefined);
   return (
     <AppDialog open={opened} onClose={onClose} title={t('createTeam.title')}>
-      <form onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
-        <Stack gap="4">
-          <FormField label={t('createTeam.slug')} helperText={t('createTeam.slugHelp')} errorText={msg(err.slug?.message)}>
-            <Input autoCapitalize="none" {...form.register('slug')} />
-          </FormField>
-          <FormField label={t('createTeam.name')} errorText={msg(err.name?.message)}>
-            <Input {...form.register('name')} />
-          </FormField>
-          <FormField label={t('createTeam.description')}>
-            <Textarea {...form.register('description')} />
-          </FormField>
-          <Controller
-            control={form.control}
-            name="firstAdminUserId"
-            render={({ field }) => (
-              <UserSearchSelect
-                inDialog
-                label={t('createTeam.firstAdmin')}
-                value={field.value || null}
-                onChange={(v) => field.onChange(v ?? '')}
-                error={msg(err.firstAdminUserId?.message)}
-              />
-            )}
-          />
-          <ErrorAlert error={create.error} />
-          <HStack justify="flex-end">
-            <Button variant="outline" onClick={onClose}>{t('common:actions.cancel')}</Button>
-            <Button type="submit" loading={create.isPending}>{t('createTeam.submit')}</Button>
-          </HStack>
-        </Stack>
-      </form>
+      <Dialog.Body>
+        <form id="create-team-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
+          <Stack gap="3">
+            <FormField label={t('createTeam.slug')} helperText={t('createTeam.slugHelp')} errorText={msg(err.slug?.message)}>
+              <Input autoCapitalize="none" {...form.register('slug')} />
+            </FormField>
+            <FormField label={t('createTeam.name')} errorText={msg(err.name?.message)}>
+              <Input {...form.register('name')} />
+            </FormField>
+            <FormField label={t('createTeam.description')}>
+              <Textarea {...form.register('description')} />
+            </FormField>
+            <Controller
+              control={form.control}
+              name="firstAdminUserId"
+              render={({ field }) => (
+                <UserSearchSelect
+                  inDialog
+                  label={t('createTeam.firstAdmin')}
+                  value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? '')}
+                  error={msg(err.firstAdminUserId?.message)}
+                />
+              )}
+            />
+            <ErrorAlert error={create.error} />
+          </Stack>
+        </form>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" type="submit" form="create-team-form" loading={create.isPending}>{t('createTeam.submit')}</Button>
+      </DialogFooter>
     </AppDialog>
   );
 }

@@ -5,19 +5,16 @@
   "nav": {
     "home": "我的待辦",
     "batches": "採購批次",
-    "reports": "報表",
-    "settings": "設定",
-    "admin": "角色對應",
+    "admin": "管理",
     "teams": "團隊",
     "menu": "選單",
     "purchasing": "採購",
     "receiving": "點收",
     "vendors": "廠商",
     "rates": "參考匯率",
-    "deliveries": "到貨紀錄"
+    "roleMappings": "角色對應"
   },
   "language": {
-    "label": "語言",
     "en": "English",
     "zh-TW": "繁體中文"
   },
@@ -34,7 +31,6 @@
   "pages": {
     "home": "我的待辦",
     "batches": "採購批次",
-    "settings": "設定",
     "team": "團隊",
     "batch": "批次",
     "reports": "報表",
@@ -59,9 +55,6 @@
     "placeholder": "以姓名或電子郵件搜尋",
     "minChars": "請至少輸入 2 個字元。",
     "none": "找不到使用者。使用者首次登入後才會出現在這裡。"
-  },
-  "settingsPage": {
-    "languageHelp": "您的語言設定會儲存到個人資料。"
   },
   "undo": {
     "reason": "原因",

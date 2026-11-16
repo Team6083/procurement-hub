@@ -55,8 +55,8 @@ export function BatchesPage() {
         activeCount={[teamId, status].filter(Boolean).length}
         onClear={() => { setTeamId(''); setStatus(''); }}
       >
-        <SelectField label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
-        <SelectField label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
+        <SelectField size="sm" label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
+        <SelectField size="sm" label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
       </FilterBar>
       {list.isPending && <Skeleton h="24" rounded="l3" />}
       {list.error && <ErrorAlert error={list.error} />}
@@ -90,7 +90,7 @@ export function BatchesPage() {
       )}
       {list.hasNextPage && (
         <HStack>
-          <Button variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button>
+          <Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button>
         </HStack>
       )}
       <CreateBatchModal opened={opened} onClose={close} teams={mine} defaultTeamId={teamId && mine.some((m) => m.teamId === teamId) ? teamId : undefined} />

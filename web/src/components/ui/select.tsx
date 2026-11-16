@@ -29,7 +29,7 @@ interface Props {
  * Native <select> with Chakra styling: keyboard and screen-reader friendly, and it opens the
  * platform picker on phones.
  */
-export function SelectField({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, size = 'sm', w, ...rest }: Props) {
+export function SelectField({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, size = 'md', w, ...rest }: Props) {
   return (
     <FormField label={label} helperText={helperText} errorText={errorText} disabled={disabled} w={w}>
       <NativeSelect.Root size={size} disabled={disabled}>

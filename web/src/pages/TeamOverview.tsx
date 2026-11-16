@@ -39,8 +39,8 @@ export function TeamOverview() {
           </Card.Body>
         </Card.Root>
       )}
-      <Stack gap="0">
-        <SectionHeader title={t('common:pages.batches')} />
+      <Stack gap="2">
+        <SectionHeader title={t('common:pages.batches')} mb="0" />
         <Card.Root size="sm">
           <Card.Body>
             <EmptyState icon={<LuPackage />} title={t('team.batchesPlaceholder')} />

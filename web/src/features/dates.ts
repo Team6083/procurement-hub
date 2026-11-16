@@ -14,3 +14,16 @@ export function shortDate(iso: string | null | undefined, { time = true, now = n
   // en-US puts a comma between day and time; the short form has none.
   return d.toLocaleString(i18n.language || undefined, opts).replace(', ', ' ');
 }
+
+/**
+ * A calendar date (`2026-11-23`, no time zone) in the same short form as `shortDate` without the time: `11/23` this
+ * year, with the year otherwise. Read as a local date, so it never shifts by a day across time zones.
+ */
+export function shortDay(ymd: string | null | undefined, { now = new Date() }: { now?: Date } = {}): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd ?? '');
+  if (!m) return ymd || '—';
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const opts: Intl.DateTimeFormatOptions = { month: 'numeric', day: 'numeric' };
+  if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
+  return d.toLocaleDateString(i18n.language || undefined, opts);
+}

@@ -123,16 +123,16 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
           </Button>
         )}
       >
-        <SelectField label={t('item.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={statusOptions} />
-        <SelectField label={t('item.subgroup')} placeholder={t('filters.all')} value={others.subgroup} onChange={set('subgroup')}
+        <SelectField size="sm" label={t('item.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={statusOptions} />
+        <SelectField size="sm" label={t('item.subgroup')} placeholder={t('filters.all')} value={others.subgroup} onChange={set('subgroup')}
           options={distinct(items.map((i) => i.subgroupId)).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? '—' }))} />
         {internal && (
-          <SelectField label={t('item.requester')} placeholder={t('filters.all')} value={others.requester} onChange={set('requester')}
+          <SelectField size="sm" label={t('item.requester')} placeholder={t('filters.all')} value={others.requester} onChange={set('requester')}
             options={distinct(items.map((i) => i.requesterId)).map((id) => ({ value: id, label: nameOf(id) }))} />
         )}
-        <SelectField label={t('item.priority')} placeholder={t('filters.all')} value={others.priority} onChange={set('priority')}
+        <SelectField size="sm" label={t('item.priority')} placeholder={t('filters.all')} value={others.priority} onChange={set('priority')}
           options={['5', '4', '3', '2', '1']} />
-        <SelectField label={t('item.vendor')} placeholder={t('filters.all')} value={others.vendor} onChange={set('vendor')}
+        <SelectField size="sm" label={t('item.vendor')} placeholder={t('filters.all')} value={others.vendor} onChange={set('vendor')}
           options={distinct(items.map((i) => i.vendorName))} />
       </FilterBar>
 

@@ -1,11 +1,11 @@
-import { Box, Button, Checkbox, HStack, Stack, Text } from '@chakra-ui/react';
+import { Box, Button, Checkbox, Dialog, HStack, Stack, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTransition } from '../../api/batches';
 import type { Batch, BatchAction } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
-import { AppDialog } from '../../components/ui/dialog';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { Tooltip } from '../../components/ui/tooltip';
 import { UndoDialog } from '../../components/UndoDialog';
 import { availableActions, type Caller } from './rules';
@@ -43,7 +43,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
           <Tooltip key={action} content={disabled ? t(`actions.disabled.${disabled}`) : ''} disabled={!disabled}>
             <Box as="span" display="inline-block" tabIndex={disabled ? 0 : undefined}>
               <Button
-                size="xs"
+                size="sm"
                 variant={DANGER.includes(action) ? 'subtle' : UNDO.includes(action) ? 'outline' : 'solid'}
                 colorPalette={DANGER.includes(action) ? 'red' : undefined}
                 disabled={!!disabled}
@@ -69,20 +69,21 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
         />
       )}
       {active === 'confirm_review' && (
-        <AppDialog open onClose={close} title={t('actions.confirm_review')}>
-          <Stack gap="4">
-            <Text fontSize="sm">{t('actions.confirm.confirm_review')}</Text>
-            <Checkbox.Root checked={outside} onCheckedChange={(e) => setOutside(e.checked === true)}>
-              <Checkbox.HiddenInput />
-              <Checkbox.Control />
-              <Checkbox.Label>{t('actions.purchaseOutside')}</Checkbox.Label>
-            </Checkbox.Root>
-            <ErrorAlert error={transition.error} />
-            <HStack justify="flex-end">
-              <Button variant="outline" onClick={close}>{t('common:actions.cancel')}</Button>
-              <Button loading={transition.isPending} onClick={() => run({ purchaseOutside: outside })}>{t('actions.confirm_review')}</Button>
-            </HStack>
-          </Stack>
+        <AppDialog open onClose={close} title={t('actions.confirm_review')} size="sm">
+          <Dialog.Body>
+            <Stack gap="3">
+              <Text>{t('actions.confirm.confirm_review')}</Text>
+              <Checkbox.Root checked={outside} onCheckedChange={(e) => setOutside(e.checked === true)}>
+                <Checkbox.HiddenInput />
+                <Checkbox.Control />
+                <Checkbox.Label>{t('actions.purchaseOutside')}</Checkbox.Label>
+              </Checkbox.Root>
+              <ErrorAlert error={transition.error} />
+            </Stack>
+          </Dialog.Body>
+          <DialogFooter>
+            <Button size="sm" loading={transition.isPending} onClick={() => run({ purchaseOutside: outside })}>{t('actions.confirm_review')}</Button>
+          </DialogFooter>
         </AppDialog>
       )}
       {active && UNDO.includes(active) && !needsDeadline && (

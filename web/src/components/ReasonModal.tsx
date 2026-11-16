@@ -1,8 +1,7 @@
-import { Button, HStack, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useState, type ReactNode } from 'react';
-import { useTranslation } from 'react-i18next';
 import { ErrorAlert } from './ErrorAlert';
-import { AppDialog } from './ui/dialog';
+import { AppDialog, DialogFooter } from './ui/dialog';
 import { FormField } from './ui/field';
 import { BlockerList } from './UndoDialog';
 
@@ -21,35 +20,37 @@ interface Props {
   onClose: () => void;
 }
 
-function Inner({ body, confirmLabel, danger, reasonLabel, loading, error, onConfirm, onClose }: Omit<Props, 'opened' | 'title'>) {
-  const { t } = useTranslation();
+function Inner({ body, confirmLabel, danger, reasonLabel, loading, error, onConfirm }: Omit<Props, 'opened' | 'title' | 'onClose'>) {
   const [reason, setReason] = useState('');
   const needsReason = !!reasonLabel;
   return (
-    <Stack gap="4">
-      {body && <Text fontSize="sm">{body}</Text>}
-      {needsReason && (
-        <FormField label={reasonLabel}>
-          <Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} />
-        </FormField>
-      )}
-      <BlockerList error={error} />
-      <ErrorAlert error={error} />
-      <HStack justify="flex-end">
-        <Button variant="outline" onClick={onClose}>{t('actions.cancel')}</Button>
-        <Button colorPalette={danger ? 'red' : undefined} loading={loading} disabled={needsReason && !reason.trim()} onClick={() => onConfirm(reason.trim())}>
+    <>
+      <Dialog.Body>
+        <Stack gap="3">
+          {body && <Text>{body}</Text>}
+          {needsReason && (
+            <FormField label={reasonLabel}>
+              <Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} />
+            </FormField>
+          )}
+          <BlockerList error={error} />
+          <ErrorAlert error={error} />
+        </Stack>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" colorPalette={danger ? 'red' : undefined} loading={loading} disabled={needsReason && !reason.trim()} onClick={() => onConfirm(reason.trim())}>
           {confirmLabel}
         </Button>
-      </HStack>
-    </Stack>
+      </DialogFooter>
+    </>
   );
 }
 
 /** Confirmation dialog with an optional required reason/comment. */
 export function ReasonModal({ opened, title, onClose, ...rest }: Props) {
   return (
-    <AppDialog open={opened} onClose={onClose} title={title}>
-      <Inner onClose={onClose} {...rest} />
+    <AppDialog open={opened} onClose={onClose} title={title} size="sm">
+      <Inner {...rest} />
     </AppDialog>
   );
 }
