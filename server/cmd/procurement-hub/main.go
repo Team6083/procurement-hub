@@ -160,7 +160,7 @@ func serve() error {
 	}
 
 	reg := ops.NewRegistry()
-	handler, batches := app.NewHandler(app.Deps{
+	handler, services := app.NewHandler(app.Deps{
 		Config: cfg, Store: st, Verifier: verifier, RoleMappings: rm,
 		Version: httpapi.Version{Version: version, Commit: commit}, Metrics: ops.NewHTTPMetrics(reg),
 	})
@@ -172,11 +172,15 @@ func serve() error {
 		if !ok {
 			return errors.New("batch.close job without batchId")
 		}
-		return batches.CloseDue(ctx, id)
+		return services.Batches.CloseDue(ctx, id)
 	})
-	// Vendor order amounts are recomputed against the new rate in milestone 4b;
-	// until then the job is consumed so it does not linger.
-	runner.Register(service.JobVendorOrdersRecompute, func(context.Context, *store.Job) error { return nil })
+	runner.Register(service.JobVendorOrdersRecompute, func(ctx context.Context, j *store.Job) error {
+		cur, _ := j.Payload["currency"].(string)
+		if cur == "" {
+			return errors.New("vendor_orders.recompute job without currency")
+		}
+		return services.Orders.RecomputeCurrency(ctx, cur)
+	})
 	// Deadline reminders become notifications in milestone 6; until then the
 	// job is consumed so it does not linger.
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })

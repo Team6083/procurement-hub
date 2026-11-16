@@ -759,8 +759,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Timeline of a batch (including its items' events) or of an item
-         * @description Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
+         * Timeline of a batch (including its items' events), an item or a vendor order
+         * @description Cursor-paginated, oldest event first. Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
          */
         get: operations["getAudit"];
         put?: never;
@@ -788,6 +788,349 @@ export interface paths {
         get: operations["getTeamAudit"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/purchasing/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Purchasing queue: approved items with quantity still to purchase (purchasers)
+         * @description Items of review-confirmed batches (not purchased outside) with `toPurchaseQuantity > 0`, grouped by vendor (`vendorId` null is the
+         *     "other" group, last). Each item carries the quantity already in draft lines (`draftQuantity`) and the placed quantity (`orderedQuantity`).
+         *     Purchasers only (403 otherwise). Not paginated.
+         */
+        get: operations["getPurchasingQueue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the vendor orders the caller can see (cursor-paginated)
+         * @description Purchasers, receivers and system admins see every order; regular users only orders with at least one line of their teams or of a
+         *     batch they can read (`restricted: true`, line count and amounts limited to visible lines). `q` matches `VO-<n>`, `<n>` or the vendor's order number.
+         */
+        get: operations["listVendorOrders"];
+        put?: never;
+        /**
+         * Create a draft vendor order, optionally with one line per item (purchasers)
+         * @description The currency defaults to the vendor's default currency. Each item must be approved in a review-confirmed batch that is not purchased
+         *     outside and not marked unpurchasable (422 `item_not_purchasable`); the line quantity defaults to the item's remaining quantity.
+         *     Takes no `If-Match`.
+         */
+        post: operations["createVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a vendor order as the caller may see it
+         * @description Regular users get only the lines they can see (404 when none); order-level money is limited to amounts allocated to those lines
+         *     and the rest is aggregated in `otherTeams` (spec 8.2). `invariantOk` (purchasers, receivers, system admins) is the check
+         *     `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and ledger write.
+         */
+        get: operations["getVendorOrder"];
+        /**
+         * Replace the editable fields of a vendor order (purchasers)
+         * @description Replaces every editable field; omitted ones are cleared. `vendorId` and `currency` only change while the order is a draft (422 `order_locked`).
+         *     `teamCostOverrides` must cover exactly the teams that have lines and add up to the shared costs (422 `team_cost_overrides_mismatch`) and need
+         *     an `overrideReason`. Recomputes amounts, items and batch status in the same transaction.
+         */
+        put: operations["putVendorOrder"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a line to a draft order (purchasers)
+         * @description Give exactly one of `itemId` (the line is linked to the item: team, name, SKU and quantity default from it; 422 `item_not_purchasable`,
+         *     `item_already_on_order`) or `teamId` (a standalone line, `name` required). Only while the order is a draft (422 `order_not_draft`).
+         *     `If-Match` is the vendor order version. Returns the updated order; `overridesCleared` is true when the team set changed and overrides were removed.
+         */
+        post: operations["addVendorOrderLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-order-lines": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Lines waiting for a close decision (purchasers, system admins)
+         * @description `toClose=true` is required: placed, unclosed lines with received quantity above 0 and below the expected quantity and no open problem.
+         *     Rows carry `vendorOrderVersion` for `If-Match`.
+         */
+        get: operations["listVendorOrderLinesToClose"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-order-lines/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace the editable fields of a line (purchasers)
+         * @description After the order is placed only `unitPrice` (never back to null: 422 `unit_price_required`), `name` and `sku` may change;
+         *     quantity and team are locked (422 `line_locked`). `If-Match` is the vendor order version. Returns the updated order.
+         */
+        put: operations["putVendorOrderLine"];
+        post?: never;
+        /**
+         * Remove a line from a draft order (purchasers)
+         * @description Only while the order is a draft. `If-Match` is the vendor order version. Returns the updated order.
+         */
+        delete: operations["deleteVendorOrderLine"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-order-lines/{id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Close the remaining quantity of a short line (purchasers)
+         * @description `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
+         *     and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative ledger entry on the line. `If-Match` is the vendor order version.
+         */
+        post: operations["closeVendorOrderLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-order-lines/{id}/reopen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo a line closure (purchasers)
+         * @description The closure's refund entry is voided. `If-Match` is the vendor order version.
+         */
+        post: operations["reopenVendorOrderLine"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/place": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark the order as placed at the vendor (purchasers)
+         * @description Needs at least one line, a unit price on every line (422 `line_missing_price`), valid team cost overrides, and every linked item still approved,
+         *     in a review-confirmed batch that is not purchased outside, and not unpurchasable (422 `item_not_purchasable`).  Takes no body.
+         */
+        post: operations["placeVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/unplace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo placing: back to draft (purchasers)
+         * @description Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, ledger entries, items
+         *     marked unpurchasable) while anything depends on it.
+         */
+        post: operations["unplaceVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a draft order (purchasers)
+         * @description Needs a `reason`. The lines stay but no longer count toward items.
+         */
+        post: operations["cancelVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/uncancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Undo cancelling (purchasers)
+         * @description Needs a `reason`. Linked items must still qualify, otherwise 409 `blocked_by_dependency` lists them.
+         */
+        post: operations["uncancelVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a ledger entry to a placed order (purchasers)
+         * @description `amountBase` is in the base currency, non-zero, negative for refunds; `vendorOrderLineId` assigns it to a line, otherwise it is spread
+         *     proportionally. 422 `order_not_placed` on other orders. `If-Match` is the vendor order version. Returns the updated order.
+         */
+        post: operations["addLedgerEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ledger-entries/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a ledger entry (purchasers)
+         * @description Needs a `reason`. Entries created by a problem resolution or a line closure are voided only by undoing that action (409 `blocked_by_dependency`).
+         *     `If-Match` is the vendor order version.
+         */
+        post: operations["voidLedgerEntry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1260,6 +1603,281 @@ export interface components {
             linesToClose?: components["schemas"]["CountTask"];
             deliveriesToMatch?: components["schemas"]["CountTask"];
         };
+        Incomplete: {
+            /** @enum {string} */
+            code: "no_lines" | "line_missing_price" | "no_conversion" | "original_total_zero";
+            /** @description Set for line_missing_price. */
+            lineNo?: number;
+        };
+        OrderTotals: {
+            /** @description Decimal string; null when it cannot be computed. */
+            linesC: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            sharedC: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            originalC: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            factor: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            targetBase: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            ledgerBase: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            netBase: string | null;
+            /** @description True when the factor is a reference rate. */
+            provisional: boolean;
+            incomplete: components["schemas"]["Incomplete"][];
+        };
+        SharedCost: {
+            /** @enum {string} */
+            type: "shipping" | "fee" | "tax" | "discount" | "other";
+            /** @description Decimal string in the order currency; discounts are negative. */
+            amount: string;
+            note: string;
+        };
+        TeamCostOverride: {
+            teamId: string;
+            /** @description Decimal string in the order currency. */
+            amount: string;
+        };
+        /** @enum {string} */
+        LineStatus: "cancelled" | "draft" | "short_accepted" | "not_obtained" | "received" | "partially_received" | "ordered";
+        LineClosure: {
+            /** @enum {string} */
+            type: "short_accepted" | "not_obtained";
+            reason: string;
+            refundEntryId: string | null;
+            by: string;
+            /** Format: date-time */
+            at: string;
+        };
+        ProblemSummary: {
+            id: string;
+            quantity: number;
+            /** @enum {string} */
+            type: "damaged" | "wrong_item";
+            /** @enum {string|null} */
+            resolution: "exchange" | "return_no_replace" | "accept" | null;
+            /**
+             * Format: int64
+             * @description Purchasers, receivers and system admins only; the problem version for If-Match.
+             */
+            version?: number;
+            /** @description Purchasers, receivers and system admins only. */
+            deliveryId?: string;
+            /** @description Purchasers, receivers and system admins only. */
+            note?: string;
+        };
+        VendorOrderLine: {
+            id: string;
+            vendorOrderId: string;
+            lineNo: number;
+            /** @description Cost attribution team. */
+            teamId: string;
+            itemId: string | null;
+            batchId: string | null;
+            name: string;
+            sku: string;
+            quantity: number;
+            /** @description Decimal string in the order currency. */
+            unitPrice: string | null;
+            returnedQuantity: number;
+            expectedQuantity: number;
+            receivedQuantity: number;
+            openProblemQuantity: number;
+            closure: components["schemas"]["LineClosure"] | null;
+            status: components["schemas"]["LineStatus"];
+            /** @description Decimal string; null when it cannot be computed. */
+            costBase: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            sharedBase: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            ledgerBase: string | null;
+            /** @description Decimal string; null when it cannot be computed. */
+            totalBase: string | null;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /**
+             * Format: int64
+             * @description The vendor order version to send in If-Match.
+             */
+            vendorOrderVersion: number;
+            vendorOrderNumber: number;
+            problems: components["schemas"]["ProblemSummary"][];
+        };
+        VendorOrderLineList: {
+            items: components["schemas"]["VendorOrderLine"][];
+        };
+        LedgerEntry: {
+            id: string;
+            vendorOrderId: string;
+            vendorOrderLineId: string | null;
+            /** @description Decimal string in the base currency; refunds are negative. */
+            amountBase: string;
+            reason: string;
+            /** @enum {string} */
+            source: "manual" | "problem" | "closure";
+            sourceId: string | null;
+            voided: {
+                reason: string;
+                by: string;
+                /** Format: date-time */
+                at: string;
+            } | null;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        OtherTeams: {
+            lines: number;
+            totalBase: string | null;
+        };
+        VendorOrder: {
+            id: string;
+            /** @description Displayed as VO-<number>. */
+            number: number;
+            vendorId: string;
+            vendorName: string;
+            currency: string;
+            /** @enum {string} */
+            status: "draft" | "placed" | "cancelled";
+            externalOrderNo: string;
+            /** Format: date-time */
+            placedAt: string | null;
+            placedBy: string | null;
+            sharedCosts: components["schemas"]["SharedCost"][];
+            teamCostOverrides: components["schemas"]["TeamCostOverride"][] | null;
+            overrideReason: string;
+            /** @description Decimal string in the base currency. */
+            chargedAmountBase: string | null;
+            /** @description YYYY-MM-DD or empty. */
+            expectedDeliveryDate: string;
+            paymentNote: string;
+            teamIds: string[];
+            batchIds: string[];
+            totals: components["schemas"]["OrderTotals"];
+            cancellation: {
+                reason: string;
+                by: string;
+                /** Format: date-time */
+                at: string;
+            } | null;
+            createdBy: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+            lines: components["schemas"]["VendorOrderLine"][];
+            ledger: components["schemas"]["LedgerEntry"][];
+            /** @description True for regular users (spec 8.2); money fields then cover visible lines only. */
+            restricted: boolean;
+            otherTeams: components["schemas"]["OtherTeams"] | null;
+            /** @description Regular users only. */
+            visibleTotalBase: string | null;
+            /** @description Purchasers, receivers and system admins: netBase equals the sum of line totals (null when not computable). */
+            invariantOk: boolean | null;
+            /** @description True when this write removed the team cost overrides. */
+            overridesCleared?: boolean;
+        };
+        VendorOrderSummary: {
+            id: string;
+            number: number;
+            vendorId: string;
+            vendorName: string;
+            currency: string;
+            /** @enum {string} */
+            status: "draft" | "placed" | "cancelled";
+            externalOrderNo: string;
+            /** Format: date-time */
+            placedAt: string | null;
+            expectedDeliveryDate: string;
+            lineCount: number;
+            teamIds: string[];
+            netBase: string | null;
+            provisional: boolean;
+            incomplete: components["schemas"]["Incomplete"][];
+            restricted: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        VendorOrderPage: {
+            items: components["schemas"]["VendorOrderSummary"][];
+            nextCursor: string | null;
+        };
+        QueueItem: components["schemas"]["Item"] & {
+            teamName: string;
+            batchNumber: number;
+            batchTitle: string;
+            /** @description Quantity already in draft lines. */
+            draftQuantity: number;
+        };
+        QueueGroup: {
+            /** @description Null for items without a vendor from the list ("other"). */
+            vendorId: string | null;
+            vendorName: string;
+            /** @description Teams with items in this group (more than one suggests merging). */
+            teamIds: string[];
+            items: components["schemas"]["QueueItem"][];
+        };
+        PurchasingQueue: {
+            items: components["schemas"]["QueueGroup"][];
+        };
+        CreateVendorOrderRequest: {
+            vendorId: string;
+            /** @description Defaults to the vendor's default currency. */
+            currency?: string;
+            itemIds?: string[];
+        };
+        VendorOrderRequest: {
+            vendorId: string;
+            currency: string;
+            externalOrderNo?: string;
+            sharedCosts?: components["schemas"]["SharedCost"][] | null;
+            teamCostOverrides?: components["schemas"]["TeamCostOverride"][] | null;
+            overrideReason?: string;
+            chargedAmountBase?: string | null;
+            expectedDeliveryDate?: string;
+            paymentNote?: string;
+        };
+        AddLineRequest: {
+            itemId?: string;
+            teamId?: string;
+            name?: string;
+            sku?: string;
+            quantity?: number;
+            unitPrice?: string | null;
+        };
+        ReplaceLineRequest: {
+            teamId: string;
+            name: string;
+            sku?: string;
+            quantity: number;
+            unitPrice?: string | null;
+        };
+        ReasonRequest: {
+            reason: string;
+        };
+        CloseLineRequest: {
+            /** @enum {string} */
+            type: "short_accepted" | "not_obtained";
+            reason: string;
+            /** @description Positive decimal string in the base currency. */
+            refundBase?: string | null;
+        };
+        LedgerRequest: {
+            /** @description Non-zero decimal string; negative for a refund. */
+            amountBase: string;
+            vendorOrderLineId?: string | null;
+            reason: string;
+        };
         UnpurchasableRequest: {
             reason: string;
         };
@@ -1276,9 +1894,9 @@ export interface components {
             at: string;
             /** @description User id, or "system:<job>". */
             actor: string;
-            /** @description Zero id "000000000000000000000000" when not set (see notes). */
-            teamId?: string;
-            /** @description Set for batch and item events. */
+            /** @description Teams involved in the event. */
+            teamIds: string[];
+            /** @description Set for batch, item and linked vendor order line events. */
             batchId?: string;
             objectType: string;
             objectId: string;
@@ -1291,8 +1909,22 @@ export interface components {
             items: components["schemas"]["Batch"][];
             nextCursor: string | null;
         };
+        LinkedLine: {
+            id: string;
+            vendorOrderId: string;
+            vendorOrderNumber: number;
+            /** @enum {string} */
+            orderStatus: "draft" | "placed" | "cancelled";
+            status: components["schemas"]["LineStatus"];
+            quantity: number;
+            receivedQuantity: number;
+        };
+        ItemWithLines: components["schemas"]["Item"] & {
+            /** @description Linked vendor order lines. */
+            lines: components["schemas"]["LinkedLine"][];
+        };
         ItemList: {
-            items: components["schemas"]["Item"][];
+            items: components["schemas"]["ItemWithLines"][];
         };
         AuditEventPage: {
             items: components["schemas"]["AuditEvent"][];
@@ -1316,7 +1948,7 @@ export interface components {
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "line_not_closable";
     };
     responses: {
         /**
@@ -1377,6 +2009,16 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
+        /** @description `version_conflict`, `invalid_transition` or `blocked_by_dependency` (`details.blockers`: `[{type, id, label, parentId?}]`). */
+        Conflict: {
+            headers: {
+                "X-Request-ID": components["headers"]["XRequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
         /** @description `payload_too_large` */
         PayloadTooLarge: {
             headers: {
@@ -1416,7 +2058,9 @@ export interface components {
          *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-         *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
+         *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`,
+         *     `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
+         *     `line_missing_price`, `order_not_placed`, `line_not_closable`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -1439,6 +2083,8 @@ export interface components {
         /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
         Cursor: string;
         BatchId: string;
+        /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+        ResourceId: string;
         ItemId: string;
         /**
          * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
@@ -3008,7 +3654,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
                 cursor?: components["parameters"]["Cursor"];
-                objectType: "batch" | "item";
+                objectType: "batch" | "item" | "vendor_order";
                 objectId: string;
             };
             header?: never;
@@ -3063,6 +3709,672 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getPurchasingQueue: {
+        parameters: {
+            query?: {
+                vendorId?: string;
+                teamId?: string;
+                batchId?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PurchasingQueue"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listVendorOrders: {
+        parameters: {
+            query?: {
+                status?: "draft" | "placed" | "cancelled";
+                vendorId?: string;
+                teamId?: string;
+                q?: string;
+                /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
+                limit?: components["parameters"]["Limit"];
+                /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrderPage"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createVendorOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateVendorOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    getVendorOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putVendorOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    addVendorOrderLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddLineRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listVendorOrderLinesToClose: {
+        parameters: {
+            query: {
+                toClose: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrderLineList"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putVendorOrderLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReplaceLineRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteVendorOrderLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    closeVendorOrderLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CloseLineRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    reopenVendorOrderLine: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    placeVendorOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    unplaceVendorOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    cancelVendorOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    uncancelVendorOrder: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    addLedgerEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LedgerRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    voidLedgerEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };

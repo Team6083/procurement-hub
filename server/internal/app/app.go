@@ -28,9 +28,15 @@ type Deps struct {
 	Logger       *slog.Logger     // access log; nil means slog.Default()
 }
 
-// NewHandler builds the API router. It also returns the batch service so
-// background jobs can share it.
-func NewHandler(d Deps) (http.Handler, *service.Batches) {
+// App holds the services background jobs share with the HTTP handlers.
+type App struct {
+	Batches *service.Batches
+	Orders  *service.VendorOrders
+}
+
+// NewHandler builds the API router. It also returns the services so
+// background jobs can share them.
+func NewHandler(d Deps) (http.Handler, *App) {
 	cfg, st := d.Config, d.Store
 	r := chi.NewRouter()
 	// Order matters: common headers first so every response (errors and
@@ -58,6 +64,7 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 	batches := service.NewBatches(st, log, cfg.SupportedCurrencies,
 		domain.Currencies{Base: cfg.BaseCurrency, BaseDecimals: cfg.BaseCurrencyDecimals})
 	items := service.NewItems(st, log, batches)
+	orders := service.NewVendorOrders(st, log, batches, cfg.SupportedCurrencies)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Use(httpapi.Authenticate(d.Verifier, d.Config.AllowedRoles, identity, teams))
@@ -66,8 +73,9 @@ func NewHandler(d Deps) (http.Handler, *service.Batches) {
 		(&httpapi.MeAPI{Users: users, RoleMappings: d.RoleMappings}).Mount(r)
 		(&httpapi.BatchesAPI{
 			Batches: batches, Items: items, Tasks: service.NewTasks(st),
-			Timeline: service.NewTimeline(st, log, batches, items),
+			Timeline: service.NewTimeline(st, log, batches, items, orders),
 		}).Mount(r)
+		(&httpapi.VendorOrdersAPI{Orders: orders}).Mount(r)
 	})
-	return r, batches
+	return r, &App{Batches: batches, Orders: orders}
 }

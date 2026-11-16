@@ -105,7 +105,7 @@ func (s *Identity) SyncMemberships(ctx context.Context, u *domain.User, p *auth.
 				}
 			}
 			events = append(events, domain.AuditEvent{
-				Actor: audit.SystemActor("sso-sync"), TeamID: ch.TeamID,
+				Actor: audit.SystemActor("sso-sync"), TeamIDs: []bson.ObjectID{ch.TeamID},
 				ObjectType: "membership", ObjectID: u.ID.Hex(), Action: "membership.sso_" + string(ch.Action),
 				Changes: []domain.AuditChange{{Field: "ssoRole", From: string(ch.OldSSO), To: string(ch.NewSSO)}},
 			})

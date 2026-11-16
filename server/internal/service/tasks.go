@@ -106,7 +106,15 @@ func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
 		if out.ItemsToPurchase, err = s.itemsToPurchase(ctx, actor); err != nil {
 			return nil, err
 		}
-		out.DraftVendorOrders, out.OpenProblems, out.LinesToClose = &CountTask{}, &CountTask{}, &CountTask{}
+		drafts, err := s.st.CountDraftOrders(ctx)
+		if err != nil {
+			return nil, err
+		}
+		toClose, err := s.st.LinesToClose(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.DraftVendorOrders, out.OpenProblems, out.LinesToClose = &CountTask{Count: drafts}, &CountTask{}, &CountTask{Count: len(toClose)}
 	}
 	if actor.IsPurchaser || actor.IsReceiver {
 		out.DeliveriesToMatch = &CountTask{}

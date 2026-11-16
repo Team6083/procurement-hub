@@ -59,7 +59,7 @@ func (l *Log) PageForBatch(ctx context.Context, batchID bson.ObjectID, after bso
 
 // PageForTeam returns the team-wide log, newest first.
 func (l *Log) PageForTeam(ctx context.Context, teamID bson.ObjectID, after bson.ObjectID, limit int) (*Page, error) {
-	return l.page(ctx, bson.D{{Key: "teamId", Value: teamID}}, after, limit, -1)
+	return l.page(ctx, bson.D{{Key: "teamIds", Value: teamID}}, after, limit, -1)
 }
 
 // page orders by _id (insertion order) so the cursor — the _id of the last

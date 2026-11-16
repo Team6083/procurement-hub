@@ -102,29 +102,36 @@ type AuditChange struct {
 
 // AuditEvent is an append-only record (spec §9.1).
 type AuditEvent struct {
-	ID         bson.ObjectID `bson:"_id,omitempty" json:"id"`
-	At         time.Time     `bson:"at" json:"at"`
-	Actor      string        `bson:"actor" json:"actor"` // userId hex or "system:<job>"
-	TeamID     bson.ObjectID `bson:"teamId,omitempty" json:"teamId,omitempty"`
-	BatchID    bson.ObjectID `bson:"batchId,omitempty" json:"batchId,omitempty"` // set for batch and item events
-	ObjectType string        `bson:"objectType" json:"objectType"`
-	ObjectID   string        `bson:"objectId" json:"objectId"`
-	Action     string        `bson:"action" json:"action"`
-	Changes    []AuditChange `bson:"changes,omitempty" json:"changes"`
-	Comment    string        `bson:"comment,omitempty" json:"comment,omitempty"`
+	ID bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	At time.Time     `bson:"at" json:"at"`
+	// Actor is a userId hex or "system:<job>".
+	Actor string `bson:"actor" json:"actor"`
+	// TeamIDs are the teams involved; vendor order and delivery events may have several.
+	TeamIDs    []bson.ObjectID `bson:"teamIds,omitempty" json:"teamIds"`
+	BatchID    bson.ObjectID   `bson:"batchId,omitempty" json:"batchId,omitempty"` // set for batch, item and linked-line events
+	ObjectType string          `bson:"objectType" json:"objectType"`
+	ObjectID   string          `bson:"objectId" json:"objectId"`
+	Action     string          `bson:"action" json:"action"`
+	Changes    []AuditChange   `bson:"changes,omitempty" json:"changes"`
+	Comment    string          `bson:"comment,omitempty" json:"comment,omitempty"`
+	// Scope is "line" for events about one vendor order line (visible per line)
+	// and "order" for order-level events (summarised for regular users, §8.2).
+	Scope string `bson:"scope,omitempty" json:"-"`
+	// LineIDs names the order lines a "line" scope event is about.
+	LineIDs []string `bson:"lineIds,omitempty" json:"-"`
 }
 
-// MarshalJSON omits unset ids: encoding/json cannot treat the ObjectID array
-// type as empty, so `omitempty` alone would emit "000000000000000000000000".
+// MarshalJSON omits an unset batch id: encoding/json cannot treat the ObjectID
+// array type as empty, so `omitempty` alone would emit "000000000000000000000000".
 func (e AuditEvent) MarshalJSON() ([]byte, error) {
 	type plain AuditEvent // no methods, avoids recursion
 	out := struct {
 		plain
-		TeamID  *bson.ObjectID `json:"teamId,omitempty"`
-		BatchID *bson.ObjectID `json:"batchId,omitempty"`
-	}{plain: plain(e)}
-	if !e.TeamID.IsZero() {
-		out.TeamID = &e.TeamID
+		TeamIDs []bson.ObjectID `json:"teamIds"`
+		BatchID *bson.ObjectID  `json:"batchId,omitempty"`
+	}{plain: plain(e), TeamIDs: e.TeamIDs}
+	if out.TeamIDs == nil {
+		out.TeamIDs = []bson.ObjectID{}
 	}
 	if !e.BatchID.IsZero() {
 		out.BatchID = &e.BatchID

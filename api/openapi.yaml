@@ -1148,12 +1148,12 @@ paths:
   /audit:
     get:
       operationId: getAudit
-      summary: Timeline of a batch (including its items' events) or of an item
-      description: Cursor-paginated, oldest event first. Anyone who can read the batch may read it. A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
+      summary: Timeline of a batch (including its items' events), an item or a vendor order
+      description: Cursor-paginated, oldest event first. Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
-        - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item] } }
+        - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item, vendor_order] } }
         - { name: objectId, in: query, required: true, schema: { type: string } }
       responses:
         "200":
@@ -1186,6 +1186,497 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /purchasing/queue:
+    get:
+      operationId: getPurchasingQueue
+      summary: "Purchasing queue: approved items with quantity still to purchase (purchasers)"
+      description: |
+        Items of review-confirmed batches (not purchased outside) with `toPurchaseQuantity > 0`, grouped by vendor (`vendorId` null is the
+        "other" group, last). Each item carries the quantity already in draft lines (`draftQuantity`) and the placed quantity (`orderedQuantity`).
+        Purchasers only (403 otherwise). Not paginated.
+      parameters:
+        - { name: vendorId, in: query, schema: { type: string } }
+        - { name: teamId, in: query, schema: { type: string } }
+        - { name: batchId, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PurchasingQueue" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders:
+    get:
+      operationId: listVendorOrders
+      summary: "List the vendor orders the caller can see (cursor-paginated)"
+      description: |
+        Purchasers, receivers and system admins see every order; regular users only orders with at least one line of their teams or of a
+        batch they can read (`restricted: true`, line count and amounts limited to visible lines). `q` matches `VO-<n>`, `<n>` or the vendor's order number.
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [draft, placed, cancelled] } }
+        - { name: vendorId, in: query, schema: { type: string } }
+        - { name: teamId, in: query, schema: { type: string } }
+        - { name: q, in: query, schema: { type: string } }
+        - { $ref: "#/components/parameters/Limit" }
+        - { $ref: "#/components/parameters/Cursor" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrderPage" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: createVendorOrder
+      summary: "Create a draft vendor order, optionally with one line per item (purchasers)"
+      description: |
+        The currency defaults to the vendor's default currency. Each item must be approved in a review-confirmed batch that is not purchased
+        outside and not marked unpurchasable (422 `item_not_purchasable`); the line quantity defaults to the item's remaining quantity.
+        Takes no `If-Match`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateVendorOrderRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      operationId: getVendorOrder
+      summary: "Get a vendor order as the caller may see it"
+      description: |
+        Regular users get only the lines they can see (404 when none); order-level money is limited to amounts allocated to those lines
+        and the rest is aggregated in `otherTeams` (spec 8.2). `invariantOk` (purchasers, receivers, system admins) is the check
+        `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and ledger write.
+      responses:
+        "200":
+          description: OK
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    put:
+      operationId: putVendorOrder
+      summary: "Replace the editable fields of a vendor order (purchasers)"
+      description: |
+        Replaces every editable field; omitted ones are cleared. `vendorId` and `currency` only change while the order is a draft (422 `order_locked`).
+        `teamCostOverrides` must cover exactly the teams that have lines and add up to the shared costs (422 `team_cost_overrides_mismatch`) and need
+        an `overrideReason`. Recomputes amounts, items and batch status in the same transaction.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorOrderRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/lines:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: addVendorOrderLine
+      summary: "Add a line to a draft order (purchasers)"
+      description: |
+        Give exactly one of `itemId` (the line is linked to the item: team, name, SKU and quantity default from it; 422 `item_not_purchasable`,
+        `item_already_on_order`) or `teamId` (a standalone line, `name` required). Only while the order is a draft (422 `order_not_draft`).
+        `If-Match` is the vendor order version. Returns the updated order; `overridesCleared` is true when the team set changed and overrides were removed.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AddLineRequest" }
+      responses:
+        "201":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-order-lines:
+    get:
+      operationId: listVendorOrderLinesToClose
+      summary: "Lines waiting for a close decision (purchasers, system admins)"
+      description: |
+        `toClose=true` is required: placed, unclosed lines with received quantity above 0 and below the expected quantity and no open problem.
+        Rows carry `vendorOrderVersion` for `If-Match`.
+      parameters:
+        - { name: toClose, in: query, required: true, schema: { type: boolean } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrderLineList" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-order-lines/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      operationId: putVendorOrderLine
+      summary: "Replace the editable fields of a line (purchasers)"
+      description: |
+        After the order is placed only `unitPrice` (never back to null: 422 `unit_price_required`), `name` and `sku` may change;
+        quantity and team are locked (422 `line_locked`). `If-Match` is the vendor order version. Returns the updated order.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReplaceLineRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: deleteVendorOrderLine
+      summary: "Remove a line from a draft order (purchasers)"
+      description: |
+        Only while the order is a draft. `If-Match` is the vendor order version. Returns the updated order.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-order-lines/{id}/close:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: closeVendorOrderLine
+      summary: "Close the remaining quantity of a short line (purchasers)"
+      description: |
+        `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
+        and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative ledger entry on the line. `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CloseLineRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-order-lines/{id}/reopen:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: reopenVendorOrderLine
+      summary: "Undo a line closure (purchasers)"
+      description: |
+        The closure's refund entry is voided. `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/place:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: placeVendorOrder
+      summary: "Mark the order as placed at the vendor (purchasers)"
+      description: |
+        Needs at least one line, a unit price on every line (422 `line_missing_price`), valid team cost overrides, and every linked item still approved,
+        in a review-confirmed batch that is not purchased outside, and not unpurchasable (422 `item_not_purchasable`).  Takes no body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/unplace:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: unplaceVendorOrder
+      summary: "Undo placing: back to draft (purchasers)"
+      description: |
+        Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, ledger entries, items
+        marked unpurchasable) while anything depends on it.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: cancelVendorOrder
+      summary: "Cancel a draft order (purchasers)"
+      description: |
+        Needs a `reason`. The lines stay but no longer count toward items.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/uncancel:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: uncancelVendorOrder
+      summary: "Undo cancelling (purchasers)"
+      description: |
+        Needs a `reason`. Linked items must still qualify, otherwise 409 `blocked_by_dependency` lists them.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/ledger:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: addLedgerEntry
+      summary: "Add a ledger entry to a placed order (purchasers)"
+      description: |
+        `amountBase` is in the base currency, non-zero, negative for refunds; `vendorOrderLineId` assigns it to a line, otherwise it is spread
+        proportionally. 422 `order_not_placed` on other orders. `If-Match` is the vendor order version. Returns the updated order.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LedgerRequest" }
+      responses:
+        "201":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /ledger-entries/{id}/void:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: voidLedgerEntry
+      summary: "Void a ledger entry (purchasers)"
+      description: |
+        Needs a `reason`. Entries created by a problem resolution or a line closure are voided only by undoing that action (409 `blocked_by_dependency`).
+        `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
 components:
   securitySchemes:
@@ -1229,6 +1720,12 @@ components:
       name: id
       in: path
       required: true
+      schema: { type: string }
+    ResourceId:
+      name: id
+      in: path
+      required: true
+      description: Resource id (24-hex). A malformed id yields 404 `not_found`.
       schema: { type: string }
     ItemId:
       name: id
@@ -1286,6 +1783,13 @@ components:
       content:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
+    Conflict:
+      description: "`version_conflict`, `invalid_transition` or `blocked_by_dependency` (`details.blockers`: `[{type, id, label, parentId?}]`)."
+      headers:
+        X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
     PayloadTooLarge:
       description: "`payload_too_large`"
       headers:
@@ -1316,7 +1820,9 @@ components:
         `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-        `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
+        `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`,
+        `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
+        `line_missing_price`, `order_not_placed`, `line_not_closable`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -1851,6 +2357,280 @@ components:
         openProblems: { $ref: "#/components/schemas/CountTask" }
         linesToClose: { $ref: "#/components/schemas/CountTask" }
         deliveriesToMatch: { $ref: "#/components/schemas/CountTask" }
+    Incomplete:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, enum: [no_lines, line_missing_price, no_conversion, original_total_zero] }
+        lineNo: { type: integer, description: Set for line_missing_price. }
+    OrderTotals:
+      type: object
+      required: [linesC, sharedC, originalC, factor, targetBase, ledgerBase, netBase, provisional, incomplete]
+      properties:
+        linesC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        sharedC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        originalC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        factor: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        targetBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        ledgerBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        netBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        provisional: { type: boolean, description: True when the factor is a reference rate. }
+        incomplete: { type: array, items: { $ref: "#/components/schemas/Incomplete" } }
+    SharedCost:
+      type: object
+      required: [type, amount, note]
+      properties:
+        type: { type: string, enum: [shipping, fee, tax, discount, other] }
+        amount: { type: string, description: Decimal string in the order currency; discounts are negative. }
+        note: { type: string }
+    TeamCostOverride:
+      type: object
+      required: [teamId, amount]
+      properties:
+        teamId: { type: string }
+        amount: { type: string, description: Decimal string in the order currency. }
+    LineStatus:
+      type: string
+      enum: [cancelled, draft, short_accepted, not_obtained, received, partially_received, ordered]
+    LineClosure:
+      type: object
+      required: [type, reason, refundEntryId, by, at]
+      properties:
+        type: { type: string, enum: [short_accepted, not_obtained] }
+        reason: { type: string }
+        refundEntryId: { type: [string, "null"] }
+        by: { type: string }
+        at: { type: string, format: date-time }
+    ProblemSummary:
+      type: object
+      required: [id, quantity, type, resolution]
+      properties:
+        id: { type: string }
+        quantity: { type: integer }
+        type: { type: string, enum: [damaged, wrong_item] }
+        resolution: { type: [string, "null"], enum: [exchange, return_no_replace, accept, null] }
+        version: { type: integer, format: int64, description: "Purchasers, receivers and system admins only; the problem version for If-Match." }
+        deliveryId: { type: string, description: "Purchasers, receivers and system admins only." }
+        note: { type: string, description: "Purchasers, receivers and system admins only." }
+    VendorOrderLine:
+      type: object
+      required: [id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, ledgerBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
+      properties:
+        id: { type: string }
+        vendorOrderId: { type: string }
+        lineNo: { type: integer }
+        teamId: { type: string, description: Cost attribution team. }
+        itemId: { type: [string, "null"] }
+        batchId: { type: [string, "null"] }
+        name: { type: string }
+        sku: { type: string }
+        quantity: { type: integer }
+        unitPrice: { type: [string, "null"], description: Decimal string in the order currency. }
+        returnedQuantity: { type: integer }
+        expectedQuantity: { type: integer }
+        receivedQuantity: { type: integer }
+        openProblemQuantity: { type: integer }
+        closure: { oneOf: [{ $ref: "#/components/schemas/LineClosure" }, { type: "null" }] }
+        status: { $ref: "#/components/schemas/LineStatus" }
+        costBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        sharedBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        ledgerBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        totalBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        vendorOrderVersion: { type: integer, format: int64, description: The vendor order version to send in If-Match. }
+        vendorOrderNumber: { type: integer }
+        problems: { type: array, items: { $ref: "#/components/schemas/ProblemSummary" } }
+    VendorOrderLineList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/VendorOrderLine" } }
+    LedgerEntry:
+      type: object
+      required: [id, vendorOrderId, vendorOrderLineId, amountBase, reason, source, sourceId, voided, createdBy, createdAt, updatedAt]
+      properties:
+        id: { type: string }
+        vendorOrderId: { type: string }
+        vendorOrderLineId: { type: [string, "null"] }
+        amountBase: { type: string, description: Decimal string in the base currency; refunds are negative. }
+        reason: { type: string }
+        source: { type: string, enum: [manual, problem, closure] }
+        sourceId: { type: [string, "null"] }
+        voided:
+          oneOf:
+            - type: object
+              required: [reason, by, at]
+              properties:
+                reason: { type: string }
+                by: { type: string }
+                at: { type: string, format: date-time }
+            - { type: "null" }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    OtherTeams:
+      type: object
+      required: [lines, totalBase]
+      properties:
+        lines: { type: integer }
+        totalBase: { type: [string, "null"] }
+    VendorOrder:
+      type: object
+      required: [id, number, vendorId, currency, status, externalOrderNo, placedAt, placedBy, sharedCosts, teamCostOverrides, overrideReason, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, ledger, restricted, otherTeams, visibleTotalBase, invariantOk]
+      properties:
+        id: { type: string }
+        number: { type: integer, description: "Displayed as VO-<number>." }
+        vendorId: { type: string }
+        vendorName: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [draft, placed, cancelled] }
+        externalOrderNo: { type: string }
+        placedAt: { type: [string, "null"], format: date-time }
+        placedBy: { type: [string, "null"] }
+        sharedCosts: { type: array, items: { $ref: "#/components/schemas/SharedCost" } }
+        teamCostOverrides: { type: [array, "null"], items: { $ref: "#/components/schemas/TeamCostOverride" } }
+        overrideReason: { type: string }
+        chargedAmountBase: { type: [string, "null"], description: Decimal string in the base currency. }
+        expectedDeliveryDate: { type: string, description: "YYYY-MM-DD or empty." }
+        paymentNote: { type: string }
+        teamIds: { type: array, items: { type: string } }
+        batchIds: { type: array, items: { type: string } }
+        totals: { $ref: "#/components/schemas/OrderTotals" }
+        cancellation:
+          oneOf:
+            - type: object
+              required: [reason, by, at]
+              properties:
+                reason: { type: string }
+                by: { type: string }
+                at: { type: string, format: date-time }
+            - { type: "null" }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+        lines: { type: array, items: { $ref: "#/components/schemas/VendorOrderLine" } }
+        ledger: { type: array, items: { $ref: "#/components/schemas/LedgerEntry" } }
+        restricted: { type: boolean, description: True for regular users (spec 8.2); money fields then cover visible lines only. }
+        otherTeams: { oneOf: [{ $ref: "#/components/schemas/OtherTeams" }, { type: "null" }] }
+        visibleTotalBase: { type: [string, "null"], description: Regular users only. }
+        invariantOk: { type: [boolean, "null"], description: "Purchasers, receivers and system admins: netBase equals the sum of line totals (null when not computable)." }
+        overridesCleared: { type: boolean, description: True when this write removed the team cost overrides. }
+    VendorOrderSummary:
+      type: object
+      required: [id, number, vendorId, vendorName, currency, status, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, restricted, createdAt, version]
+      properties:
+        id: { type: string }
+        number: { type: integer }
+        vendorId: { type: string }
+        vendorName: { type: string }
+        currency: { type: string }
+        status: { type: string, enum: [draft, placed, cancelled] }
+        externalOrderNo: { type: string }
+        placedAt: { type: [string, "null"], format: date-time }
+        expectedDeliveryDate: { type: string }
+        lineCount: { type: integer }
+        teamIds: { type: array, items: { type: string } }
+        netBase: { type: [string, "null"] }
+        provisional: { type: boolean }
+        incomplete: { type: array, items: { $ref: "#/components/schemas/Incomplete" } }
+        restricted: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    VendorOrderPage:
+      type: object
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/VendorOrderSummary" } }
+        nextCursor: { type: [string, "null"] }
+    QueueItem:
+      allOf:
+        - $ref: "#/components/schemas/Item"
+        - type: object
+          required: [teamName, batchNumber, batchTitle, draftQuantity]
+          properties:
+            teamName: { type: string }
+            batchNumber: { type: integer }
+            batchTitle: { type: string }
+            draftQuantity: { type: integer, description: Quantity already in draft lines. }
+    QueueGroup:
+      type: object
+      required: [vendorId, vendorName, teamIds, items]
+      properties:
+        vendorId: { type: [string, "null"], description: Null for items without a vendor from the list ("other"). }
+        vendorName: { type: string }
+        teamIds: { type: array, items: { type: string }, description: Teams with items in this group (more than one suggests merging). }
+        items: { type: array, items: { $ref: "#/components/schemas/QueueItem" } }
+    PurchasingQueue:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/QueueGroup" } }
+    CreateVendorOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [vendorId]
+      properties:
+        vendorId: { type: string }
+        currency: { type: string, description: Defaults to the vendor's default currency. }
+        itemIds: { type: array, items: { type: string } }
+    VendorOrderRequest:
+      type: object
+      additionalProperties: false
+      required: [vendorId, currency]
+      properties:
+        vendorId: { type: string }
+        currency: { type: string }
+        externalOrderNo: { type: string }
+        sharedCosts: { type: [array, "null"], items: { $ref: "#/components/schemas/SharedCost" } }
+        teamCostOverrides: { type: [array, "null"], items: { $ref: "#/components/schemas/TeamCostOverride" } }
+        overrideReason: { type: string }
+        chargedAmountBase: { type: [string, "null"] }
+        expectedDeliveryDate: { type: string }
+        paymentNote: { type: string }
+    AddLineRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        itemId: { type: string }
+        teamId: { type: string }
+        name: { type: string }
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: [string, "null"] }
+    ReplaceLineRequest:
+      type: object
+      additionalProperties: false
+      required: [teamId, name, quantity]
+      properties:
+        teamId: { type: string }
+        name: { type: string }
+        sku: { type: string }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: [string, "null"] }
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason: { type: string }
+    CloseLineRequest:
+      type: object
+      additionalProperties: false
+      required: [type, reason]
+      properties:
+        type: { type: string, enum: [short_accepted, not_obtained] }
+        reason: { type: string }
+        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency. }
+    LedgerRequest:
+      type: object
+      additionalProperties: false
+      required: [amountBase, reason]
+      properties:
+        amountBase: { type: string, description: Non-zero decimal string; negative for a refund. }
+        vendorOrderLineId: { type: [string, "null"] }
+        reason: { type: string }
     UnpurchasableRequest:
       type: object
       additionalProperties: false
@@ -1870,13 +2650,13 @@ components:
           type: [string, number, integer, boolean, object, array, "null"]
     AuditEvent:
       type: object
-      required: [id, at, actor, objectType, objectId, action, changes]
+      required: [id, at, actor, teamIds, objectType, objectId, action, changes]
       properties:
         id: { type: string }
         at: { type: string, format: date-time }
         actor: { type: string, description: 'User id, or "system:<job>".' }
-        teamId: { type: string, description: Zero id "000000000000000000000000" when not set (see notes). }
-        batchId: { type: string, description: Set for batch and item events. }
+        teamIds: { type: array, items: { type: string }, description: Teams involved in the event. }
+        batchId: { type: string, description: "Set for batch, item and linked vendor order line events." }
         objectType: { type: string }
         objectId: { type: string }
         action: { type: string, description: 'e.g. batch.created, batch.open, item.approved.' }
@@ -1888,11 +2668,29 @@ components:
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/Batch" } }
         nextCursor: { type: [string, "null"] }
+    LinkedLine:
+      type: object
+      required: [id, vendorOrderId, vendorOrderNumber, orderStatus, status, quantity, receivedQuantity]
+      properties:
+        id: { type: string }
+        vendorOrderId: { type: string }
+        vendorOrderNumber: { type: integer }
+        orderStatus: { type: string, enum: [draft, placed, cancelled] }
+        status: { $ref: "#/components/schemas/LineStatus" }
+        quantity: { type: integer }
+        receivedQuantity: { type: integer }
+    ItemWithLines:
+      allOf:
+        - $ref: "#/components/schemas/Item"
+        - type: object
+          required: [lines]
+          properties:
+            lines: { type: array, items: { $ref: "#/components/schemas/LinkedLine" }, description: Linked vendor order lines. }
     ItemList:
       type: object
       required: [items]
       properties:
-        items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+        items: { type: array, items: { $ref: "#/components/schemas/ItemWithLines" } }
     AuditEventPage:
       type: object
       required: [items, nextCursor]
@@ -1954,3 +2752,13 @@ components:
         - items_undecided
         - line_quantity_exceeded
         - team_cost_overrides_mismatch
+        - item_not_purchasable
+        - item_already_on_order
+        - order_not_draft
+        - order_locked
+        - line_locked
+        - unit_price_required
+        - order_has_no_lines
+        - line_missing_price
+        - order_not_placed
+        - line_not_closable

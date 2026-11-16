@@ -40,6 +40,8 @@ type Blocker struct {
 	Type  string `json:"type"`
 	ID    string `json:"id"`
 	Label string `json:"label"`
+	// ParentID is the vendor order a line-level blocker lives on, so clients can link to it.
+	ParentID string `json:"parentId,omitempty"`
 }
 
 // BlockedError is an undo refused because later actions depend on it (HTTP 409

@@ -106,7 +106,7 @@ func (s *Batches) Create(ctx context.Context, actor authz.Actor, teamID bson.Obj
 
 func (s *Batches) event(actor string, b *domain.Batch, action string, changes ...domain.AuditChange) domain.AuditEvent {
 	return domain.AuditEvent{
-		Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectType: "batch", ObjectID: b.ID.Hex(),
+		Actor: actor, TeamIDs: []bson.ObjectID{b.TeamID}, BatchID: b.ID, ObjectType: "batch", ObjectID: b.ID.Hex(),
 		Action: action, Changes: changes,
 	}
 }
@@ -529,6 +529,11 @@ func (s *Batches) DeriveStatus(ctx context.Context, batchID bson.ObjectID) error
 	})
 	if err != nil {
 		return mapStore(err)
+	}
+	if to == domain.BatchCompleted {
+		if err := s.st.Emit(ctx, store.EventRecord{Type: "batch.completed", Actor: audit.SystemActor("derive"), TeamID: nb.TeamID, BatchID: nb.ID, ObjectID: nb.ID.Hex()}); err != nil {
+			return err
+		}
 	}
 	return s.audit.Record(ctx, s.event(audit.SystemActor("derive"), nb, "batch.status_derived",
 		domain.AuditChange{Field: "status", From: string(b.Status), To: string(to)}))

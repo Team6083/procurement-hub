@@ -19,31 +19,79 @@ type itemLine struct {
 	CostBase *domain.Decimal // nil while incomplete
 }
 
-// linesOf loads the linked lines of an item. Lines arrive with the vendor
-// order collections; until then every item has none.
+// linesOf loads the linked lines of an item on non-cancelled orders; a line
+// that is only draft still counts toward the planned quantity.
 func (s *Batches) linesOf(ctx context.Context, itemID bson.ObjectID) ([]itemLine, error) {
-	return nil, nil
+	lines, err := s.st.LinesByItem(ctx, itemID)
+	if err != nil {
+		return nil, err
+	}
+	var out []itemLine
+	for _, l := range lines {
+		if l.Status == domain.LineCancelled {
+			continue
+		}
+		out = append(out, itemLine{ID: l.ID, Status: l.Status, Quantity: l.Quantity, Received: l.ReceivedQty, CostBase: l.TotalBase})
+	}
+	return out, nil
 }
 
 // placedLinesOf lists placed lines of an item as undo blockers.
 func (s *Batches) placedLinesOf(ctx context.Context, itemID bson.ObjectID) ([]Blocker, error) {
-	lines, err := s.linesOf(ctx, itemID)
+	lines, err := s.st.LinesByItem(ctx, itemID)
 	if err != nil {
 		return nil, err
 	}
 	var out []Blocker
 	for _, l := range lines {
 		if l.Status != domain.LineDraft && l.Status != domain.LineCancelled {
-			out = append(out, Blocker{Type: "vendor_order_line", ID: l.ID.Hex(), Label: string(l.Status)})
+			o, err := s.st.GetVendorOrder(ctx, l.VendorOrderID)
+			if err != nil {
+				return nil, mapStore(err)
+			}
+			out = append(out, Blocker{Type: "vendor_order", ID: o.ID.Hex(), Label: "VO-" + itoa(o.Number)})
 		}
 	}
 	return out, nil
 }
 
-// removeDraftLinesOf deletes draft lines of an item (the only place undo
-// deletes; the content goes to audit, spec §10 intro). Wired for 4b.
+// removeDraftLinesOf deletes the draft lines of an item (the only place undo
+// deletes; the content goes to audit, spec §10 intro) and recomputes the
+// orders they were on. The returned events belong to the caller's audit batch.
 func (s *Batches) removeDraftLinesOf(ctx context.Context, b *domain.Batch, it *domain.Item, actor string) ([]domain.AuditEvent, error) {
-	return nil, nil
+	lines, err := s.st.LinesByItem(ctx, it.ID)
+	if err != nil {
+		return nil, err
+	}
+	var evs []domain.AuditEvent
+	for _, l := range lines {
+		if l.Status != domain.LineDraft {
+			continue
+		}
+		o, err := s.st.GetVendorOrder(ctx, l.VendorOrderID)
+		if err != nil {
+			return nil, mapStore(err)
+		}
+		price := ""
+		if l.UnitPrice != nil {
+			price = l.UnitPrice.String()
+		}
+		if err := s.st.DeleteLine(ctx, l.ID); err != nil {
+			return nil, err
+		}
+		evs = append(evs, domain.AuditEvent{
+			Actor: actor, TeamIDs: []bson.ObjectID{l.TeamID}, BatchID: b.ID, ObjectType: "vendor_order", ObjectID: o.ID.Hex(),
+			Action: "vendor_order.line_removed", Scope: "line", LineIDs: []string{l.ID.Hex()},
+			Comment: "review confirmation was undone",
+			Changes: []domain.AuditChange{
+				{Field: "line", From: "#" + itoa(l.LineNo) + " " + l.Name + " x" + itoa(l.Quantity) + " sku=" + l.SKU + " unitPrice=" + price, To: nil},
+			},
+		})
+		if _, _, err := s.recomputeOrder(ctx, o, recomputeOpts{skipItems: true}); err != nil {
+			return nil, err
+		}
+	}
+	return evs, nil
 }
 
 // refreshItem recomputes the item's computed purchasing fields from its linked

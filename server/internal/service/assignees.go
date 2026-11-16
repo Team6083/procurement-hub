@@ -21,7 +21,7 @@ func removeAssignments(ctx context.Context, st *store.Store, log *audit.Log, act
 	evs := make([]domain.AuditEvent, 0, len(batches))
 	for _, id := range batches {
 		evs = append(evs, domain.AuditEvent{
-			Actor: actor, TeamID: teamID, BatchID: id, ObjectType: "batch", ObjectID: id.Hex(),
+			Actor: actor, TeamIDs: []bson.ObjectID{teamID}, BatchID: id, ObjectType: "batch", ObjectID: id.Hex(),
 			Action:  "batch.assignee_removed",
 			Changes: []domain.AuditChange{{Field: "assignee", From: userID.Hex(), To: ""}},
 			Comment: "member left the team",

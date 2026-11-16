@@ -13,14 +13,14 @@ func TestAuditEventJSONOmitsZeroIDs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(b), "teamId") || strings.Contains(string(b), "batchId") || strings.Contains(string(b), "000000000000000000000000") {
+	if strings.Contains(string(b), "batchId") || strings.Contains(string(b), "000000000000000000000000") {
 		t.Fatalf("zero ids leaked: %s", b)
 	}
 	id := bson.NewObjectID()
-	b, _ = json.Marshal(AuditEvent{TeamID: id, BatchID: id, Action: "a"})
+	b, _ = json.Marshal(AuditEvent{TeamIDs: []bson.ObjectID{id}, BatchID: id, Action: "a"})
 	var out map[string]any
 	_ = json.Unmarshal(b, &out)
-	if out["teamId"] != id.Hex() || out["batchId"] != id.Hex() || out["action"] != "a" {
+	if out["teamIds"].([]any)[0] != id.Hex() || out["batchId"] != id.Hex() || out["action"] != "a" {
 		t.Fatalf("set ids/fields wrong: %s", b)
 	}
 }

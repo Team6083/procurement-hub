@@ -92,8 +92,8 @@ func (s *Teams) Create(ctx context.Context, actor authz.Actor, in CreateTeamInpu
 			return err
 		}
 		return s.audit.Record(ctx,
-			domain.AuditEvent{Actor: actor.UserID.Hex(), TeamID: t.ID, ObjectType: "team", ObjectID: t.ID.Hex(), Action: "team.created"},
-			domain.AuditEvent{Actor: actor.UserID.Hex(), TeamID: t.ID, ObjectType: "membership", ObjectID: in.FirstAdminID.Hex(),
+			domain.AuditEvent{Actor: actor.UserID.Hex(), TeamIDs: []bson.ObjectID{t.ID}, ObjectType: "team", ObjectID: t.ID.Hex(), Action: "team.created"},
+			domain.AuditEvent{Actor: actor.UserID.Hex(), TeamIDs: []bson.ObjectID{t.ID}, ObjectType: "membership", ObjectID: in.FirstAdminID.Hex(),
 				Action: "membership.manual_role_set", Changes: []domain.AuditChange{{Field: "manualRole", From: "", To: "admin"}}},
 		)
 	})
@@ -192,7 +192,7 @@ func (s *Teams) applyTeamChange(ctx context.Context, actor authz.Actor, t *domai
 			return mapStore(err)
 		}
 		return s.audit.Record(ctx, domain.AuditEvent{
-			Actor: actor.UserID.Hex(), TeamID: t.ID, ObjectType: "team", ObjectID: t.ID.Hex(), Action: action, Changes: changes,
+			Actor: actor.UserID.Hex(), TeamIDs: []bson.ObjectID{t.ID}, ObjectType: "team", ObjectID: t.ID.Hex(), Action: action, Changes: changes,
 		})
 	})
 	if err != nil {

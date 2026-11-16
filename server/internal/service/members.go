@@ -209,7 +209,7 @@ func (s *Teams) RemoveMember(ctx context.Context, actor authz.Actor, teamID, use
 
 func (s *Teams) auditManual(ctx context.Context, actor authz.Actor, teamID, userID bson.ObjectID, from, to domain.Role) error {
 	return s.audit.Record(ctx, domain.AuditEvent{
-		Actor: actor.UserID.Hex(), TeamID: teamID, ObjectType: "membership", ObjectID: userID.Hex(),
+		Actor: actor.UserID.Hex(), TeamIDs: []bson.ObjectID{teamID}, ObjectType: "membership", ObjectID: userID.Hex(),
 		Action:  "membership.manual_role_set",
 		Changes: []domain.AuditChange{{Field: "manualRole", From: string(from), To: string(to)}},
 	})

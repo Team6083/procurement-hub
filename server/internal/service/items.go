@@ -93,21 +93,43 @@ func (s *Items) validate(in ItemInput, t *domain.Team) error {
 
 func (s *Items) event(actor string, b *domain.Batch, it *domain.Item, action string, comment string, changes ...domain.AuditChange) domain.AuditEvent {
 	return domain.AuditEvent{
-		Actor: actor, TeamID: b.TeamID, BatchID: b.ID, ObjectType: "item", ObjectID: it.ID.Hex(),
+		Actor: actor, TeamIDs: []bson.ObjectID{b.TeamID}, BatchID: b.ID, ObjectType: "item", ObjectID: it.ID.Hex(),
 		Action: action, Comment: comment, Changes: changes,
 	}
 }
 
-// List returns a batch's items to anyone who can read the batch.
-func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.ObjectID) ([]domain.Item, error) {
+// ItemView is an item with the summary of its linked vendor order lines.
+type ItemView struct {
+	domain.Item
+	Lines []LinkedLine `json:"lines"`
+}
+
+// List returns a batch's items to anyone who can read the batch. Every linked
+// line is visible to them because they can read the batch (spec §8.2).
+func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.ObjectID) ([]ItemView, error) {
 	if _, _, err := s.batches.load(ctx, actor, batchID); err != nil {
 		return nil, err
 	}
 	items, err := s.st.ListItems(ctx, batchID)
-	if items == nil {
-		items = []domain.Item{}
+	if err != nil {
+		return nil, err
 	}
-	return items, err
+	ids := make([]bson.ObjectID, len(items))
+	for i := range items {
+		ids[i] = items[i].ID
+	}
+	linked, err := linkedLines(ctx, s.st, ids)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]ItemView, len(items))
+	for i, it := range items {
+		out[i] = ItemView{Item: it, Lines: linked[it.ID]}
+		if out[i].Lines == nil {
+			out[i].Lines = []LinkedLine{}
+		}
+	}
+	return out, nil
 }
 
 // Add creates an item: team members, while the batch is `proposed` (proposer
