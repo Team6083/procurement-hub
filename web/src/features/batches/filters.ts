@@ -12,14 +12,14 @@ export interface ItemFilters {
 }
 
 /** Exact-match filters; empty/undefined values are ignored. */
-export function filterItems<T extends Pick<Item, 'subgroupId' | 'requesterId' | 'priority' | 'status' | 'vendor' | 'toPurchaseQuantity'>>(items: T[], f: ItemFilters): T[] {
+export function filterItems<T extends Pick<Item, 'subgroupId' | 'requesterId' | 'priority' | 'status' | 'vendorName' | 'toPurchaseQuantity'>>(items: T[], f: ItemFilters): T[] {
   return items.filter(
     (i) =>
       (!f.subgroup || i.subgroupId === f.subgroup) &&
       (!f.requester || i.requesterId === f.requester) &&
       (!f.priority || String(i.priority) === f.priority) &&
       (!f.status || (f.status === TO_PURCHASE ? i.status === 'approved' && i.toPurchaseQuantity > 0 : i.status === f.status)) &&
-      (!f.vendor || i.vendor === f.vendor),
+      (!f.vendor || i.vendorName === f.vendor),
   );
 }
 

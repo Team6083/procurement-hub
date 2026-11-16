@@ -28,7 +28,6 @@ export function TeamSettingsShell() {
       <HStack gap="1" wrap="wrap" as="nav">
         {nav('', t('settings.nav.general'))}
         {nav('/subgroups', t('settings.nav.subgroups'))}
-        {nav('/reference-rates', t('settings.nav.rates'))}
         {nav('/members', t('settings.nav.members'))}
       </HStack>
       <Outlet />

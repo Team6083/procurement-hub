@@ -56,7 +56,6 @@
     "nav": {
       "general": "一般",
       "subgroups": "子群組",
-      "rates": "參考匯率",
       "members": "成員"
     },
     "forbidden": "您沒有權限存取此頁面。",
@@ -95,15 +94,6 @@
     "activate": "啟用",
     "inactive": "已停用",
     "empty": "尚無子群組。"
-  },
-  "rates": {
-    "help": "參考匯率用於將其他幣別換算為基準幣別 ({{base}}) 以供估算。儲存時會取代整份清單。",
-    "none": "沒有參考匯率。",
-    "currency": "幣別",
-    "rate": "兌 {{base}} 匯率",
-    "add": "新增匯率",
-    "remove": "移除",
-    "noCurrencies": "沒有其他支援的幣別。"
   },
   "members": {
     "user": "使用者",

@@ -23,5 +23,32 @@
   "patternHelp": "樣式會與所選宣告的值比對，並以「/」分段。每個「*」恰好符合一整個區段，並依序擷取為 $1、$2 等。範例：/teams/*/members。",
   "teamHelp": "目標團隊的代稱，可使用擷取值，例如 $1。對應到不存在團隊的規則會被略過。",
   "deleteTitle": "刪除規則",
-  "deleteConfirm": "要刪除樣式為 {{pattern}} 的規則嗎？"
+  "deleteConfirm": "要刪除樣式為 {{pattern}} 的規則嗎？",
+  "vendors": {
+    "title": "廠商",
+    "intro": "共用的廠商清單，品項與廠商訂單都從這裡選擇廠商。",
+    "create": "新增廠商",
+    "edit": "編輯廠商",
+    "name": "名稱",
+    "aliases": "別名",
+    "aliasesHelp": "一行一個。名稱與別名在所有廠商之間不可重複。",
+    "currency": "預設幣別",
+    "website": "網站",
+    "badUrl": "請輸入 http(s) 網址。",
+    "notes": "備註",
+    "active": "啟用",
+    "inactive": "已停用",
+    "status": "狀態",
+    "showInactive": "顯示已停用的廠商",
+    "empty": "還沒有廠商。"
+  },
+  "rates": {
+    "title": "參考匯率",
+    "intro": "參考匯率用來把其他幣別換算成本位幣（{{base}}）做預估，以及尚未有實際扣款的廠商訂單的暫估。",
+    "rate": "1 {{currency}} 折合 {{base}}",
+    "invalid": "請輸入大於 0、最多 6 位小數的數字。",
+    "none": "尚未設定",
+    "updated": "更新於 {{date}}",
+    "noCurrencies": "沒有其他支援的幣別。"
+  }
 }

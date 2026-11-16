@@ -1,5 +1,4 @@
 import { z } from 'zod';
-import { MAX_RATE_DIGITS, fractionDigits } from '../money';
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
@@ -37,27 +36,6 @@ export const generalSchema = z.object({
   }),
 });
 export type GeneralForm = z.infer<typeof generalSchema>;
-
-export const ratesSchema = z
-  .object({
-    rates: z.array(
-      z.object({
-        currency: z.string().min(1, 'common:validation.required'),
-        rateToBase: z
-          .string()
-          .refine(isPositiveDecimal, 'teams:validation.rate')
-          .refine((v) => fractionDigits(v) <= MAX_RATE_DIGITS, 'teams:validation.rateDigits'),
-      }),
-    ),
-  })
-  .superRefine((v, ctx) => {
-    const seen = new Set<string>();
-    v.rates.forEach((r, i) => {
-      if (seen.has(r.currency)) ctx.addIssue({ code: 'custom', path: ['rates', i, 'currency'], message: 'teams:validation.duplicateCurrency' });
-      seen.add(r.currency);
-    });
-  });
-export type RatesForm = z.infer<typeof ratesSchema>;
 
 export const roleMappingSchema = z.object({
   claim: z.enum(['groups', 'roles']),

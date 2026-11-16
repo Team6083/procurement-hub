@@ -27,6 +27,7 @@ describe('ItemsTab unpurchasable action', () => {
     expect(await openRowMenu(rowWith('Wheel'))).toEqual(['Mark unpurchasable']);
     await closeMenu();
     expect(await openRowMenu(rowWith('Gear'))).toEqual(['Undo unpurchasable']);
+    await closeMenu();
   });
   it('hides the action from non-purchasers and before the review is confirmed', () => {
     show(caller('member', 'someone'));

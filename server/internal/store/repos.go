@@ -131,9 +131,6 @@ func (s *Store) CreateTeam(ctx context.Context, t *domain.Team) error {
 	if t.Subgroups == nil {
 		t.Subgroups = []domain.Subgroup{}
 	}
-	if t.ReferenceRates == nil {
-		t.ReferenceRates = []domain.ReferenceRate{}
-	}
 	res, err := s.c("teams").InsertOne(ctx, t)
 	if err != nil {
 		return mapErr(err)

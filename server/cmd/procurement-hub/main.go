@@ -174,6 +174,9 @@ func serve() error {
 		}
 		return batches.CloseDue(ctx, id)
 	})
+	// Vendor order amounts are recomputed against the new rate in milestone 4b;
+	// until then the job is consumed so it does not linger.
+	runner.Register(service.JobVendorOrdersRecompute, func(context.Context, *store.Job) error { return nil })
 	// Deadline reminders become notifications in milestone 6; until then the
 	// job is consumed so it does not linger.
 	runner.Register(service.JobBatchDeadlineReminder, func(context.Context, *store.Job) error { return nil })

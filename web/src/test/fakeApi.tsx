@@ -73,7 +73,6 @@ export function team(over: Partial<Team> = {}): Team {
   return {
     id: 't1', slug: 'robotics', name: 'Robotics', description: '', visibility: 'members', locale: 'en',
     priorityLabels: null, subgroups: [{ id: 'g1', name: 'Mechanical', active: true }, { id: 'g2', name: 'Electrical', active: true }],
-    referenceRates: [{ currency: 'USD', rateToBase: '32' } as Team['referenceRates'][number]],
     archived: false, createdAt: at, updatedAt: at, version: 3, ...over,
   };
 }
@@ -101,7 +100,7 @@ export function batch(over: Partial<Batch> = {}): Batch {
 
 export function item(seqNo: number, over: Partial<Item> = {}): Item {
   return {
-    id: `i${seqNo}`, teamId: 't1', batchId: 'b1', seqNo, requesterId: 'u1', subgroupId: 'g1', name: `Item ${seqNo}`, vendor: 'Acme', sku: '',
+    id: `i${seqNo}`, teamId: 't1', batchId: 'b1', seqNo, requesterId: 'u1', subgroupId: 'g1', name: `Item ${seqNo}`, vendorId: null, vendorName: 'Acme', sku: '',
     quantity: 1, estimatedUnitPrice: { amount: '10', currency: 'USD' }, priority: 3, purpose: '', notes: '', productUrl: '',
     status: 'pending', review: null, lookup: null, unpurchasable: null, fulfillment: null, plannedQuantity: 0, toPurchaseQuantity: 0,
     orderedQuantity: 0, receivedQuantity: 0, costBase: null, customFields: null, createdAt: at, updatedAt: at, version: 1, ...over,

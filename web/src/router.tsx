@@ -11,16 +11,17 @@ import { BatchPage } from './pages/BatchPage';
 import { BatchesPage } from './pages/BatchesPage';
 import { HomePage } from './pages/HomePage';
 import { Placeholder } from './pages/Placeholder';
+import { ReferenceRatesPage } from './pages/ReferenceRatesPage';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { GeneralSettings } from './pages/settings/GeneralSettings';
 import { MembersSettings } from './pages/settings/MembersSettings';
-import { ReferenceRatesSettings } from './pages/settings/ReferenceRatesSettings';
 import { SubgroupsSettings } from './pages/settings/SubgroupsSettings';
 import { TeamMembersTab } from './pages/TeamMembersTab';
 import { TeamOverview } from './pages/TeamOverview';
 import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
+import { VendorsPage } from './pages/VendorsPage';
 
 function Layout() {
   return (
@@ -74,7 +75,6 @@ export const routes: RouteObject[] = [
                 children: [
                   { index: true, element: <GeneralSettings /> },
                   { path: 'subgroups', element: <SubgroupsSettings /> },
-                  { path: 'reference-rates', element: <ReferenceRatesSettings /> },
                   { path: 'members', element: <MembersSettings /> },
                 ],
               },
@@ -82,6 +82,8 @@ export const routes: RouteObject[] = [
           },
           { path: '/reports', element: <Placeholder titleKey="pages.reports" /> },
           { path: '/admin/role-mappings', element: <RoleMappingsPage /> },
+          { path: '/admin/vendors', element: <VendorsPage /> },
+          { path: '/admin/reference-rates', element: <ReferenceRatesPage /> },
           { path: '/auth/callback', element: <Callback /> },
           { path: '*', element: <Placeholder titleKey="pages.notFound" /> },
         ],

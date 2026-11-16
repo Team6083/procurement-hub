@@ -11,7 +11,9 @@
     "teams": "團隊",
     "menu": "選單",
     "purchasing": "採購",
-    "receiving": "點收"
+    "receiving": "點收",
+    "vendors": "廠商",
+    "rates": "參考匯率"
   },
   "language": {
     "label": "語言",

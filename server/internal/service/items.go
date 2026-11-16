@@ -30,7 +30,8 @@ func NewItems(st *store.Store, a *audit.Log, b *Batches) *Items {
 type ItemInput struct {
 	SubgroupID         string
 	Name               string
-	Vendor             string
+	VendorID           *bson.ObjectID // a vendor from the list, or nil with VendorName as free text
+	VendorName         string
 	SKU                string
 	Quantity           int
 	EstimatedUnitPrice domain.Money
@@ -44,10 +45,35 @@ type ItemInput struct {
 
 func (in ItemInput) fields() domain.ItemFields {
 	return domain.ItemFields{
-		SubgroupID: in.SubgroupID, Name: in.Name, Vendor: in.Vendor, SKU: in.SKU, Quantity: in.Quantity,
+		SubgroupID: in.SubgroupID, Name: in.Name, VendorName: in.VendorName, SKU: in.SKU, Quantity: in.Quantity,
 		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose,
 		Notes: in.Notes, ProductURL: in.ProductURL,
 	}
+}
+
+func sameID(a, b *bson.ObjectID) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return *a == *b
+}
+
+// resolveVendor sets the item's vendor from the list when an id is given
+// (name copied from the vendor), else keeps the free-text name ("Other").
+func (s *Items) resolveVendor(ctx context.Context, in *ItemInput) error {
+	if in.VendorID == nil {
+		in.VendorName = strings.TrimSpace(in.VendorName)
+		if len([]rune(in.VendorName)) > 200 {
+			return Invalid("vendorName", "at most 200 characters")
+		}
+		return nil
+	}
+	v, err := s.st.GetVendor(ctx, *in.VendorID)
+	if err != nil {
+		return Invalid("vendorId", "unknown vendor")
+	}
+	in.VendorName = v.Name
+	return nil
 }
 
 func (s *Items) validate(in ItemInput, t *domain.Team) error {
@@ -119,9 +145,12 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 	if err := s.validate(in, t); err != nil {
 		return nil, err
 	}
+	if err := s.resolveVendor(ctx, &in); err != nil {
+		return nil, err
+	}
 	it := &domain.Item{
 		TeamID: t.ID, BatchID: b.ID, RequesterID: actor.UserID, Status: domain.ItemPending,
-		SubgroupID: in.SubgroupID, Name: in.Name, Vendor: in.Vendor, SKU: in.SKU, Quantity: in.Quantity,
+		SubgroupID: in.SubgroupID, Name: in.Name, VendorID: in.VendorID, VendorName: in.VendorName, SKU: in.SKU, Quantity: in.Quantity,
 		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose, Notes: in.Notes, ProductURL: in.ProductURL,
 	}
 	if len(in.AutoFilledFields) > 0 {
@@ -203,8 +232,11 @@ func (s *Items) Update(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 	if err := s.validate(in, t); err != nil {
 		return nil, err
 	}
+	if err := s.resolveVendor(ctx, &in); err != nil {
+		return nil, err
+	}
 	set := bson.D{
-		{Key: "subgroupId", Value: in.SubgroupID}, {Key: "name", Value: in.Name}, {Key: "vendor", Value: in.Vendor},
+		{Key: "subgroupId", Value: in.SubgroupID}, {Key: "name", Value: in.Name}, {Key: "vendorId", Value: in.VendorID}, {Key: "vendorName", Value: in.VendorName},
 		{Key: "sku", Value: in.SKU}, {Key: "quantity", Value: in.Quantity},
 		{Key: "estimatedUnitPrice", Value: in.EstimatedUnitPrice}, {Key: "priority", Value: in.Priority},
 		{Key: "purpose", Value: in.Purpose}, {Key: "notes", Value: in.Notes}, {Key: "productUrl", Value: in.ProductURL},
@@ -237,8 +269,8 @@ func diffItem(it *domain.Item, in ItemInput) []domain.AuditChange {
 	if it.SubgroupID != in.SubgroupID {
 		add("subgroupId", it.SubgroupID, in.SubgroupID)
 	}
-	if it.Vendor != in.Vendor {
-		add("vendor", it.Vendor, in.Vendor)
+	if it.VendorName != in.VendorName || !sameID(it.VendorID, in.VendorID) {
+		add("vendor", it.VendorName, in.VendorName)
 	}
 	if it.SKU != in.SKU {
 		add("sku", it.SKU, in.SKU)
@@ -520,7 +552,7 @@ func (s *Items) Copy(ctx context.Context, actor authz.Actor, id bson.ObjectID) (
 		return nil, ErrForbidden
 	}
 	return s.Add(ctx, actor, it.BatchID, ItemInput{
-		SubgroupID: it.SubgroupID, Name: it.Name, Vendor: it.Vendor, SKU: it.SKU, Quantity: it.Quantity,
+		SubgroupID: it.SubgroupID, Name: it.Name, VendorID: it.VendorID, VendorName: it.VendorName, SKU: it.SKU, Quantity: it.Quantity,
 		EstimatedUnitPrice: it.EstimatedUnitPrice, Priority: it.Priority, Purpose: it.Purpose, Notes: it.Notes, ProductURL: it.ProductURL,
 	})
 }

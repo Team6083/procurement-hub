@@ -1,7 +1,7 @@
 import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuFileChartColumn, LuListTodo, LuPackage, LuPackageCheck, LuSettings, LuShoppingCart, LuShieldCheck } from 'react-icons/lu';
+import { LuFileChartColumn, LuListTodo, LuPackage, LuPackageCheck, LuCoins, LuSettings, LuShoppingCart, LuShieldCheck, LuStore } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
 import { useMe } from '../api/me';
@@ -39,6 +39,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
     ...(canPurchase ? [{ href: paths.purchasing, label: t('nav.purchasing'), icon: <LuShoppingCart /> }] : []),
     ...(canReceive ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck /> }] : []),
     { href: '/reports', label: t('nav.reports'), icon: <LuFileChartColumn /> },
+    ...(isSystemAdmin || canPurchase ? [{ href: '/admin/vendors', label: t('nav.vendors'), icon: <LuStore /> }] : []),
+    ...(isSystemAdmin ? [{ href: '/admin/reference-rates', label: t('nav.rates'), icon: <LuCoins /> }] : []),
     ...(isSystemAdmin ? [{ href: '/admin/role-mappings', label: t('nav.admin'), icon: <LuShieldCheck /> }] : []),
     { href: '/settings', label: t('nav.settings'), icon: <LuSettings /> },
   ].map((item) => ({ ...item, active: isActive(item.href, pathname) }));

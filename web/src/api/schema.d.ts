@@ -53,13 +53,99 @@ export interface paths {
          * Search users who have logged in at least once
          * @description Only system admins, purchasers, receivers and members of at least one team may search (otherwise 403).
          *     `role=purchaser|receiver` limits results to users whose `roleSnapshot` has that role (assignment candidates only, never authorization).
-         *     `q` must contain at least 2 characters after trimming (otherwise 400 `invalid_request`).
+         *     `q` must contain at least 2 characters after trimming (otherwise 400 `invalid_request`), except that it may be
+         *     omitted when `role` is given (then the role holders are listed, for assignment pickers).
          *     At most 20 users are returned. Not paginated: the response is `{items}` only.
          */
         get: operations["searchUsers"];
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List vendors (everyone)
+         * @description `q` matches names and aliases (case-insensitive substring); inactive vendors only with `includeInactive=true`. Not paginated.
+         */
+        get: operations["listVendors"];
+        put?: never;
+        /**
+         * Create a vendor (purchasers and system admins)
+         * @description 422 `vendor_name_taken` when the name or an alias collides with another vendor's name or alias (case-insensitive, trimmed).
+         */
+        post: operations["createVendor"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** Replace a vendor (purchasers and system admins); deactivate with active=false */
+        put: operations["replaceVendor"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Global reference rates to the base currency (everyone) */
+        get: operations["listReferenceRates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/reference-rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or replace one currency's rate (system admins)
+         * @description Without `If-Match` the rate is created (201; 428 `if_match_required` when it already exists).
+         *     With `If-Match` it replaces the existing rate (200). The base currency and unsupported currencies are 400.
+         *     Every write schedules the `vendor_orders.recompute` job for the currency.
+         */
+        put: operations["putReferenceRate"];
+        post?: never;
+        /** Delete one currency's rate (system admins) */
+        delete: operations["deleteReferenceRate"];
         options?: never;
         head?: never;
         patch?: never;
@@ -225,30 +311,6 @@ export interface paths {
         head?: never;
         /** Rename and/or (de)activate a subgroup (team admin; subgroups are never deleted) */
         patch: operations["patchSubgroup"];
-        trace?: never;
-    };
-    "/teams/{teamId}/reference-rates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
-                teamId: components["parameters"]["TeamId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Replace the team's reference rate list (team admin)
-         * @description Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
-         *     currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `invalid_request`, field `rateToBase`).
-         */
-        put: operations["replaceReferenceRates"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
         trace?: never;
     };
     "/admin/role-mappings": {
@@ -808,12 +870,49 @@ export interface components {
         };
         ReferenceRate: {
             currency: string;
-            /** @description Decimal string. */
+            /** @description Decimal string, > 0, at most 6 fractional digits. */
             rateToBase: string;
             /** Format: date-time */
             updatedAt: string;
             /** @description User id. */
             updatedBy: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ReferenceRateList: {
+            items: components["schemas"]["ReferenceRate"][];
+        };
+        PutReferenceRateRequest: {
+            /** @description Positive decimal string. */
+            rateToBase: string;
+        };
+        Vendor: {
+            id: string;
+            name: string;
+            aliases: string[];
+            defaultCurrency: string;
+            website: string;
+            notes: string;
+            active: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: int64 */
+            version: number;
+        };
+        VendorList: {
+            items: components["schemas"]["Vendor"][];
+        };
+        VendorRequest: {
+            name: string;
+            aliases?: string[];
+            /** @description Defaults to the base currency. */
+            defaultCurrency?: string;
+            website?: string;
+            notes?: string;
+            /** @description Ignored on create (always true); on PUT, false deactivates. */
+            active?: boolean;
         };
         /** @description What non-members see. Has no `version`. */
         TeamSummary: {
@@ -836,7 +935,6 @@ export interface components {
                 [key: string]: string;
             } | null;
             subgroups: components["schemas"]["Subgroup"][];
-            referenceRates: components["schemas"]["ReferenceRate"][];
             archived: boolean;
             /** Format: date-time */
             createdAt: string;
@@ -894,13 +992,6 @@ export interface components {
         PatchSubgroupRequest: {
             name?: string;
             active?: boolean;
-        };
-        PutReferenceRatesRequest: {
-            rates: {
-                currency: string;
-                /** @description Positive decimal string. */
-                rateToBase: string;
-            }[];
         };
         RoleMapping: {
             id: string;
@@ -1073,7 +1164,10 @@ export interface components {
             /** @description Empty string when unset. */
             subgroupId: string;
             name: string;
-            vendor: string;
+            /** @description A vendor from the list, or null for a free-text vendor. */
+            vendorId: string | null;
+            /** @description The vendor's name (copied from the list) or the free text. */
+            vendorName: string;
             sku: string;
             quantity: number;
             estimatedUnitPrice: components["schemas"]["Money"];
@@ -1111,7 +1205,10 @@ export interface components {
         ItemRequest: {
             subgroupId?: string;
             name: string;
-            vendor?: string;
+            /** @description A vendor from the list (the name is then taken from it); 400 when unknown. */
+            vendorId?: string | null;
+            /** @description Free-text vendor when vendorId is null. */
+            vendorName?: string;
             sku?: string;
             quantity: number;
             estimatedUnitPrice: components["schemas"]["Money"];
@@ -1219,7 +1316,7 @@ export interface components {
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch";
     };
     responses: {
         /**
@@ -1319,7 +1416,7 @@ export interface components {
          *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-         *     `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
+         *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -1449,8 +1546,8 @@ export interface operations {
     };
     searchUsers: {
         parameters: {
-            query: {
-                q: string;
+            query?: {
+                q?: string;
                 role?: "purchaser" | "receiver";
             };
             header?: never;
@@ -1471,6 +1568,210 @@ export interface operations {
             400: components["responses"]["BadRequest"];
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listVendors: {
+        parameters: {
+            query?: {
+                q?: string;
+                includeInactive?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createVendor: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorRequest"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    replaceVendor: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VendorRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated vendor */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Vendor"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    listReferenceRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceRateList"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putReferenceRate: {
+        parameters: {
+            query?: never;
+            header?: {
+                "If-Match"?: string;
+            };
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PutReferenceRateRequest"];
+            };
+        };
+        responses: {
+            /** @description Replaced */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceRate"];
+                };
+            };
+            /** @description Created */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferenceRate"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteReferenceRate: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
+            428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];
         };
     };
@@ -1821,50 +2122,6 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["PatchSubgroupRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated team */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Team"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    replaceReferenceRates: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                /** @description Team id (24-hex). A malformed id yields 404 `not_found`. */
-                teamId: components["parameters"]["TeamId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PutReferenceRatesRequest"];
             };
         };
         responses: {

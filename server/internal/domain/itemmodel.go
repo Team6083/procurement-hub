@@ -36,24 +36,25 @@ type LookupInfo struct {
 }
 
 type Item struct {
-	ID                 bson.ObjectID `bson:"_id,omitempty" json:"id"`
-	TeamID             bson.ObjectID `bson:"teamId" json:"teamId"`
-	BatchID            bson.ObjectID `bson:"batchId" json:"batchId"`
-	SeqNo              int           `bson:"seqNo" json:"seqNo"`
-	RequesterID        bson.ObjectID `bson:"requesterId" json:"requesterId"`
-	SubgroupID         string        `bson:"subgroupId,omitempty" json:"subgroupId"`
-	Name               string        `bson:"name" json:"name"`
-	Vendor             string        `bson:"vendor,omitempty" json:"vendor"`
-	SKU                string        `bson:"sku,omitempty" json:"sku"`
-	Quantity           int           `bson:"quantity" json:"quantity"`
-	EstimatedUnitPrice Money         `bson:"estimatedUnitPrice" json:"estimatedUnitPrice"`
-	Priority           int           `bson:"priority" json:"priority"`
-	Purpose            string        `bson:"purpose" json:"purpose"`
-	Notes              string        `bson:"notes,omitempty" json:"notes"`
-	ProductURL         string        `bson:"productUrl,omitempty" json:"productUrl"`
-	Status             ItemStatus    `bson:"status" json:"status"`
-	Review             *Review       `bson:"review" json:"review"`
-	Lookup             *LookupInfo   `bson:"lookup" json:"lookup"`
+	ID                 bson.ObjectID  `bson:"_id,omitempty" json:"id"`
+	TeamID             bson.ObjectID  `bson:"teamId" json:"teamId"`
+	BatchID            bson.ObjectID  `bson:"batchId" json:"batchId"`
+	SeqNo              int            `bson:"seqNo" json:"seqNo"`
+	RequesterID        bson.ObjectID  `bson:"requesterId" json:"requesterId"`
+	SubgroupID         string         `bson:"subgroupId,omitempty" json:"subgroupId"`
+	Name               string         `bson:"name" json:"name"`
+	VendorID           *bson.ObjectID `bson:"vendorId,omitempty" json:"vendorId"`
+	VendorName         string         `bson:"vendorName,omitempty" json:"vendorName"`
+	SKU                string         `bson:"sku,omitempty" json:"sku"`
+	Quantity           int            `bson:"quantity" json:"quantity"`
+	EstimatedUnitPrice Money          `bson:"estimatedUnitPrice" json:"estimatedUnitPrice"`
+	Priority           int            `bson:"priority" json:"priority"`
+	Purpose            string         `bson:"purpose" json:"purpose"`
+	Notes              string         `bson:"notes,omitempty" json:"notes"`
+	ProductURL         string         `bson:"productUrl,omitempty" json:"productUrl"`
+	Status             ItemStatus     `bson:"status" json:"status"`
+	Review             *Review        `bson:"review" json:"review"`
+	Lookup             *LookupInfo    `bson:"lookup" json:"lookup"`
 	// Unpurchasable is set while the purchaser has marked the item (spec §10.2).
 	Unpurchasable *UnpurchasableMark `bson:"unpurchasable,omitempty" json:"unpurchasable"`
 	// Computed fields (spec §9.1); null/0 until the batch is review-confirmed.
@@ -73,7 +74,7 @@ type Item struct {
 type ItemFields struct {
 	SubgroupID         string
 	Name               string
-	Vendor             string
+	VendorName         string
 	SKU                string
 	Quantity           int
 	EstimatedUnitPrice Money

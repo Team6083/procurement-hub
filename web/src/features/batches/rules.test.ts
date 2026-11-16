@@ -126,8 +126,8 @@ describe('review permissions', () => {
 describe('filters, urls, forms, audit helpers', () => {
   it('filters items by exact fields', () => {
     const rows = [
-      { subgroupId: 'g1', requesterId: 'u1', priority: 5, status: 'pending', vendor: 'A' },
-      { subgroupId: 'g2', requesterId: 'u2', priority: 3, status: 'approved', vendor: 'B' },
+      { subgroupId: 'g1', requesterId: 'u1', priority: 5, status: 'pending', vendorName: 'A' },
+      { subgroupId: 'g2', requesterId: 'u2', priority: 3, status: 'approved', vendorName: 'B' },
     ] as Item[];
     expect(filterItems(rows, {})).toHaveLength(2);
     expect(filterItems(rows, { priority: '5' })).toHaveLength(1);

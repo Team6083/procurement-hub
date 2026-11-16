@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/shopspring/decimal"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/audit"
@@ -275,55 +274,6 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 		return t, nil
 	}
 	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "subgroups", Value: sgs}}, changes, "team.subgroup_updated")
-}
-
-// ---- reference rates ----
-
-type RateInput struct {
-	Currency   string
-	RateToBase string
-}
-
-// ReplaceReferenceRates replaces the full rate list (spec §16.2 PUT).
-func (s *Teams) ReplaceReferenceRates(ctx context.Context, actor authz.Actor, teamID bson.ObjectID, version int64, in []RateInput) (*domain.Team, error) {
-	t, err := s.writableTeamAdmin(ctx, actor, teamID)
-	if err != nil {
-		return nil, err
-	}
-	prev := map[string]domain.ReferenceRate{}
-	for _, r := range t.ReferenceRates {
-		prev[r.Currency] = r
-	}
-	now := bsonNow()
-	seen := map[string]bool{}
-	rates := []domain.ReferenceRate{}
-	for _, r := range in {
-		cur := strings.ToUpper(strings.TrimSpace(r.Currency))
-		if cur == s.base {
-			return nil, Invalid("currency", "the base currency needs no rate")
-		}
-		if !contains(s.supported, cur) {
-			return nil, Invalid("currency", cur+" is not a supported currency")
-		}
-		if seen[cur] {
-			return nil, Invalid("currency", "duplicate currency "+cur)
-		}
-		seen[cur] = true
-		d, err := decimal.NewFromString(r.RateToBase)
-		if err != nil || !d.IsPositive() {
-			return nil, Invalid("rateToBase", "must be a positive decimal string")
-		}
-		if !domain.FitsDigits(d, domain.MaxRateDigits) {
-			return nil, Invalid("rateToBase", "at most 6 fractional digits")
-		}
-		rate := domain.ReferenceRate{Currency: cur, RateToBase: domain.Decimal{Decimal: d}, UpdatedAt: now, UpdatedBy: actor.UserID.Hex()}
-		if p, ok := prev[cur]; ok && p.RateToBase.Equal(d) {
-			rate.UpdatedAt, rate.UpdatedBy = p.UpdatedAt, p.UpdatedBy // unchanged
-		}
-		rates = append(rates, rate)
-	}
-	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "referenceRates", Value: rates}},
-		[]domain.AuditChange{{Field: "referenceRates", From: t.ReferenceRates, To: rates}}, "team.reference_rates_replaced")
 }
 
 func (s *Teams) writableTeamAdmin(ctx context.Context, actor authz.Actor, teamID bson.ObjectID) (*domain.Team, error) {

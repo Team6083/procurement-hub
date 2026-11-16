@@ -230,7 +230,8 @@ func (a *BatchesAPI) transition(w http.ResponseWriter, r *http.Request) {
 type itemReq struct {
 	SubgroupID         string       `json:"subgroupId"`
 	Name               string       `json:"name"`
-	Vendor             string       `json:"vendor"`
+	VendorID           *string      `json:"vendorId"`
+	VendorName         string       `json:"vendorName"`
 	SKU                string       `json:"sku"`
 	Quantity           int          `json:"quantity"`
 	EstimatedUnitPrice domain.Money `json:"estimatedUnitPrice"`
@@ -242,9 +243,21 @@ type itemReq struct {
 	LookupProvider     string       `json:"lookupProvider"`
 }
 
+// vendorOID parses vendorId; a malformed id becomes a zero id that fails vendor lookup.
+func (q itemReq) vendorOID() *bson.ObjectID {
+	if q.VendorID == nil || *q.VendorID == "" {
+		return nil
+	}
+	id, err := bson.ObjectIDFromHex(*q.VendorID)
+	if err != nil {
+		id = bson.ObjectID{}
+	}
+	return &id
+}
+
 func (q itemReq) input() service.ItemInput {
 	return service.ItemInput{
-		SubgroupID: q.SubgroupID, Name: q.Name, Vendor: q.Vendor, SKU: q.SKU, Quantity: q.Quantity,
+		SubgroupID: q.SubgroupID, Name: q.Name, VendorID: q.vendorOID(), VendorName: q.VendorName, SKU: q.SKU, Quantity: q.Quantity,
 		EstimatedUnitPrice: q.EstimatedUnitPrice, Priority: q.Priority, Purpose: q.Purpose, Notes: q.Notes,
 		ProductURL: q.ProductURL, AutoFilledFields: q.AutoFilledFields, LookupProvider: q.LookupProvider,
 	}

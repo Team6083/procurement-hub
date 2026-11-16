@@ -45,3 +45,4 @@ export type ReviewRequest = components['schemas']['ReviewRequest'];
 export type ReviewResult = components['schemas']['ReviewResult'];
 export type Fulfillment = components['schemas']['Fulfillment'];
 export type VendorTask = components['schemas']['VendorTask'];
+export type Vendor = components['schemas']['Vendor'];

@@ -23,5 +23,32 @@
   "patternHelp": "The pattern is matched against the values of the chosen claim, split on \"/\". Each \"*\" matches exactly one whole segment and is captured in order as $1, $2, and so on. Example: /teams/*/members.",
   "teamHelp": "Slug of the target team. May use captures, for example $1. Rules for teams that do not exist are skipped.",
   "deleteTitle": "Delete rule",
-  "deleteConfirm": "Delete the rule for pattern {{pattern}}?"
+  "deleteConfirm": "Delete the rule for pattern {{pattern}}?",
+  "vendors": {
+    "title": "Vendors",
+    "intro": "The shared vendor list. Items and vendor orders pick vendors from here.",
+    "create": "Add vendor",
+    "edit": "Edit vendor",
+    "name": "Name",
+    "aliases": "Aliases",
+    "aliasesHelp": "One per line. Names and aliases must be unique across vendors.",
+    "currency": "Default currency",
+    "website": "Website",
+    "badUrl": "Enter an http(s) address.",
+    "notes": "Notes",
+    "active": "Active",
+    "inactive": "Inactive",
+    "status": "Status",
+    "showInactive": "Show inactive vendors",
+    "empty": "No vendors yet."
+  },
+  "rates": {
+    "title": "Reference rates",
+    "intro": "Reference rates convert other currencies into the base currency ({{base}}) for estimates, and provisionally for vendor orders that have no actual charge yet.",
+    "rate": "1 {{currency}} in {{base}}",
+    "invalid": "A positive number with at most 6 decimals.",
+    "none": "No rate set",
+    "updated": "Updated {{date}}",
+    "noCurrencies": "No other currencies are supported."
+  }
 }

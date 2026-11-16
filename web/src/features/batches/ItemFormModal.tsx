@@ -1,8 +1,9 @@
 import { Button, HStack, Input, SimpleGrid, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useAddItem, usePutItem } from '../../api/batches';
+import { useVendors } from '../../api/vendors';
 import { useMeta } from '../../api/meta';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -27,6 +28,7 @@ interface Props {
 function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<Props, 'opened'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
+  const vendors = useVendors();
   const add = useAddItem(batch.id);
   const patch = usePutItem(batch.id);
   const currencies = meta.data?.supportedCurrencies ?? [];
@@ -36,6 +38,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
     resolver: zodResolver(itemFormSchema),
     defaultValues: item ? itemToForm(item) : prefill ? itemToForm(prefill) : emptyItemForm(base, activeDefault),
   });
+  const vendorChoice = useWatch({ control: form.control, name: 'vendorId' });
   const err = form.formState.errors;
   const msg = (m: string | undefined) => (m ? t(m) : undefined);
   const mutation = item ? patch : add;
@@ -53,9 +56,15 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
           <Input {...form.register('name')} />
         </FormField>
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
-          <FormField label={t('item.vendor')}>
-            <Input {...form.register('vendor')} />
-          </FormField>
+          <Controller control={form.control} name="vendorId" render={({ field }) => (
+            <SelectField size="md" label={t('item.vendor')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+              options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
+          )} />
+          {vendorChoice === 'other' && (
+            <FormField label={t('item.vendorOtherName')}>
+              <Input {...form.register('vendorName')} />
+            </FormField>
+          )}
           <FormField label={t('item.sku')}>
             <Input {...form.register('sku')} />
           </FormField>

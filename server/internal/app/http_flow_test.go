@@ -269,23 +269,30 @@ func TestHTTPTeams(t *testing.T) {
 	sg = w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: sg.ETag(), body: map[string]any{"active": false}}).expect(200)
 	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(422, "subgroup_exists")
 
-	rates := w.do(t, call{token: w.adm, method: "PUT", path: team + "/reference-rates", ifMatch: sg.ETag(), body: map[string]any{
-		"rates": []any{map[string]any{"currency": "TWD", "rateToBase": "0.031"}}}}).expect(200)
-	if rr := rates.JSON()["referenceRates"].([]any); len(rr) != 1 || rr[0].(map[string]any)["rateToBase"] != "0.031" {
-		t.Errorf("rates: %s", rates.Body)
+	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
+	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")
+	rate := w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(201)
+	w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.032"}, skipRequestValidation: true}).expect(428, "if_match_required")
+	rate = w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/TWD", ifMatch: rate.ETag(), body: map[string]any{"rateToBase": "0.032"}}).expect(200)
+	if rate.String("rateToBase") != "0.032" {
+		t.Errorf("rate: %s", rate.Body)
+	}
+	if n := len(w.do(t, call{token: w.mem, method: "GET", path: "/api/v1/reference-rates"}).expect(200).Items()); n != 1 {
+		t.Errorf("rates listed = %d", n)
 	}
 	for name, body := range map[string]map[string]any{
-		"seven fractional digits": {"currency": "TWD", "rateToBase": "0.1234567"},
-		"zero":                    {"currency": "TWD", "rateToBase": "0"},
-		"negative":                {"currency": "TWD", "rateToBase": "-1"},
-		"base currency":           {"currency": "USD", "rateToBase": "1"},
-		"unsupported currency":    {"currency": "EUR", "rateToBase": "1"},
+		"seven fractional digits": {"rateToBase": "0.1234567"},
+		"zero":                    {"rateToBase": "0"},
+		"negative":                {"rateToBase": "-1"},
 	} {
 		t.Run("rate "+name, func(t *testing.T) {
-			w.do(t, call{token: w.adm, method: "PUT", path: team + "/reference-rates", ifMatch: rates.ETag(),
-				body: map[string]any{"rates": []any{body}}}).expect(400, "invalid_request")
+			w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/TWD", ifMatch: rate.ETag(), body: body}).expect(400, "invalid_request")
 		})
 	}
+	w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/USD", body: map[string]any{"rateToBase": "1"}}).expect(400, "invalid_request")
+	w.do(t, call{token: w.root, method: "PUT", path: "/api/v1/reference-rates/EUR", body: map[string]any{"rateToBase": "1"}}).expect(400, "invalid_request")
+	w.do(t, call{token: w.root, method: "DELETE", path: "/api/v1/reference-rates/TWD", skipRequestValidation: true}).expect(428, "if_match_required")
+	w.do(t, call{token: w.root, method: "DELETE", path: "/api/v1/reference-rates/TWD", ifMatch: rate.ETag()}).expect(204)
 
 	// User search.
 	w.do(t, call{token: w.adm, method: "GET", path: "/api/v1/users?q=ap"}).expect(200)

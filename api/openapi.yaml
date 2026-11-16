@@ -95,6 +95,151 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendors:
+    get:
+      operationId: listVendors
+      summary: List vendors (everyone)
+      description: "`q` matches names and aliases (case-insensitive substring); inactive vendors only with `includeInactive=true`. Not paginated."
+      parameters:
+        - { name: q, in: query, schema: { type: string } }
+        - { name: includeInactive, in: query, schema: { type: boolean } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    post:
+      operationId: createVendor
+      summary: Create a vendor (purchasers and system admins)
+      description: 422 `vendor_name_taken` when the name or an alias collides with another vendor's name or alias (case-insensitive, trimmed).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorRequest" }
+      responses:
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendors/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: replaceVendor
+      summary: Replace a vendor (purchasers and system admins); deactivate with active=false
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VendorRequest" }
+      responses:
+        "200":
+          description: Updated vendor
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Vendor" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /reference-rates:
+    get:
+      operationId: listReferenceRates
+      summary: Global reference rates to the base currency (everyone)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferenceRateList" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /reference-rates/{currency}:
+    parameters:
+      - name: currency
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      operationId: putReferenceRate
+      summary: Create or replace one currency's rate (system admins)
+      description: |
+        Without `If-Match` the rate is created (201; 428 `if_match_required` when it already exists).
+        With `If-Match` it replaces the existing rate (200). The base currency and unsupported currencies are 400.
+        Every write schedules the `vendor_orders.recompute` job for the currency.
+      parameters:
+        - name: If-Match
+          in: header
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PutReferenceRateRequest" }
+      responses:
+        "200":
+          description: Replaced
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferenceRate" }
+        "201":
+          description: Created
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReferenceRate" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: deleteReferenceRate
+      summary: Delete one currency's rate (system admins)
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /teams:
     get:
       operationId: listTeams
@@ -344,39 +489,6 @@ paths:
         content:
           application/json:
             schema: { $ref: "#/components/schemas/PatchSubgroupRequest" }
-      responses:
-        "200":
-          description: Updated team
-          headers:
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/Team" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/VersionConflict" }
-        "413": { $ref: "#/components/responses/PayloadTooLarge" }
-        "422": { $ref: "#/components/responses/Unprocessable" }
-        "428": { $ref: "#/components/responses/IfMatchRequired" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /teams/{teamId}/reference-rates:
-    parameters:
-      - $ref: "#/components/parameters/TeamId"
-    put:
-      operationId: replaceReferenceRates
-      summary: Replace the team's reference rate list (team admin)
-      description: |
-        Currencies are upper-cased, must be supported (see `/meta`), unique, and must not be the base
-        currency. `rateToBase` is a decimal string > 0 with at most 6 fractional digits (400 `invalid_request`, field `rateToBase`).
-      parameters:
-        - $ref: "#/components/parameters/IfMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/PutReferenceRatesRequest" }
       responses:
         "200":
           description: Updated team
@@ -1204,7 +1316,7 @@ components:
         `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-        `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
+        `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -1294,12 +1406,54 @@ components:
         active: { type: boolean }
     ReferenceRate:
       type: object
-      required: [currency, rateToBase, updatedAt, updatedBy]
+      required: [currency, rateToBase, updatedAt, updatedBy, version]
       properties:
         currency: { type: string }
-        rateToBase: { type: string, description: Decimal string. }
+        rateToBase: { type: string, description: "Decimal string, > 0, at most 6 fractional digits." }
         updatedAt: { type: string, format: date-time }
         updatedBy: { type: string, description: User id. }
+        version: { type: integer, format: int64 }
+    ReferenceRateList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/ReferenceRate" } }
+    PutReferenceRateRequest:
+      type: object
+      additionalProperties: false
+      required: [rateToBase]
+      properties:
+        rateToBase: { type: string, description: Positive decimal string. }
+    Vendor:
+      type: object
+      required: [id, name, aliases, defaultCurrency, website, notes, active, createdAt, updatedAt, version]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        aliases: { type: array, items: { type: string } }
+        defaultCurrency: { type: string }
+        website: { type: string }
+        notes: { type: string }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
+    VendorList:
+      type: object
+      required: [items]
+      properties:
+        items: { type: array, items: { $ref: "#/components/schemas/Vendor" } }
+    VendorRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 200 }
+        aliases: { type: array, items: { type: string } }
+        defaultCurrency: { type: string, description: Defaults to the base currency. }
+        website: { type: string }
+        notes: { type: string }
+        active: { type: boolean, description: "Ignored on create (always true); on PUT, false deactivates." }
     TeamSummary:
       description: What non-members see. Has no `version`.
       type: object
@@ -1314,7 +1468,7 @@ components:
     Team:
       description: Full team, returned to members and system admins.
       type: object
-      required: [id, slug, name, description, visibility, locale, priorityLabels, subgroups, referenceRates, archived, createdAt, updatedAt, version]
+      required: [id, slug, name, description, visibility, locale, priorityLabels, subgroups, archived, createdAt, updatedAt, version]
       properties:
         id: { type: string }
         slug: { type: string }
@@ -1329,9 +1483,6 @@ components:
         subgroups:
           type: array
           items: { $ref: "#/components/schemas/Subgroup" }
-        referenceRates:
-          type: array
-          items: { $ref: "#/components/schemas/ReferenceRate" }
         archived: { type: boolean }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -1402,20 +1553,6 @@ components:
       properties:
         name: { type: string, maxLength: 200 }
         active: { type: boolean }
-    PutReferenceRatesRequest:
-      type: object
-      additionalProperties: false
-      required: [rates]
-      properties:
-        rates:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required: [currency, rateToBase]
-            properties:
-              currency: { type: string }
-              rateToBase: { type: string, description: Positive decimal string. }
     RoleMapping:
       type: object
       required: [id, claim, pattern, team, role, enabled, managed, description, version]
@@ -1596,7 +1733,7 @@ components:
         autoFilledFields: { type: array, items: { type: string } }
     Item:
       type: object
-      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendor, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
+      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
       properties:
         id: { type: string }
         teamId: { type: string }
@@ -1605,7 +1742,8 @@ components:
         requesterId: { type: string }
         subgroupId: { type: string, description: Empty string when unset. }
         name: { type: string }
-        vendor: { type: string }
+        vendorId: { type: [string, "null"], description: "A vendor from the list, or null for a free-text vendor." }
+        vendorName: { type: string, description: "The vendor's name (copied from the list) or the free text." }
         sku: { type: string }
         quantity: { type: integer }
         estimatedUnitPrice: { $ref: "#/components/schemas/Money" }
@@ -1642,7 +1780,8 @@ components:
       properties:
         subgroupId: { type: string }
         name: { type: string, maxLength: 300 }
-        vendor: { type: string }
+        vendorId: { type: [string, "null"], description: "A vendor from the list (the name is then taken from it); 400 when unknown." }
+        vendorName: { type: string, description: "Free-text vendor when vendorId is null." }
         sku: { type: string }
         quantity: { type: integer, minimum: 1 }
         estimatedUnitPrice: { $ref: "#/components/schemas/Money" }
@@ -1811,6 +1950,7 @@ components:
         - item_not_edited
         - item_not_reviewable
         - blocked_by_dependency
+        - vendor_name_taken
         - items_undecided
         - line_quantity_exceeded
         - team_cost_overrides_mismatch

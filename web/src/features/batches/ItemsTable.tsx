@@ -50,7 +50,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         case 'quantity': return i.quantity;
         case 'unitPrice': return Number(i.estimatedUnitPrice.amount);
         case 'lineTotal': return total(i);
-        case 'vendor': return i.vendor;
+        case 'vendor': return i.vendorName;
         case 'status': return t(`itemStatus.${i.status}`, { defaultValue: i.status });
       }
     };
@@ -107,7 +107,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         </Tooltip>
       ),
     }),
-    col('vendor', t('item.vendor'), { priority: 'secondary', cell: (it) => it.vendor || '—' }),
+    col('vendor', t('item.vendor'), { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
     col('quantity', t('item.quantity'), { numeric: true, cell: (it) => it.quantity }),
     col('unitPrice', t('item.unitPrice'), {
       numeric: true, priority: 'secondary',

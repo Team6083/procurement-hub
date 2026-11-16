@@ -62,13 +62,6 @@ type Subgroup struct {
 	Active bool   `bson:"active" json:"active"`
 }
 
-type ReferenceRate struct {
-	Currency   string    `bson:"currency" json:"currency"`
-	RateToBase Decimal   `bson:"rateToBase" json:"rateToBase"` // Decimal128 in MongoDB, decimal string in JSON
-	UpdatedAt  time.Time `bson:"updatedAt" json:"updatedAt"`
-	UpdatedBy  string    `bson:"updatedBy" json:"updatedBy"`
-}
-
 type Team struct {
 	ID             bson.ObjectID     `bson:"_id,omitempty" json:"id"`
 	Slug           string            `bson:"slug" json:"slug"`
@@ -78,7 +71,6 @@ type Team struct {
 	Locale         Locale            `bson:"locale" json:"locale"`
 	PriorityLabels map[string]string `bson:"priorityLabels,omitempty" json:"priorityLabels"`
 	Subgroups      []Subgroup        `bson:"subgroups" json:"subgroups"`
-	ReferenceRates []ReferenceRate   `bson:"referenceRates" json:"referenceRates"`
 	Budget         map[string]any    `bson:"budget,omitempty" json:"-"` // Reserved
 	Archived       bool              `bson:"archived" json:"archived"`
 	BatchCounter   int               `bson:"batchCounter" json:"-"`

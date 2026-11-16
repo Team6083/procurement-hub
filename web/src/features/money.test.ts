@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { itemFormSchema, emptyItemForm } from './batches/itemForm';
-import { ratesSchema } from './teams/schemas';
 import { currencyFractionDigits, fractionDigits, validateAmount } from './money';
 
 describe('money hints', () => {
@@ -20,12 +19,6 @@ describe('money hints', () => {
     expect(itemFormSchema.safeParse({ ...base, unitPrice: '1.255' }).success).toBe(false);
     expect(itemFormSchema.safeParse({ ...base, currency: 'JPY', unitPrice: '100.5' }).success).toBe(false);
     expect(itemFormSchema.safeParse({ ...base, currency: 'JPY', unitPrice: '100' }).success).toBe(true);
-  });
-  it('limits reference rates to 6 fractional digits', () => {
-    const r = (v: string) => ratesSchema.safeParse({ rates: [{ currency: 'USD', rateToBase: v }] }).success;
-    expect(r('30.123456')).toBe(true);
-    expect(r('30.1234567')).toBe(false);
-    expect(r('0')).toBe(false);
   });
 });
 

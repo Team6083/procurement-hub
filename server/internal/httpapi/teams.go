@@ -24,7 +24,6 @@ func (a *TeamsAPI) Mount(r chi.Router) {
 	r.Delete("/teams/{teamId}/members/{userId}", a.removeMember)
 	r.Post("/teams/{teamId}/subgroups", a.addSubgroup)
 	r.Patch("/teams/{teamId}/subgroups/{id}", a.patchSubgroup)
-	r.Put("/teams/{teamId}/reference-rates", a.putRates)
 }
 
 // teamSummary is what non-members may see (names are public, spec §8.2).
@@ -345,33 +344,5 @@ func (a *TeamsAPI) patchSubgroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	t, err := a.Teams.UpdateSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, chi.URLParam(r, "id"), req.Name, req.Active)
-	a.respondTeam(w, r, t, err)
-}
-
-func (a *TeamsAPI) putRates(w http.ResponseWriter, r *http.Request) {
-	id, ok := a.teamParam(w, r)
-	if !ok {
-		return
-	}
-	ver, e := ifMatch(r)
-	if e != nil {
-		WriteError(w, e)
-		return
-	}
-	var req struct {
-		Rates []struct {
-			Currency   string `json:"currency"`
-			RateToBase string `json:"rateToBase"`
-		} `json:"rates"`
-	}
-	if e := decode(r, &req); e != nil {
-		WriteError(w, e)
-		return
-	}
-	in := make([]service.RateInput, 0, len(req.Rates))
-	for _, x := range req.Rates {
-		in = append(in, service.RateInput{Currency: x.Currency, RateToBase: x.RateToBase})
-	}
-	t, err := a.Teams.ReplaceReferenceRates(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
 	a.respondTeam(w, r, t, err)
 }

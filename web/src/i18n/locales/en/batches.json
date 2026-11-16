@@ -143,7 +143,10 @@
     "unpurchasableUndo": "Undo unpurchasable",
     "unpurchasableUndoHelp": "Remove the unpurchasable mark from {{name}}? A reason is required.",
     "toPurchase": "To purchase",
-    "fulfillment": "Progress"
+    "fulfillment": "Progress",
+    "noVendor": "None",
+    "vendorOther": "Other (type a name)",
+    "vendorOtherName": "Vendor name"
   },
   "totals": {
     "none": "No amounts.",

@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest';
 import type { Team } from '../../api/types';
 import { diffGeneral, toForm } from './general';
 import { cleanPriorityLabels, priorityLabel } from './priority';
-import { selectableCurrencies } from './rates';
-import { createTeamSchema, isPositiveDecimal, ratesSchema, roleMappingSchema } from './schemas';
+import { createTeamSchema, isPositiveDecimal, roleMappingSchema } from './schemas';
 
 const team = {
   id: '1', slug: 't', name: 'Lab', description: 'd', visibility: 'public', locale: 'en',
-  priorityLabels: { '5': 'Urgent' }, subgroups: [], referenceRates: [], archived: false,
+  priorityLabels: { '5': 'Urgent' }, subgroups: [], archived: false,
   createdAt: '', updatedAt: '', version: 3,
 } as Team;
 
@@ -43,16 +42,9 @@ describe('schemas', () => {
     for (const v of ['1', '0.5', '.25', '12.340']) expect(isPositiveDecimal(v)).toBe(true);
     for (const v of ['', '0', '0.0', '-1', '1e3', 'abc', '1,5']) expect(isPositiveDecimal(v)).toBe(false);
   });
-  it('rejects duplicate currencies in the rate list', () => {
-    const r = ratesSchema.safeParse({ rates: [{ currency: 'USD', rateToBase: '30' }, { currency: 'USD', rateToBase: '31' }] });
-    expect(r.success).toBe(false);
-  });
   it('requires pattern and team for role mappings', () => {
     const base = { claim: 'groups', pattern: '/teams/*/members', team: '$1', role: 'member', enabled: true, description: '' };
     expect(roleMappingSchema.safeParse(base).success).toBe(true);
     expect(roleMappingSchema.safeParse({ ...base, pattern: ' ' }).success).toBe(false);
-  });
-  it('excludes the base currency from selectable rates', () => {
-    expect(selectableCurrencies(['TWD', 'USD', 'EUR'], 'TWD')).toEqual(['USD', 'EUR']);
   });
 });

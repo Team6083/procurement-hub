@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuUndo2, LuX } from 'react-icons/lu';
 import { useItemAction } from '../../api/batches';
+import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
@@ -52,10 +53,10 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     const filtered = filterItems(items, { ...others, status });
-    return q ? filtered.filter((i) => [i.name, i.vendor, i.sku].some((s) => s.toLowerCase().includes(q))) : filtered;
+    return q ? filtered.filter((i) => [i.name, i.vendorName, i.sku].some((s) => s.toLowerCase().includes(q))) : filtered;
   }, [items, others, status, search]);
   const selected = visible.filter((i) => picked.includes(i.id));
-  const rates = team?.referenceRates ?? [];
+  const rates = useReferenceRates().data ?? [];
   const selectedEstimate = useEstimateText(selected, rates);
   const set = (k: keyof Omit<ItemFilters, 'status'>) => (v: string) => setOthers((f) => ({ ...f, [k]: v || undefined }));
   const setStatus = (v: string) => setChosen({ key: `${batch.status}:${defaultStatus ?? ''}`, value: v || undefined });
@@ -132,7 +133,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         <SelectField label={t('item.priority')} placeholder={t('filters.all')} value={others.priority} onChange={set('priority')}
           options={['5', '4', '3', '2', '1']} />
         <SelectField label={t('item.vendor')} placeholder={t('filters.all')} value={others.vendor} onChange={set('vendor')}
-          options={distinct(items.map((i) => i.vendor))} />
+          options={distinct(items.map((i) => i.vendorName))} />
       </FilterBar>
 
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}

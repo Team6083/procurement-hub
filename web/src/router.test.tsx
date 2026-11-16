@@ -39,7 +39,8 @@ vi.mock('./pages/TeamSettingsShell', async () => {
 });
 vi.mock('./pages/settings/GeneralSettings', () => ({ GeneralSettings: stub('settings-general') }));
 vi.mock('./pages/settings/SubgroupsSettings', () => ({ SubgroupsSettings: stub('settings-subgroups') }));
-vi.mock('./pages/settings/ReferenceRatesSettings', () => ({ ReferenceRatesSettings: stub('settings-rates') }));
+vi.mock('./pages/VendorsPage', () => ({ VendorsPage: stub('vendors') }));
+vi.mock('./pages/ReferenceRatesPage', () => ({ ReferenceRatesPage: stub('reference-rates') }));
 vi.mock('./pages/settings/MembersSettings', () => ({ MembersSettings: stub('settings-members') }));
 
 beforeAll(() => {
@@ -71,11 +72,12 @@ describe('routes (spec section 17.1)', () => {
     ['/batches/42', 'batch {"id":"42"} /batches/42'],
     ['/settings', 'settings {} /settings'],
     ['/admin/role-mappings', 'role-mappings {} /admin/role-mappings'],
+    ['/admin/vendors', 'vendors {} /admin/vendors'],
+    ['/admin/reference-rates', 'reference-rates {} /admin/reference-rates'],
     ['/teams/robotics', 'team-overview {"slug":"robotics"} /teams/robotics'],
     ['/teams/robotics/members', 'team-members {"slug":"robotics"} /teams/robotics/members'],
     ['/teams/robotics/settings', 'settings-general {"slug":"robotics"} /teams/robotics/settings'],
     ['/teams/robotics/settings/subgroups', 'settings-subgroups {"slug":"robotics"} /teams/robotics/settings/subgroups'],
-    ['/teams/robotics/settings/reference-rates', 'settings-rates {"slug":"robotics"} /teams/robotics/settings/reference-rates'],
     ['/teams/robotics/settings/members', 'settings-members {"slug":"robotics"} /teams/robotics/settings/members'],
   ])('%s', (url, expected) => {
     renderAt(url);

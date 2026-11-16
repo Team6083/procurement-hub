@@ -56,7 +56,6 @@
     "nav": {
       "general": "General",
       "subgroups": "Subgroups",
-      "rates": "Reference rates",
       "members": "Members"
     },
     "forbidden": "You do not have access to this page.",
@@ -95,15 +94,6 @@
     "activate": "Activate",
     "inactive": "Inactive",
     "empty": "No subgroups yet."
-  },
-  "rates": {
-    "help": "Reference rates convert other currencies into the base currency ({{base}}) for estimates. Saving replaces the whole list.",
-    "none": "No reference rates.",
-    "currency": "Currency",
-    "rate": "Rate to {{base}}",
-    "add": "Add rate",
-    "remove": "Remove",
-    "noCurrencies": "No other currencies are supported."
   },
   "members": {
     "user": "User",

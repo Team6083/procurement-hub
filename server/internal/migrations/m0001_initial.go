@@ -35,6 +35,9 @@ var indexes0001 = []indexSpec{
 	{coll: "users", keys: asc("roleSnapshot.purchaser")},
 	{coll: "users", keys: asc("roleSnapshot.receiver")},
 	{coll: "teams", keys: asc("slug"), unique: true},
+	{coll: "vendors", keys: asc("nameKey"), unique: true},
+	// Vendors without aliases omit the field, so they never collide here.
+	{coll: "vendors", keys: asc("aliasKeys"), unique: true, partial: "aliasKeys"},
 	{coll: "memberships", keys: asc("teamId", "userId"), unique: true},
 	{coll: "memberships", keys: asc("userId")},
 	{coll: "batches", keys: asc("teamId", "status", "updatedAt")},

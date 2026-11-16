@@ -11,7 +11,9 @@
     "teams": "Teams",
     "menu": "Menu",
     "purchasing": "Purchasing",
-    "receiving": "Receiving"
+    "receiving": "Receiving",
+    "vendors": "Vendors",
+    "rates": "Reference rates"
   },
   "language": {
     "label": "Language",

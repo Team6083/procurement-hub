@@ -143,7 +143,10 @@
     "unpurchasableUndo": "撤銷無法採購",
     "unpurchasableUndoHelp": "要移除 {{name}} 的無法採購標記嗎？必須填寫原因。",
     "toPurchase": "待採購",
-    "fulfillment": "進度"
+    "fulfillment": "進度",
+    "noVendor": "無",
+    "vendorOther": "其他（自行輸入）",
+    "vendorOtherName": "廠商名稱"
   },
   "totals": {
     "none": "沒有金額。",

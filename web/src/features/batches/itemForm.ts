@@ -16,7 +16,9 @@ export function safeHttpUrl(url: string | undefined | null): string | undefined 
 // Messages are i18n keys resolved at render time.
 export const itemFormSchema = z.object({
   name: z.string().trim().min(1, 'common:validation.required').max(300, 'common:validation.tooLong'),
-  vendor: z.string(),
+  /** A vendor id from the list, 'other' for free text, or '' for none. */
+  vendorId: z.string(),
+  vendorName: z.string(),
   sku: z.string(),
   quantity: z.string().regex(/^[1-9]\d*$/, 'batches:validation.quantity'),
   unitPrice: z.string().trim().regex(/^(?:\d+(?:\.\d+)?|\.\d+)$/, 'batches:validation.price'),
@@ -39,12 +41,12 @@ export const itemFormSchema = z.object({
 export type ItemForm = z.infer<typeof itemFormSchema>;
 
 export function emptyItemForm(currency: string, subgroupId: string): ItemForm {
-  return { name: '', vendor: '', sku: '', quantity: '1', unitPrice: '', currency, priority: '3', subgroupId, purpose: '', notes: '', productUrl: '' };
+  return { name: '', vendorId: '', vendorName: '', sku: '', quantity: '1', unitPrice: '', currency, priority: '3', subgroupId, purpose: '', notes: '', productUrl: '' };
 }
 
 export function itemToForm(i: Item): ItemForm {
   return {
-    name: i.name, vendor: i.vendor, sku: i.sku, quantity: String(i.quantity), unitPrice: i.estimatedUnitPrice.amount,
+    name: i.name, vendorId: i.vendorId ?? (i.vendorName ? 'other' : ''), vendorName: i.vendorId ? '' : i.vendorName, sku: i.sku, quantity: String(i.quantity), unitPrice: i.estimatedUnitPrice.amount,
     currency: i.estimatedUnitPrice.currency, priority: String(i.priority) as ItemForm['priority'], subgroupId: i.subgroupId,
     purpose: i.purpose, notes: i.notes, productUrl: i.productUrl,
   };
@@ -53,7 +55,8 @@ export function itemToForm(i: Item): ItemForm {
 /** The PATCH /items body replaces all editable fields, so always send them all. */
 export function toItemRequest(f: ItemForm) {
   return {
-    name: f.name.trim(), vendor: f.vendor.trim(), sku: f.sku.trim(), quantity: Number(f.quantity),
+    name: f.name.trim(), vendorId: f.vendorId && f.vendorId !== 'other' ? f.vendorId : null,
+    vendorName: f.vendorId === 'other' ? f.vendorName.trim() : '', sku: f.sku.trim(), quantity: Number(f.quantity),
     estimatedUnitPrice: { amount: f.unitPrice.trim(), currency: f.currency }, priority: Number(f.priority),
     subgroupId: f.subgroupId, purpose: f.purpose.trim(), notes: f.notes, productUrl: f.productUrl.trim(),
   };

@@ -124,7 +124,7 @@ func (s *Tasks) itemsToPurchase(ctx context.Context, actor authz.Actor) ([]Vendo
 	byVendor := map[string]*VendorTask{}
 	var order []string
 	for _, it := range items {
-		key := it.Vendor
+		key := it.VendorName
 		vt, ok := byVendor[key]
 		if !ok {
 			vt = &VendorTask{}

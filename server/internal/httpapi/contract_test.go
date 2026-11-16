@@ -39,6 +39,7 @@ func TestRoutesMatchOpenAPI(t *testing.T) {
 	r.Route("/api/v1", func(r chi.Router) {
 		(&TeamsAPI{}).Mount(r)
 		(&MeAPI{}).Mount(r)
+		(&VendorsAPI{}).Mount(r)
 		(&BatchesAPI{}).Mount(r)
 	})
 	registered := map[string]bool{}
