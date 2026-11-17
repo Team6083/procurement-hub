@@ -25,8 +25,9 @@ export function SectionActions({ children }: { children: ReactNode }) {
   return slot ? createPortal(children, slot) : null;
 }
 
-const matches = (tab: SectionTab, pathname: string) =>
-  [tab.to, ...(tab.match ?? [])].some((p) => pathname === p || pathname.startsWith(`${p}/`));
+/** How specifically the tab matches the path: the length of its longest path that is the path or a parent of it. */
+const matchLength = (tab: SectionTab, pathname: string) =>
+  Math.max(-1, ...[tab.to, ...(tab.match ?? [])].filter((p) => pathname === p || pathname.startsWith(`${p}/`)).map((p) => p.length));
 
 /**
  * The one sub-navigation pattern of the app: a section's PageHeader, then URL-routed line tabs under it, then the
@@ -38,7 +39,7 @@ export function SectionLayout({ title, badge, tabs, children }: { title: ReactNo
   const { pathname } = useLocation();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   // The most specific tab wins (a team's /settings/members over /settings).
-  const active = [...tabs].sort((a, b) => b.to.length - a.to.length).find((tab) => matches(tab, pathname)) ?? tabs[0];
+  const active = tabs.reduce<SectionTab | undefined>((best, tab) => (matchLength(tab, pathname) > (best ? matchLength(best, pathname) : -1) ? tab : best), undefined) ?? tabs[0];
   const single = tabs.length <= 1;
   return (
     <Stack gap="4">

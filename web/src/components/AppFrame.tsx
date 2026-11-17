@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { LuListTodo, LuPackage, LuPackageCheck, LuShieldCheck, LuShoppingCart } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
-import { useMe } from '../api/me';
+import { useAccess } from '../auth/useAccess';
 import { paths } from '../paths';
 import { SUPPORTED_LANGUAGES, type Language } from '../i18n';
 import { useChangeLanguage } from '../i18n/useLanguage';
@@ -17,22 +17,20 @@ export function isActive(href: string, pathname: string): boolean {
 }
 
 /**
- * Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). The receiving section
- * (its tabs, a delivery, a new delivery) has small tables and phone-first forms, so all of it stays in the column and
- * its width never changes while moving around in it.
+ * The width is decided per section, never per page, so moving around inside a section never changes it. Batches
+ * (list and detail) and Purchasing (queue, vendor orders, and the vendor list when it is Purchasing's tab) hold the
+ * wide tables (the team's DESIGN.md: Data pages); home, teams, receiving and admin stay in the column.
  */
-export function isWidePage(pathname: string): boolean {
-  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?)\/?$/.test(pathname);
+function isWideSection(pathname: string, vendorsInPurchasing: boolean): boolean {
+  if (/^\/(batches|purchasing|vendor-orders)(\/|$)/.test(pathname)) return true;
+  return vendorsInPurchasing && isActive(paths.adminVendors, pathname);
 }
 
 /** The team app frame (AppShell) with this app's pages and account menu. */
 export function AppFrame({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
   const { user, logout } = useSession();
-  const { me, isSystemAdmin } = useMe();
-  // Purchasing and receiving are global roles (spec 8.1); a purchaser can also receive.
-  const canPurchase = !!me?.isPurchaser;
-  const canReceive = !!me?.isReceiver || canPurchase;
+  const { isPurchaser: canPurchase, canSeeReceiving, isSystemAdmin } = useAccess();
   const { change } = useChangeLanguage();
   const { pathname } = useLocation();
   const name = (user.profile.name as string | undefined) ?? user.profile.email ?? t('user.unknown');
@@ -49,7 +47,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
         }]
       : []),
     // Receiving is for purchasers and receivers; system admins may look but not change anything (spec 8.2).
-    ...(canReceive || isSystemAdmin ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck />, match: [paths.deliveries] }] : []),
+    ...(canSeeReceiving ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck />, match: [paths.deliveries] }] : []),
     ...(isSystemAdmin ? [{ href: paths.admin, label: t('nav.admin'), icon: <LuShieldCheck /> }] : []),
   ];
   const items: NavItem[] = nav.map(({ match = [], ...item }) => ({
@@ -63,7 +61,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <AppShell
       appName={t('app.name')}
-      width={isWidePage(pathname) ? 'wide' : 'column'}
+      width={isWideSection(pathname, canPurchase && !isSystemAdmin) ? 'wide' : 'column'}
       nav={items}
       renderLink={renderLink}
       account={

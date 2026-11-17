@@ -33,7 +33,8 @@
   "tabs": {
     "overview": "總覽",
     "members": "成員",
-    "settings": "設定"
+    "settings": "設定",
+    "subgroups": "子群組"
   },
   "team": {
     "notFound": "找不到此團隊。",
@@ -91,7 +92,9 @@
     "inactive": "已停用",
     "empty": "尚無子群組。",
     "deactivateTitle": "停用 {{name}}？",
-    "deactivateBody": "之後新品項無法再選擇這個子組。"
+    "deactivateBody": "之後新品項無法再選擇這個子組。",
+    "status": "狀態",
+    "active": "使用中"
   },
   "members": {
     "user": "使用者",
@@ -108,6 +111,8 @@
     "remove": "移除",
     "removeTitle": "移除成員",
     "removeConfirm": "要移除 {{name}} 的手動角色嗎？",
-    "removeNote": "除非仍有 SSO 角色，否則該成員會被移出團隊。"
+    "removeNote": "除非仍有 SSO 角色，否則該成員會被移出團隊。",
+    "setManual": "設定手動角色",
+    "setDefault": "設定預設子群組"
   }
 }

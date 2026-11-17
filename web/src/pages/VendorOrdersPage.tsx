@@ -1,18 +1,18 @@
 import { orderLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Skeleton, Stack } from '@chakra-ui/react';
-import { EmptyState, FilterBar, PageHeader, type DataColumn } from '@team6083/ui';
+import { Badge, Button, Card, HStack, Stack } from '@chakra-ui/react';
+import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
-import { useMe } from '../api/me';
 import { useTeams } from '../api/teams';
 import type { VendorOrderSummary } from '../api/types';
 import { useVendorOrderList, type OrderFilters } from '../api/vendorOrders';
 import { useVendors } from '../api/vendors';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { RouteAnchor, RouteButton } from '../components/RouteLinks';
+import { ListSkeleton } from '../components/PageStates';
+import { RouteAnchor } from '../components/RouteLinks';
 import { SelectField } from '../components/ui/select';
 import { useBaseCurrency } from '../api/meta';
 import { shortDate } from '../features/dates';
@@ -23,7 +23,6 @@ import { paths } from '../paths';
 /** Vendor orders the caller can see; regular users only reach the ones holding their team's lines. */
 export function VendorOrdersPage() {
   const { t, i18n } = useTranslation('purchasing');
-  const { me } = useMe();
   const baseCurrency = useBaseCurrency();
   const [params] = useSearchParams();
   const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined }));
@@ -48,10 +47,6 @@ export function VendorOrdersPage() {
 
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0" title={t('list.title')} description={t(me?.isPurchaser || me?.isSystemAdmin ? 'list.introAll' : 'list.intro')}
-        actions={me?.isPurchaser && <RouteButton size="sm" variant="outline" to={paths.purchasing}><LuShoppingCart />{t('queue.title')}</RouteButton>}
-      />
       <FilterBar
         mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters({})}
       >
@@ -60,7 +55,7 @@ export function VendorOrdersPage() {
         <SelectField size="sm" label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
         <SelectField size="sm" label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
       </FilterBar>
-      {list.isPending && <Skeleton h="24" rounded="l3" />}
+      {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}
       {list.data && (
         <DataTable

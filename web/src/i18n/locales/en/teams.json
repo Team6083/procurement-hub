@@ -33,7 +33,8 @@
   "tabs": {
     "overview": "Overview",
     "members": "Members",
-    "settings": "Settings"
+    "settings": "Settings",
+    "subgroups": "Subgroups"
   },
   "team": {
     "notFound": "Team not found.",
@@ -91,7 +92,9 @@
     "inactive": "Inactive",
     "empty": "No subgroups yet.",
     "deactivateTitle": "Deactivate {{name}}?",
-    "deactivateBody": "It can no longer be chosen for new items."
+    "deactivateBody": "It can no longer be chosen for new items.",
+    "status": "Status",
+    "active": "Active"
   },
   "members": {
     "user": "User",
@@ -108,6 +111,8 @@
     "remove": "Remove",
     "removeTitle": "Remove member",
     "removeConfirm": "Remove the manual role of {{name}}?",
-    "removeNote": "The member is removed from the team unless an SSO role still applies."
+    "removeNote": "The member is removed from the team unless an SSO role still applies.",
+    "setManual": "Set manual role",
+    "setDefault": "Set default subgroup"
   }
 }

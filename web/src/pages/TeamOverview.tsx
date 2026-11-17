@@ -1,4 +1,4 @@
-import { Button, Card, HStack, List, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Button, Card, HStack, List, Stack, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { EmptyState, FactList, SectionHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useBatchList } from '../api/batches';
 import { useMe } from '../api/me';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ListSkeleton } from '../components/PageStates';
 import { BatchTable } from '../features/batches/BatchTable';
 import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { useTeamCtx } from '../features/teams/TeamContext';
@@ -59,7 +60,7 @@ export function TeamOverview() {
             )
           }
         />
-        {list.isPending && <Skeleton h="24" rounded="l3" />}
+        {list.isPending && <ListSkeleton />}
         {list.error && <ErrorAlert error={list.error} />}
         {list.data && batches.length === 0 && (
           <Card.Root size="sm">

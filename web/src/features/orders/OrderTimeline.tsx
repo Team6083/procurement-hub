@@ -1,4 +1,4 @@
-import { Button, HStack, Skeleton, Stack, Text, Timeline } from '@chakra-ui/react';
+import { Button, HStack, Stack, Text, Timeline } from '@chakra-ui/react';
 import { EmptyState } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuHistory } from 'react-icons/lu';
@@ -8,6 +8,7 @@ import { useOrderAudit } from '../../api/vendorOrders';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { shortDate } from '../dates';
 import { formatMoney } from '../money';
+import { ListSkeleton } from '../../components/PageStates';
 
 /** The order's timeline: its own, its lines', ledger and problem events (filtered by the server per caller). */
 export function OrderTimeline({ orderId }: { orderId: string }) {
@@ -15,7 +16,7 @@ export function OrderTimeline({ orderId }: { orderId: string }) {
   const { me } = useMe();
   const baseCurrency = useBaseCurrency();
   const audit = useOrderAudit(orderId);
-  if (audit.isPending) return <Skeleton h="24" rounded="l3" />;
+  if (audit.isPending) return <ListSkeleton />;
   if (audit.error) return <ErrorAlert error={audit.error} />;
   const events = audit.data.pages.flatMap((p) => p.items);
   if (events.length === 0) return <EmptyState icon={<LuHistory />} title={t('timeline.empty')} />;

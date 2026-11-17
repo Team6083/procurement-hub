@@ -1,6 +1,6 @@
 import { orderLabel } from '../labels';
 import { currencyFractionDigits, formatMoney } from '../money';
-import { Button, Card, HStack, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Button, Card, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,7 @@ import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
 import { OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
 import { OrderTimeline } from './OrderTimeline';
+import { PageSkeleton, LoadError } from '../../components/PageStates';
 
 /**
  * One vendor order: lines and unit prices, shared costs, ledger, the calculation with its invariant check and the
@@ -45,8 +46,8 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const [removing, setRemoving] = useState<VendorOrderLine | null>(null);
   const [undo, setUndo] = useState<Exclude<OrderAction, 'place'> | null>(null);
 
-  if (q.isPending) return <Skeleton h="32" rounded="l3" />;
-  if (q.error || !q.data) return <ErrorAlert error={q.error} />;
+  if (q.isPending) return <PageSkeleton />;
+  if (q.error || !q.data) return <LoadError error={q.error} />;
   const order = q.data;
   const baseDigits = currencyFractionDigits(baseCurrency) ?? 2;
   const canWrite = !!me?.isPurchaser && !order.restricted;
@@ -91,7 +92,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}
         {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
         {!undo && <ErrorAlert error={action.error} />}
-        <Card.Root size="sm" maxW="5xl">
+        <Card.Root size="sm">
           <Card.Body>
             <FactList
               minChildWidth={{ base: '9rem', md: '10rem' }}
@@ -129,7 +130,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       </SimpleGrid>
       <LedgerSection order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} canWrite={canWrite} headingAs={h} />
 
-      <Stack gap="2" maxW="5xl">
+      <Stack gap="2">
         <SectionHeader as={h} mb="0" title={t('timeline.title')} />
         <OrderTimeline orderId={order.id} />
       </Stack>

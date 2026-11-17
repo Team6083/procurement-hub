@@ -1,5 +1,5 @@
 import { deliveryLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Input, Skeleton, Stack } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Input, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import { SelectField } from '../components/ui/select';
 import { shortDate, shortDay } from '../features/dates';
 import { VoidedBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
+import { ListSkeleton } from '../components/PageStates';
 
 /** Voided boxes are hidden until asked for; that default is not a filter the user set. */
 const DEFAULT_FILTERS: DeliveryFilters = { voided: 'false' };
@@ -58,7 +59,7 @@ export function DeliveriesPage() {
           <Input size="sm" type="date" value={filters.to ?? ''} onChange={(e) => setFilters({ ...filters, to: e.currentTarget.value || undefined })} />
         </FormField>
       </FilterBar>
-      {list.isPending && <Skeleton h="24" rounded="l3" />}
+      {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}
       {list.data && (
         <DataTable

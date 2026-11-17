@@ -1,40 +1,36 @@
-import { Stack, Tabs } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
-import { LuCoins, LuShieldCheck, LuStore } from 'react-icons/lu';
-import { Outlet, useLocation, useNavigate } from 'react-router';
-import { useMe } from '../api/me';
+import { Outlet, useLocation } from 'react-router';
+import { useAccess } from '../auth/useAccess';
+import { Forbidden, PageSkeleton } from '../components/PageStates';
+import { SectionLayout } from '../components/SectionLayout';
+import { useMeta } from '../api/meta';
 import { paths } from '../paths';
-
-const PAGES = [
-  { href: paths.adminVendors, label: 'nav.vendors', icon: <LuStore /> },
-  { href: paths.referenceRates, label: 'nav.rates', icon: <LuCoins /> },
-  { href: paths.roleMappings, label: 'nav.roleMappings', icon: <LuShieldCheck /> },
-];
+import { PurchasingLayout } from './PurchasingLayout';
 
 /**
- * The admin section (/admin/*): one navigation entry for system admins, with its pages as subtle tabs. Purchasers
- * reach the vendor list from the Purchasing page and see it without the admin tabs.
+ * /admin/*: the Admin section for system admins (vendors, reference rates, role mappings as tabs). Purchasers reach
+ * the vendor list as a tab of Purchasing; everyone may read the reference rates (spec 17.1); the rest is forbidden.
  */
 export function AdminLayout() {
   const { t } = useTranslation();
-  const { isSystemAdmin } = useMe();
-  const navigate = useNavigate();
+  const access = useAccess();
   const { pathname } = useLocation();
-  if (!isSystemAdmin) return <Outlet />;
-  const active = PAGES.find((p) => pathname.startsWith(p.href))?.href ?? '';
-  return (
-    <Stack gap="4">
-      <Tabs.Root value={active} onValueChange={(e) => void navigate(e.value)} variant="subtle" size="sm">
-        <Tabs.List aria-label={t('nav.admin')} flexWrap="wrap">
-          {PAGES.map((p) => (
-            <Tabs.Trigger key={p.href} value={p.href}>
-              {p.icon}
-              {t(p.label)}
-            </Tabs.Trigger>
-          ))}
-        </Tabs.List>
-      </Tabs.Root>
-      <Outlet />
-    </Stack>
-  );
+  const base = useMeta().data?.baseCurrency ?? '';
+  if (access.isPending) return <PageSkeleton />;
+  const rates = { to: paths.referenceRates, label: t('nav.rates'), description: t('admin:rates.intro', { base }) };
+  if (access.isSystemAdmin) {
+    return (
+      <SectionLayout
+        title={t('nav.admin')}
+        tabs={[
+          { to: paths.adminVendors, label: t('nav.vendors'), description: t('admin:vendors.intro') },
+          rates,
+          { to: paths.roleMappings, label: t('nav.roleMappings'), description: t('admin:intro') },
+        ]}
+      />
+    );
+  }
+  if (access.isPurchaser && pathname.startsWith(paths.adminVendors)) return <PurchasingLayout><Outlet /></PurchasingLayout>;
+  if (pathname.startsWith(paths.referenceRates)) return <SectionLayout title={t('nav.rates')} tabs={[rates]} />;
+  return <Forbidden />;
 }

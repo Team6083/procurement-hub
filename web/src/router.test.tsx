@@ -35,11 +35,8 @@ vi.mock('./pages/TeamShell', async () => {
   return { TeamShell: () => <section aria-label="team shell"><Outlet /></section> };
 });
 vi.mock('./pages/TeamOverview', () => ({ TeamOverview: stub('team-overview') }));
-vi.mock('./pages/TeamMembersTab', () => ({ TeamMembersTab: stub('team-members') }));
-vi.mock('./pages/TeamSettingsShell', async () => {
-  const { Outlet } = await import('react-router');
-  return { TeamSettingsShell: () => <Outlet /> };
-});
+vi.mock('./pages/TeamMembersPage', () => ({ TeamMembersPage: stub('team-members') }));
+vi.mock('./pages/PurchasingLayout', () => ({ PurchasingLayout: ({ children }: { children: ReactNode }) => children }));
 vi.mock('./pages/settings/GeneralSettings', () => ({ GeneralSettings: stub('settings-general') }));
 vi.mock('./pages/settings/SubgroupsSettings', () => ({ SubgroupsSettings: stub('settings-subgroups') }));
 vi.mock('./pages/VendorsPage', () => ({ VendorsPage: stub('vendors') }));
@@ -47,7 +44,6 @@ vi.mock('./pages/PurchasingPage', () => ({ PurchasingPage: stub('purchasing') })
 vi.mock('./pages/VendorOrdersPage', () => ({ VendorOrdersPage: stub('vendor-orders') }));
 vi.mock('./pages/VendorOrderPage', () => ({ VendorOrderPage: stub('vendor-order') }));
 vi.mock('./pages/ReferenceRatesPage', () => ({ ReferenceRatesPage: stub('reference-rates') }));
-vi.mock('./pages/settings/MembersSettings', () => ({ MembersSettings: stub('settings-members') }));
 
 beforeAll(() => {
   void i18n.changeLanguage('en');
@@ -83,7 +79,7 @@ describe('routes (spec section 17.1)', () => {
     ['/teams/robotics/members', 'team-members {"slug":"robotics"} /teams/robotics/members'],
     ['/teams/robotics/settings', 'settings-general {"slug":"robotics"} /teams/robotics/settings'],
     ['/teams/robotics/settings/subgroups', 'settings-subgroups {"slug":"robotics"} /teams/robotics/settings/subgroups'],
-    ['/teams/robotics/settings/members', 'settings-members {"slug":"robotics"} /teams/robotics/settings/members'],
+    ['/teams/robotics/settings/members', 'team-members {"slug":"robotics"} /teams/robotics/settings/members'],
   ])('%s', (url, expected) => {
     renderAt(url);
     expect(page()).toBe(expected);

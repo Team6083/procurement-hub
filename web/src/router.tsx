@@ -14,7 +14,8 @@ import { DeliveriesPage } from './pages/DeliveriesPage';
 import { DeliveryNewPage } from './pages/DeliveryNewPage';
 import { DeliveryPage } from './pages/DeliveryPage';
 import { HomePage } from './pages/HomePage';
-import { NotFound } from './components/PageStates';
+import { NotFound, RoleGuard } from './components/PageStates';
+import { PurchasingLayout } from './pages/PurchasingLayout';
 import { Placeholder } from './pages/Placeholder';
 import { PurchasingPage } from './pages/PurchasingPage';
 import { ReceivingLayout } from './pages/ReceivingLayout';
@@ -24,13 +25,17 @@ import { VendorOrdersPage } from './pages/VendorOrdersPage';
 import { ReferenceRatesPage } from './pages/ReferenceRatesPage';
 import { RoleMappingsPage } from './pages/RoleMappingsPage';
 import { GeneralSettings } from './pages/settings/GeneralSettings';
-import { MembersSettings } from './pages/settings/MembersSettings';
 import { SubgroupsSettings } from './pages/settings/SubgroupsSettings';
-import { TeamMembersTab } from './pages/TeamMembersTab';
+import { TeamMembersPage } from './pages/TeamMembersPage';
 import { TeamOverview } from './pages/TeamOverview';
-import { TeamSettingsShell } from './pages/TeamSettingsShell';
 import { TeamShell } from './pages/TeamShell';
 import { VendorsPage } from './pages/VendorsPage';
+
+/** /purchasing is for purchasers only; the queue request is never made for anyone else (it would answer 403). */
+function PurchasingGuard() {
+  const { t } = useTranslation('purchasing');
+  return <RoleGuard allow={(a) => a.isPurchaser} description={t('queue.purchasersOnly')}><PurchasingPage /></RoleGuard>;
+}
 
 function Layout() {
   return (
@@ -69,8 +74,13 @@ export const routes: RouteObject[] = [
           { path: '/', element: <HomePage /> },
           { path: '/batches', element: <BatchesPage /> },
           { path: '/batches/:id', element: <BatchPage /> },
-          { path: '/purchasing', element: <PurchasingPage /> },
-          { path: '/vendor-orders', element: <VendorOrdersPage /> },
+          {
+            element: <PurchasingLayout><Outlet /></PurchasingLayout>,
+            children: [
+              { path: '/purchasing', element: <PurchasingGuard /> },
+              { path: '/vendor-orders', element: <VendorOrdersPage /> },
+            ],
+          },
           { path: '/vendor-orders/:id', element: <VendorOrderPage /> },
           {
             element: <ReceivingLayout />,
@@ -86,16 +96,10 @@ export const routes: RouteObject[] = [
             element: <TeamShell />,
             children: [
               { index: true, element: <TeamOverview /> },
-              { path: 'members', element: <TeamMembersTab /> },
-              {
-                path: 'settings',
-                element: <TeamSettingsShell />,
-                children: [
-                  { index: true, element: <GeneralSettings /> },
-                  { path: 'subgroups', element: <SubgroupsSettings /> },
-                  { path: 'members', element: <MembersSettings /> },
-                ],
-              },
+              { path: 'members', element: <TeamMembersPage /> },
+              { path: 'settings', element: <GeneralSettings /> },
+              { path: 'settings/subgroups', element: <SubgroupsSettings /> },
+              { path: 'settings/members', element: <TeamMembersPage /> },
             ],
           },
           { path: '/reports', element: <Placeholder titleKey="pages.reports" /> },

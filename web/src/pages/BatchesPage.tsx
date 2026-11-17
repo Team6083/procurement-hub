@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Skeleton, Stack } from '@chakra-ui/react';
+import { Button, Card, HStack, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, PageHeader } from '@team6083/ui';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
@@ -12,6 +12,7 @@ import { SelectField } from '../components/ui/select';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { BatchTable } from '../features/batches/BatchTable';
+import { ListSkeleton } from '../components/PageStates';
 
 const BATCH_STATUSES: BatchStatus[] = ['proposed', 'proposal_rejected', 'draft', 'collecting', 'reviewing', 'purchasing', 'receiving', 'completed', 'cancelled'];
 
@@ -54,7 +55,7 @@ export function BatchesPage() {
         <SelectField size="sm" label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
         <SelectField size="sm" label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
       </FilterBar>
-      {list.isPending && <Skeleton h="24" rounded="l3" />}
+      {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}
       {list.data && batches.length === 0 && (
         <Card.Root size="sm">

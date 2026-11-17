@@ -1,16 +1,16 @@
-import { Badge, Button, Card, Dialog, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, PageHeader, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
+import { Badge, Button, Card, Dialog, HStack, Stack, Text } from '@chakra-ui/react';
+import { EmptyState, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuReceiptText, LuShoppingCart, LuStore } from 'react-icons/lu';
-import { useMe } from '../api/me';
+import { LuBan, LuShoppingCart } from 'react-icons/lu';
 import type { QueueGroup, QueueItem } from '../api/types';
 import { useItemAction } from '../api/batches';
 import { useQueue } from '../api/vendorOrders';
 import { DataTable } from '../components/DataTable';
-import { ErrorAlert, Notice } from '../components/ErrorAlert';
+import { ErrorAlert } from '../components/ErrorAlert';
+import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';
-import { RouteAnchor, RouteButton } from '../components/RouteLinks';
+import { RouteAnchor } from '../components/RouteLinks';
 import { AppDialog } from '../components/ui/dialog';
 import { formatMoney } from '../features/money';
 import { SendToOrderModal } from '../features/orders/SendToOrderModal';
@@ -29,9 +29,8 @@ const groupKey = (i: QueueItem) => i.vendorId ?? '';
  */
 export function PurchasingPage() {
   const { t, i18n } = useTranslation('purchasing');
-  const { me, isPending: meLoading } = useMe();
-  // Only purchasers can read the queue: the others get the notice and no request that would end in a 403.
-  const queue = useQueue(!!me?.isPurchaser);
+  // The route lets only purchasers in (RoleGuard), so the queue request never ends in a 403.
+  const queue = useQueue();
   const [picked, setPicked] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [viewing, setViewing] = useState<string | null>(null);
@@ -79,17 +78,7 @@ export function PurchasingPage() {
 
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0" title={t('queue.title')} description={t('queue.intro')}
-        actions={
-          <>
-            <RouteButton size="sm" variant="outline" to={paths.adminVendors}><LuStore />{t('common:nav.vendors')}</RouteButton>
-            <RouteButton size="sm" variant="outline" to={paths.vendorOrders}><LuReceiptText />{t('list.title')}</RouteButton>
-          </>
-        }
-      />
-      {!meLoading && !me?.isPurchaser && <Notice>{t('queue.purchasersOnly')}</Notice>}
-      {(meLoading || (me?.isPurchaser && queue.isPending)) && <Skeleton h="24" rounded="l3" />}
+      {queue.isPending && <ListSkeleton rows={6} />}
       {queue.error && <ErrorAlert error={queue.error} />}
       {queue.data && (
         <DataTable
@@ -105,12 +94,11 @@ export function PurchasingPage() {
               </HStack>
             );
           }}
-          selection={me?.isPurchaser ? { selected: picked, onChange: setPicked } : undefined}
-          rowActions={me?.isPurchaser ? rowActions : undefined}
+          selection={{ selected: picked, onChange: setPicked }}
+          rowActions={rowActions}
           empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShoppingCart />} title={t('queue.empty')} description={t('queue.emptyHint')} /></Card.Body></Card.Root>}
         />
       )}
-      <ErrorAlert error={unbuy.error && !marking ? unbuy.error : null} />
       <SelectionBar count={selected.length} onClear={() => setPicked([])}>
         {!oneVendor && <Text textStyle="sm" color="fg.muted">{t('queue.oneVendor')}</Text>}
         <Button size="sm" disabled={!oneVendor} onClick={() => setSending(true)}>{t('queue.sendToOrder')}</Button>

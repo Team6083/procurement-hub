@@ -1,4 +1,4 @@
-import { Button, HStack, Skeleton, Stack, Text, Timeline } from '@chakra-ui/react';
+import { Button, HStack, Stack, Text, Timeline } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useBatchAudit } from '../../api/batches';
 import type { AuditEvent } from '../../api/types';
@@ -7,6 +7,7 @@ import { auditActionKey, isSystemActor } from './audit';
 import { EmptyState } from '@team6083/ui';
 import { LuHistory } from 'react-icons/lu';
 import { shortDate } from '../dates';
+import { ListSkeleton } from '../../components/PageStates';
 
 function statusChange(ev: AuditEvent, t: (k: string, o?: Record<string, unknown>) => string): string | null {
   const c = ev.changes?.find((x) => x.field === 'status');
@@ -18,7 +19,7 @@ function statusChange(ev: AuditEvent, t: (k: string, o?: Record<string, unknown>
 export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id: string) => string }) {
   const { t } = useTranslation('batches');
   const audit = useBatchAudit(batchId);
-  if (audit.isPending) return <Skeleton h="24" rounded="l3" />;
+  if (audit.isPending) return <ListSkeleton />;
   if (audit.error) return <ErrorAlert error={audit.error} />;
   // The server returns the batch timeline oldest-first; keep its order across pages.
   const events = audit.data.pages.flatMap((p) => p.items);

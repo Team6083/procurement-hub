@@ -1,20 +1,21 @@
-import { Badge, Button, Card, Skeleton, Stack, Switch } from '@chakra-ui/react';
-import { EmptyState, PageHeader, type DataColumn } from '@team6083/ui';
+import { Badge, Button, Card, Stack, Switch } from '@chakra-ui/react';
+import { EmptyState, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuPlus, LuStore } from 'react-icons/lu';
-import { useMe } from '../api/me';
+import { LuPencil, LuPlus, LuStore } from 'react-icons/lu';
 import { useVendors } from '../api/vendors';
 import type { Vendor } from '../api/types';
+import { useAccess } from '../auth/useAccess';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ListSkeleton } from '../components/PageStates';
+import { SectionActions } from '../components/SectionLayout';
 import { VendorModal } from '../features/vendors/VendorModal';
 
-/** The shared vendor list: everyone reads it, purchasers and system admins edit it. */
+/** The shared vendor list: purchasers and system admins edit it (a tab of Purchasing or of Admin). */
 export function VendorsPage() {
   const { t } = useTranslation('admin');
-  const { me, isSystemAdmin } = useMe();
-  const canEdit = isSystemAdmin || !!me?.isPurchaser;
+  const { canEditVendors: canEdit } = useAccess();
   const [inactive, setInactive] = useState(false);
   const vendors = useVendors(inactive);
   const [editing, setEditing] = useState<Vendor | 'new' | null>(null);
@@ -28,31 +29,22 @@ export function VendorsPage() {
 
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0"
-        title={t('vendors.title')}
-        description={t('vendors.intro')}
-        actions={canEdit && (
-          <Button size="sm" onClick={() => setEditing('new')}>
-            <LuPlus />
-            {t('vendors.create')}
-          </Button>
-        )}
-      />
-      <Switch.Root checked={inactive} onCheckedChange={(e) => setInactive(e.checked)}>
+      {canEdit && (
+        <SectionActions>
+          <Button size="sm" onClick={() => setEditing('new')}><LuPlus />{t('vendors.create')}</Button>
+        </SectionActions>
+      )}
+      <Switch.Root size="sm" checked={inactive} onCheckedChange={(e) => setInactive(e.checked)}>
         <Switch.HiddenInput />
         <Switch.Control />
         <Switch.Label>{t('vendors.showInactive')}</Switch.Label>
       </Switch.Root>
-      {vendors.isPending && <Skeleton h="24" rounded="l3" />}
+      {vendors.isPending && <ListSkeleton />}
       {vendors.error && <ErrorAlert error={vendors.error} />}
       {vendors.data && (
         <DataTable
-          aria-label={t('vendors.title')}
-          rows={vendors.data}
-          columns={columns}
-          getRowId={(v) => v.id}
-          rowActions={canEdit ? (v) => [{ value: 'edit', label: t('common:actions.edit'), onSelect: () => setEditing(v) }] : undefined}
+          aria-label={t('vendors.title')} rows={vendors.data} columns={columns} getRowId={(v) => v.id}
+          rowActions={canEdit ? (v) => [{ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(v) }] : undefined}
           empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuStore />} title={t('vendors.empty')} /></Card.Body></Card.Root>}
         />
       )}

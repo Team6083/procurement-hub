@@ -107,8 +107,8 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(await screen.findByText('Bob')).toBeTruthy();
     cleanup();
     open('/teams/robotics/settings/subgroups');
-    expect(await screen.findByRole('heading', { name: 'Subgroups' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Subgroups' }).getAttribute('aria-current')).toBe('page');
-    expect(screen.getByText('Mechanical')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Robotics' })).toBeTruthy();
+    expect(screen.getByRole('tab', { name: 'Subgroups' }).getAttribute('aria-selected')).toBe('true');
+    expect(screen.getAllByText('Mechanical').length).toBeGreaterThan(0);
   });
 });

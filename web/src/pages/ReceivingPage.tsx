@@ -1,5 +1,5 @@
 import { deliveryLabel, orderLabel } from '../features/labels';
-import { Badge, Card, Skeleton, Stack, Tabs, Text } from '@chakra-ui/react';
+import { Badge, Card, Stack, Tabs, Text } from '@chakra-ui/react';
 import { EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +19,7 @@ import { useAccess } from '../auth/useAccess';
 import { ResolveProblemModal } from '../features/receiving/ResolveProblemModal';
 import { MatchStateBadge, ProblemBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
+import { ListSkeleton } from '../components/PageStates';
 
 /** A compact empty state: these lists are usually empty, so they should not dominate the page. */
 const emptyCard = (title: string) => <Card.Root size="sm"><Card.Body py="2"><EmptyState size="sm" py="2" icon={<LuInbox />} title={title} /></Card.Body></Card.Root>;
@@ -43,7 +44,7 @@ function PendingLines() {
   return (
     <Stack gap="2">
       <SectionHeader as="h2" mb="0" title={t('pending.title')} count={countOf(q.data?.length)} />
-      {q.isPending && <Skeleton h="16" rounded="l3" />}
+      {q.isPending && <ListSkeleton rows={2} />}
       <ErrorAlert error={q.error} />
       {q.data && <DataTable aria-label={t('pending.title')} rows={q.data} columns={columns} getRowId={(l) => l.id} empty={emptyCard(t('pending.empty'))} />}
     </Stack>
@@ -69,7 +70,7 @@ function ProblemTable({ status, canPurchase, onResolve, onUnresolve }: { status:
     p.resolution
       ? [{ value: 'unresolve', icon: <LuUndo2 />, label: t('problem.unresolve'), onSelect: () => onUnresolve(p) }]
       : [{ value: 'resolve', icon: <LuCircleCheck />, label: t('problem.resolve'), onSelect: () => onResolve(p) }];
-  if (q.isPending) return <Skeleton h="16" rounded="l3" />;
+  if (q.isPending) return <ListSkeleton rows={2} />;
   if (q.error) return <ErrorAlert error={q.error} />;
   return (
     <DataTable
@@ -133,7 +134,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
   return (
     <Stack gap="2">
       <SectionHeader as="h2" mb="0" title={t('toClose.title')} count={countOf(q.data?.length)} />
-      {q.isPending && <Skeleton h="16" rounded="l3" />}
+      {q.isPending && <ListSkeleton rows={2} />}
       <ErrorAlert error={q.error} />
       {q.data && (
         <DataTable

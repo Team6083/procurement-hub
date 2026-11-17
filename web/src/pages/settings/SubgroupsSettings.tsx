@@ -1,124 +1,94 @@
-import { Badge, Button, Card, Flex, HStack, Input, Stack, Table, Text } from '@chakra-ui/react';
-import { EmptyState, SectionHeader } from '@team6083/ui';
-import { LuFolderTree } from 'react-icons/lu';
+import { Badge, Button, Card, Dialog, Input, Stack } from '@chakra-ui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { LuBan, LuCircleCheck, LuFolderTree, LuPencil, LuPlus } from 'react-icons/lu';
+import { z } from 'zod';
 import { useTeamMutation } from '../../api/teams';
 import type { Subgroup, Team } from '../../api/types';
+import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { Forbidden } from '../../components/PageStates';
 import { ReasonModal } from '../../components/ReasonModal';
+import { SectionActions } from '../../components/SectionLayout';
+import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
-import { TableShell } from '../../components/ui/table';
+import { requiredText, useFieldError } from '../../components/ui/form';
 import { useTeamCtx } from '../../features/teams/TeamContext';
 
-function AddSubgroup({ team }: { team: Team }) {
-  const { t } = useTranslation('teams');
-  const [name, setName] = useState('');
-  const [tried, setTried] = useState(false);
-  const add = useTeamMutation<string>(team.id, (api, n, headers) =>
-    api.post<Team>(`/teams/${team.id}/subgroups`, { name: n }, { headers }),
-  );
-  return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        setTried(true);
-        if (name.trim()) add.mutate(name.trim(), { onSuccess: () => { setName(''); setTried(false); } });
-      }}
-    >
-      <Stack gap="2" maxW="480px">
-        <Flex align="flex-end" gap="2">
-          <FormField flex="1" label={t('subgroups.name')} required errorText={tried && !name.trim() ? t('common:validation.required') : undefined}>
-            <Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
-          </FormField>
-          <Button size="sm" type="submit" loading={add.isPending} disabled={team.archived}>{t('subgroups.add')}</Button>
-        </Flex>
-        <ErrorAlert error={add.error} />
-      </Stack>
-    </form>
-  );
-}
+const nameSchema = z.object({ name: requiredText(200) });
 
-function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
+/** Add a subgroup (group === null) or rename one. */
+function NameForm({ team, group, onClose }: { team: Team; group: Subgroup | null; onClose: () => void }) {
   const { t } = useTranslation('teams');
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(group.name);
-  const [confirming, setConfirming] = useState(false);
-  const patch = useTeamMutation<{ name?: string; active?: boolean }>(team.id, (api, body, headers) => api.patch<Team>(`/teams/${team.id}/subgroups/${group.id}`, body, { headers }),
+  const save = useTeamMutation<string>(team.id, (api, name, headers) =>
+    group
+      ? api.patch<Team>(`/teams/${team.id}/subgroups/${group.id}`, { name }, { headers })
+      : api.post<Team>(`/teams/${team.id}/subgroups`, { name }, { headers }),
   );
-  const rename = () => {
-    const n = name.trim();
-    if (!n || n === group.name) return setEditing(false);
-    patch.mutate({ name: n }, { onSuccess: () => setEditing(false) });
-  };
+  const form = useForm({ resolver: zodResolver(nameSchema), defaultValues: { name: group?.name ?? '' } });
+  const fieldError = useFieldError();
+  const submit = form.handleSubmit((v) => (v.name.trim() === group?.name ? onClose() : save.mutate(v.name.trim(), { onSuccess: onClose })));
   return (
-    <Table.Row>
-      <Table.Cell>
-        {editing ? (
-          <Stack gap="1">
-            <Input size="xs" aria-label={t('subgroups.name')} value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} />
-            <ErrorAlert error={patch.error} />
+    <>
+      <Dialog.Body>
+        <form id="subgroup-form" onSubmit={submit} noValidate>
+          <Stack gap="3">
+            <FormField label={t('subgroups.name')} required errorText={fieldError(form.formState.errors.name)}>
+              <Input maxLength={200} {...form.register('name')} />
+            </FormField>
+            <ErrorAlert error={save.error} />
           </Stack>
-        ) : (
-          <HStack gap="2">
-            <Text textStyle="sm" color={group.active ? undefined : 'fg.muted'}>{group.name}</Text>
-            {!group.active && <Badge colorPalette="gray">{t('subgroups.inactive')}</Badge>}
-          </HStack>
-        )}
-      </Table.Cell>
-      <Table.Cell>
-        <HStack gap="2" justify="flex-end">
-          {editing ? (
-            <>
-              <Button size="xs" loading={patch.isPending} onClick={rename}>{t('common:actions.save')}</Button>
-              <Button size="xs" variant="outline" onClick={() => { setEditing(false); setName(group.name); }}>{t('common:actions.cancel')}</Button>
-            </>
-          ) : (
-            <>
-              <Button size="xs" variant="outline" disabled={team.archived} onClick={() => setEditing(true)}>{t('subgroups.rename')}</Button>
-              <Button
-                size="xs"
-                variant="subtle"
-                colorPalette={group.active ? 'red' : undefined}
-                disabled={team.archived}
-                loading={patch.isPending}
-                onClick={() => (group.active ? setConfirming(true) : patch.mutate({ active: true }))}
-              >
-                {group.active ? t('subgroups.deactivate') : t('subgroups.activate')}
-              </Button>
-            </>
-          )}
-        </HStack>
-        {!editing && !confirming && <ErrorAlert error={patch.error} />}
-        <ReasonModal
-          open={confirming} danger title={t('subgroups.deactivateTitle', { name: group.name })} body={t('subgroups.deactivateBody')}
-          confirmLabel={t('subgroups.deactivate')} loading={patch.isPending} error={patch.error} onClose={() => setConfirming(false)}
-          onConfirm={() => patch.mutate({ active: false }, { onSuccess: () => setConfirming(false) })}
-        />
-      </Table.Cell>
-    </Table.Row>
+        </form>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" type="submit" form="subgroup-form" loading={save.isPending}>{group ? t('common:actions.save') : t('subgroups.add')}</Button>
+      </DialogFooter>
+    </>
   );
 }
 
+/** The team's subgroups (team admins): add, rename, deactivate and activate. */
 export function SubgroupsSettings() {
   const { t } = useTranslation('teams');
-  const { full } = useTeamCtx();
-  if (!full) return null;
+  const { full, canAdmin } = useTeamCtx();
+  const [editing, setEditing] = useState<Subgroup | 'new' | null>(null);
+  const [deactivating, setDeactivating] = useState<Subgroup | null>(null);
+  const setActive = useTeamMutation<{ group: Subgroup; active: boolean }>(full?.id ?? '', (api, { group, active }, headers) =>
+    api.patch<Team>(`/teams/${full?.id}/subgroups/${group.id}`, { active }, { headers }),
+  );
+  if (!full || !canAdmin) return <Forbidden />;
+  const writable = !full.archived;
+
+  const columns: DataColumn<Subgroup>[] = [
+    { key: 'name', header: t('subgroups.name'), priority: 'primary', cell: (g) => g.name },
+    { key: 'status', header: t('subgroups.status'), cell: (g) => (g.active ? <Badge colorPalette="green" variant="subtle">{t('subgroups.active')}</Badge> : <Badge variant="outline">{t('subgroups.inactive')}</Badge>) },
+  ];
+  const rowActions = (g: Subgroup): RowAction[] => (writable ? [
+    { value: 'rename', icon: <LuPencil />, label: t('subgroups.rename'), onSelect: () => setEditing(g) },
+    g.active
+      ? { value: 'deactivate', icon: <LuBan />, label: t('subgroups.deactivate'), danger: true, onSelect: () => { setActive.reset(); setDeactivating(g); } }
+      : { value: 'activate', icon: <LuCircleCheck />, label: t('subgroups.activate'), onSelect: () => setActive.mutate({ group: g, active: true }) },
+  ] : []);
+
   return (
     <Stack gap="4">
-      <SectionHeader title={t('settings.nav.subgroups')} mb="0" />
-      <AddSubgroup key={`add-${full.version}`} team={full} />
-      {full.subgroups.length === 0 ? (
-        <Card.Root size="sm"><Card.Body><EmptyState icon={<LuFolderTree />} title={t('subgroups.empty')} /></Card.Body></Card.Root>
-      ) : (
-        <TableShell maxW="640px">
-          <Table.Body>
-            {full.subgroups.map((g) => (
-              <SubgroupRow key={g.id} team={full} group={g} />
-            ))}
-          </Table.Body>
-        </TableShell>
-      )}
+      {writable && <SectionActions><Button size="sm" onClick={() => setEditing('new')}><LuPlus />{t('subgroups.add')}</Button></SectionActions>}
+      {!deactivating && <ErrorAlert error={setActive.error} />}
+      <DataTable
+        aria-label={t('tabs.subgroups')} rows={full.subgroups} columns={columns} getRowId={(g) => g.id} rowActions={rowActions}
+        empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuFolderTree />} title={t('subgroups.empty')} /></Card.Body></Card.Root>}
+      />
+      <AppDialog open={editing !== null} onClose={() => setEditing(null)} title={editing && editing !== 'new' ? t('subgroups.rename') : t('subgroups.add')} size="sm">
+        {editing && <NameForm team={full} group={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}
+      </AppDialog>
+      <ReasonModal
+        open={!!deactivating} danger title={t('subgroups.deactivateTitle', { name: deactivating?.name })} body={t('subgroups.deactivateBody')}
+        confirmLabel={t('subgroups.deactivate')} loading={setActive.isPending} error={setActive.error} onClose={() => setDeactivating(null)}
+        onConfirm={() => deactivating && setActive.mutate({ group: deactivating, active: false }, { onSuccess: () => setDeactivating(null) })}
+      />
     </Stack>
   );
 }

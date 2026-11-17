@@ -1,4 +1,4 @@
-import { Badge, Button, Card, HStack, Skeleton, Stack, Tabs, Text } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Stack, Tabs, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { FactList, PageHeader } from '@team6083/ui';
 import { LuPencil } from 'react-icons/lu';
@@ -20,6 +20,7 @@ import { TimelineTab } from '../features/batches/TimelineTab';
 import { callerFor, canEditBatch, isMember } from '../features/batches/rules';
 import { useNames } from '../features/batches/useNames';
 import { shortDate } from '../features/dates';
+import { PageSkeleton, LoadError, ListSkeleton } from '../components/PageStates';
 
 export function BatchPage() {
   const { t } = useTranslation('batches');
@@ -36,8 +37,8 @@ export function BatchPage() {
   const names = useNames(batch?.teamId, internals);
   const [editing, setEditing] = useState(false);
 
-  if (batchQ.isPending) return <Skeleton h="32" rounded="l3" />;
-  if (batchQ.error || !batch) return <ErrorAlert error={batchQ.error} />;
+  if (batchQ.isPending) return <PageSkeleton />;
+  if (batchQ.error || !batch) return <LoadError error={batchQ.error} />;
 
   const list = items.data ?? [];
   const pendingItems = items.data ? list.filter((i) => i.status === 'pending').length : undefined;
@@ -73,7 +74,7 @@ export function BatchPage() {
         />
         {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
         {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
-        <Card.Root size="sm" maxW="5xl">
+        <Card.Root size="sm">
           <Card.Body>
             <FactList
               minChildWidth={{ base: '9rem', md: '12rem' }}
@@ -95,12 +96,12 @@ export function BatchPage() {
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
         </Tabs.List>
         <Tabs.Content value="items">
-          {items.isPending && <Skeleton h="24" rounded="l3" />}
+          {items.isPending && <ListSkeleton />}
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
         </Tabs.Content>
         <Tabs.Content value="purchasing">
-          {items.isPending && <Skeleton h="24" rounded="l3" />}
+          {items.isPending && <ListSkeleton />}
           {items.error && <ErrorAlert error={items.error} />}
           {items.data && <PurchasingTab batch={batch} items={list} />}
         </Tabs.Content>
