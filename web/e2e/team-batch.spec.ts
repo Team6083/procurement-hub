@@ -227,15 +227,22 @@ test('a members-only batch is not found for a non-member (21.7)', async ({ brows
   const response = (await as(browser, 'oscar')).waitForResponse((r) => r.url().endsWith(`/api/v1${batchPath}`));
   const oscar = await as(browser, 'oscar', batchPath);
   expect((await response).status()).toBe(404);
-  await expect(oscar.getByText('The requested item was not found.')).toBeVisible();
+  await expect(oscar.getByRole('heading', { name: 'Page not found' })).toBeVisible();
   await expect(oscar.getByRole('heading', { name: batchTitle })).toHaveCount(0);
 });
 
 test('removing the SSO group ends that membership but keeps a manual one (21.1)', async ({ browser }) => {
   const tara = await as(browser, 'tara', `/teams/${slug}/settings/members`);
   const bobRow = itemRow(tara, users.bob.name);
-  await bobRow.getByLabel('Manual role').selectOption({ label: 'Member' });
-  await expect(bobRow.getByRole('button', { name: 'Clear manual role' })).toBeVisible();
+  await bobRow.getByRole('button', { name: 'More actions' }).click();
+  await tara.getByRole('menuitem', { name: 'Set manual role' }).click();
+  const roleDialog = tara.getByRole('dialog', { name: 'Set manual role' });
+  await roleDialog.getByLabel('Manual role').selectOption({ label: 'Member' });
+  await roleDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(roleDialog).toBeHidden();
+  await bobRow.getByRole('button', { name: 'More actions' }).click();
+  await expect(tara.getByRole('menuitem', { name: 'Clear manual role' })).toBeVisible();
+  await tara.keyboard.press('Escape');
 
   await removeFromGroup(users.alice.username, membersGroup);
   await removeFromGroup(users.bob.username, membersGroup);
