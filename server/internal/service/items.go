@@ -732,6 +732,11 @@ func (s *Items) setUnpurchasable(ctx context.Context, actor authz.Actor, b *doma
 			if len(blockers) > 0 {
 				return &BlockedError{Blockers: blockers}
 			}
+			// The mark means "do not purchase the rest" (spec §10.2); with nothing left to purchase it would only hide
+			// received or closed progress behind "unpurchasable".
+			if it.ToPurchaseQuantity <= 0 {
+				return Rule("invalid_transition", "Nothing is left to purchase for this item.")
+			}
 		}
 		var val any
 		if mark {

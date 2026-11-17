@@ -155,11 +155,14 @@ describe('filters, urls, forms, audit helpers', () => {
 
 describe('canMarkUnpurchasable', () => {
   const confirmed = batch({ status: 'purchasing', reviewConfirmation: { by: 'a1', at: '', purchaseOutside: false } });
-  const approved = item({ status: 'approved', unpurchasable: null });
+  const approved = item({ status: 'approved', unpurchasable: null, toPurchaseQuantity: 2 });
   const buyer = () => caller({ isPurchaser: true });
   it('is offered to purchasers (a global role) on unmarked approved items of a confirmed batch', () => {
     expect(canMarkUnpurchasable(approved, confirmed, buyer())).toBe(true);
     expect(canUndoUnpurchasable(item({ status: 'approved', unpurchasable: { by: 'x', at: '', reason: 'r' } }), confirmed, buyer())).toBe(true);
+  });
+  it('is not offered once nothing is left to purchase (received, closed or fully ordered)', () => {
+    expect(canMarkUnpurchasable(item({ status: 'approved', unpurchasable: null, toPurchaseQuantity: 0 }), confirmed, buyer())).toBe(false);
   });
   it('is hidden from team admins, members and system admins without the purchaser role', () => {
     expect(canMarkUnpurchasable(approved, confirmed, caller({ teamRole: 'admin' }))).toBe(false);

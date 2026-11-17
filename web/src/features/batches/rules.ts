@@ -126,8 +126,9 @@ export function canForceReject(it: Pick<Item, 'status'>, b: Pick<Batch, 'status'
 export const inPurchasing = (b: Pick<Batch, 'reviewConfirmation'>) => !!b.reviewConfirmation && !b.reviewConfirmation.purchaseOutside;
 
 /** Mirrors backend MarkUnpurchasable: purchasers only, approved item of a review-confirmed batch, not yet marked. */
-export function canMarkUnpurchasable(it: Pick<Item, 'status' | 'unpurchasable'>, b: Pick<Batch, 'reviewConfirmation'>, c: Caller): boolean {
-  return !c.archived && c.isPurchaser && inPurchasing(b) && it.status === 'approved' && !it.unpurchasable;
+/** Only while something is left to purchase: the mark means "do not purchase the rest" (spec §10.2). */
+export function canMarkUnpurchasable(it: Pick<Item, 'status' | 'unpurchasable' | 'toPurchaseQuantity'>, b: Pick<Batch, 'reviewConfirmation'>, c: Caller): boolean {
+  return !c.archived && c.isPurchaser && inPurchasing(b) && it.status === 'approved' && !it.unpurchasable && it.toPurchaseQuantity > 0;
 }
 
 export function canUndoUnpurchasable(it: Pick<Item, 'status' | 'unpurchasable'>, b: Pick<Batch, 'reviewConfirmation'>, c: Caller): boolean {
