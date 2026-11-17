@@ -4,23 +4,25 @@ A multi-team procurement management system. Members request items in a purchasin
 
 Licensed under the [Apache License 2.0](LICENSE).
 
-> **Status:** under development, no release yet. The backend API covers teams through receiving; the web UI covers teams and batches only. See [Feature status](#feature-status).
+> **Status:** under development, no release yet. The MVP covers teams through receiving in both the API and the web UI. See [Feature status](#feature-status) and [First deployment](#first-deployment).
 
 ## Feature status
 
 | Area | State |
 |---|---|
-| Sign-in with OIDC (Keycloak), access-token validation, `ADMIN_ROLES` / `ALLOWED_ROLES` | Works |
-| Teams, members, subgroups, reference exchange rates, role-mapping rules (from `ROLE_MAPPINGS_FILE` or the API) that sync team membership from token claims | Works (API and web UI) |
-| Batches and items with the review flow (approve, send back, reject, withdraw, resubmit) | Works (API and web UI) |
-| Orders and external orders (vendor transactions, including merging orders of several teams), cost calculation in the base currency with allocation of shared costs and exact rounding | Works (API only) |
-| Receiving records, exceptions, dispositions (exchange, accept, cancel, refund), cost adjustments, automatic batch completion, `GET /me/tasks` | Works (API only) |
-| Audit log | Works (API) |
-| Web UI for orders, external orders and receiving | Not yet |
+| Sign-in with OIDC (Keycloak), access-token validation, `ADMIN_ROLES`, `PURCHASER_ROLES`, `RECEIVER_ROLES`, `ALLOWED_ROLES` | Works |
+| Teams, members, subgroups, role-mapping rules (from `ROLE_MAPPINGS_FILE` or the API) that sync team membership from token claims | Works (API and web UI) |
+| Batches and items with the review flow (approve, send back, reject, withdraw, resubmit, copy) | Works (API and web UI) |
+| Vendors and reference exchange rates | Works (API and web UI) |
+| Purchasing queue: approved items waiting to be ordered, marking items unpurchasable | Works (API and web UI) |
+| Vendor orders: draft, place, cancel, lines that can mix items of several teams, ledger of manual entries and refunds, cost calculation in the base currency with allocation of shared costs and exact rounding | Works (API and web UI) |
+| Receiving: deliveries and boxes, matching delivery lines to order lines, problems (damaged, wrong or missing goods) and their resolution, automatic batch completion, `GET /me/tasks` | Works (API and web UI) |
+| Undo of review decisions, order placement, deliveries, matches, problem resolutions and closed lines, each with a reason | Works (API and web UI) |
+| Audit log; timelines of batches and vendor orders | Works (API and web UI) |
 | Notifications (in-app, email, Slack, Discord) | Not yet |
-| Product lookup (part-finder) | Not yet |
 | CSV import and export | Not yet |
 | Cost report | Not yet |
+| Product lookup (part-finder) | Not yet |
 
 Configuration variables for the missing features (`SMTP_*`, `LOOKUP_*`, `PARTFINDER_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
 
@@ -40,12 +42,12 @@ Nothing in this repository is specific to an organization or deployment: every e
 
 ```sh
 cd examples
-cp .env.example .env   # set OIDC_ISSUER, ADMIN_ROLES and WEBHOOK_ENCRYPTION_KEY
+cp .env.example .env   # set OIDC_ISSUER, the *_ROLES and WEBHOOK_ENCRYPTION_KEY
                        # (head -c 32 /dev/urandom | base64)
 docker compose up -d   # pulls ghcr.io/team6083/procurement-hub:latest
 ```
 
-`PROCUREMENT_HUB_IMAGE` overrides the image. The compose file pulls the published image, and no release has been published yet, so until one exists build the image locally (see [Container image](#container-image)) and run `PROCUREMENT_HUB_IMAGE=procurement-hub:local docker compose up -d`. Check it:
+`PROCUREMENT_HUB_IMAGE` overrides the image. The compose file pulls the published image, and `latest` exists only after a `vX.Y.Z` release, so until then use `PROCUREMENT_HUB_IMAGE=ghcr.io/team6083/procurement-hub:main` or build the image locally (see [Container image](#container-image)) and run `PROCUREMENT_HUB_IMAGE=procurement-hub:local docker compose up -d`. Check it:
 
 ```sh
 curl http://127.0.0.1:9090/healthz            # {"status":"ok"}
@@ -79,6 +81,18 @@ npm ci
 cp config.example.json public/config.json   # runtime config (gitignored); edit it, then:
 npm run dev
 ```
+
+## First deployment
+
+Production runs the backend as the container image `ghcr.io/team6083/procurement-hub` and the SPA on Cloudflare. MongoDB and the OIDC provider (Keycloak) are not part of this repository.
+
+1. **Keycloak.** Follow [`docs/keycloak.md`](docs/keycloak.md): the API and SPA clients, the audience mapper and the client roles. Put the roles in `ADMIN_ROLES`, `PURCHASER_ROLES` and `RECEIVER_ROLES`; a role left unset is held by nobody, so without `PURCHASER_ROLES` nobody can purchase.
+2. **MongoDB.** Run a replica set (a single-node one is fine) with authentication enabled, a `MONGO_URI` that names the database in its path (add `authSource` if the user lives in another database), and regular backups (for example `mongodump --uri=... --gzip`) that you have restored at least once. The compose file in `examples/` has no authentication and is for trials only.
+3. **Backend.** Set the variables from [`examples/.env.example`](examples/.env.example) (all variables: [`docs/configuration.md`](docs/configuration.md)). Run `procurement-hub migrate` as a one-off job with the image, then `serve`, as `examples/docker-compose.yml` does. `/readyz` on `METRICS_LISTEN_ADDR` (port `9090`, keep it off the public ingress) stays `503` until the migrations have run and OIDC discovery has loaded. Terminate TLS in front of the API on port `8080` with a reverse proxy or load balancer; the server speaks plain HTTP.
+4. **Image.** `latest` and `X.Y.Z` tags exist only after a `vX.Y.Z` release; before that use `ghcr.io/team6083/procurement-hub:main` or `:sha-<7 chars>`. If the package is private, run `docker login ghcr.io` with a token that has `read:packages` on the host first.
+5. **CORS.** `CORS_ALLOWED_ORIGINS` must contain the exact origin of the SPA (`https://host`, no path) and `FRONTEND_URL` its root URL. The same origin must be allowed in the Keycloak client (redirect and post-logout URIs, see [`web/README.md`](web/README.md)).
+6. **SPA on Cloudflare.** Build with root directory `web`: `npm ci && npm run build:cloudflare`. Set two environment variables on the build: `NODE_AUTH_TOKEN`, a build secret with `read:packages` access to the private `@team6083/ui` package, and `APP_CONFIG`, the whole `config.json` (`apiBaseUrl`, `oidc.authority`, `oidc.clientId`). Both URLs must be plain `https://` origins. Details, headers and the Workers or Pages setup are in [`web/README.md`](web/README.md#deploying-to-cloudflare).
+7. **First check.** Sign in, open the browser console and look for Content-Security-Policy violations while browsing and signing out (the generated policy allows only the SPA, the API origin and the OIDC authority origin). Then confirm `GET <apiBaseUrl>/api/v1/meta` answers and that an admin can create a team.
 
 ## Running the server
 
