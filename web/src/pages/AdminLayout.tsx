@@ -1,15 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation } from 'react-router';
+import { Navigate, useLocation } from 'react-router';
 import { useAccess } from '../auth/useAccess';
 import { Forbidden, PageSkeleton } from '../components/PageStates';
 import { SectionLayout } from '../components/SectionLayout';
 import { useMeta } from '../api/meta';
 import { paths } from '../paths';
-import { PurchasingLayout } from './PurchasingLayout';
 
 /**
- * /admin/*: the Admin section for system admins (vendors, reference rates, role mappings as tabs). Purchasers reach
- * the vendor list as a tab of Purchasing; everyone may read the reference rates (spec 17.1); the rest is forbidden.
+ * /admin/*: the Admin section for system admins (vendors, reference rates, role mappings as tabs). Purchasers have
+ * the vendor list at /purchasing/vendors, a tab of Purchasing; everyone may read the reference rates (spec 17.1); the rest is forbidden.
  */
 export function AdminLayout() {
   const { t } = useTranslation();
@@ -30,7 +29,8 @@ export function AdminLayout() {
       />
     );
   }
-  if (access.isPurchaser && pathname.startsWith(paths.adminVendors)) return <PurchasingLayout><Outlet /></PurchasingLayout>;
+  // Old links to the vendor list from purchasers land on Purchasing's own tab.
+  if (access.isPurchaser && pathname.startsWith(paths.adminVendors)) return <Navigate to={paths.purchasingVendors} replace />;
   if (pathname.startsWith(paths.referenceRates)) return <SectionLayout title={t('nav.rates')} tabs={[rates]} />;
   return <Forbidden />;
 }

@@ -37,6 +37,12 @@ function PurchasingGuard() {
   return <RoleGuard allow={(a) => a.isPurchaser} description={t('queue.purchasersOnly')}><PurchasingPage /></RoleGuard>;
 }
 
+/** Purchasing's vendor tab: the same vendor list as Admin, kept inside Purchasing so the tab never leaves the section. */
+function PurchasingVendorsGuard() {
+  const { t } = useTranslation('purchasing');
+  return <RoleGuard allow={(a) => a.isPurchaser} description={t('queue.purchasersOnly')}><VendorsPage /></RoleGuard>;
+}
+
 function Layout() {
   return (
     <AppCommitProvider buildCommit={__APP_COMMIT__} outdated={useVersionMismatch()}>
@@ -79,6 +85,7 @@ export const routes: RouteObject[] = [
             children: [
               { path: '/purchasing', element: <PurchasingGuard /> },
               { path: '/vendor-orders', element: <VendorOrdersPage /> },
+              { path: '/purchasing/vendors', element: <PurchasingVendorsGuard /> },
             ],
           },
           { path: '/vendor-orders/:id', element: <VendorOrderPage /> },

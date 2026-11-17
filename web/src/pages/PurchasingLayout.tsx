@@ -16,7 +16,7 @@ export function PurchasingLayout({ children }: { children?: ReactNode }) {
     ? [
         { to: paths.purchasing, label: t('queue.tab'), description: t('queue.intro') },
         orders,
-        { to: paths.adminVendors, label: t('common:nav.vendors'), description: t('admin:vendors.intro') },
+        { to: paths.purchasingVendors, label: t('common:nav.vendors'), description: t('admin:vendors.intro') },
       ]
     : [orders];
   return <SectionLayout title={t('common:nav.purchasing')} tabs={tabs}>{children}</SectionLayout>;

@@ -33,7 +33,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     ...(canPurchase
       ? [{
           href: paths.purchasing, label: t('nav.purchasing'), icon: <LuShoppingCart />,
-          match: ['/vendor-orders', ...(isSystemAdmin ? [] : [paths.adminVendors])],
+          match: ['/vendor-orders'],
         }]
       : []),
     // Receiving is for purchasers and receivers; system admins may look but not change anything (spec 8.2).
@@ -52,7 +52,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     <AppShell
       appName={t('app.name')}
       // One width for the whole app, so the header and content never move while navigating; tables need the wide one.
-      width="wide"
+      // width="wide"
       nav={items}
       renderLink={renderLink}
       account={

@@ -1,6 +1,7 @@
 /** URL builders for dynamic routes; segments are encoded so any slug or id stays one segment. */
 export const paths = {
   purchasing: '/purchasing',
+  purchasingVendors: '/purchasing/vendors',
   vendorOrders: '/vendor-orders',
   admin: '/admin',
   adminVendors: '/admin/vendors',
