@@ -1,4 +1,4 @@
-import { Spinner, Table, Text } from '@chakra-ui/react';
+import { Skeleton, Table, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useMe } from '../api/me';
 import { useMembers } from '../api/members';
@@ -15,7 +15,7 @@ export function TeamMembersTab() {
   const { me } = useMe();
   const members = useMembers(teamId, isMember);
   if (!full || !isMember) return <Notice>{t('settings.forbidden')}</Notice>;
-  if (members.isPending) return <Spinner />;
+  if (members.isPending) return <Skeleton h="24" rounded="l3" />;
   if (members.error) return <ErrorAlert error={members.error} />;
   return (
     <TableShell minW="520px">
@@ -30,8 +30,8 @@ export function TeamMembersTab() {
         {members.data.map((m) => (
           <Table.Row key={m.userId}>
             <Table.Cell>
-              <Text fontSize="sm" fontWeight="medium">{m.displayName || m.username}</Text>
-              <Text fontSize="xs" color="fg.muted">{m.email}</Text>
+              <Text textStyle="sm" fontWeight="medium">{m.displayName || m.username}</Text>
+              <Text textStyle="xs" color="fg.muted">{m.email}</Text>
             </Table.Cell>
             <Table.Cell>
               <RoleCell sources={m} effective={m.effectiveRole} />

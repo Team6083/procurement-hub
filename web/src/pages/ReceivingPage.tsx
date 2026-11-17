@@ -1,10 +1,11 @@
+import { deliveryLabel, orderLabel } from '../features/labels';
 import { Badge, Card, Skeleton, Stack, Tabs, Text } from '@chakra-ui/react';
 import { EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheck, LuInbox, LuUndo2, LuX } from 'react-icons/lu';
 import { useLinesToClose, usePendingLines, useProblems, useUnresolveProblem } from '../api/deliveries';
-import { useMeta } from '../api/meta';
+import { useBaseCurrency } from '../api/meta';
 import type { DeliveryLine, Problem, VendorOrderLine } from '../api/types';
 import { useVendorOrder } from '../api/vendorOrders';
 import { DataTable } from '../components/DataTable';
@@ -31,9 +32,9 @@ function PendingLines() {
   const columns: DataColumn<DeliveryLine>[] = [
     {
       key: 'line', header: t('pending.line'), priority: 'primary',
-      cell: (l) => <Stack gap="0"><span>{l.name || l.sku}</span>{l.name && l.sku && <Text fontSize="xs" color="fg.muted">{l.sku}</Text>}</Stack>,
+      cell: (l) => <Stack gap="0"><span>{l.name || l.sku}</span>{l.name && l.sku && <Text textStyle="xs" color="fg.muted">{l.sku}</Text>}</Stack>,
     },
-    { key: 'delivery', header: t('pending.delivery'), cell: (l) => <RouteAnchor to={paths.delivery(l.deliveryId)}>{`DL-${l.deliveryNumber} #${l.lineNo}`}</RouteAnchor> },
+    { key: 'delivery', header: t('pending.delivery'), cell: (l) => <RouteAnchor to={paths.delivery(l.deliveryId)}>{`${deliveryLabel(l.deliveryNumber)} #${l.lineNo}`}</RouteAnchor> },
     { key: 'qty', header: t('pending.quantity'), numeric: true, cell: (l) => l.goodQuantity + l.problemQuantity },
     { key: 'matched', header: t('pending.matched'), numeric: true, cell: (l) => l.matchedGoodQuantity + l.matchedProblemQuantity },
     { key: 'state', header: t('list.state'), cell: (l) => <MatchStateBadge state={l.matchState} /> },
@@ -55,11 +56,11 @@ function ProblemTable({ status, canPurchase, onResolve, onUnresolve }: { status:
   const columns: DataColumn<Problem>[] = [
     {
       key: 'line', header: t('problem.line'), priority: 'primary',
-      cell: (p) => <RouteAnchor to={paths.vendorOrder(p.vendorOrderId)}>{`VO-${p.vendorOrderNumber} #${p.lineNo} ${p.lineName}`}</RouteAnchor>,
+      cell: (p) => <RouteAnchor to={paths.vendorOrder(p.vendorOrderId)}>{`${orderLabel(p.vendorOrderNumber)} #${p.lineNo} ${p.lineName}`}</RouteAnchor>,
     },
     { key: 'qty', header: t('pending.quantity'), numeric: true, cell: (p) => p.quantity },
     { key: 'type', header: t('problem.type'), cell: (p) => t(`problemType.${p.type}`) },
-    { key: 'delivery', header: t('pending.delivery'), cell: (p) => (p.deliveryId ? <RouteAnchor to={paths.delivery(p.deliveryId)}>{`DL-${p.deliveryNumber ?? ''}`}</RouteAnchor> : '—') },
+    { key: 'delivery', header: t('pending.delivery'), cell: (p) => (p.deliveryId ? <RouteAnchor to={paths.delivery(p.deliveryId)}>{deliveryLabel(p.deliveryNumber ?? '')}</RouteAnchor> : '—') },
     { key: 'state', header: t('list.state'), cell: (p) => <ProblemBadge resolution={p.resolution?.action} /> },
     { key: 'note', header: t('problem.note'), priority: 'secondary', cell: (p) => p.resolution?.note || p.note || '—' },
     { key: 'created', header: t('list.created'), priority: 'secondary', cell: (p) => shortDate(p.createdAt) },
@@ -121,7 +122,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
   const columns: DataColumn<VendorOrderLine>[] = [
     {
       key: 'line', header: t('problem.line'), priority: 'primary',
-      cell: (l) => <RouteAnchor to={paths.vendorOrder(l.vendorOrderId)}>{`VO-${l.vendorOrderNumber} #${l.lineNo} ${l.name}`}</RouteAnchor>,
+      cell: (l) => <RouteAnchor to={paths.vendorOrder(l.vendorOrderId)}>{`${orderLabel(l.vendorOrderNumber)} #${l.lineNo} ${l.name}`}</RouteAnchor>,
     },
     { key: 'received', header: t('toClose.received'), numeric: true, cell: (l) => `${l.receivedQuantity} / ${l.expectedQuantity}` },
     { key: 'missing', header: t('toClose.missing'), numeric: true, cell: (l) => <Badge variant="subtle" colorPalette="orange">{l.expectedQuantity - l.receivedQuantity}</Badge> },
@@ -148,7 +149,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
 /** /receiving: the receiving workbench, the first tab of the Receiving page (ReceivingLayout). */
 export function ReceivingPage() {
   const { canPurchase, isSystemAdmin } = useReceivingAccess();
-  const baseDigits = currencyFractionDigits(useMeta().data?.baseCurrency ?? 'USD') ?? 2;
+  const baseDigits = currencyFractionDigits(useBaseCurrency()) ?? 2;
   // Receivers see only the matching worklist (spec 17.1); problems and closing are the purchasers' (admins read them).
   const purchasingView = canPurchase || isSystemAdmin;
   return (

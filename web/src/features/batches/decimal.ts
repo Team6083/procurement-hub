@@ -46,10 +46,6 @@ export function mulInt(a: Dec, k: number): Dec {
   return { n: a.n * BigInt(k), s: a.s };
 }
 
-export function isZero(a: Dec): boolean {
-  return a.n === 0n;
-}
-
 /** Fixed-point string with exactly `dp` decimals, rounding half away from zero. */
 export function toFixed(a: Dec, dp: number): string {
   let n = a.n;

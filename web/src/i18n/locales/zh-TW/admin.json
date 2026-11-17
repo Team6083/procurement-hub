@@ -49,6 +49,8 @@
     "invalid": "請輸入大於 0、最多 6 位小數的數字。",
     "none": "尚未設定",
     "updated": "更新於 {{date}}",
-    "noCurrencies": "沒有其他支援的幣別。"
+    "noCurrencies": "沒有其他支援的幣別。",
+    "deleteTitle": "刪除 {{currency}} 匯率？",
+    "deleteBody": "在重新設定匯率前，{{currency}} 的估算不會換算成基準幣別。"
   }
 }

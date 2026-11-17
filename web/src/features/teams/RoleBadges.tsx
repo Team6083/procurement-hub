@@ -1,5 +1,6 @@
 import { Badge, HStack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
+import { LuLock } from 'react-icons/lu';
 import type { RoleOrNone } from '../../api/types';
 import { Tooltip } from '../../components/ui/tooltip';
 import { showSsoLock, type RoleSources } from './roles';
@@ -14,13 +15,13 @@ export function RoleBadge({ role }: { role: RoleOrNone | null | undefined }) {
 }
 
 /** "Managed by SSO" lock badge, shown whenever an SSO role source exists. */
-export function SsoBadge({ sources }: { sources: RoleSources }) {
+function SsoBadge({ sources }: { sources: RoleSources }) {
   const { t } = useTranslation('teams');
   if (!showSsoLock(sources)) return null;
   return (
     <Tooltip content={t('ssoBadgeHint')}>
       <Badge colorPalette="gray" variant="outline" tabIndex={0}>
-        <span aria-hidden>🔒</span>
+        <LuLock aria-hidden />
         {t('ssoBadge')}
       </Badge>
     </Tooltip>

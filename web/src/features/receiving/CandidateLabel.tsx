@@ -1,3 +1,4 @@
+import { orderLabel } from '../labels';
 import { Badge, HStack, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 
@@ -18,8 +19,8 @@ export function CandidateLabel({ vendorOrderNumber, vendorName, lineNo, name, sk
   return (
     <Stack gap="0.5" minW="0">
       <Text fontWeight="medium" lineClamp={2}>{`#${lineNo} ${name}`}</Text>
-      <HStack gap="2" wrap="wrap" fontSize="xs" color="fg.muted">
-        <span>{vendorName ? `VO-${vendorOrderNumber} · ${vendorName}` : `VO-${vendorOrderNumber}`}</span>
+      <HStack gap="2" wrap="wrap" textStyle="xs" color="fg.muted">
+        <span>{vendorName ? `${orderLabel(vendorOrderNumber)} · ${vendorName}` : orderLabel(vendorOrderNumber)}</span>
         {sku && <span>{sku}</span>}
         {matchedBy === 'sku' && <Badge size="xs" variant="outline">{t('candidates.skuMatch')}</Badge>}
         {capacity !== undefined && <Badge size="xs" variant="subtle" colorPalette="brand">{t('candidates.capacity', { count: capacity })}</Badge>}

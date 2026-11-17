@@ -19,7 +19,7 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
   const form = useForm<RoleMappingForm>({
     resolver: zodResolver(roleMappingSchema),
     defaultValues: rule
-      ? { claim: rule.claim as 'groups' | 'roles', pattern: rule.pattern, team: rule.team, role: rule.role, enabled: rule.enabled, description: rule.description }
+      ? { claim: rule.claim, pattern: rule.pattern, team: rule.team, role: rule.role, enabled: rule.enabled, description: rule.description }
       : EMPTY,
   });
   const mutation = rule ? put : create;

@@ -1,14 +1,9 @@
-import type { Me, Role, RoleOrNone } from '../../api/types';
+import type { Me, RoleOrNone } from '../../api/types';
 
 type MaybeRole = RoleOrNone | null | undefined;
 
 const RANK: Record<string, number> = { '': 0, member: 1, admin: 2 };
 const rank = (r: MaybeRole) => RANK[r ?? ''] ?? 0;
-
-/** Effective role is the higher of the SSO and manual sources (spec §7.5). */
-export function effectiveRole(sso: MaybeRole, manual: MaybeRole): RoleOrNone {
-  return rank(manual) > rank(sso) ? (manual as Role) : ((sso ?? '') as RoleOrNone);
-}
 
 export interface RoleSources {
   ssoRole: MaybeRole;

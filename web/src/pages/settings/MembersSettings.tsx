@@ -18,24 +18,28 @@ function AddMember({ team, existing }: { team: Team; existing: string[] }) {
   const { t } = useTranslation('teams');
   const [userId, setUserId] = useState<string | null>(null);
   const [role, setRole] = useState<Role>('member');
+  const [tried, setTried] = useState(false);
   const add = useAddMember(team.id);
   return (
     <Stack gap="2" maxW="560px">
       <Text fontWeight="semibold">{t('members.add')}</Text>
-      <UserSearchSelect label={t('members.user')} value={userId} onChange={setUserId} excludeIds={existing} />
+      <UserSearchSelect label={t('members.user')} value={userId} onChange={setUserId} excludeIds={existing} error={tried && !userId ? t('common:validation.required') : undefined} />
       <Flex align="flex-end" gap="3" wrap="wrap">
         <SelectField
           label={t('members.role')}
           w="160px"
           value={role}
-          onChange={(v) => v && setRole(v as Role)}
+          onChange={(v) => v && setRole(v)}
           options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
         />
         <Button
           size="sm"
-          disabled={!userId || team.archived}
+          disabled={team.archived}
           loading={add.isPending}
-          onClick={() => userId && add.mutate({ userId, role }, { onSuccess: () => setUserId(null) })}
+          onClick={() => {
+            setTried(true);
+            if (userId) add.mutate({ userId, role }, { onSuccess: () => { setUserId(null); setTried(false); } });
+          }}
         >
           {t('members.addButton')}
         </Button>
@@ -51,8 +55,8 @@ function MemberRow({ team, member, onRemove }: { team: Team; member: TeamMember;
   return (
     <Table.Row>
       <Table.Cell>
-        <Text fontSize="sm" fontWeight="medium">{member.displayName || member.username}</Text>
-        <Text fontSize="xs" color="fg.muted">{member.email}</Text>
+        <Text textStyle="sm" fontWeight="medium">{member.displayName || member.username}</Text>
+        <Text textStyle="xs" color="fg.muted">{member.email}</Text>
       </Table.Cell>
       <Table.Cell>
         <RoleCell sources={member} effective={member.effectiveRole} />
@@ -66,7 +70,7 @@ function MemberRow({ team, member, onRemove }: { team: Team; member: TeamMember;
           disabled={team.archived || patch.isPending}
           value={member.manualRole || ''}
           options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`role.${r}`) }))}
-          onChange={(v) => v && v !== member.manualRole && patch.mutate({ member, patch: { manualRole: v as Role } })}
+          onChange={(v) => v && v !== member.manualRole && patch.mutate({ member, patch: { manualRole: v } })}
         />
       </Table.Cell>
       <Table.Cell>

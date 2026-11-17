@@ -3,6 +3,7 @@ import { Totals, type TotalsLine } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { useMeta } from '../../api/meta';
 import type { Item, ReferenceRate } from '../../api/types';
+import { formatMoney } from '../money';
 import { estimate } from './estimates';
 
 /** Per-currency totals, base-currency estimate, and a separate "no rate" bucket (spec §11), as Totals under the table. */
@@ -18,10 +19,10 @@ export function EstimateSummary({ items, rates, hint }: { items: Item[]; rates: 
   const lines: TotalsLine[] = [
     ...perCurrency.map((c) => ({
       label: t('totals.inCurrency', { currency: c.currency }),
-      value: `${c.amount} ${c.currency}`,
+      value: formatMoney(c.amount, c.currency),
       hint: noRate.has(c.currency) ? t('totals.noRateHint') : undefined,
     })),
-    { label: t('totals.estimate', { currency: base }), value: `${e.base} ${base}`, emphasis: true, hint },
+    { label: t('totals.estimate', { currency: base }), value: formatMoney(e.base, base), emphasis: true, hint },
   ];
   return <Totals lines={lines} />;
 }
@@ -31,5 +32,5 @@ export function useEstimateText(items: Item[], rates: Pick<ReferenceRate, 'curre
   const { t } = useTranslation('batches');
   const base = useMeta().data?.baseCurrency ?? '';
   const e = estimate(items, rates, base);
-  return t('totals.selectedEstimate', { amount: e.base, currency: base }) + (e.noRate.length ? ` + ${e.noRate.map((c) => `${c.amount} ${c.currency}`).join(', ')}` : '');
+  return t('totals.selectedEstimate', { amount: formatMoney(e.base, base) }) + (e.noRate.length ? ` + ${e.noRate.map((c) => formatMoney(c.amount, c.currency)).join(', ')}` : '');
 }

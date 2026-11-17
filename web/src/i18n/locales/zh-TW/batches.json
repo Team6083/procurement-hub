@@ -125,8 +125,6 @@
     "requester": "申請人",
     "status": "狀態",
     "lineTotal": "合計",
-    "selectAll": "全選",
-    "selectRow": "選取此列",
     "withdraw": "撤回",
     "withdrawConfirm": "要撤回品項 {{name}} 嗎？",
     "unpurchasable": "標記為無法購買",
@@ -142,7 +140,6 @@
     "copy": "複製成新品項",
     "unpurchasableUndo": "撤銷無法採購",
     "unpurchasableUndoHelp": "要移除 {{name}} 的無法採購標記嗎？必須填寫原因。",
-    "toPurchase": "待採購",
     "fulfillment": "進度",
     "noVendor": "無",
     "vendorOther": "其他（自行輸入）",
@@ -150,19 +147,14 @@
   },
   "totals": {
     "none": "沒有金額。",
-    "base": "估算：{{amount}} {{currency}}",
-    "noRate": "無匯率",
-    "visible": "合計（不含已撤回與已駁回）",
-    "selected": "已選取 ({{count}})",
     "inCurrency": "{{currency}} 品項",
     "noRateHint": "沒有參考匯率，未計入估計",
     "estimate": "估計（{{currency}}）",
     "excludes": "不含已撤回與已拒絕的品項",
-    "selectedEstimate": "估計 {{amount}} {{currency}}"
+    "selectedEstimate": "估計 {{amount}}"
   },
   "review": {
     "readOnly": "只有審核者與團隊管理員可以審核品項。",
-    "pending": "待審核品項 ({{count}})",
     "approve": "核准所選 ({{count}})",
     "return": "退回",
     "reject": "駁回",
@@ -211,6 +203,14 @@
     "purchase": "待採購的品項",
     "purchaseCount": "{{count}} 項",
     "purchaseMine": "您負責的批次有 {{count}} 項",
+    "draftOrders": "待下單的訂單",
+    "draftOrdersLink": "草稿狀態的廠商訂單",
+    "problems": "未處理的問題",
+    "problemsLink": "待處理的到貨問題",
+    "linesToClose": "待結案的品項行",
+    "linesToCloseLink": "數量不足且沒有未處理問題的品項行",
+    "deliveriesToMatch": "待對應的到貨",
+    "deliveriesToMatchLink": "等待對應訂單的到貨品項",
     "noVendor": "沒有廠商"
   },
   "validation": {
@@ -226,7 +226,6 @@
   "purchasingTab": {
     "batchCost": "批次成本",
     "costIncomplete": "尚無法計算",
-    "title": "採購進度",
     "hint": "唯讀。採購人員在「採購」頁建立廠商訂單。",
     "notConfirmed": "審核確認後才會開始採購。",
     "outside": "此批次在系統外採購。",

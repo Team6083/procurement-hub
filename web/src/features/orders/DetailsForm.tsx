@@ -9,7 +9,7 @@ import { ErrorAlert, Notice } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { add, format, parseDec, ZERO, type Dec } from '../batches/decimal';
-import { currencyFractionDigits, validateAmount } from '../money';
+import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 
 const TYPES = ['shipping', 'fee', 'tax', 'discount', 'other'] as const;
 
@@ -54,6 +54,7 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
   const [reason, setReason] = useState(order.overrideReason);
   const digits = currencyFractionDigits(currency) ?? 2;
   const [saved, setSaved] = useState(false);
+  const [tried, setTried] = useState(false);
 
   const costErrors = costs.map((c) => validateAmount(c.amount, { digits, sign: 'any' }));
   const chargedError = charged.trim() ? validateAmount(charged, { digits: baseDigits }) : null;
@@ -123,8 +124,8 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
                       <Input value={overrides[id] ?? ''} inputMode="decimal" onChange={(e) => { setSaved(false); setOverrides({ ...overrides, [id]: e.currentTarget.value }); }} />
                     </FormField>
                   ))}
-                  {mismatch && <Text color="fg.error">{t('details.overrideMismatch', { total: format(sum(costs)), allocated: format(overrideSum) })}</Text>}
-                  <FormField label={t('details.overrideReason')} required><Textarea value={reason} onChange={(e) => { setSaved(false); setReason(e.currentTarget.value); }} autoresize rows={2} /></FormField>
+                  {mismatch && <Text color="fg.error">{t('details.overrideMismatch', { total: formatMoney(format(sum(costs)), currency), allocated: formatMoney(format(overrideSum), currency) })}</Text>}
+                  <FormField label={t('details.overrideReason')} required errorText={tried && !reason.trim() ? t('common:validation.required') : undefined}><Textarea value={reason} onChange={(e) => { setSaved(false); setReason(e.currentTarget.value); }} autoresize rows={2} /></FormField>
                 </Stack>
               )}
             </Stack>
@@ -137,7 +138,7 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
           <ErrorAlert error={put.error} />
           {saved && <Notice status="info">{t('details.saved')}</Notice>}
           <HStack justify="flex-end">
-            <Button size="sm" loading={put.isPending} disabled={!valid} onClick={() => put.mutate(body(), { onSuccess: () => setSaved(true) })}>{t('common:actions.save')}</Button>
+            <Button size="sm" loading={put.isPending} onClick={() => { setTried(true); if (valid) put.mutate(body(), { onSuccess: () => setSaved(true) }); }}>{t('common:actions.save')}</Button>
           </HStack>
         </Card.Body>
       </Card.Root>

@@ -27,3 +27,9 @@ export function shortDay(ymd: string | null | undefined, { now = new Date() }: {
   if (d.getFullYear() !== now.getFullYear()) opts.year = 'numeric';
   return d.toLocaleDateString(i18n.language || undefined, opts);
 }
+
+/** Today's calendar date in the browser's time zone as `2026-11-23` (never the UTC date, which is yesterday in Asia before 08:00). */
+export function todayLocal(now = new Date()): string {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}`;
+}

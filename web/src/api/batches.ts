@@ -12,10 +12,10 @@ export interface BatchFilters {
   q?: string;
 }
 
-export const batchesKey = ['batches'] as const;
-export const batchKey = (id: string | undefined) => ['batch', id] as const;
-export const itemsKey = (id: string | undefined) => ['batch', id, 'items'] as const;
-export const auditKey = (id: string | undefined) => ['batch', id, 'audit'] as const;
+const batchesKey = ['batches'] as const;
+const batchKey = (id: string | undefined) => ['batch', id] as const;
+const itemsKey = (id: string | undefined) => ['batch', id, 'items'] as const;
+const auditKey = (id: string | undefined) => ['batch', id, 'audit'] as const;
 export const tasksKey = ['tasks'] as const;
 
 /** GET /batches with cursor pagination ("load more"). */
@@ -33,7 +33,7 @@ export function useBatchList(filters: BatchFilters) {
   });
 }
 
-export const batchQuery = (api: ReturnType<typeof useApi>, id: string | undefined) => ({
+const batchQuery = (api: ReturnType<typeof useApi>, id: string | undefined) => ({
   queryKey: batchKey(id),
   queryFn: async ({ signal }: { signal: AbortSignal }): Promise<Versioned<Batch>> => {
     const r = await api.full.get<Batch>(`/batches/${id}`, { signal });
@@ -68,19 +68,6 @@ export function useBatchAudit(batchId: string | undefined) {
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'batch', objectId: batchId, limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
-    getNextPageParam: (last) => last.nextCursor ?? undefined,
-  });
-}
-
-/** Team-wide audit log (team/system admins), newest first, cursor-paginated. */
-export function useTeamAudit(teamId: string | undefined, enabled = true) {
-  const api = useApi();
-  return useInfiniteQuery({
-    queryKey: ['team', teamId, 'audit'],
-    enabled: !!teamId && enabled,
-    initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam, signal }) =>
-      api.get<Page<AuditEvent>>(`/teams/${teamId}/audit`, { query: { limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
@@ -150,12 +137,12 @@ export function usePutItem(batchId: string) {
   });
 }
 
-export type ItemAction = 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable' | 'unpurchasable/undo' | 'review/undo';
+type ItemAction = 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable' | 'unpurchasable/undo' | 'review/undo';
 const REASON_ACTIONS: ItemAction[] = ['force-reject', 'unpurchasable', 'unpurchasable/undo', 'review/undo'];
 
 export function useItemAction(batchId: string) {
   const api = useApi();
-  return useGuardedMutation<{ item: Item; action: ItemAction; reason?: string }, Item>({
+  return useGuardedMutation<{ item: Pick<Item, 'id' | 'version'>; action: ItemAction; reason?: string }, Item>({
     mutationFn: ({ item, action, reason }) =>
       api.post<Item>(`/items/${item.id}/${action}`, REASON_ACTIONS.includes(action) ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
     ...useItemsChanged(batchId),

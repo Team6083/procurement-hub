@@ -99,6 +99,8 @@ export function BatchPage() {
           {items.data && <ItemsTab batch={batch} team={full} caller={caller} items={list} nameOf={names.name} defaultSubgroupId={defaultSubgroupId} />}
         </Tabs.Content>
         <Tabs.Content value="purchasing">
+          {items.isPending && <Skeleton h="24" rounded="l3" />}
+          {items.error && <ErrorAlert error={items.error} />}
           {items.data && <PurchasingTab batch={batch} items={list} />}
         </Tabs.Content>
         <Tabs.Content value="timeline">

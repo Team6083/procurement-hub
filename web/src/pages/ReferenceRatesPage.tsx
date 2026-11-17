@@ -8,6 +8,7 @@ import { useMeta } from '../api/meta';
 import { useDeleteRate, usePutRate, useReferenceRates } from '../api/vendors';
 import type { ReferenceRate } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ReasonModal } from '../components/ReasonModal';
 import { FormField } from '../components/ui/field';
 import { MAX_RATE_DIGITS, validateAmount } from '../features/money';
 import { shortDate } from '../features/dates';
@@ -17,6 +18,8 @@ function RateRow({ currency, rate, base, canEdit }: { currency: string; rate: Re
   const put = usePutRate();
   const del = useDeleteRate();
   const [value, setValue] = useState(rate?.rateToBase ?? '');
+  const [confirming, setConfirming] = useState(false);
+  const changed = value.trim() !== (rate?.rateToBase ?? '');
   const invalid = value.trim() !== '' && validateAmount(value.trim(), { digits: MAX_RATE_DIGITS, nonZero: true }) !== null;
   return (
     <Card.Root size="sm">
@@ -29,11 +32,14 @@ function RateRow({ currency, rate, base, canEdit }: { currency: string; rate: Re
                 <Input aria-label={t('rates.rate', { currency, base })} value={value} inputMode="decimal"
                   onChange={(e) => setValue(e.currentTarget.value)} />
               </FormField>
-              <Button size="sm" loading={put.isPending} disabled={!value.trim() || invalid || value.trim() === rate?.rateToBase}
-                onClick={() => put.mutate({ currency, rateToBase: value.trim(), existing: rate })}>
-                {t('common:actions.save')}
-              </Button>
-              {rate && <Button size="sm" variant="outline" colorPalette="red" loading={del.isPending} onClick={() => del.mutate(rate)}>{t('common:actions.delete')}</Button>}
+              {/* Save shows once there is something to save; an invalid value is explained under the field and not sent. */}
+              {changed && value.trim() !== '' && (
+                <Button size="sm" loading={put.isPending}
+                  onClick={() => { if (!invalid) put.mutate({ currency, rateToBase: value.trim(), existing: rate }); }}>
+                  {t('common:actions.save')}
+                </Button>
+              )}
+              {rate && <Button size="sm" variant="outline" colorPalette="red" loading={del.isPending} onClick={() => setConfirming(true)}>{t('common:actions.delete')}</Button>}
             </HStack>
           ) : (
             <Text fontVariantNumeric="tabular-nums">{rate ? `1 ${currency} = ${rate.rateToBase} ${base}` : t('rates.none')}</Text>
@@ -41,6 +47,11 @@ function RateRow({ currency, rate, base, canEdit }: { currency: string; rate: Re
         </HStack>
         {rate && <Text textStyle="xs" color="fg.muted">{t('rates.updated', { date: shortDate(rate.updatedAt) })}</Text>}
         <ErrorAlert error={put.error ?? del.error} />
+        <ReasonModal
+          opened={confirming} danger title={t('rates.deleteTitle', { currency })} body={t('rates.deleteBody', { currency })}
+          confirmLabel={t('common:actions.delete')} loading={del.isPending} error={del.error} onClose={() => setConfirming(false)}
+          onConfirm={() => rate && del.mutate(rate, { onSuccess: () => setConfirming(false) })}
+        />
       </Card.Body>
     </Card.Root>
   );

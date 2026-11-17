@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Team } from '../../api/types';
 import { diffGeneral, toForm } from './general';
 import { cleanPriorityLabels, priorityLabel } from './priority';
-import { createTeamSchema, isPositiveDecimal, roleMappingSchema } from './schemas';
+import { createTeamSchema, roleMappingSchema } from './schemas';
 
 const team = {
   id: '1', slug: 't', name: 'Lab', description: 'd', visibility: 'public', locale: 'en',
@@ -37,10 +37,6 @@ describe('schemas', () => {
     const ok = { name: 'n', description: '', firstAdminUserId: 'u' };
     expect(createTeamSchema.safeParse({ ...ok, slug: 'my-team-2' }).success).toBe(true);
     for (const slug of ['', 'My', '-a', 'a-', 'a--b', 'a_b']) expect(createTeamSchema.safeParse({ ...ok, slug }).success).toBe(false);
-  });
-  it('accepts only positive decimal strings', () => {
-    for (const v of ['1', '0.5', '.25', '12.340']) expect(isPositiveDecimal(v)).toBe(true);
-    for (const v of ['', '0', '0.0', '-1', '1e3', 'abc', '1,5']) expect(isPositiveDecimal(v)).toBe(false);
   });
   it('requires pattern and team for role mappings', () => {
     const base = { claim: 'groups', pattern: '/teams/*/members', team: '$1', role: 'member', enabled: true, description: '' };

@@ -21,7 +21,7 @@ interface Row {
 }
 
 /** Existing matches and the server's candidates as one list; the start values are the current matches plus the suggested split. */
-export function buildRows(line: DeliveryLine, candidates: Candidate[]): { rows: Row[]; start: Record<string, { good: string; problem: string }> } {
+function buildRows(line: DeliveryLine, candidates: Candidate[]): { rows: Row[]; start: Record<string, { good: string; problem: string }> } {
   const rows: Row[] = [];
   const start: Record<string, { good: string; problem: string }> = {};
   for (const m of line.matches) {

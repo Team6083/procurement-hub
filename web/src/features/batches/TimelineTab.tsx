@@ -37,8 +37,8 @@ export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id:
               </Timeline.Connector>
               <Timeline.Content>
                 <Timeline.Title>{t(auditActionKey(ev.action), { defaultValue: t('timeline.generic', { action: ev.action }) })}</Timeline.Title>
-                {sc && <Text fontSize="sm">{sc}</Text>}
-                {ev.comment && <Text fontSize="sm" color="fg.muted" whiteSpace="pre-wrap">“{ev.comment}”</Text>}
+                {sc && <Text textStyle="sm">{sc}</Text>}
+                {ev.comment && <Text textStyle="sm" color="fg.muted" whiteSpace="pre-wrap">“{ev.comment}”</Text>}
                 <Timeline.Description>{actor} · {shortDate(ev.at)}</Timeline.Description>
               </Timeline.Content>
             </Timeline.Item>

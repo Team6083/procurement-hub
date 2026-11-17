@@ -13,6 +13,8 @@ import { DeadlineModal } from './DeadlineModal';
 
 const NEEDS_REASON: BatchAction[] = ['cancel', 'reject_proposal'];
 const UNDO: BatchAction[] = ['uncancel', 'restore_proposal', 'unconfirm_review'];
+/** Which action is the batch header's one solid button, in order of preference. */
+const PRIMARY: BatchAction[] = ['confirm_review', 'open', 'close', 'reopen'];
 const DANGER: BatchAction[] = ['cancel', 'reject_proposal', 'withdraw_proposal'];
 
 /** Role-aware lifecycle buttons with reason / deadline dialogs where the backend requires them. */
@@ -35,16 +37,21 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
   const uncancelNeedsDeadline = active === 'uncancel' && batch.statusBeforeCancel === 'collecting' && (!batch.deadline || new Date(batch.deadline) <= new Date());
   const needsDeadline = active === 'open' || active === 'reopen' || uncancelNeedsDeadline;
   const primary = (a: BatchAction) => a === 'confirm_review';
+  // One solid button per header: the step that moves the batch on; the rest are outline (danger ones stay red).
+  const solid = PRIMARY.find((p) => actions.some((a) => a.action === p));
+  // Why an action cannot run yet, in text a phone can read too (a tooltip needs hover).
+  const reasons = [...new Set(actions.flatMap((a) => (a.disabled ? [a.disabled] : [])))];
 
   return (
     <>
+      <Stack gap="1" align="flex-end">
       <HStack gap="2" wrap="wrap">
         {actions.map(({ action, disabled }) => (
           <Tooltip key={action} content={disabled ? t(`actions.disabled.${disabled}`) : ''} disabled={!disabled}>
             <Box as="span" display="inline-block" tabIndex={disabled ? 0 : undefined}>
               <Button
                 size="sm"
-                variant={DANGER.includes(action) ? 'subtle' : UNDO.includes(action) ? 'outline' : 'solid'}
+                variant={DANGER.includes(action) ? 'subtle' : action === solid ? 'solid' : 'outline'}
                 colorPalette={DANGER.includes(action) ? 'red' : undefined}
                 disabled={!!disabled}
                 onClick={() => { transition.reset(); setActive(action); }}
@@ -55,6 +62,8 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
           </Tooltip>
         ))}
       </HStack>
+      {reasons.map((r) => <Text key={r} textStyle="sm" color="fg.muted">{t(`actions.disabled.${r}`)}</Text>)}
+      </Stack>
       {active && needsDeadline && (
         <DeadlineModal
           opened

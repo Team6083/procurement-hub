@@ -6,8 +6,6 @@
     "home": "My tasks",
     "batches": "Batches",
     "admin": "Admin",
-    "teams": "Teams",
-    "menu": "Menu",
     "purchasing": "Purchasing",
     "receiving": "Receiving",
     "vendors": "Vendors",
@@ -19,8 +17,6 @@
     "zh-TW": "繁體中文"
   },
   "user": {
-    "menu": "User menu",
-    "logout": "Log out",
     "unknown": "Signed in"
   },
   "loading": "Loading…",
@@ -31,13 +27,8 @@
   "pages": {
     "home": "My tasks",
     "batches": "Batches",
-    "team": "Team",
-    "batch": "Batch",
     "reports": "Reports",
-    "roleMappings": "Role mappings",
-    "notFound": "Page not found",
-    "purchasing": "Purchasing",
-    "receiving": "Receiving"
+    "notFound": "Page not found"
   },
   "actions": {
     "save": "Save",
@@ -49,7 +40,8 @@
   },
   "validation": {
     "required": "This field is required.",
-    "tooLong": "This value is too long."
+    "tooLong": "This value is too long.",
+    "invalid": "This value is not valid."
   },
   "userSearch": {
     "placeholder": "Search by name or email",
@@ -67,5 +59,10 @@
     "blockedProblem": "Problem",
     "blockedClosure": "Line closure",
     "blockedLedger": "Ledger entry"
-  }
+  },
+  "notFound": {
+    "body": "This page does not exist or has moved.",
+    "home": "Go home"
+  },
+  "unknownTeam": "Unknown team"
 }

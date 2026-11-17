@@ -30,8 +30,10 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
   const purchaserOptions = (purchasers.data ?? []).map((u) => ({ value: u.id, label: u.displayName || u.username }));
   const newDeadline = fromLocalInput(deadline);
 
+  const [tried, setTried] = useState(false);
   const save = async () => {
-    if (newDeadline === undefined) return;
+    setTried(true);
+    if (!title.trim() || newDeadline === undefined) return;
     // Sequential: each call returns the new version, which the next call reads from the cache.
     const body: PatchBatchRequest = {};
     if (title.trim() !== batch.title) body.title = title.trim();
@@ -56,13 +58,13 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
     <>
       <Dialog.Body>
         <Stack gap="3">
-          <FormField label={t('create.title')}>
+          <FormField label={t('create.title')} required errorText={tried && !title.trim() ? t('common:validation.required') : undefined}>
             <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
           </FormField>
           <FormField label={t('create.description')}>
             <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
           </FormField>
-          <FormField label={t('header.deadline')}>
+          <FormField label={t('header.deadline')} errorText={tried && newDeadline === undefined ? t('common:validation.invalid') : undefined}>
             <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
           </FormField>
           <SelectField
@@ -78,7 +80,7 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
         </Stack>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" loading={patch.isPending || assign.isPending} disabled={!title.trim() || newDeadline === undefined} onClick={() => void save()}>{t('common:actions.save')}</Button>
+        <Button size="sm" loading={patch.isPending || assign.isPending} onClick={() => void save()}>{t('common:actions.save')}</Button>
       </DialogFooter>
     </>
   );

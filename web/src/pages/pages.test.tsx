@@ -28,7 +28,7 @@ const base: Routes = {
   'GET /teams': { items: [{ id: 't1', slug: 'robotics', name: 'Robotics', description: 'Robot team', archived: false }], nextCursor: null },
   'GET /teams/t1': team(),
   'GET /teams/t1/members': { items: [member('u1', 'Alice'), member('u2', 'Bob')], nextCursor: null },
-  'GET /me/tasks': { proposalsToHandle: [], itemsToReview: [{ Batch: batch(), Count: 2 }], returnedItems: [] },
+  'GET /me/tasks': { proposalsToHandle: [], itemsToReview: [{ batch: batch(), count: 2 }], returnedItems: [], reviewsToConfirm: [] },
   'GET /batches': { items: [batch()], nextCursor: null },
   'GET /batches/b1': batch(),
   'GET /batches/b1/items': {

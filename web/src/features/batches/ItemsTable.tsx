@@ -7,7 +7,8 @@ import { LuArrowDown, LuArrowUp } from 'react-icons/lu';
 import type { Item, Team } from '../../api/types';
 import { Tooltip } from '../../components/ui/tooltip';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
-import { format, parseDecSafe } from './decimal';
+import { format } from './decimal';
+import { formatMoney } from '../money';
 import { lineTotal } from './estimates';
 import { safeHttpUrl } from './itemForm';
 import { FulfillmentBadge, ItemStatusBadge } from './StatusBadges';
@@ -86,7 +87,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         return (
           <Box as="span" display="block" textAlign="start">
             <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
-            {url ? <Link href={url} target="_blank" rel="noopener noreferrer" color="brand.fg">{it.name}</Link> : <Text as="span">{it.name}</Text>}
+            {url ? <Link href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : <Text as="span">{it.name}</Text>}
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}
@@ -111,9 +112,9 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
     col('quantity', t('item.quantity'), { numeric: true, cell: (it) => it.quantity }),
     col('unitPrice', t('item.unitPrice'), {
       numeric: true, priority: 'secondary',
-      cell: (it) => `${format(parseDecSafe(it.estimatedUnitPrice.amount))} ${it.estimatedUnitPrice.currency}`,
+      cell: (it) => formatMoney(it.estimatedUnitPrice.amount, it.estimatedUnitPrice.currency),
     }),
-    col('lineTotal', t('item.lineTotal'), { numeric: true, cell: (it) => `${format(lineTotal(it))} ${it.estimatedUnitPrice.currency}` }),
+    col('lineTotal', t('item.lineTotal'), { numeric: true, cell: (it) => formatMoney(format(lineTotal(it)), it.estimatedUnitPrice.currency) }),
     col('status', t('item.status'), { cell: (it) => (
       <HStack gap="1" wrap="wrap">
         <ItemStatusBadge status={it.status} />

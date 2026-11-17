@@ -3,7 +3,8 @@ import { SectionHeader, Totals } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import type { VendorOrder } from '../../api/types';
 import { IncompleteReasons } from './Incomplete';
-import { formatFactor, formatMoney } from './money';
+import { Tooltip } from '../../components/ui/tooltip';
+import { formatFactor, formatMoney } from '../money';
 import { ProvisionalBadge } from './StatusBadges';
 
 /**
@@ -25,7 +26,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
             <Text color="fg.muted">{t('breakdown.restricted')}</Text>
             <HStack gap="2"><Text fontWeight="medium">{t('breakdown.visibleTotal')}</Text><Text>{b(order.visibleTotalBase)}</Text>{tt.provisional && <ProvisionalBadge />}</HStack>
             {order.otherTeams && (
-              <Text fontSize="sm">{t('breakdown.otherTeams', { count: order.otherTeams.lines })}: {b(order.otherTeams.totalBase)}</Text>
+              <Text textStyle="sm">{t('breakdown.otherTeams', { count: order.otherTeams.lines })}: {b(order.otherTeams.totalBase)}</Text>
             )}
             <IncompleteReasons totals={tt} currency={order.currency} />
           </Card.Body>
@@ -47,7 +48,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
               { label: t('breakdown.original'), value: c(tt.originalC) },
               {
                 label: t('breakdown.factor'),
-                value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalBadge />}<span>{formatFactor(tt.factor)}</span></HStack>,
+                value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalBadge />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
                 hint: order.currency === baseCurrency ? undefined : t('breakdown.factorHint', { from: order.currency, to: baseCurrency }),
               },
               { label: t('breakdown.target'), value: b(tt.targetBase) },

@@ -1,12 +1,13 @@
+import { orderLabel } from '../labels';
 import { Card, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, type DataColumn } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
 import type { Batch, ItemWithLines } from '../../api/types';
 import { DataTable } from '../../components/DataTable';
-import { useMeta } from '../../api/meta';
+import { useBaseCurrency } from '../../api/meta';
 import { Notice } from '../../components/ErrorAlert';
-import { formatMoney } from '../orders/money';
+import { formatMoney } from '../money';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { FulfillmentBadge } from './StatusBadges';
@@ -19,8 +20,7 @@ type Col = DataColumn<ItemWithLines>;
  */
 export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithLines[] }) {
   const { t, i18n } = useTranslation('batches');
-  const { data: meta } = useMeta();
-  const baseCurrency = meta?.baseCurrency ?? 'USD';
+  const baseCurrency = useBaseCurrency();
   const columns: Col[] = [
     { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => `#${i.seqNo} ${i.name}` },
     { key: 'fulfillment', header: t('item.fulfillment'), cell: (i) => (i.fulfillment ? <FulfillmentBadge value={i.fulfillment} /> : '—') },
@@ -32,12 +32,12 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithL
       cell: (i) => (i.lines.length === 0 ? '—' : (
         <Stack gap="0">
           {i.lines.map((l) => (
-            <RouteAnchor key={l.id} to={paths.vendorOrder(l.vendorOrderId)}>{`VO-${l.vendorOrderNumber} (${l.quantity})`}</RouteAnchor>
+            <RouteAnchor key={l.id} to={paths.vendorOrder(l.vendorOrderId)}>{`${orderLabel(l.vendorOrderNumber)} (${l.quantity})`}</RouteAnchor>
           ))}
         </Stack>
       )),
     },
-    { key: 'cost', header: t('purchasingTab.cost'), numeric: true, cell: (i) => i.costBase ?? '—' },
+    { key: 'cost', header: t('purchasingTab.cost'), numeric: true, cell: (i) => formatMoney(i.costBase, baseCurrency, i18n.language) },
   ];
   const approved = items.filter((i) => i.status === 'approved');
   if (!batch.reviewConfirmation) return <Notice>{t('purchasingTab.notConfirmed')}</Notice>;

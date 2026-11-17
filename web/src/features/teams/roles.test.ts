@@ -1,19 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { canAdminTeam, canClearManualRole, canRemoveMember, effectiveRole, isTeamMember, showSsoLock } from './roles';
-
-describe('effectiveRole', () => {
-  it('is the higher of sso and manual', () => {
-    expect(effectiveRole('member', 'admin')).toBe('admin');
-    expect(effectiveRole('admin', 'member')).toBe('admin');
-    expect(effectiveRole('member', '')).toBe('member');
-    expect(effectiveRole('', 'member')).toBe('member');
-    expect(effectiveRole('member', 'member')).toBe('member');
-  });
-  it('is none when both sources are unset', () => {
-    expect(effectiveRole('', '')).toBe('');
-    expect(effectiveRole(null, undefined)).toBe('');
-  });
-});
+import { canAdminTeam, canClearManualRole, canRemoveMember, isTeamMember, showSsoLock } from './roles';
 
 describe('SSO lock and member actions', () => {
   it('shows the lock exactly when an SSO role exists', () => {

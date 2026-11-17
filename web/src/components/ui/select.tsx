@@ -2,22 +2,22 @@ import { NativeSelect, type BoxProps } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 import { FormField } from './field';
 
-export interface Option {
-  value: string;
+export interface Option<T extends string = string> {
+  value: T;
   label: string;
 }
 
-interface Props {
+interface Props<T extends string> {
   label?: ReactNode;
   'aria-label'?: string;
   helperText?: ReactNode;
   errorText?: ReactNode;
-  value: string | null | undefined;
+  value: T | '' | null | undefined;
   /** Receives "" when the placeholder option (if any) is chosen. */
-  onChange: (value: string) => void;
+  onChange: (value: T | '') => void;
   onBlur?: () => void;
   name?: string;
-  options: (Option | string)[];
+  options: (Option<T> | T)[];
   /** Shown as an empty first option; choosing it clears the value. */
   placeholder?: string;
   disabled?: boolean;
@@ -29,7 +29,7 @@ interface Props {
  * Native <select> with Chakra styling: keyboard and screen-reader friendly, and it opens the
  * platform picker on phones.
  */
-export function SelectField({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, size = 'md', w, ...rest }: Props) {
+export function SelectField<T extends string = string>({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, size = 'md', w, ...rest }: Props<T>) {
   return (
     <FormField label={label} helperText={helperText} errorText={errorText} disabled={disabled} w={w}>
       <NativeSelect.Root size={size} disabled={disabled}>
@@ -37,7 +37,7 @@ export function SelectField({ label, helperText, errorText, value, onChange, onB
           aria-label={rest['aria-label']}
           name={name}
           value={value ?? ''}
-          onChange={(e) => onChange(e.currentTarget.value)}
+          onChange={(e) => onChange(e.currentTarget.value as T | '')}
           onBlur={onBlur}
         >
           {(placeholder !== undefined || !value) && <option value="">{placeholder ?? ''}</option>}

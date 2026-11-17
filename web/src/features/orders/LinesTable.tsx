@@ -1,3 +1,4 @@
+import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 import { Badge, Input, Stack, Text } from '@chakra-ui/react';
 import { type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
@@ -9,8 +10,6 @@ import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
-import { currencyFractionDigits, validateAmount } from '../money';
-import { formatMoney } from './money';
 import { LineStatusBadge } from './StatusBadges';
 
 /** The unit price as an input that saves when it loses focus or Enter is pressed. */
@@ -35,7 +34,7 @@ function PriceCell({ order, line }: { order: VendorOrder; line: VendorOrderLine 
         size="xs" w="28" textAlign="end" value={value} inputMode="decimal" aria-label={t('line.priceOf', { n: line.lineNo })} aria-invalid={!!error}
         onChange={(e) => setValue(e.currentTarget.value)} onBlur={save} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
-      {error && v && <Text fontSize="xs" color="red.fg">{t(`amount.${error}`)}</Text>}
+      {error && v && <Text textStyle="xs" color="fg.error">{t(`amount.${error}`)}</Text>}
       {put.error && <ErrorAlert error={put.error} />}
     </Stack>
   );
@@ -63,8 +62,8 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
       cell: (l) => (
         <Stack gap="0">
           <span>{l.name}</span>
-          {l.sku && <Text fontSize="xs" color="fg.muted">{l.sku}</Text>}
-          {l.batchId && <RouteAnchor to={paths.batch(l.batchId)} fontSize="xs" color="fg.muted">{t('line.fromBatch')}</RouteAnchor>}
+          {l.sku && <Text textStyle="xs" color="fg.muted">{l.sku}</Text>}
+          {l.batchId && <RouteAnchor to={paths.batch(l.batchId)} textStyle="xs" color="fg.muted">{t('line.fromBatch')}</RouteAnchor>}
         </Stack>
       ),
     },
@@ -83,7 +82,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
               {l.openProblemQuantity > 0 && <Badge colorPalette="red" variant="subtle">{t('line.problem', { count: l.openProblemQuantity })}</Badge>}
               {/* deliveryId is only filled for purchasers, receivers and system admins, who can open the delivery. */}
               {l.problems.filter((p) => p.deliveryId).map((p) => (
-                <RouteAnchor key={p.id} to={paths.delivery(p.deliveryId!)} fontSize="xs" color="fg.muted">
+                <RouteAnchor key={p.id} to={paths.delivery(p.deliveryId!)} textStyle="xs" color="fg.muted">
                   {t('line.problemLink', { count: p.quantity, type: t(`receiving:problemType.${p.type}`), state: p.resolution ? t(`receiving:problem.actions.${p.resolution}`) : t('receiving:problem.open') })}
                 </RouteAnchor>
               ))}

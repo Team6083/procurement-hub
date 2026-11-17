@@ -8,8 +8,8 @@ export function IncompleteReasons({ totals, currency }: { totals: OrderTotals; c
   if (totals.incomplete.length === 0) return null;
   return (
     <div>
-      <Text fontSize="sm" fontWeight="medium" color="orange.fg">{t('incomplete.title')}</Text>
-      <List.Root fontSize="sm" ps="4">
+      <Text textStyle="sm" fontWeight="medium" color="fg.warning">{t('incomplete.title')}</Text>
+      <List.Root textStyle="sm" ps="4">
         {totals.incomplete.map((r, i) => (
           <List.Item key={`${r.code}:${r.lineNo ?? ''}:${i}`}>{t(`incomplete.${r.code}`, { line: r.lineNo, currency })}</List.Item>
         ))}

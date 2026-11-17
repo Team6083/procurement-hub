@@ -1,10 +1,12 @@
+import { orderLabel } from '../labels';
+import { currencyFractionDigits, formatMoney } from '../money';
 import { Button, Card, HStack, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuCircleCheck, LuPlus, LuUndo2 } from 'react-icons/lu';
 import { useMe } from '../../api/me';
-import { useMeta } from '../../api/meta';
+import { useBaseCurrency, useMeta } from '../../api/meta';
 import { useTeams } from '../../api/teams';
 import type { VendorOrderLine } from '../../api/types';
 import { useDeleteLine, useOrderAction, useReopenLine, useVendorOrder, type OrderAction } from '../../api/vendorOrders';
@@ -12,7 +14,6 @@ import { useVendors } from '../../api/vendors';
 import { ErrorAlert, Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
-import { currencyFractionDigits } from '../money';
 import { shortDate, shortDay } from '../dates';
 import { Breakdown } from './Breakdown';
 import { CloseLineModal } from './CloseLineModal';
@@ -20,7 +21,6 @@ import { DetailsForm } from './DetailsForm';
 import { LedgerSection } from './LedgerSection';
 import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
-import { formatMoney } from './money';
 import { OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
 import { OrderTimeline } from './OrderTimeline';
 
@@ -32,6 +32,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const { t, i18n } = useTranslation('purchasing');
   const { me } = useMe();
   const meta = useMeta().data;
+  const baseCurrency = useBaseCurrency();
   const teams = useTeams().data ?? [];
   const vendors = useVendors(true).data ?? [];
   const q = useVendorOrder(id);
@@ -47,10 +48,9 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   if (q.isPending) return <Skeleton h="32" rounded="l3" />;
   if (q.error || !q.data) return <ErrorAlert error={q.error} />;
   const order = q.data;
-  const baseCurrency = meta?.baseCurrency ?? 'USD';
   const baseDigits = currencyFractionDigits(baseCurrency) ?? 2;
   const canWrite = !!me?.isPurchaser && !order.restricted;
-  const teamName = (tid: string) => teams.find((x) => x.id === tid)?.name ?? t('line.unknownTeam');
+  const teamName = (tid: string) => teams.find((x) => x.id === tid)?.name ?? t('common:unknownTeam');
   const draft = order.status === 'draft';
   const vendor = order.vendorName;
   const close = () => { setUndo(null); action.reset(); };
@@ -81,11 +81,11 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       <Stack gap="4">
         {embedded ? (
           <HStack justify="space-between" wrap="wrap">
-            <HStack gap="2"><Text fontWeight="semibold">{`VO-${order.number}`}</Text><Text color="fg.muted">{vendor}</Text>{header}</HStack>
+            <HStack gap="2"><Text fontWeight="semibold">{orderLabel(order.number)}</Text><Text color="fg.muted">{vendor}</Text>{header}</HStack>
             {actions}
           </HStack>
         ) : (
-          <PageHeader mb="0" title={`VO-${order.number} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
+          <PageHeader mb="0" title={`${orderLabel(order.number)} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
         )}
         {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
         {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}

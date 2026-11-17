@@ -4,6 +4,3 @@ export function auditActionKey(action: string): string {
 }
 
 export const isSystemActor = (actor: string) => actor.startsWith('system:');
-
-/** The backend emits a zero ObjectID instead of omitting unset ids. */
-export const isZeroId = (id: string | undefined) => !id || /^0+$/.test(id);

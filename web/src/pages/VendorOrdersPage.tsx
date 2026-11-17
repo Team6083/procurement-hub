@@ -1,6 +1,8 @@
+import { orderLabel } from '../features/labels';
 import { Badge, Button, Card, HStack, Skeleton, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, PageHeader, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
+import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
 import { useMe } from '../api/me';
@@ -12,9 +14,9 @@ import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor, RouteButton } from '../components/RouteLinks';
 import { SelectField } from '../components/ui/select';
-import { useMeta } from '../api/meta';
+import { useBaseCurrency } from '../api/meta';
 import { shortDate } from '../features/dates';
-import { formatMoney } from '../features/orders/money';
+import { formatMoney } from '../features/money';
 import { OrderStatusBadge, ProvisionalBadge } from '../features/orders/StatusBadges';
 import { paths } from '../paths';
 
@@ -22,8 +24,9 @@ import { paths } from '../paths';
 export function VendorOrdersPage() {
   const { t, i18n } = useTranslation('purchasing');
   const { me } = useMe();
-  const baseCurrency = useMeta().data?.baseCurrency ?? 'USD';
-  const [filters, setFilters] = useState<OrderFilters>({});
+  const baseCurrency = useBaseCurrency();
+  const [params] = useSearchParams();
+  const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined }));
   const [search, setSearch] = useState('');
   const list = useVendorOrderList({ ...filters, q: search });
   const vendors = useVendors(true).data ?? [];
@@ -33,11 +36,11 @@ export function VendorOrdersPage() {
   const activeCount = [filters.status, filters.vendorId, filters.teamId].filter(Boolean).length;
 
   const columns: DataColumn<VendorOrderSummary>[] = [
-    { key: 'no', header: t('list.number'), priority: 'primary', cell: (o) => <RouteAnchor to={paths.vendorOrder(o.id)}>{`VO-${o.number}`}</RouteAnchor> },
+    { key: 'no', header: t('list.number'), priority: 'primary', cell: (o) => <RouteAnchor to={paths.vendorOrder(o.id)}>{orderLabel(o.number)}</RouteAnchor> },
     { key: 'vendor', header: t('list.vendor'), cell: (o) => o.vendorName },
     { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalBadge />}</HStack> },
     { key: 'ext', header: t('details.externalNo'), priority: 'secondary', cell: (o) => o.externalOrderNo || '—' },
-    { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? '…').join(', ') },
+    { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? t('common:unknownTeam')).join(', ') },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (o) => (o.restricted ? <Badge variant="outline">{t('list.visibleLines', { count: o.lineCount })}</Badge> : o.lineCount) },
     { key: 'net', header: t('breakdown.net'), numeric: true, cell: (o) => (o.restricted ? '—' : formatMoney(o.netBase, baseCurrency, i18n.language)) },
     { key: 'placed', header: t('details.placedAt'), priority: 'secondary', cell: (o) => shortDate(o.placedAt) },
@@ -46,7 +49,7 @@ export function VendorOrdersPage() {
   return (
     <Stack gap="4">
       <PageHeader
-        mb="0" title={t('list.title')} description={t('list.intro')}
+        mb="0" title={t('list.title')} description={t(me?.isPurchaser || me?.isSystemAdmin ? 'list.introAll' : 'list.intro')}
         actions={me?.isPurchaser && <RouteButton size="sm" variant="outline" to={paths.purchasing}><LuShoppingCart />{t('queue.title')}</RouteButton>}
       />
       <FilterBar

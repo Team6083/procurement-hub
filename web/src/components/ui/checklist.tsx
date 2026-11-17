@@ -5,10 +5,10 @@ import type { Option } from './select';
 export function Checklist({ label, options, value, onChange, emptyText }: { label: string; options: Option[]; value: string[]; onChange: (v: string[]) => void; emptyText?: string }) {
   return (
     <Fieldset.Root>
-      <Fieldset.Legend fontSize="sm" fontWeight="medium">{label}</Fieldset.Legend>
+      <Fieldset.Legend textStyle="sm" fontWeight="medium">{label}</Fieldset.Legend>
       <CheckboxGroup value={value} onValueChange={onChange}>
         <Box maxH="40" overflowY="auto" borderWidth="1px" rounded="md" px="3" py="2">
-          {options.length === 0 && emptyText && <Text fontSize="sm" color="fg.muted">{emptyText}</Text>}
+          {options.length === 0 && emptyText && <Text textStyle="sm" color="fg.muted">{emptyText}</Text>}
           <Stack gap="1.5">
             {options.map((o) => (
               <Checkbox.Root key={o.value} value={o.value} size="sm">

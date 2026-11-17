@@ -1,8 +1,6 @@
 {
   "home": {
     "myTasks": {
-      "title": "我的待辦",
-      "body": "指派給您的待辦事項會顯示在這裡。",
       "emptyTitle": "沒有待辦事項"
     },
     "teams": {
@@ -23,10 +21,7 @@
     "submit": "建立"
   },
   "validation": {
-    "slug": "請使用小寫字母與數字，並以單一連字號分隔。",
-    "rate": "請輸入大於零的十進位數字。",
-    "duplicateCurrency": "此幣別已在清單中。",
-    "rateDigits": "小數位數最多 6 位。"
+    "slug": "請使用小寫字母與數字，並以單一連字號分隔。"
   },
   "role": {
     "member": "成員",
@@ -49,8 +44,7 @@
     },
     "subgroups": "子群組",
     "noSubgroups": "沒有子群組。",
-    "noDescription": "沒有說明。",
-    "batchesPlaceholder": "此團隊的批次會顯示在這裡。"
+    "noDescription": "沒有說明。"
   },
   "settings": {
     "nav": {
@@ -73,7 +67,9 @@
       "title": "封存",
       "help": "已封存的團隊僅供檢視。只有系統管理員可以變更。",
       "archive": "封存團隊",
-      "unarchive": "取消封存團隊"
+      "unarchive": "取消封存團隊",
+      "confirmTitle": "封存這個團隊？",
+      "confirmBody": "團隊會變成唯讀，直到系統管理員取消封存。"
     }
   },
   "priority": {
@@ -93,7 +89,9 @@
     "deactivate": "停用",
     "activate": "啟用",
     "inactive": "已停用",
-    "empty": "尚無子群組。"
+    "empty": "尚無子群組。",
+    "deactivateTitle": "停用 {{name}}？",
+    "deactivateBody": "之後新品項無法再選擇這個子組。"
   },
   "members": {
     "user": "使用者",

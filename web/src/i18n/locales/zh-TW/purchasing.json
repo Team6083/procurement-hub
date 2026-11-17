@@ -28,7 +28,7 @@
     "empty": "還沒有紀錄。",
     "system": "系統",
     "you": "你",
-    "someone": "採購人員",
+    "someone": "有人",
     "actions": {
       "vendor_order_created": "建立訂單",
       "vendor_order_updated": "更新訂單資料",
@@ -43,7 +43,34 @@
       "vendor_order_line_reopened": "撤銷結案",
       "vendor_order_line_status_derived": "明細行狀態自動變更",
       "vendor_order_ledger_added": "新增金流紀錄",
-      "vendor_order_ledger_voided": "作廢金流紀錄"
+      "vendor_order_ledger_voided": "作廢金流紀錄",
+      "vendor_order_problem_reported": "回報問題",
+      "vendor_order_problem_resolved": "問題已處理",
+      "vendor_order_problem_resolved_undone": "復原問題處理",
+      "vendor_order_delivery_matched": "已對應到貨",
+      "vendor_order_delivery_match_voided": "已復原到貨對應"
+    },
+    "fields": {
+      "externalOrderNo": "廠商訂單編號",
+      "paymentNote": "付款備註",
+      "chargedAmountBase": "實際扣款金額",
+      "currency": "幣別",
+      "vendor": "廠商",
+      "vendorId": "廠商",
+      "sharedCosts": "共同費用",
+      "teamCostOverrides": "各團隊費用分攤",
+      "expectedDeliveryDate": "預計到貨日",
+      "status": "狀態",
+      "quantity": "數量",
+      "unitPrice": "單價",
+      "name": "名稱",
+      "sku": "型號",
+      "teamId": "團隊",
+      "line": "品項行",
+      "ledger": "帳務紀錄",
+      "problem": "問題",
+      "closure": "結案",
+      "accounting": "帳務"
     }
   },
   "breakdown": {
@@ -83,7 +110,6 @@
     "problem": "{{count}} 件有問題",
     "status": "狀態",
     "total": "合計（本位幣）",
-    "unknownTeam": "未知團隊",
     "problemLink": "{{count}} 件{{type}}（{{state}}）：查看到貨紀錄"
   },
   "amount": {
@@ -169,6 +195,7 @@
   "list": {
     "title": "廠商訂單",
     "intro": "向廠商下的訂單。你會看到包含自己團隊明細行的訂單。",
+    "introAll": "向廠商下的訂單。",
     "number": "訂單",
     "vendor": "廠商",
     "teams": "團隊",

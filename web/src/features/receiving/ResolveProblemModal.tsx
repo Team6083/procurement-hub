@@ -27,7 +27,7 @@ function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: 
             {t('problem.summary', { order: problem.vendorOrderNumber, n: problem.lineNo, name: problem.lineName, count: problem.quantity, type: t(`problemType.${problem.type}`) })}
           </Text>
           <SelectField
-            label={t('problem.action')} value={action} onChange={(v) => setAction(v as ProblemAction)}
+            label={t('problem.action')} value={action} onChange={(v) => v && setAction(v)}
             helperText={t(`problem.actionHelp.${action}`)}
             options={ACTIONS.map((a) => ({ value: a, label: t(`problem.actions.${a}`) }))}
           />

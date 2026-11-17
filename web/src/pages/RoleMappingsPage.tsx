@@ -62,8 +62,8 @@ export function RoleMappingsPage() {
             {rules.data.map((r) => (
               <Table.Row key={r.id}>
                 <Table.Cell>{t(`claim.${r.claim}`)}</Table.Cell>
-                <Table.Cell><Text fontFamily="mono" fontSize="sm">{r.pattern}</Text></Table.Cell>
-                <Table.Cell><Text fontFamily="mono" fontSize="sm">{r.team}</Text></Table.Cell>
+                <Table.Cell><Text fontFamily="mono" textStyle="sm">{r.pattern}</Text></Table.Cell>
+                <Table.Cell><Text fontFamily="mono" textStyle="sm">{r.team}</Text></Table.Cell>
                 <Table.Cell>{t(`teams:role.${r.role}`)}</Table.Cell>
                 <Table.Cell>{r.enabled ? t('on') : t('off')}</Table.Cell>
                 <Table.Cell>{r.description}</Table.Cell>

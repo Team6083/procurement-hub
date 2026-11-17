@@ -10,6 +10,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { SelectField } from '../../components/ui/select';
 import { UndoDialog } from '../../components/UndoDialog';
+import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { EstimateSummary, useEstimateText } from './EstimateSummary';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
@@ -131,7 +132,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
             options={distinct(items.map((i) => i.requesterId)).map((id) => ({ value: id, label: nameOf(id) }))} />
         )}
         <SelectField size="sm" label={t('item.priority')} placeholder={t('filters.all')} value={others.priority} onChange={set('priority')}
-          options={['5', '4', '3', '2', '1']} />
+          options={PRIORITIES.map((p) => ({ value: p, label: priorityLabel(team?.priorityLabels, p, (k) => t(`teams:priority.default.${k}`)) }))} />
         <SelectField size="sm" label={t('item.vendor')} placeholder={t('filters.all')} value={others.vendor} onChange={set('vendor')}
           options={distinct(items.map((i) => i.vendorName))} />
       </FilterBar>

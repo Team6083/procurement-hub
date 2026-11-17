@@ -3,7 +3,7 @@ import { useState, type ReactNode } from 'react';
 import { ErrorAlert } from './ErrorAlert';
 import { AppDialog, DialogFooter } from './ui/dialog';
 import { FormField } from './ui/field';
-import { BlockerList } from './UndoDialog';
+import { BlockerList, blockersOf } from './UndoDialog';
 
 interface Props {
   opened: boolean;
@@ -34,7 +34,8 @@ function Inner({ body, confirmLabel, danger, reasonLabel, loading, error, onConf
             </FormField>
           )}
           <BlockerList error={error} />
-          <ErrorAlert error={error} />
+          {/* The list says it all; the generic "others depend on this" alert would only repeat it. */}
+          {blockersOf(error).length === 0 && <ErrorAlert error={error} />}
         </Stack>
       </Dialog.Body>
       <DialogFooter>

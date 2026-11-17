@@ -1,3 +1,5 @@
+import i18n from '../i18n';
+
 /** Number of digits after the decimal point in a plain decimal string ("12.50" -> 2, "7" -> 0). */
 export function fractionDigits(s: string): number {
   const i = s.trim().indexOf('.');
@@ -42,4 +44,29 @@ export function validateAmount(input: string, rules: AmountRules = {}): AmountEr
   if (zero && rules.nonZero) return 'zero';
   if (rules.digits !== undefined && fractionDigits(s) > rules.digits) return 'digits';
   return null;
+}
+
+/**
+ * An exact decimal string as a currency amount for display ("12.5" -> "$12.50", "2700" TWD -> "NT$2,700.00").
+ * The one money formatter of the app; null and empty show as a dash. Falls back to "12.50 USD" for an unknown currency.
+ */
+export function formatMoney(amount: string | null | undefined, currency: string, locale: string | undefined = i18n.language || undefined): string {
+  if (amount === null || amount === undefined || amount === '') return '—';
+  if (!currency) return amount;
+  const digits = currencyFractionDigits(currency) ?? 2;
+  try {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency', currency, minimumFractionDigits: digits, maximumFractionDigits: Math.max(digits, fractionDigits(amount)),
+    }).format(amount as `${number}`);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
+
+/** A plain decimal (a conversion factor) rounded to 6 significant digits for display; the exact value belongs in a tooltip. */
+export function formatFactor(f: string | null | undefined): string {
+  if (!f) return '—';
+  const n = Number(f);
+  if (!Number.isFinite(n)) return f;
+  return String(Number(n.toPrecision(6)));
 }

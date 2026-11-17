@@ -101,11 +101,11 @@ export function BoxLineCard({ index, line, showErrors, onChange, onRemove }: Pro
           )}
 
           <Stack gap="2">
-            <Text fontSize="sm" fontWeight="medium">{t('candidates.title')}</Text>
-            {!candidates.isFetching && !candidates.data && <Text fontSize="sm" color="fg.muted">{t('candidates.typeToSearch')}</Text>}
+            <Text textStyle="sm" fontWeight="medium">{t('candidates.title')}</Text>
+            {!candidates.isFetching && !candidates.data && <Text textStyle="sm" color="fg.muted">{t('candidates.typeToSearch')}</Text>}
             {candidates.isFetching && !candidates.data && <Skeleton h="10" rounded="l2" />}
             <ErrorAlert error={candidates.error} />
-            {candidates.data && shown.length === 0 && <Text fontSize="sm" color="fg.muted">{t('candidates.none')}</Text>}
+            {candidates.data && shown.length === 0 && <Text textStyle="sm" color="fg.muted">{t('candidates.none')}</Text>}
             {shown.map((c) => {
               const m = matches.find((x) => x.vendorOrderLineId === c.vendorOrderLineId);
               return (
@@ -118,7 +118,7 @@ export function BoxLineCard({ index, line, showErrors, onChange, onRemove }: Pro
                   <Checkbox.Label flex="1" minW="0">
                     <Stack gap="1">
                       <CandidateLabel {...c} />
-                      {m && <Text fontSize="xs" color="fg.success">{t('candidates.willMatch', { good: m.goodQuantity, problem: m.problemQuantity })}</Text>}
+                      {m && <Text textStyle="xs" color="fg.success">{t('candidates.willMatch', { good: m.goodQuantity, problem: m.problemQuantity })}</Text>}
                     </Stack>
                   </Checkbox.Label>
                 </Checkbox.Root>

@@ -7,19 +7,18 @@ import { useNavigate } from 'react-router';
 import { useCreateDelivery } from '../api/deliveries';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { FormField } from '../components/ui/field';
+import { todayLocal } from '../features/dates';
 import { allocate, parseCount } from '../features/receiving/allocate';
 import { BoxLineCard, emptyLine, lineErrors, type BoxLineDraft } from '../features/receiving/BoxLineCard';
 import { ReceivingGuard } from '../features/receiving/access';
 import { paths } from '../paths';
-
-const today = () => new Date().toISOString().slice(0, 10);
 
 function NewDelivery() {
   const { t } = useTranslation('receiving');
   const navigate = useNavigate();
   const create = useCreateDelivery();
   const seq = useRef(1);
-  const [receivedAt, setReceivedAt] = useState(today);
+  const [receivedAt, setReceivedAt] = useState(() => todayLocal());
   const [source, setSource] = useState('');
   const [note, setNote] = useState('');
   const [lines, setLines] = useState<BoxLineDraft[]>([emptyLine('l0')]);

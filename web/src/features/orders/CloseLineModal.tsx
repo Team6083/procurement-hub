@@ -21,7 +21,7 @@ function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: V
       <Dialog.Body>
         <Stack gap="3">
           <SelectField
-            label={t('close.type')} value={type} onChange={(v) => setType(v as typeof type)}
+            label={t('close.type')} value={type} onChange={(v) => v && setType(v)}
             options={[{ value: 'short_accepted', label: t('close.short_accepted') }, { value: 'not_obtained', label: t('close.not_obtained') }]}
           />
           <FormField label={t('undo.reason')} required><Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} /></FormField>

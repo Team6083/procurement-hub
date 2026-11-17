@@ -17,7 +17,7 @@ export function ErrorAlert({ error }: { error: unknown }) {
       <Alert.Content>
         <Alert.Description>{errorMessage(t, error)}</Alert.Description>
         {fields.length > 0 && (
-          <List.Root fontSize="sm" mt="1" ps="4">
+          <List.Root textStyle="sm" mt="1" ps="4">
             {fields.map(([k, v]) => (
               <List.Item key={k}>
                 {k}: {String(v)}

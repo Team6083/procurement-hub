@@ -1,8 +1,6 @@
 {
   "home": {
     "myTasks": {
-      "title": "My tasks",
-      "body": "Tasks assigned to you will appear here.",
       "emptyTitle": "You're all caught up"
     },
     "teams": {
@@ -23,10 +21,7 @@
     "submit": "Create"
   },
   "validation": {
-    "slug": "Use lowercase letters and digits, separated by single hyphens.",
-    "rate": "Enter a positive decimal number.",
-    "duplicateCurrency": "This currency is already listed.",
-    "rateDigits": "Use at most 6 decimal places."
+    "slug": "Use lowercase letters and digits, separated by single hyphens."
   },
   "role": {
     "member": "Member",
@@ -49,8 +44,7 @@
     },
     "subgroups": "Subgroups",
     "noSubgroups": "No subgroups.",
-    "noDescription": "No description.",
-    "batchesPlaceholder": "Batches of this team will appear here."
+    "noDescription": "No description."
   },
   "settings": {
     "nav": {
@@ -73,7 +67,9 @@
       "title": "Archive",
       "help": "Archived teams are read-only. Only system admins can change this.",
       "archive": "Archive team",
-      "unarchive": "Unarchive team"
+      "unarchive": "Unarchive team",
+      "confirmTitle": "Archive this team?",
+      "confirmBody": "The team becomes read-only until a system admin unarchives it."
     }
   },
   "priority": {
@@ -93,7 +89,9 @@
     "deactivate": "Deactivate",
     "activate": "Activate",
     "inactive": "Inactive",
-    "empty": "No subgroups yet."
+    "empty": "No subgroups yet.",
+    "deactivateTitle": "Deactivate {{name}}?",
+    "deactivateBody": "It can no longer be chosen for new items."
   },
   "members": {
     "user": "User",

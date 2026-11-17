@@ -9,15 +9,6 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 
-interface TaskLike { Batch?: Batch; Count?: number; batch?: Batch; count?: number }
-/** GET /me/tasks serialises BatchTask with capitalised keys; accept lower-case too in case the backend adds tags. */
-export function taskBatch(t: TaskLike): Batch | undefined {
-  return t.Batch ?? t.batch;
-}
-export function taskCount(t: TaskLike): number {
-  return t.Count ?? t.count ?? 0;
-}
-
 /** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
 function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
   return (
@@ -43,21 +34,31 @@ function TaskGroup({ title, count, children }: { title: string; count: number; c
   );
 }
 
+/** A task that is only a count (purchasing and receiving work): one link to where it is done. */
+function CountGroup({ title, link, count, to }: { title: string; link: string; count: number | undefined; to: string }) {
+  return (
+    <TaskGroup title={title} count={count ?? 0}>
+      <RouteAnchor to={to}>{link}</RouteAnchor>
+    </TaskGroup>
+  );
+}
+
 /**
- * The home page's tasks: proposals to handle, items to review, returned items. The page header
- * already says 我的待辦, so the groups carry no title of their own.
+ * The home page's tasks: batch work (proposals, reviews, returned items) and, for purchasers and receivers, the
+ * purchasing and receiving work. The page header already says 我的待辦, so the groups carry no title of their own.
  */
 export function MyTasksCard() {
   const { t } = useTranslation('teams');
   const { t: tb } = useTranslation('batches');
   const tasks = useMyTasks();
   const d = tasks.data;
-  const proposals = (d?.proposalsToHandle ?? []) as TaskLike[];
-  const review = (d?.itemsToReview ?? []) as TaskLike[];
+  const proposals = d?.proposalsToHandle ?? [];
+  const review = d?.itemsToReview ?? [];
   const returned = d?.returnedItems ?? [];
-  const confirm = (d?.reviewsToConfirm ?? []) as TaskLike[];
+  const confirm = d?.reviewsToConfirm ?? [];
   const purchase = d?.itemsToPurchase ?? [];
-  const empty = proposals.length + review.length + returned.length + confirm.length + purchase.length === 0;
+  const counts = [d?.draftVendorOrders?.count, d?.openProblems?.count, d?.linesToClose?.count, d?.deliveriesToMatch?.count];
+  const empty = proposals.length + review.length + returned.length + confirm.length + purchase.length + counts.reduce<number>((n, c) => n + (c ?? 0), 0) === 0;
 
   if (tasks.isPending) return <Skeleton h="24" rounded="l3" />;
   if (tasks.error) return <ErrorAlert error={tasks.error} />;
@@ -74,16 +75,10 @@ export function MyTasksCard() {
   return (
     <Stack gap="5">
       <TaskGroup title={tb('tasks.proposals')} count={proposals.length}>
-        {proposals.map((x) => {
-          const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} />;
-        })}
+        {proposals.map((x) => <BatchTask key={x.batch.id} batch={x.batch} />)}
       </TaskGroup>
       <TaskGroup title={tb('tasks.review')} count={review.length}>
-        {review.map((x) => {
-          const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.pendingCount', { count: taskCount(x) })} />;
-        })}
+        {review.map((x) => <BatchTask key={x.batch.id} batch={x.batch} badge={tb('tasks.pendingCount', { count: x.count })} />)}
       </TaskGroup>
       <TaskGroup title={tb('tasks.returned')} count={returned.length}>
         {returned.map((i) => (
@@ -94,10 +89,7 @@ export function MyTasksCard() {
         ))}
       </TaskGroup>
       <TaskGroup title={tb('tasks.confirm')} count={confirm.length}>
-        {confirm.map((x) => {
-          const b = taskBatch(x);
-          return b && <BatchTask key={b.id} batch={b} badge={tb('tasks.confirmCount', { count: taskCount(x) })} />;
-        })}
+        {confirm.map((x) => <BatchTask key={x.batch.id} batch={x.batch} badge={tb('tasks.confirmCount', { count: x.count })} />)}
       </TaskGroup>
       <TaskGroup title={tb('tasks.purchase')} count={purchase.length}>
         {purchase.map((v) => (
@@ -108,6 +100,10 @@ export function MyTasksCard() {
           </HStack>
         ))}
       </TaskGroup>
+      <CountGroup title={tb('tasks.draftOrders')} link={tb('tasks.draftOrdersLink')} count={d?.draftVendorOrders?.count} to={`${paths.vendorOrders}?status=draft`} />
+      <CountGroup title={tb('tasks.problems')} link={tb('tasks.problemsLink')} count={d?.openProblems?.count} to={paths.receiving} />
+      <CountGroup title={tb('tasks.linesToClose')} link={tb('tasks.linesToCloseLink')} count={d?.linesToClose?.count} to={paths.vendorOrders} />
+      <CountGroup title={tb('tasks.deliveriesToMatch')} link={tb('tasks.deliveriesToMatchLink')} count={d?.deliveriesToMatch?.count} to={paths.receiving} />
     </Stack>
   );
 }

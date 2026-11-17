@@ -33,9 +33,12 @@ function Form({ order, teams, line, onClose }: Omit<Props, 'opened'>) {
 
   const priceError = price.trim() ? validateAmount(price, { digits: currencyFractionDigits(order.currency) }) : placed ? 'format' : null;
   const qtyOk = /^[1-9]\d*$/.test(quantity.trim());
+  const [tried, setTried] = useState(false);
   const valid = !!teamId && !!name.trim() && qtyOk && !priceError;
 
   const submit = () => {
+    setTried(true);
+    if (!valid) return;
     const body: LineBody = { teamId, name: name.trim(), sku: sku.trim(), quantity: Number(quantity), unitPrice: price.trim() || null };
     if (line) put.mutate({ line, body }, { onSuccess: onClose });
     else add.mutate(body, { onSuccess: onClose });
@@ -47,15 +50,16 @@ function Form({ order, teams, line, onClose }: Omit<Props, 'opened'>) {
         <Stack gap="3">
           <SelectField
             label={t('line.team')} value={teamId} onChange={setTeamId} placeholder={t('line.chooseTeam')} disabled={placed || linked}
+            errorText={tried && !teamId ? t('common:validation.required') : undefined}
             options={teams.map((x) => ({ value: x.id, label: x.name }))}
           />
-          <FormField label={t('line.name')} required><Input value={name} onChange={(e) => setName(e.currentTarget.value)} /></FormField>
+          <FormField label={t('line.name')} required errorText={tried && !name.trim() ? t('common:validation.required') : undefined}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} /></FormField>
           <FormField label={t('line.sku')}><Input value={sku} onChange={(e) => setSku(e.currentTarget.value)} /></FormField>
           <HStack gap="3" align="flex-start">
             <FormField label={t('line.quantity')} errorText={qtyOk ? undefined : t('line.quantityInvalid')} disabled={placed}>
               <Input value={quantity} inputMode="numeric" onChange={(e) => setQuantity(e.currentTarget.value)} />
             </FormField>
-            <FormField label={t('line.unitPrice', { currency: order.currency })} errorText={priceError ? t(`amount.${priceError}`) : undefined}>
+            <FormField label={t('line.unitPrice', { currency: order.currency })} errorText={priceError && (price.trim() || tried) ? t(`amount.${priceError}`) : undefined}>
               <Input value={price} inputMode="decimal" onChange={(e) => setPrice(e.currentTarget.value)} />
             </FormField>
           </HStack>
@@ -63,7 +67,7 @@ function Form({ order, teams, line, onClose }: Omit<Props, 'opened'>) {
         </Stack>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" loading={mutation.isPending} disabled={!valid} onClick={submit}>{t('common:actions.save')}</Button>
+        <Button size="sm" loading={mutation.isPending} onClick={submit}>{t('common:actions.save')}</Button>
       </DialogFooter>
     </>
   );

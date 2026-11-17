@@ -1,3 +1,4 @@
+import { orderLabel } from '../labels';
 import { Alert, Badge, Button, Card, HStack, List, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuLink, LuUndo2 } from 'react-icons/lu';
@@ -26,14 +27,14 @@ export function DeliveryLineCard({ line, canWrite, onMatch, onNoMatch, onUndoNoM
         <HStack justify="space-between" align="flex-start" gap="2">
           <Stack gap="0" minW="0">
             <Text fontWeight="semibold">{title}</Text>
-            {line.name && line.sku && <Text fontSize="xs" color="fg.muted">{line.sku}</Text>}
+            {line.name && line.sku && <Text textStyle="xs" color="fg.muted">{line.sku}</Text>}
           </Stack>
           <MatchStateBadge state={line.matchState} />
         </HStack>
       </Card.Header>
       <Card.Body>
         <Stack gap="3">
-          <HStack gap="2" wrap="wrap" fontSize="sm">
+          <HStack gap="2" wrap="wrap" textStyle="sm">
             <Text>{t('line.good', { count: line.goodQuantity })}</Text>
             {line.problemQuantity > 0 && (
               <Badge variant="subtle" colorPalette="red">{t('line.problem', { count: line.problemQuantity, type: t(`problemType.${line.problemType || 'damaged'}`) })}</Badge>
@@ -43,11 +44,11 @@ export function DeliveryLineCard({ line, canWrite, onMatch, onNoMatch, onUndoNoM
 
           {line.matches.length > 0 && (
             <Stack gap="1">
-              <Text fontSize="sm" fontWeight="medium">{t('line.matchedTo')}</Text>
-              <List.Root fontSize="sm" ps="4" gap="1">
+              <Text textStyle="sm" fontWeight="medium">{t('line.matchedTo')}</Text>
+              <List.Root textStyle="sm" ps="4" gap="1">
                 {line.matches.map((m) => (
                   <List.Item key={m.id}>
-                    <RouteAnchor to={paths.vendorOrder(m.vendorOrderId)}>{`VO-${m.vendorOrderNumber} #${m.lineNo} ${m.lineName}`}</RouteAnchor>
+                    <RouteAnchor to={paths.vendorOrder(m.vendorOrderId)}>{`${orderLabel(m.vendorOrderNumber)} #${m.lineNo} ${m.lineName}`}</RouteAnchor>
                     {': '}
                     {t('line.matchQty', { good: m.goodQuantity, problem: m.problemQuantity })}
                   </List.Item>
@@ -56,7 +57,7 @@ export function DeliveryLineCard({ line, canWrite, onMatch, onNoMatch, onUndoNoM
             </Stack>
           )}
 
-          {line.noMatch && <Text fontSize="sm" color="fg.muted">{t('line.noMatchReason', { reason: line.noMatch.reason })}</Text>}
+          {line.noMatch && <Text textStyle="sm" color="fg.muted">{t('line.noMatchReason', { reason: line.noMatch.reason })}</Text>}
 
           {open && pending > 0 && line.matches.length > 0 && (
             <Alert.Root status="warning" size="sm">

@@ -1,3 +1,4 @@
+import { deliveryLabel } from '../labels';
 import { Button, Card, Skeleton, Stack } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
@@ -37,7 +38,7 @@ export function DeliveryView({ id }: { id: string }) {
     <Stack gap="6">
       <Stack gap="4">
         <PageHeader
-          mb="0" title={`DL-${d.number}`} badge={d.voided ? <VoidedBadge /> : undefined}
+          mb="0" title={deliveryLabel(d.number)} badge={d.voided ? <VoidedBadge /> : undefined}
           actions={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuBan />{t('void.action')}</Button>}
         />
         {d.voided && <Notice status="warning">{t('void.done', { reason: d.voided.reason })}</Notice>}

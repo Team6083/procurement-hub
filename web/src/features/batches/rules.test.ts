@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
-import { auditActionKey, isZeroId } from './audit';
+import { auditActionKey } from './audit';
 import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });
@@ -148,10 +148,8 @@ describe('filters, urls, forms, audit helpers', () => {
     expect(itemFormSchema.safeParse({ ...ok, productUrl: '' }).success).toBe(true);
     expect(toItemRequest(ok)).toMatchObject({ quantity: 3, priority: 3, estimatedUnitPrice: { amount: '12.5', currency: 'TWD' } });
   });
-  it('derives audit keys and detects zero ids', () => {
+  it('derives audit keys', () => {
     expect(auditActionKey('batch.auto_transition')).toBe('timeline.actions.batch_auto_transition');
-    expect(isZeroId('000000000000000000000000')).toBe(true);
-    expect(isZeroId('65a1b2c3d4e5f60718293a4b')).toBe(false);
   });
 });
 

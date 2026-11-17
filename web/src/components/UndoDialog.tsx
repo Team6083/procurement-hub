@@ -13,11 +13,16 @@ interface Blocker {
   parentId?: string;
 }
 
+/** The blockers carried by a 409 blocked_by_dependency; empty for any other error. */
+export function blockersOf(error: unknown): Blocker[] {
+  if (!(error instanceof ApiError) || error.code !== 'blocked_by_dependency') return [];
+  return (Array.isArray(error.details.blockers) ? error.details.blockers : []) as Blocker[];
+}
+
 /** The objects that stop an undo (409 blocked_by_dependency, details.blockers), each linked when it has a page. */
 export function BlockerList({ error }: { error: unknown }) {
   const { t } = useTranslation();
-  if (!(error instanceof ApiError) || error.code !== 'blocked_by_dependency') return null;
-  const blockers = (Array.isArray(error.details.blockers) ? error.details.blockers : []) as Blocker[];
+  const blockers = blockersOf(error);
   if (blockers.length === 0) return null;
   const href = (b: Blocker) =>
     b.type === 'batch' ? paths.batch(b.id)
@@ -30,8 +35,8 @@ export function BlockerList({ error }: { error: unknown }) {
   };
   return (
     <div>
-      <Text fontSize="sm" fontWeight="medium">{t('undo.blockedTitle')}</Text>
-      <List.Root fontSize="sm" ps="4">
+      <Text textStyle="sm" fontWeight="medium">{t('undo.blockedTitle')}</Text>
+      <List.Root textStyle="sm" ps="4">
         {blockers.map((b) => (
           <List.Item key={`${b.type}:${b.id}`}>
             {kind[b.type] ?? b.type}:{' '}

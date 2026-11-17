@@ -24,6 +24,7 @@ function Inner({ team, teams, onTeamChange, onClose }: InnerProps) {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [propose, setPropose] = useState(!admin);
+  const [tried, setTried] = useState(false);
   const create = useCreateBatch(team.teamId);
   return (
     <>
@@ -32,6 +33,8 @@ function Inner({ team, teams, onTeamChange, onClose }: InnerProps) {
           id="create-batch-form"
           onSubmit={(e) => {
             e.preventDefault();
+            setTried(true);
+            if (!title.trim()) return;
             create.mutate(
               { title: title.trim(), description, propose: admin ? propose : true },
               { onSuccess: (b) => { onClose(); void navigate(paths.batch(b.id)); } },
@@ -45,7 +48,7 @@ function Inner({ team, teams, onTeamChange, onClose }: InnerProps) {
               onChange={(v) => v && onTeamChange(v)}
               options={teams.map((m) => ({ value: m.teamId, label: m.name }))}
             />
-            <FormField label={t('create.title')} required>
+            <FormField label={t('create.title')} required errorText={tried && !title.trim() ? t('common:validation.required') : undefined}>
               <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
             </FormField>
             <FormField label={t('create.description')}>
@@ -68,7 +71,7 @@ function Inner({ team, teams, onTeamChange, onClose }: InnerProps) {
         </form>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" type="submit" form="create-batch-form" loading={create.isPending} disabled={!title.trim()}>
+        <Button size="sm" type="submit" form="create-batch-form" loading={create.isPending}>
           {admin && !propose ? t('create.submitDraft') : t('create.submitPropose')}
         </Button>
       </DialogFooter>

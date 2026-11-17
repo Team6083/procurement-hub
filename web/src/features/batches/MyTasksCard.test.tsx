@@ -24,4 +24,16 @@ describe('MyTasksCard', () => {
     renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, { 'GET /me/tasks': empty });
     expect(await screen.findByText('Nothing needs your attention.')).toBeTruthy();
   });
+  it('lists purchasing and receiving work instead of saying all caught up', async () => {
+    renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, {
+      'GET /me/tasks': { ...empty, draftVendorOrders: { count: 2 }, openProblems: { count: 1 }, linesToClose: { count: 0 }, deliveriesToMatch: { count: 3 } },
+    });
+    const draft = await screen.findByRole('link', { name: 'Draft vendor orders' });
+    expect(draft.getAttribute('href')).toBe('/vendor-orders?status=draft');
+    expect(screen.getByRole('link', { name: 'Delivery problems to resolve' }).getAttribute('href')).toBe('/receiving');
+    expect(screen.getByRole('link', { name: 'Delivery lines waiting for a match' }).getAttribute('href')).toBe('/receiving');
+    // A zero count shows no group, and the empty state stays away.
+    expect(screen.queryByText('Lines to close')).toBeNull();
+    expect(screen.queryByText('Nothing needs your attention.')).toBeNull();
+  });
 });

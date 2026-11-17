@@ -2,21 +2,22 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import type { ApiClient } from './client';
 import { tasksKey } from './batches';
 import { useApi } from './context';
-import type { AuditEvent, Item, Page, QueueGroup, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
+import type { AuditEvent, Page, QueueGroup, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
 import { ifMatchHeader } from './versioned';
 
-export const queueKey = ['purchasing', 'queue'] as const;
+const queueKey = ['purchasing', 'queue'] as const;
 export const ordersKey = ['vendor-orders'] as const;
-export const orderKey = (id: string | undefined) => ['vendor-order', id] as const;
-export const orderAuditKey = (id: string | undefined) => ['vendor-order', id, 'audit'] as const;
+const orderKey = (id: string | undefined) => ['vendor-order', id] as const;
+const orderAuditKey = (id: string | undefined) => ['vendor-order', id, 'audit'] as const;
 export const linesToCloseKey = ['vendor-order-lines', 'toClose'] as const;
 
 /** GET /purchasing/queue: approved items with quantity still to purchase, grouped by vendor. */
-export function useQueue() {
+export function useQueue(enabled = true) {
   const api = useApi();
   return useQuery({
     queryKey: queueKey,
+    enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: QueueGroup[] }>('/purchasing/queue', { signal })).items,
   });
 }
@@ -82,7 +83,7 @@ const changed = (orderId: string) => [ordersKey, queueKey, tasksKey, orderAuditK
  * A write on a vendor order: If-Match is the order version in the cache at the moment the write runs,
  * the response (the whole order) replaces the cache, and a conflict refetches.
  */
-export function useOrderMutation<TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) {
+function useOrderMutation<TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) {
   const api = useApi();
   const qc = useQueryClient();
   return useGuardedMutation<TVars, VendorOrder>({
@@ -178,14 +179,5 @@ export function useAddItemsToOrder() {
     },
     invalidate: [ordersKey, queueKey, tasksKey, ['batch']],
     conflictKeys: [],
-  });
-}
-
-/** POST /items/{id}/unpurchasable: "do not buy the remaining quantity" (or the whole item). */
-export function useMarkUnpurchasable() {
-  const api = useApi();
-  return useGuardedMutation<{ item: Pick<Item, 'id' | 'version'>; reason: string }, Item>({
-    mutationFn: ({ item, reason }) => api.post<Item>(`/items/${item.id}/unpurchasable`, { reason }, { headers: ifMatchHeader(item.version) }),
-    invalidate: [queueKey, tasksKey, ['batch']],
   });
 }

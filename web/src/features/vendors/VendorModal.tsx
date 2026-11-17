@@ -23,9 +23,12 @@ function Inner({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void
   const [website, setWebsite] = useState(vendor?.website ?? '');
   const [notes, setNotes] = useState(vendor?.notes ?? '');
   const [active, setActive] = useState(vendor?.active ?? true);
+  const [tried, setTried] = useState(false);
   const badUrl = website.trim() !== '' && safeHttpUrl(website.trim()) === undefined;
   const mutation = vendor ? put : create;
   const save = () => {
+    setTried(true);
+    if (!name.trim() || badUrl) return;
     const body: VendorBody = {
       name: name.trim(), aliases: aliases.split('\n').map((a) => a.trim()).filter(Boolean), defaultCurrency: currency,
       website: website.trim(), notes, active,
@@ -37,7 +40,7 @@ function Inner({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void
     <>
       <Dialog.Body>
         <Stack gap="3">
-          <FormField label={t('vendors.name')}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} /></FormField>
+          <FormField label={t('vendors.name')} required errorText={tried && !name.trim() ? t('common:validation.required') : undefined}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} maxLength={200} /></FormField>
           <FormField label={t('vendors.aliases')} helperText={t('vendors.aliasesHelp')}>
             <Textarea value={aliases} onChange={(e) => setAliases(e.currentTarget.value)} autoresize rows={2} />
           </FormField>
@@ -57,7 +60,7 @@ function Inner({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void
         </Stack>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" loading={mutation.isPending} disabled={!name.trim() || badUrl} onClick={save}>{t('common:actions.save')}</Button>
+        <Button size="sm" loading={mutation.isPending} onClick={save}>{t('common:actions.save')}</Button>
       </DialogFooter>
     </>
   );

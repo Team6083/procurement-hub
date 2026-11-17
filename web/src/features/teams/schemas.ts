@@ -1,12 +1,7 @@
 import { z } from 'zod';
+import { SUPPORTED_LANGUAGES } from '../../i18n/detect';
 
 export const SLUG_RE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-/** Positive decimal string such as "1", "0.5", ".25"; zero is rejected. */
-export function isPositiveDecimal(s: string): boolean {
-  const v = s.trim();
-  return /^(?:\d+(?:\.\d+)?|\.\d+)$/.test(v) && /[1-9]/.test(v);
-}
 
 // Messages are i18n keys, translated where the error is rendered.
 export const createTeamSchema = z.object({
@@ -26,7 +21,7 @@ export const generalSchema = z.object({
   name: z.string().trim().min(1, 'common:validation.required').max(200, 'common:validation.tooLong'),
   description: z.string(),
   visibility: z.enum(['public', 'members']),
-  locale: z.enum(['en', 'zh-TW']),
+  locale: z.enum(SUPPORTED_LANGUAGES),
   priority: z.object({
     '1': z.string().max(200, 'common:validation.tooLong'),
     '2': z.string().max(200, 'common:validation.tooLong'),

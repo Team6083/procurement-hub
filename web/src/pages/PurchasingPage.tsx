@@ -5,19 +5,22 @@ import { useTranslation } from 'react-i18next';
 import { LuBan, LuReceiptText, LuShoppingCart, LuStore } from 'react-icons/lu';
 import { useMe } from '../api/me';
 import type { QueueGroup, QueueItem } from '../api/types';
-import { useMarkUnpurchasable, useQueue } from '../api/vendorOrders';
+import { useItemAction } from '../api/batches';
+import { useQueue } from '../api/vendorOrders';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert, Notice } from '../components/ErrorAlert';
 import { ReasonModal } from '../components/ReasonModal';
 import { RouteAnchor, RouteButton } from '../components/RouteLinks';
 import { AppDialog } from '../components/ui/dialog';
-import { formatMoney } from '../features/orders/money';
+import { formatMoney } from '../features/money';
 import { SendToOrderModal } from '../features/orders/SendToOrderModal';
 import { VendorOrderView } from '../features/orders/VendorOrderView';
 import { lineTotal } from '../features/batches/estimates';
 import { format } from '../features/batches/decimal';
 import { paths } from '../paths';
 
+/** Whether skipping the item stops buying what is left (something is already planned or ordered) rather than marking it unpurchasable. */
+const skipsRemaining = (i: QueueItem) => i.orderedQuantity > 0 || i.plannedQuantity > 0;
 const groupKey = (i: QueueItem) => i.vendorId ?? '';
 
 /**
@@ -26,13 +29,14 @@ const groupKey = (i: QueueItem) => i.vendorId ?? '';
  */
 export function PurchasingPage() {
   const { t, i18n } = useTranslation('purchasing');
-  const { me } = useMe();
-  const queue = useQueue();
-  const unbuy = useMarkUnpurchasable();
+  const { me, isPending: meLoading } = useMe();
+  // Only purchasers can read the queue: the others get the notice and no request that would end in a 403.
+  const queue = useQueue(!!me?.isPurchaser);
   const [picked, setPicked] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
   const [marking, setMarking] = useState<QueueItem | null>(null);
+  const unbuy = useItemAction(marking?.batchId ?? '');
 
   const groups = useMemo(() => queue.data ?? [], [queue.data]);
   const items = useMemo(() => groups.flatMap((g) => g.items), [groups]);
@@ -45,7 +49,14 @@ export function PurchasingPage() {
   const columns: DataColumn<QueueItem>[] = [
     {
       key: 'name', header: t('queue.item'), priority: 'primary',
-      cell: (i) => <Stack gap="0"><span>{`#${i.seqNo} ${i.name}`}</span>{i.sku && <Text fontSize="xs" color="fg.muted">{i.sku}</Text>}</Stack>,
+      cell: (i) => (
+        <Stack gap="0">
+          <span>{`#${i.seqNo} ${i.name}`}</span>
+          {i.sku && <Text textStyle="xs" color="fg.muted">{i.sku}</Text>}
+          {/* Items grouped under "other" keep the vendor their requester typed. */}
+          {!i.vendorId && i.vendorName && <Text textStyle="xs" color="fg.muted">{i.vendorName}</Text>}
+        </Stack>
+      ),
     },
     { key: 'team', header: t('line.team'), priority: 'secondary', cell: (i) => i.teamName },
     { key: 'batch', header: t('queue.batch'), priority: 'secondary', cell: (i) => <RouteAnchor to={paths.batch(i.batchId)}>{`#${i.batchNumber} ${i.batchTitle}`}</RouteAnchor> },
@@ -62,7 +73,7 @@ export function PurchasingPage() {
   ];
   const rowActions = (i: QueueItem): RowAction[] => [{
     value: 'unbuy', icon: <LuBan />, danger: true,
-    label: i.orderedQuantity > 0 || i.plannedQuantity > 0 ? t('queue.skipRemaining') : t('queue.unpurchasable'),
+    label: skipsRemaining(i) ? t('queue.skipRemaining') : t('queue.unpurchasable'),
     onSelect: () => { unbuy.reset(); setMarking(i); },
   }];
 
@@ -77,8 +88,8 @@ export function PurchasingPage() {
           </>
         }
       />
-      {!me?.isPurchaser && <Notice>{t('queue.purchasersOnly')}</Notice>}
-      {queue.isPending && <Skeleton h="24" rounded="l3" />}
+      {!meLoading && !me?.isPurchaser && <Notice>{t('queue.purchasersOnly')}</Notice>}
+      {(meLoading || (me?.isPurchaser && queue.isPending)) && <Skeleton h="24" rounded="l3" />}
       {queue.error && <ErrorAlert error={queue.error} />}
       {queue.data && (
         <DataTable
@@ -115,10 +126,10 @@ export function PurchasingPage() {
         <Dialog.Body>{opened && <VendorOrderView id={opened} embedded />}</Dialog.Body>
       </AppDialog>
       <ReasonModal
-        opened={!!marking} danger title={marking && marking.plannedQuantity > 0 ? t('queue.skipRemaining') : t('queue.unpurchasable')}
-        body={marking && t('queue.unpurchasableHelp', { name: marking.name })} reasonLabel={t('queue.reason')} confirmLabel={t('queue.unpurchasable')}
+        opened={!!marking} danger title={marking && skipsRemaining(marking) ? t('queue.skipRemaining') : t('queue.unpurchasable')}
+        body={marking && t('queue.unpurchasableHelp', { name: marking.name })} reasonLabel={t('queue.reason')} confirmLabel={marking && skipsRemaining(marking) ? t('queue.skipRemaining') : t('queue.unpurchasable')}
         loading={unbuy.isPending} error={unbuy.error} onClose={() => setMarking(null)}
-        onConfirm={(reason) => marking && unbuy.mutate({ item: marking, reason }, { onSuccess: () => setMarking(null) })}
+        onConfirm={(reason) => marking && unbuy.mutate({ item: marking, action: 'unpurchasable', reason }, { onSuccess: () => setMarking(null) })}
       />
     </Stack>
   );

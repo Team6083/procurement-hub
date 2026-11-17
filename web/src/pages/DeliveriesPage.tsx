@@ -1,3 +1,4 @@
+import { deliveryLabel } from '../features/labels';
 import { Badge, Button, Card, HStack, Input, Skeleton, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
@@ -14,17 +15,20 @@ import { shortDate, shortDay } from '../features/dates';
 import { VoidedBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
 
+/** Voided boxes are hidden until asked for; that default is not a filter the user set. */
+const DEFAULT_FILTERS: DeliveryFilters = { voided: 'false' };
+
 /** /deliveries: every registered box, newest first; the second tab of the Receiving page (ReceivingLayout). */
 export function DeliveriesPage() {
   const { t } = useTranslation('receiving');
-  const [filters, setFilters] = useState<DeliveryFilters>({ voided: 'false' });
+  const [filters, setFilters] = useState<DeliveryFilters>(DEFAULT_FILTERS);
   const [search, setSearch] = useState('');
   const list = useDeliveryList({ ...filters, q: search });
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
-  const activeCount = [filters.voided, filters.from, filters.to].filter(Boolean).length;
+  const activeCount = [filters.voided !== DEFAULT_FILTERS.voided, filters.from, filters.to].filter(Boolean).length;
 
   const columns: DataColumn<DeliverySummary>[] = [
-    { key: 'no', header: t('list.number'), priority: 'primary', cell: (d) => <RouteAnchor to={paths.delivery(d.id)}>{`DL-${d.number}`}</RouteAnchor> },
+    { key: 'no', header: t('list.number'), priority: 'primary', cell: (d) => <RouteAnchor to={paths.delivery(d.id)}>{deliveryLabel(d.number)}</RouteAnchor> },
     { key: 'received', header: t('box.receivedAt'), cell: (d) => shortDay(d.receivedAt) },
     { key: 'source', header: t('box.source'), cell: (d) => d.source || '—' },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (d) => d.lineCount },
@@ -41,10 +45,10 @@ export function DeliveriesPage() {
   return (
     <Stack gap="4">
       <FilterBar
-        mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters({})}
+        mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters(DEFAULT_FILTERS)}
       >
         <SelectField size="sm"
-          label={t('list.voidedFilter')} placeholder={t('list.all')} value={filters.voided} onChange={(v) => setFilters({ ...filters, voided: (v || undefined) as DeliveryFilters['voided'] })}
+          label={t('list.voidedFilter')} placeholder={t('list.all')} value={filters.voided} onChange={(v) => setFilters({ ...filters, voided: v || undefined })}
           options={[{ value: 'false', label: t('list.active') }, { value: 'true', label: t('voided') }]}
         />
         <FormField label={t('list.from')}>

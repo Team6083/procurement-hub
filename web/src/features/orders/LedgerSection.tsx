@@ -1,3 +1,4 @@
+import { formatMoney, validateAmount } from '../money';
 import { Badge, Button, Card, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { EmptyState, SectionHeader, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
@@ -11,8 +12,6 @@ import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
 import { UndoDialog } from '../../components/UndoDialog';
-import { validateAmount } from '../money';
-import { formatMoney } from './money';
 
 function AddForm({ order, baseDigits, onClose }: { order: VendorOrder; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('purchasing');
@@ -20,26 +19,31 @@ function AddForm({ order, baseDigits, onClose }: { order: VendorOrder; baseDigit
   const [amount, setAmount] = useState('');
   const [lineId, setLineId] = useState('');
   const [reason, setReason] = useState('');
+  const [tried, setTried] = useState(false);
   const err = amount.trim() ? validateAmount(amount, { digits: baseDigits, sign: 'any', nonZero: true }) : 'format';
   return (
     <>
       <Dialog.Body>
         <Stack gap="3">
-          <FormField label={t('ledger.amount')} helperText={t('ledger.amountHelp')} errorText={amount.trim() && err ? t(`amount.${err}`) : undefined}>
+          <FormField label={t('ledger.amount')} helperText={t('ledger.amountHelp')} errorText={(amount.trim() || tried) && err ? t(`amount.${err}`) : undefined}>
             <Input value={amount} inputMode="decimal" onChange={(e) => setAmount(e.currentTarget.value)} />
           </FormField>
           <SelectField
             label={t('ledger.line')} value={lineId} onChange={setLineId} placeholder={t('ledger.spread')}
             options={order.lines.map((l) => ({ value: l.id, label: `#${l.lineNo} ${l.name}` }))}
           />
-          <FormField label={t('undo.reason')} required><Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} /></FormField>
+          <FormField label={t('undo.reason')} required errorText={tried && !reason.trim() ? t('common:validation.required') : undefined}><Textarea value={reason} onChange={(e) => setReason(e.currentTarget.value)} autoresize rows={2} /></FormField>
           <ErrorAlert error={add.error} />
         </Stack>
       </Dialog.Body>
       <DialogFooter>
         <Button
-          size="sm" loading={add.isPending} disabled={!!err || !reason.trim()}
-          onClick={() => add.mutate({ amountBase: amount.trim(), vendorOrderLineId: lineId || null, reason: reason.trim() }, { onSuccess: onClose })}
+          size="sm" loading={add.isPending}
+          onClick={() => {
+            setTried(true);
+            if (err || !reason.trim()) return;
+            add.mutate({ amountBase: amount.trim(), vendorOrderLineId: lineId || null, reason: reason.trim() }, { onSuccess: onClose });
+          }}
         >
           {t('ledger.add')}
         </Button>
@@ -83,7 +87,7 @@ export function LedgerSection({ order, baseCurrency, baseDigits, canWrite, headi
           : undefined}
         empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuReceipt />} title={t('ledger.empty')} /></Card.Body></Card.Root>}
       />
-      {order.ledger.some((e) => e.voided) && <Text fontSize="xs" color="fg.muted">{t('ledger.voidedHint')}</Text>}
+      {order.ledger.some((e) => e.voided) && <Text textStyle="xs" color="fg.muted">{t('ledger.voidedHint')}</Text>}
       <AppDialog open={adding} onClose={() => setAdding(false)} title={t('ledger.add')}>
         <AddForm order={order} baseDigits={baseDigits} onClose={() => setAdding(false)} />
       </AppDialog>
