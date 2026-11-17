@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
-import { auditActionKey } from './audit';
+import { auditActionKey } from '../../components/AuditTimeline';
 import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });

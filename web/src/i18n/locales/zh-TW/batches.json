@@ -143,7 +143,9 @@
     "fulfillment": "進度",
     "noVendor": "無",
     "vendorOther": "其他（自行輸入）",
-    "vendorOtherName": "廠商名稱"
+    "vendorOtherName": "廠商名稱",
+    "each": "單價 {{price}}",
+    "priorityOf": "優先度：{{label}}"
   },
   "totals": {
     "none": "沒有金額。",

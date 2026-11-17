@@ -12,18 +12,24 @@ import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { LineStatusBadge } from './StatusBadges';
 
-/** The unit price as an input that saves when it loses focus or Enter is pressed. */
-function PriceCell({ order, line }: { order: VendorOrder; line: VendorOrderLine }) {
+type PutLine = ReturnType<typeof usePutLine>;
+
+/**
+ * The unit price as an input that saves when it loses focus or Enter is pressed. A failed save keeps the typed value
+ * and says so in a word; the error itself shows once, above the table.
+ */
+function PriceCell({ order, line, put }: { order: VendorOrder; line: VendorOrderLine; put: PutLine }) {
   const { t } = useTranslation('purchasing');
-  const put = usePutLine(order.id);
   const [value, setValue] = useState(line.unitPrice ?? '');
   const [shown, setShown] = useState(line.unitPrice ?? '');
+  // Follow the server's price unless the user has typed something else.
   if ((line.unitPrice ?? '') !== shown) {
     setShown(line.unitPrice ?? '');
-    setValue(line.unitPrice ?? '');
+    if (value === shown) setValue(line.unitPrice ?? '');
   }
   const v = value.trim();
   const error = v ? validateAmount(v, { digits: currencyFractionDigits(order.currency) }) : order.status === 'placed' ? 'format' : null;
+  const failed = !!put.error && put.variables?.line.id === line.id;
   const save = () => {
     if (v === (line.unitPrice ?? '') || error) return;
     put.mutate({ line, body: { teamId: line.teamId, name: line.name, sku: line.sku, quantity: line.quantity, unitPrice: v || null } });
@@ -31,11 +37,11 @@ function PriceCell({ order, line }: { order: VendorOrder; line: VendorOrderLine 
   return (
     <Stack gap="1" align="flex-end">
       <Input
-        size="xs" w="28" textAlign="end" value={value} inputMode="decimal" aria-label={t('line.priceOf', { n: line.lineNo })} aria-invalid={!!error}
+        size="xs" w="28" textAlign="end" value={value} inputMode="decimal" aria-label={t('line.priceOf', { n: line.lineNo })} aria-invalid={!!error || failed}
         onChange={(e) => setValue(e.currentTarget.value)} onBlur={save} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
       {error && v && <Text textStyle="xs" color="fg.error">{t(`amount.${error}`)}</Text>}
-      {put.error && <ErrorAlert error={put.error} />}
+      {failed && !error && <Text textStyle="xs" color="fg.error">{t('line.notSaved')}</Text>}
     </Stack>
   );
 }
@@ -53,6 +59,7 @@ interface Props {
 
 export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, onRemove, onClose, onReopen }: Props) {
   const { t, i18n } = useTranslation('purchasing');
+  const put = usePutLine(order.id);
   const editable = canWrite && order.status !== 'cancelled';
   const placed = order.status === 'placed';
   const columns: DataColumn<VendorOrderLine>[] = [
@@ -71,7 +78,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
     { key: 'qty', header: t('line.quantity'), numeric: true, cell: (l) => l.quantity },
     {
       key: 'price', header: t('line.unitPriceShort'), numeric: true,
-      cell: (l) => (editable ? <PriceCell order={order} line={l} /> : formatMoney(l.unitPrice, order.currency, i18n.language)),
+      cell: (l) => (editable ? <PriceCell order={order} line={l} put={put} /> : formatMoney(l.unitPrice, order.currency, i18n.language)),
     },
     ...(placed
       ? [{
@@ -105,9 +112,12 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
     return out;
   };
   return (
-    <DataTable
-      aria-label={t('line.title')} rows={order.lines} columns={columns} getRowId={(l) => l.id}
-      rowActions={editable ? rowActions : undefined}
-    />
+    <Stack gap="2">
+      <ErrorAlert error={put.error} />
+      <DataTable
+        aria-label={t('line.title')} rows={order.lines} columns={columns} getRowId={(l) => l.id}
+        rowActions={editable ? rowActions : undefined}
+      />
+    </Stack>
   );
 }

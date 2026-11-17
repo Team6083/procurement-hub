@@ -37,7 +37,8 @@
     "edit": "編輯",
     "saved": "已儲存。",
     "close": "關閉",
-    "discardChanges": "捨棄我的修改"
+    "discardChanges": "捨棄我的修改",
+    "loadMore": "載入更多"
   },
   "validation": {
     "required": "此欄位為必填。",

@@ -37,7 +37,8 @@
     "edit": "Edit",
     "saved": "Saved.",
     "close": "Close",
-    "discardChanges": "Discard my changes"
+    "discardChanges": "Discard my changes",
+    "loadMore": "Load more"
   },
   "validation": {
     "required": "This field is required.",

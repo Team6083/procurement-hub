@@ -1,20 +1,21 @@
 import { Badge } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import type { LineStatus, OrderStatus } from '../../api/types';
+import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 
-const ORDER_COLOR: Record<OrderStatus, string> = { draft: 'gray', placed: 'blue', cancelled: 'red' };
-const LINE_COLOR: Record<LineStatus, string> = {
-  cancelled: 'red', draft: 'gray', short_accepted: 'orange', not_obtained: 'orange', received: 'green', partially_received: 'teal', ordered: 'blue',
+const ORDER_TONE: Record<OrderStatus, StatusTone> = { draft: 'neutral', placed: 'active', cancelled: 'neutral' };
+const LINE_TONE: Record<LineStatus, StatusTone> = {
+  cancelled: 'neutral', draft: 'neutral', short_accepted: 'finished', not_obtained: 'finished', received: 'done', partially_received: 'active', ordered: 'active',
 };
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
   const { t } = useTranslation('purchasing');
-  return <Badge variant="subtle" colorPalette={ORDER_COLOR[status]}>{t(`orderStatus.${status}`)}</Badge>;
+  return <StatusBadge tone={ORDER_TONE[status]}>{t(`orderStatus.${status}`)}</StatusBadge>;
 }
 
 export function LineStatusBadge({ status }: { status: LineStatus }) {
   const { t } = useTranslation('purchasing');
-  return <Badge variant="subtle" colorPalette={LINE_COLOR[status] ?? 'gray'}>{t(`lineStatus.${status}`, { defaultValue: status })}</Badge>;
+  return <StatusBadge tone={LINE_TONE[status] ?? 'neutral'}>{t(`lineStatus.${status}`, { defaultValue: status })}</StatusBadge>;
 }
 
 /** Amounts that are not final (computed from a reference rate, spec section 11). */

@@ -8,7 +8,7 @@ import { showSsoLock, type RoleSources } from './roles';
 export function RoleBadge({ role }: { role: RoleOrNone | null | undefined }) {
   const { t } = useTranslation('teams');
   return (
-    <Badge colorPalette={role === 'admin' ? 'purple' : role === 'member' ? 'blue' : 'gray'} variant="subtle">
+    <Badge colorPalette={role === 'admin' ? 'teal' : role === 'member' ? 'blue' : 'gray'} variant="subtle">
       {t(`role.${role || 'none'}`)}
     </Badge>
   );

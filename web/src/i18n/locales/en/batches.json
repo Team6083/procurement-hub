@@ -143,7 +143,9 @@
     "fulfillment": "Progress",
     "noVendor": "None",
     "vendorOther": "Other (type a name)",
-    "vendorOtherName": "Vendor name"
+    "vendorOtherName": "Vendor name",
+    "each": "{{price}} each",
+    "priorityOf": "Priority: {{label}}"
   },
   "totals": {
     "none": "No amounts.",

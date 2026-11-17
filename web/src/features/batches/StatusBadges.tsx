@@ -1,31 +1,30 @@
-import { Badge } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import type { BatchStatus, Fulfillment, ItemStatus } from '../../api/types';
+import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 
-const BATCH_COLOR: Record<BatchStatus, string> = {
-  proposed: 'yellow', proposal_rejected: 'red', draft: 'gray', collecting: 'blue', reviewing: 'purple',
-  purchasing: 'cyan', receiving: 'teal', completed: 'green', cancelled: 'gray',
+const BATCH_TONE: Record<BatchStatus, StatusTone> = {
+  proposed: 'attention', proposal_rejected: 'bad', draft: 'neutral', collecting: 'active', reviewing: 'attention',
+  purchasing: 'active', receiving: 'active', completed: 'finished', cancelled: 'neutral',
 };
-const ITEM_COLOR: Partial<Record<ItemStatus, string>> = {
-  pending: 'yellow', approved: 'green', returned: 'orange', rejected: 'red', withdrawn: 'gray',
+const ITEM_TONE: Partial<Record<ItemStatus, StatusTone>> = {
+  pending: 'attention', approved: 'done', returned: 'attention', rejected: 'bad', withdrawn: 'neutral',
+};
+const FULFILLMENT_TONE: Record<Fulfillment, StatusTone> = {
+  external: 'neutral', unpurchasable: 'neutral', not_ordered: 'attention', partially_ordered: 'active', ordered: 'active',
+  partially_received: 'active', received: 'done', closed: 'finished',
 };
 
 export function BatchStatusBadge({ status }: { status: BatchStatus }) {
   const { t } = useTranslation('batches');
-  return <Badge variant="subtle" colorPalette={BATCH_COLOR[status] ?? 'gray'}>{t(`status.${status}`, { defaultValue: status })}</Badge>;
+  return <StatusBadge tone={BATCH_TONE[status] ?? 'neutral'}>{t(`status.${status}`, { defaultValue: status })}</StatusBadge>;
 }
 
 export function ItemStatusBadge({ status }: { status: ItemStatus }) {
   const { t } = useTranslation('batches');
-  return <Badge variant="subtle" colorPalette={ITEM_COLOR[status] ?? 'blue'}>{t(`itemStatus.${status}`, { defaultValue: status })}</Badge>;
+  return <StatusBadge tone={ITEM_TONE[status] ?? 'active'}>{t(`itemStatus.${status}`, { defaultValue: status })}</StatusBadge>;
 }
-
-const FULFILLMENT_COLOR: Record<Fulfillment, string> = {
-  external: 'gray', unpurchasable: 'gray', not_ordered: 'yellow', partially_ordered: 'orange', ordered: 'blue',
-  partially_received: 'teal', received: 'green', closed: 'green',
-};
 
 export function FulfillmentBadge({ value }: { value: Fulfillment }) {
   const { t } = useTranslation('batches');
-  return <Badge variant="subtle" colorPalette={FULFILLMENT_COLOR[value] ?? 'gray'}>{t(`fulfillment.${value}`, { defaultValue: value })}</Badge>;
+  return <StatusBadge tone={FULFILLMENT_TONE[value] ?? 'neutral'}>{t(`fulfillment.${value}`, { defaultValue: value })}</StatusBadge>;
 }

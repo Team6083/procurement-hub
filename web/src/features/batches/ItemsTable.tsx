@@ -85,9 +85,13 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
       cell: (it) => {
         const url = safeHttpUrl(it.productUrl);
         return (
-          <Box as="span" display="block" textAlign="start">
+          <Box as="span" display="block" textAlign="start" overflowWrap="anywhere">
             <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
-            {url ? <Link href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : <Text as="span">{it.name}</Text>}
+            {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : <Text as="span">{it.name}</Text>}
+            {/* The priority rides along with the name instead of taking a column of its own (B3: the table must fit). */}
+            <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
+              <Badge variant="outline" size="sm" ms="1.5" tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
+            </Tooltip>
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}
@@ -100,21 +104,18 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
     }),
     ...(showRequester ? [col('requester', t('item.requester'), { cell: (it) => nameOf(it.requesterId) })] : []),
     col('subgroup', t('item.subgroup'), { priority: 'secondary', cell: (it) => subgroupName(it.subgroupId) || '—' }),
-    col('priority', t('item.priority'), {
-      priority: 'secondary',
-      cell: (it) => (
-        <Tooltip content={prio(it.priority)}>
-          <Badge variant="outline" tabIndex={0}>{it.priority}</Badge>
-        </Tooltip>
-      ),
-    }),
     col('vendor', t('item.vendor'), { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
     col('quantity', t('item.quantity'), { numeric: true, cell: (it) => it.quantity }),
-    col('unitPrice', t('item.unitPrice'), {
-      numeric: true, priority: 'secondary',
-      cell: (it) => formatMoney(it.estimatedUnitPrice.amount, it.estimatedUnitPrice.currency),
+    // Unit price under the total: one money column instead of two.
+    col('lineTotal', t('item.lineTotal'), {
+      numeric: true,
+      cell: (it) => (
+        <Box as="span" display="block">
+          <Text as="span" display="block">{formatMoney(format(lineTotal(it)), it.estimatedUnitPrice.currency)}</Text>
+          <Text as="span" display="block" textStyle="xs" color="fg.muted">{t('item.each', { price: formatMoney(it.estimatedUnitPrice.amount, it.estimatedUnitPrice.currency) })}</Text>
+        </Box>
+      ),
     }),
-    col('lineTotal', t('item.lineTotal'), { numeric: true, cell: (it) => formatMoney(format(lineTotal(it)), it.estimatedUnitPrice.currency) }),
     col('status', t('item.status'), { cell: (it) => (
       <HStack gap="1" wrap="wrap">
         <ItemStatusBadge status={it.status} />

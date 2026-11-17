@@ -1,4 +1,4 @@
-import { Badge, Box, Button, Card, HStack, Icon, Separator, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Card, HStack, Icon, Separator, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, PageHeader, SectionHeader } from '@team6083/ui';
 import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -11,6 +11,7 @@ import { MyTasksCard } from '../features/batches/MyTasksCard';
 import { CreateTeamModal } from '../features/teams/CreateTeamModal';
 import { RoleBadge } from '../features/teams/RoleBadges';
 import { paths } from '../paths';
+import { ListSkeleton } from '../components/PageStates';
 
 export function HomePage() {
   const { t } = useTranslation('teams');
@@ -39,7 +40,7 @@ export function HomePage() {
             )
           }
         />
-        {teams.isPending && <Skeleton h="16" rounded="l3" />}
+        {teams.isPending && <ListSkeleton rows={2} />}
         {teams.error && <ErrorAlert error={teams.error} />}
         {teams.data && (
           <Card.Root size="sm">

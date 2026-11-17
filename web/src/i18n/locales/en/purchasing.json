@@ -111,7 +111,8 @@
     "problem": "{{count}} with a problem",
     "status": "Status",
     "total": "Total (base)",
-    "problemLink": "{{count}} {{type}} ({{state}}): open delivery"
+    "problemLink": "{{count}} {{type}} ({{state}}): open delivery",
+    "notSaved": "Not saved"
   },
   "amount": {
     "format": "Enter a number.",

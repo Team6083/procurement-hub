@@ -110,7 +110,8 @@
     "problem": "{{count}} 件有問題",
     "status": "狀態",
     "total": "合計（本位幣）",
-    "problemLink": "{{count}} 件{{type}}（{{state}}）：查看到貨紀錄"
+    "problemLink": "{{count}} 件{{type}}（{{state}}）：查看到貨紀錄",
+    "notSaved": "未儲存"
   },
   "amount": {
     "format": "請輸入數字。",

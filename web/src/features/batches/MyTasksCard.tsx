@@ -1,4 +1,4 @@
-import { Badge, Card, HStack, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Badge, Card, HStack, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, SectionHeader } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import type { Batch } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
+import { ListSkeleton } from '../../components/PageStates';
 
 /** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
 function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
@@ -60,7 +61,7 @@ export function MyTasksCard() {
   const counts = [d?.draftVendorOrders?.count, d?.openProblems?.count, d?.linesToClose?.count, d?.deliveriesToMatch?.count];
   const empty = proposals.length + review.length + returned.length + confirm.length + purchase.length + counts.reduce<number>((n, c) => n + (c ?? 0), 0) === 0;
 
-  if (tasks.isPending) return <Skeleton h="24" rounded="l3" />;
+  if (tasks.isPending) return <ListSkeleton rows={3} />;
   if (tasks.error) return <ErrorAlert error={tasks.error} />;
   if (empty) {
     return (

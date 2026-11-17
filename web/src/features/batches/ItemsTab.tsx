@@ -139,6 +139,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
 
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}
 
+      <ErrorAlert error={action.variables?.action === 'resubmit' ? action.error : null} />
       <ItemsTable
         items={visible}
         team={team}
@@ -156,7 +157,6 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
           </Card.Root>
         }
       />
-      <ErrorAlert error={action.variables?.action === 'resubmit' ? action.error : null} />
       {visible.length > 0 && <EstimateSummary items={visible.filter(countsTowardEstimate)} rates={rates} hint={t('totals.excludes')} />}
 
       <SelectionBar count={selected.length} onClear={clearSelection}>

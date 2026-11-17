@@ -115,8 +115,7 @@ export function isApprover(b: Pick<Batch, 'assignments'>, c: Caller): boolean {
 
 /** Reviewing: approvers and team admins (system admins are not implicit approvers on the backend). */
 export function canReview(b: Batch, c: Caller): boolean {
-  if (c.archived || b.status !== 'reviewing') return false;
-  return isTeamAdmin(c) || b.assignments.approvers.includes(c.userId);
+  return !c.archived && b.status === 'reviewing' && isApprover(b, c);
 }
 
 export function canForceReject(it: Pick<Item, 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
