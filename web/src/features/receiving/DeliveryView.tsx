@@ -34,7 +34,7 @@ export function DeliveryView({ id }: { id: string }) {
   const closeMark = () => { setMarking(null); noMatch.reset(); };
 
   return (
-    <Stack gap="6" maxW="5xl">
+    <Stack gap="6">
       <Stack gap="4">
         <PageHeader
           mb="0" title={`DL-${d.number}`} badge={d.voided ? <VoidedBadge /> : undefined}

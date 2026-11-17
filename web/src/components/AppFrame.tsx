@@ -17,12 +17,12 @@ export function isActive(href: string, pathname: string): boolean {
 }
 
 /**
- * Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). The whole receiving
- * section is wide, so moving between its tabs, a delivery and a new delivery never shifts the header; the forms and
- * fact cards on those pages cap themselves at 5xl.
+ * Data pages whose tables need more than the 5xl column (the team's DESIGN.md: Data pages). The receiving section
+ * (its tabs, a delivery, a new delivery) has small tables and phone-first forms, so all of it stays in the column and
+ * its width never changes while moving around in it.
  */
 export function isWidePage(pathname: string): boolean {
-  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?|receiving|deliveries(\/[^/]+)?)\/?$/.test(pathname);
+  return /^\/(batches\/[^/]+|purchasing|vendor-orders(\/[^/]+)?)\/?$/.test(pathname);
 }
 
 /** The team app frame (AppShell) with this app's pages and account menu. */

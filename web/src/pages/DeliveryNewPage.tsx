@@ -53,7 +53,7 @@ function NewDelivery() {
   };
 
   return (
-    <Stack gap="4" maxW="5xl">
+    <Stack gap="4">
       <PageHeader mb="0" title={t('box.title')} description={t('box.intro')} />
       <Card.Root size="sm">
         <Card.Body>
