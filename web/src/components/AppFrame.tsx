@@ -16,16 +16,6 @@ export function isActive(href: string, pathname: string): boolean {
   return href === '/' ? pathname === '/' : pathname === href || pathname.startsWith(`${href}/`);
 }
 
-/**
- * The width is decided per section, never per page, so moving around inside a section never changes it. Batches
- * (list and detail) and Purchasing (queue, vendor orders, and the vendor list when it is Purchasing's tab) hold the
- * wide tables (the team's DESIGN.md: Data pages); home, teams, receiving and admin stay in the column.
- */
-function isWideSection(pathname: string, vendorsInPurchasing: boolean): boolean {
-  if (/^\/(batches|purchasing|vendor-orders)(\/|$)/.test(pathname)) return true;
-  return vendorsInPurchasing && isActive(paths.adminVendors, pathname);
-}
-
 /** The team app frame (AppShell) with this app's pages and account menu. */
 export function AppFrame({ children }: { children: ReactNode }) {
   const { t, i18n } = useTranslation();
@@ -61,7 +51,8 @@ export function AppFrame({ children }: { children: ReactNode }) {
   return (
     <AppShell
       appName={t('app.name')}
-      width={isWideSection(pathname, canPurchase && !isSystemAdmin) ? 'wide' : 'column'}
+      // One width for the whole app, so the header and content never move while navigating; tables need the wide one.
+      width="wide"
       nav={items}
       renderLink={renderLink}
       account={

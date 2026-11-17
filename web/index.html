@@ -7,6 +7,8 @@
     <style>
       /* The app frame's top margin must stay inside #root; collapsing through body made every page 8px taller than the viewport. */
       #root { display: flow-root; }
+      /* Reserve the scrollbar's space so pages don't shift sideways when one gets long enough to scroll. */
+      html { scrollbar-gutter: stable; }
     </style>
   </head>
   <body>
