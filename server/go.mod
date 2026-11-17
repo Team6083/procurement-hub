@@ -1,6 +1,6 @@
 module github.com/team6083/procurement-hub/server
 
-go 1.26.8
+go 1.26.11
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0

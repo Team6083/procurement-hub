@@ -7,7 +7,7 @@
 # The Go version lives only in go.mod (spec section 5.1). CI and the release
 # workflow always pass it as GO_VERSION; the default below is a fallback for
 # plain local builds, and CI fails if it differs from go.mod.
-ARG GO_VERSION=1.26.8
+ARG GO_VERSION=1.26.11
 
 FROM golang:${GO_VERSION}-bookworm AS build
 WORKDIR /src
