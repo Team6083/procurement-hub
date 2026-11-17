@@ -31,10 +31,17 @@ const matchLength = (tab: SectionTab, pathname: string) =>
 
 /**
  * The one sub-navigation pattern of the app: a section's PageHeader, then URL-routed line tabs under it, then the
- * open tab's page. The pages never repeat the tab's name as a heading. With a single tab the tab's own label is the
- * heading and no tab list shows.
+ * open tab's page. The pages never repeat the tab's name as a heading. With a single tab no tab list shows, and the
+ * tab's own label is the heading unless `keepTitle`.
  */
-export function SectionLayout({ title, badge, tabs, children }: { title: ReactNode; badge?: ReactNode; tabs: SectionTab[]; children?: ReactNode }) {
+export function SectionLayout({ title, badge, tabs, keepTitle = false, children }: {
+  title: ReactNode;
+  badge?: ReactNode;
+  tabs: SectionTab[];
+  /** Keep `title` as the heading even with a single tab (a record's name, like a team's). */
+  keepTitle?: boolean;
+  children?: ReactNode;
+}) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [slot, setSlot] = useState<HTMLElement | null>(null);
@@ -45,7 +52,7 @@ export function SectionLayout({ title, badge, tabs, children }: { title: ReactNo
     <Stack gap="4">
       <PageHeader
         mb="0"
-        title={single && active ? active.label : title}
+        title={single && active && !keepTitle ? active.label : title}
         badge={badge}
         description={active?.description}
         actions={<HStack ref={setSlot} gap="2" wrap="wrap" />}

@@ -1,6 +1,5 @@
 {
   "title": "Role mappings",
-  "forbidden": "Only system admins can manage role mappings.",
   "intro": "Rules map identity-provider claim values to team roles. Rules loaded from the rules file are managed and read-only.",
   "create": "Create rule",
   "edit": "Edit rule",

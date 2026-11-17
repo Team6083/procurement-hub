@@ -48,12 +48,6 @@
     "noDescription": "No description."
   },
   "settings": {
-    "nav": {
-      "general": "General",
-      "subgroups": "Subgroups",
-      "members": "Members"
-    },
-    "forbidden": "You do not have access to this page.",
     "archivedNotice": "This team is archived and read-only."
   },
   "general": {
@@ -101,7 +95,6 @@
     "effective": "Role",
     "manualRole": "Manual role",
     "defaultSubgroup": "Default subgroup",
-    "actions": "Actions",
     "role": "Role",
     "add": "Add member",
     "addButton": "Add",

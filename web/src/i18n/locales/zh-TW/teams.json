@@ -48,12 +48,6 @@
     "noDescription": "沒有說明。"
   },
   "settings": {
-    "nav": {
-      "general": "一般",
-      "subgroups": "子群組",
-      "members": "成員"
-    },
-    "forbidden": "您沒有權限存取此頁面。",
     "archivedNotice": "此團隊已封存，僅供檢視。"
   },
   "general": {
@@ -101,7 +95,6 @@
     "effective": "角色",
     "manualRole": "手動角色",
     "defaultSubgroup": "預設子群組",
-    "actions": "操作",
     "role": "角色",
     "add": "新增成員",
     "addButton": "新增",

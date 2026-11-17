@@ -43,7 +43,7 @@ export function TeamShell() {
 
   return (
     <TeamContext.Provider value={{ teamId, slug, team: data, full, canAdmin, isMember: member }}>
-      <SectionLayout title={data.name} badge={data.archived && <Badge colorPalette="orange" variant="subtle">{t('team.archived')}</Badge>} tabs={tabs} />
+      <SectionLayout keepTitle title={data.name} badge={data.archived && <Badge colorPalette="orange" variant="subtle">{t('team.archived')}</Badge>} tabs={tabs} />
     </TeamContext.Provider>
   );
 }
