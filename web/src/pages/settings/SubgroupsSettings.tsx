@@ -91,7 +91,7 @@ function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
         </HStack>
         {!editing && !confirming && <ErrorAlert error={patch.error} />}
         <ReasonModal
-          opened={confirming} danger title={t('subgroups.deactivateTitle', { name: group.name })} body={t('subgroups.deactivateBody')}
+          open={confirming} danger title={t('subgroups.deactivateTitle', { name: group.name })} body={t('subgroups.deactivateBody')}
           confirmLabel={t('subgroups.deactivate')} loading={patch.isPending} error={patch.error} onClose={() => setConfirming(false)}
           onConfirm={() => patch.mutate({ active: false }, { onSuccess: () => setConfirming(false) })}
         />

@@ -7,6 +7,7 @@ import type { RoleMapping } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { roleMappingSchema, type RoleMappingForm } from '../teams/schemas';
 
@@ -29,7 +30,7 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
     else create.mutate(v, done);
   });
   const err = form.formState.errors;
-  const msg = (m: string | undefined) => (m ? t(m) : undefined);
+  const fieldError = useFieldError();
   return (
     <>
       <Dialog.Body>
@@ -49,10 +50,10 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
                 />
               )}
             />
-            <FormField label={t('form.pattern')} helperText={t('patternHelp')} errorText={msg(err.pattern?.message)}>
+            <FormField label={t('form.pattern')} required helperText={t('patternHelp')} errorText={fieldError(err.pattern)}>
               <Input autoCapitalize="none" {...form.register('pattern')} />
             </FormField>
-            <FormField label={t('form.team')} helperText={t('teamHelp')} errorText={msg(err.team?.message)}>
+            <FormField label={t('form.team')} required helperText={t('teamHelp')} errorText={fieldError(err.team)}>
               <Input autoCapitalize="none" {...form.register('team')} />
             </FormField>
             <Controller
@@ -81,7 +82,7 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
               )}
             />
             <FormField label={t('form.description')}>
-              <Textarea {...form.register('description')} />
+              <Textarea autoresize rows={2} {...form.register('description')} />
             </FormField>
             <ErrorAlert error={mutation.error} />
           </Stack>
@@ -95,10 +96,10 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
 }
 
 /** Create (rule === null) or edit a UI-managed rule. */
-export function RoleMappingModal({ opened, rule, onClose }: { opened: boolean; rule: RoleMapping | null; onClose: () => void }) {
+export function RoleMappingModal({ open, rule, onClose }: { open: boolean; rule: RoleMapping | null; onClose: () => void }) {
   const { t } = useTranslation('admin');
   return (
-    <AppDialog open={opened} onClose={onClose} title={rule ? t('edit') : t('create')}>
+    <AppDialog open={open} onClose={onClose} title={rule ? t('edit') : t('create')}>
       <Inner key={rule?.id ?? 'new'} rule={rule} onClose={onClose} />
     </AppDialog>
   );

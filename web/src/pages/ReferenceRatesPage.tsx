@@ -1,82 +1,100 @@
-import { Button, Card, HStack, Input, Skeleton, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, PageHeader } from '@team6083/ui';
+import { Button, Card, Dialog, Input, Stack } from '@chakra-ui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { LuCoins } from 'react-icons/lu';
-import { useMe } from '../api/me';
+import { LuCoins, LuPencil, LuTrash2 } from 'react-icons/lu';
+import { z } from 'zod';
 import { useMeta } from '../api/meta';
 import { useDeleteRate, usePutRate, useReferenceRates } from '../api/vendors';
 import type { ReferenceRate } from '../api/types';
+import { useAccess } from '../auth/useAccess';
+import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
+import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';
+import { AppDialog, DialogFooter } from '../components/ui/dialog';
 import { FormField } from '../components/ui/field';
-import { MAX_RATE_DIGITS, validateAmount } from '../features/money';
+import { useFieldError } from '../components/ui/form';
 import { shortDate } from '../features/dates';
+import { MAX_RATE_DIGITS, validateAmount } from '../features/money';
 
-function RateRow({ currency, rate, base, canEdit }: { currency: string; rate: ReferenceRate | undefined; base: string; canEdit: boolean }) {
+interface Row {
+  currency: string;
+  rate: ReferenceRate | undefined;
+}
+
+const rateSchema = z.object({
+  rate: z.string().trim().refine((v) => validateAmount(v, { digits: MAX_RATE_DIGITS, nonZero: true }) === null, 'admin:rates.invalid'),
+});
+
+function RateForm({ row, base, onClose }: { row: Row; base: string; onClose: () => void }) {
   const { t } = useTranslation('admin');
   const put = usePutRate();
-  const del = useDeleteRate();
-  const [value, setValue] = useState(rate?.rateToBase ?? '');
-  const [confirming, setConfirming] = useState(false);
-  const changed = value.trim() !== (rate?.rateToBase ?? '');
-  const invalid = value.trim() !== '' && validateAmount(value.trim(), { digits: MAX_RATE_DIGITS, nonZero: true }) !== null;
+  const form = useForm({ resolver: zodResolver(rateSchema), defaultValues: { rate: row.rate?.rateToBase ?? '' } });
+  const fieldError = useFieldError();
+  const submit = form.handleSubmit((v) => put.mutate({ currency: row.currency, rateToBase: v.rate, existing: row.rate }, { onSuccess: onClose }));
   return (
-    <Card.Root size="sm">
-      <Card.Body gap="2">
-        <HStack justify="space-between" wrap="wrap" gap="3">
-          <Text fontWeight="semibold">{currency}</Text>
-          {canEdit ? (
-            <HStack gap="2" flex="1" justify="flex-end" wrap="wrap">
-              <FormField flex="1" errorText={invalid ? t('rates.invalid') : undefined}>
-                <Input aria-label={t('rates.rate', { currency, base })} value={value} inputMode="decimal"
-                  onChange={(e) => setValue(e.currentTarget.value)} />
-              </FormField>
-              {/* Save shows once there is something to save; an invalid value is explained under the field and not sent. */}
-              {changed && value.trim() !== '' && (
-                <Button size="sm" loading={put.isPending}
-                  onClick={() => { if (!invalid) put.mutate({ currency, rateToBase: value.trim(), existing: rate }); }}>
-                  {t('common:actions.save')}
-                </Button>
-              )}
-              {rate && <Button size="sm" variant="outline" colorPalette="red" loading={del.isPending} onClick={() => setConfirming(true)}>{t('common:actions.delete')}</Button>}
-            </HStack>
-          ) : (
-            <Text fontVariantNumeric="tabular-nums">{rate ? `1 ${currency} = ${rate.rateToBase} ${base}` : t('rates.none')}</Text>
-          )}
-        </HStack>
-        {rate && <Text textStyle="xs" color="fg.muted">{t('rates.updated', { date: shortDate(rate.updatedAt) })}</Text>}
-        <ErrorAlert error={put.error ?? del.error} />
-        <ReasonModal
-          opened={confirming} danger title={t('rates.deleteTitle', { currency })} body={t('rates.deleteBody', { currency })}
-          confirmLabel={t('common:actions.delete')} loading={del.isPending} error={del.error} onClose={() => setConfirming(false)}
-          onConfirm={() => rate && del.mutate(rate, { onSuccess: () => setConfirming(false) })}
-        />
-      </Card.Body>
-    </Card.Root>
+    <>
+      <Dialog.Body>
+        <form id="rate-form" onSubmit={submit} noValidate>
+          <Stack gap="3">
+            <FormField label={t('rates.rate', { currency: row.currency, base })} required errorText={fieldError(form.formState.errors.rate)}>
+              <Input inputMode="decimal" {...form.register('rate')} />
+            </FormField>
+            <ErrorAlert error={put.error} />
+          </Stack>
+        </form>
+      </Dialog.Body>
+      <DialogFooter>
+        <Button size="sm" type="submit" form="rate-form" loading={put.isPending}>{t('common:actions.save')}</Button>
+      </DialogFooter>
+    </>
   );
 }
 
-/** Global reference rates: system admins edit them, everyone else reads them. */
+/** Global reference rates, one row per supported currency: system admins set and delete them, everyone else reads them. */
 export function ReferenceRatesPage() {
   const { t } = useTranslation('admin');
-  const { isSystemAdmin } = useMe();
+  const { isSystemAdmin } = useAccess();
   const meta = useMeta();
   const rates = useReferenceRates();
+  const del = useDeleteRate();
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [deleting, setDeleting] = useState<ReferenceRate | null>(null);
   const base = meta.data?.baseCurrency ?? '';
-  const currencies = (meta.data?.supportedCurrencies ?? []).filter((c) => c !== base);
+  const rows: Row[] = (meta.data?.supportedCurrencies ?? []).filter((c) => c !== base).map((currency) => ({ currency, rate: rates.data?.find((r) => r.currency === currency) }));
+
+  const columns: DataColumn<Row>[] = [
+    { key: 'currency', header: t('rates.currency'), priority: 'primary', cell: (r) => r.currency },
+    { key: 'rate', header: t('rates.value'), numeric: true, cell: (r) => (r.rate ? `1 ${r.currency} = ${r.rate.rateToBase} ${base}` : t('rates.none')) },
+    { key: 'updated', header: t('rates.updatedAt'), priority: 'secondary', cell: (r) => (r.rate ? shortDate(r.rate.updatedAt) : '—') },
+  ];
+  const rowActions = (r: Row): RowAction[] => [
+    { value: 'edit', icon: <LuPencil />, label: r.rate ? t('rates.edit') : t('rates.set'), onSelect: () => setEditing(r) },
+    ...(r.rate ? [{ value: 'delete', icon: <LuTrash2 />, label: t('rates.delete'), danger: true, onSelect: () => { del.reset(); setDeleting(r.rate!); } }] : []),
+  ];
+
   return (
     <Stack gap="4">
-      <PageHeader mb="0" title={t('rates.title')} description={t('rates.intro', { base })} />
-      {rates.isPending && <Skeleton h="24" rounded="l3" />}
+      {rates.isPending && <ListSkeleton />}
       {rates.error && <ErrorAlert error={rates.error} />}
-      {rates.data && currencies.length === 0 && (
-        <Card.Root size="sm"><Card.Body><EmptyState icon={<LuCoins />} title={t('rates.noCurrencies')} /></Card.Body></Card.Root>
+      {rates.data && (
+        <DataTable
+          aria-label={t('rates.title')} rows={rows} columns={columns} getRowId={(r) => r.currency}
+          rowActions={isSystemAdmin ? rowActions : undefined}
+          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuCoins />} title={t('rates.noCurrencies')} /></Card.Body></Card.Root>}
+        />
       )}
-      {rates.data && currencies.map((c) => (
-        <RateRow key={`${c}:${rates.data.find((r) => r.currency === c)?.version ?? 0}`} currency={c}
-          rate={rates.data.find((r) => r.currency === c)} base={base} canEdit={isSystemAdmin} />
-      ))}
+      <AppDialog open={!!editing} onClose={() => setEditing(null)} title={editing?.rate ? t('rates.edit') : t('rates.set')} size="sm">
+        {editing && <RateForm row={editing} base={base} onClose={() => setEditing(null)} />}
+      </AppDialog>
+      <ReasonModal
+        open={!!deleting} danger title={t('rates.deleteTitle', { currency: deleting?.currency })} body={t('rates.deleteBody', { currency: deleting?.currency })}
+        confirmLabel={t('common:actions.delete')} loading={del.isPending} error={del.error} onClose={() => setDeleting(null)}
+        onConfirm={() => deleting && del.mutate(deleting, { onSuccess: () => setDeleting(null) })}
+      />
     </Stack>
   );
 }

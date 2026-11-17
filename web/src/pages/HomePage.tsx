@@ -1,6 +1,6 @@
-import { Badge, Box, Button, Card, HStack, Icon, Separator, Skeleton, Stack, Text, useDisclosure } from '@chakra-ui/react';
+import { Badge, Box, Button, Card, HStack, Icon, Separator, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, PageHeader, SectionHeader } from '@team6083/ui';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuChevronRight, LuPlus, LuUsers } from 'react-icons/lu';
 import { useMe } from '../api/me';
@@ -16,7 +16,7 @@ export function HomePage() {
   const { t } = useTranslation('teams');
   const { memberships, isSystemAdmin } = useMe();
   const teams = useTeams();
-  const { open: opened, onOpen: open, onClose: close } = useDisclosure();
+  const [creating, setCreating] = useState(false);
   const roleOf = (id: string) => memberships.find((m) => m.teamId === id)?.role;
 
   return (
@@ -32,7 +32,7 @@ export function HomePage() {
           count={teams.data?.length}
           actions={
             isSystemAdmin && (
-              <Button size="sm" variant="outline" onClick={open}>
+              <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
                 <LuPlus />
                 {t('home.createTeam')}
               </Button>
@@ -78,7 +78,7 @@ export function HomePage() {
           </Card.Root>
         )}
       </Box>
-      {isSystemAdmin && <CreateTeamModal opened={opened} onClose={close} />}
+      {isSystemAdmin && <CreateTeamModal open={creating} onClose={() => setCreating(false)} />}
     </Stack>
   );
 }

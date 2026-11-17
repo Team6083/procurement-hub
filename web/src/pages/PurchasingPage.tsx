@@ -34,7 +34,7 @@ export function PurchasingPage() {
   const queue = useQueue(!!me?.isPurchaser);
   const [picked, setPicked] = useState<string[]>([]);
   const [sending, setSending] = useState(false);
-  const [opened, setOpened] = useState<string | null>(null);
+  const [viewing, setViewing] = useState<string | null>(null);
   const [marking, setMarking] = useState<QueueItem | null>(null);
   const unbuy = useItemAction();
 
@@ -117,16 +117,16 @@ export function PurchasingPage() {
       </SelectionBar>
       {sending && (
         <SendToOrderModal
-          opened items={selected} vendorId={selectedGroup?.vendorId ?? ''} otherTeamCount={selectedGroup?.teamIds.length ?? 0}
+          open items={selected} vendorId={selectedGroup?.vendorId ?? ''} otherTeamCount={selectedGroup?.teamIds.length ?? 0}
           onClose={() => setSending(false)}
-          onDone={(id) => { setSending(false); setPicked([]); setOpened(id); }}
+          onDone={(id) => { setSending(false); setPicked([]); setViewing(id); }}
         />
       )}
-      <AppDialog open={!!opened} onClose={() => setOpened(null)} size="xl" title={t('queue.orderDialog')}>
-        <Dialog.Body>{opened && <VendorOrderView id={opened} embedded />}</Dialog.Body>
+      <AppDialog open={!!viewing} onClose={() => setViewing(null)} size="xl" title={t('queue.orderDialog')}>
+        <Dialog.Body>{viewing && <VendorOrderView id={viewing} embedded />}</Dialog.Body>
       </AppDialog>
       <ReasonModal
-        opened={!!marking} danger title={marking && skipsRemaining(marking) ? t('queue.skipRemaining') : t('queue.unpurchasable')}
+        open={!!marking} danger title={marking && skipsRemaining(marking) ? t('queue.skipRemaining') : t('queue.unpurchasable')}
         body={marking && t('queue.unpurchasableHelp', { name: marking.name })} reasonLabel={t('queue.reason')} confirmLabel={marking && skipsRemaining(marking) ? t('queue.skipRemaining') : t('queue.unpurchasable')}
         loading={unbuy.isPending} error={unbuy.error} onClose={() => setMarking(null)}
         onConfirm={(reason) => marking && unbuy.mutate({ item: marking, action: 'unpurchasable', reason }, { onSuccess: () => setMarking(null) })}

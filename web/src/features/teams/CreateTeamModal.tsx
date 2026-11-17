@@ -10,11 +10,11 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { UserSearchSelect } from '../../components/UserSearchSelect';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { useFieldError } from '../../components/ui/form';
 import { paths } from '../../paths';
 import { createTeamSchema, type CreateTeamForm } from './schemas';
 
-/** System-admin "Create team" dialog (POST /teams). */
-export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
+function Inner({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation('teams');
   const api = useApi();
   const navigate = useNavigate();
@@ -22,40 +22,31 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
     resolver: zodResolver(createTeamSchema),
     defaultValues: { slug: '', name: '', description: '', firstAdminUserId: '' },
   });
-  const create = useGuardedMutation<CreateTeamForm, Team>({
-    mutationFn: (body) => api.post<Team>('/teams', body),
-    onSuccess: (team) => {
-      form.reset();
-      onClose();
-      void navigate(paths.team(team.slug));
-    },
-  });
+  const create = useGuardedMutation<CreateTeamForm, Team>({ mutationFn: (body) => api.post<Team>('/teams', body) });
+  const fieldError = useFieldError();
   const err = form.formState.errors;
-  const msg = (m: string | undefined) => (m ? t(m) : undefined);
+  const submit = form.handleSubmit((v) => create.mutate(v, { onSuccess: (team) => { onClose(); void navigate(paths.team(team.slug)); } }));
   return (
-    <AppDialog open={opened} onClose={onClose} title={t('createTeam.title')}>
+    <>
       <Dialog.Body>
-        <form id="create-team-form" onSubmit={form.handleSubmit((v) => create.mutate(v))} noValidate>
+        <form id="create-team-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('createTeam.slug')} helperText={t('createTeam.slugHelp')} errorText={msg(err.slug?.message)}>
+            <FormField label={t('createTeam.slug')} required helperText={t('createTeam.slugHelp')} errorText={fieldError(err.slug)}>
               <Input autoCapitalize="none" {...form.register('slug')} />
             </FormField>
-            <FormField label={t('createTeam.name')} errorText={msg(err.name?.message)}>
+            <FormField label={t('createTeam.name')} required errorText={fieldError(err.name)}>
               <Input {...form.register('name')} />
             </FormField>
             <FormField label={t('createTeam.description')}>
-              <Textarea {...form.register('description')} />
+              <Textarea autoresize rows={2} {...form.register('description')} />
             </FormField>
             <Controller
               control={form.control}
               name="firstAdminUserId"
               render={({ field }) => (
                 <UserSearchSelect
-                  inDialog
-                  label={t('createTeam.firstAdmin')}
-                  value={field.value || null}
-                  onChange={(v) => field.onChange(v ?? '')}
-                  error={msg(err.firstAdminUserId?.message)}
+                  inDialog required label={t('createTeam.firstAdmin')} value={field.value || null}
+                  onChange={(v) => field.onChange(v ?? '')} error={fieldError(err.firstAdminUserId)}
                 />
               )}
             />
@@ -66,6 +57,16 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
       <DialogFooter>
         <Button size="sm" type="submit" form="create-team-form" loading={create.isPending}>{t('createTeam.submit')}</Button>
       </DialogFooter>
+    </>
+  );
+}
+
+/** System-admin "Create team" dialog (POST /teams). */
+export function CreateTeamModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useTranslation('teams');
+  return (
+    <AppDialog open={open} onClose={onClose} title={t('createTeam.title')}>
+      <Inner onClose={onClose} />
     </AppDialog>
   );
 }

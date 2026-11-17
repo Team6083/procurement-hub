@@ -71,10 +71,10 @@ function Form({ items, vendorId: initialVendor, otherTeamCount, onDone }: Omit<P
 }
 
 /** Choose a vendor and a new or draft order for the picked items, then open that order. */
-export function SendToOrderModal({ opened, ...rest }: Props & { opened: boolean }) {
+export function SendToOrderModal({ open, ...rest }: Props & { open: boolean }) {
   const { t } = useTranslation('purchasing');
   return (
-    <AppDialog open={opened} onClose={rest.onClose} title={t('send.title')}>
+    <AppDialog open={open} onClose={rest.onClose} title={t('send.title')}>
       <Form {...rest} />
     </AppDialog>
   );

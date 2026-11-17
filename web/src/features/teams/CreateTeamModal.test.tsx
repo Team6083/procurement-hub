@@ -12,7 +12,7 @@ describe('CreateTeamModal', () => {
   it('offers found users as accessible options inside the dialog', async () => {
     const { calls } = renderWithApi(
       <MemoryRouter>
-        <CreateTeamModal opened onClose={() => undefined} />
+        <CreateTeamModal open onClose={() => undefined} />
       </MemoryRouter>,
       { 'GET /users': { items: [tara], nextCursor: null } },
     );

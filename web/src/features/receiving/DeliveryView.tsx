@@ -1,24 +1,25 @@
 import { deliveryLabel } from '../labels';
-import { Button, Card, Skeleton, Stack } from '@chakra-ui/react';
+import { Button, Card, Stack } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan } from 'react-icons/lu';
 import { useDelivery, useNoMatch, useVoidDelivery } from '../../api/deliveries';
 import type { DeliveryLine } from '../../api/types';
-import { ErrorAlert, Notice } from '../../components/ErrorAlert';
+import { Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
-import { useReceivingAccess } from './access';
+import { useAccess } from '../../auth/useAccess';
 import { DeliveryLineCard } from './DeliveryLineCard';
+import { LoadError, PageSkeleton } from '../../components/PageStates';
 import { MatchEditor } from './MatchEditor';
 import { VoidedBadge } from './StatusBadges';
 
 /** One delivery (box): its lines, their matches, the no-match marks and voiding (spec 17.1 /deliveries/:id). */
 export function DeliveryView({ id }: { id: string }) {
   const { t } = useTranslation('receiving');
-  const { canWrite: mayWrite } = useReceivingAccess();
+  const { canReceive: mayWrite } = useAccess();
   const q = useDelivery(id);
   const voidIt = useVoidDelivery(id);
   const noMatch = useNoMatch(id);
@@ -26,8 +27,8 @@ export function DeliveryView({ id }: { id: string }) {
   const [marking, setMarking] = useState<{ line: DeliveryLine; undo: boolean } | null>(null);
   const [voiding, setVoiding] = useState(false);
 
-  if (q.isPending) return <Skeleton h="32" rounded="l3" />;
-  if (q.error || !q.data) return <ErrorAlert error={q.error} />;
+  if (q.isPending) return <PageSkeleton />;
+  if (q.error || !q.data) return <LoadError error={q.error} />;
   const d = q.data;
   const canWrite = mayWrite && !d.voided;
   // Always the fresh copy of the line, so a dialog never edits a stale one after a refetch.
@@ -70,17 +71,17 @@ export function DeliveryView({ id }: { id: string }) {
 
       <MatchEditor deliveryId={d.id} line={current(matching)} onClose={() => setMatching(null)} />
       <ReasonModal
-        opened={!!marking && !marking.undo} title={t('noMatch.action')} body={t('noMatch.help')} reasonLabel={t('noMatch.reason')} confirmLabel={t('noMatch.action')}
+        open={!!marking && !marking.undo} title={t('noMatch.action')} body={t('noMatch.help')} reasonLabel={t('noMatch.reason')} confirmLabel={t('noMatch.action')}
         loading={noMatch.isPending} error={noMatch.error} onClose={closeMark}
         onConfirm={(reason) => marking && noMatch.mutate({ lineId: marking.line.id, undo: false, reason }, { onSuccess: closeMark })}
       />
       <UndoDialog
-        opened={!!marking?.undo} title={t('noMatch.undo')} body={t('noMatch.undoHelp')} confirmLabel={t('noMatch.undo')}
+        open={!!marking?.undo} title={t('noMatch.undo')} body={t('noMatch.undoHelp')} confirmLabel={t('noMatch.undo')}
         loading={noMatch.isPending} error={noMatch.error} onClose={closeMark}
         onConfirm={(reason) => marking && noMatch.mutate({ lineId: marking.line.id, undo: true, reason }, { onSuccess: closeMark })}
       />
       <UndoDialog
-        opened={voiding} title={t('void.action')} body={t('void.help')} confirmLabel={t('void.action')}
+        open={voiding} title={t('void.action')} body={t('void.help')} confirmLabel={t('void.action')}
         loading={voidIt.isPending} error={voidIt.error} onClose={() => setVoiding(false)}
         onConfirm={(reason) => voidIt.mutate({ reason }, { onSuccess: () => setVoiding(false) })}
       />

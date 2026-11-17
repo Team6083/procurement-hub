@@ -56,7 +56,7 @@ export function VendorsPage() {
           empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuStore />} title={t('vendors.empty')} /></Card.Body></Card.Root>}
         />
       )}
-      <VendorModal opened={editing !== null} vendor={editing && editing !== 'new' ? editing : null} onClose={() => setEditing(null)} />
+      <VendorModal open={editing !== null} vendor={editing && editing !== 'new' ? editing : null} onClose={() => setEditing(null)} />
     </Stack>
   );
 }

@@ -49,5 +49,6 @@
     "order_not_placed": "Ledger entries can only be added to a placed order.",
     "line_not_closable": "Only lines that are short and have no open problem can be closed.",
     "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one."
-  }
+  },
+  "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes."
 }

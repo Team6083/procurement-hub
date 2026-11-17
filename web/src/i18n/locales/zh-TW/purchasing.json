@@ -228,7 +228,8 @@
     "sendToOrder": "加入訂單",
     "orderDialog": "廠商訂單",
     "unpurchasableHelp": "「{{name}}」：剩餘數量將不採購，之後可以撤銷。",
-    "reason": "原因"
+    "reason": "原因",
+    "tab": "待採購"
   },
   "send": {
     "title": "加入廠商訂單",

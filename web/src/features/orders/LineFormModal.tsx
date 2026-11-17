@@ -1,83 +1,92 @@
-import { Button, Dialog, HStack, Input, Stack } from '@chakra-ui/react';
-import { useState } from 'react';
+import { Button, Dialog, Input, SimpleGrid, Stack } from '@chakra-ui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useAddLine, usePutLine, type LineBody } from '../../api/vendorOrders';
+import { z } from 'zod';
+import { useAddLine, usePutLine } from '../../api/vendorOrders';
 import type { TeamSummary, VendorOrder, VendorOrderLine } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { amountText, positiveInt, requiredText, useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
-import { currencyFractionDigits, validateAmount } from '../money';
+import { currencyFractionDigits } from '../money';
 
 interface Props {
   order: VendorOrder;
   teams: TeamSummary[];
   /** The line to edit, or null to add a standalone line. */
   line: VendorOrderLine | null;
-  opened: boolean;
+  open: boolean;
   onClose: () => void;
 }
 
-function Form({ order, teams, line, onClose }: Omit<Props, 'opened'>) {
+/** A placed order needs a price on every line; a draft may leave it empty. */
+const lineSchema = (currency: string, placed: boolean) => z.object({
+  teamId: requiredText(),
+  name: requiredText(),
+  sku: z.string(),
+  quantity: positiveInt('purchasing:line.quantityInvalid'),
+  price: amountText({ digits: currencyFractionDigits(currency) }, !placed),
+});
+
+function Form({ order, teams, line, onClose }: Omit<Props, 'open'>) {
   const { t } = useTranslation('purchasing');
   const add = useAddLine(order.id);
   const put = usePutLine(order.id);
-  const [teamId, setTeamId] = useState(line?.teamId ?? '');
-  const [name, setName] = useState(line?.name ?? '');
-  const [sku, setSku] = useState(line?.sku ?? '');
-  const [quantity, setQuantity] = useState(String(line?.quantity ?? 1));
-  const [price, setPrice] = useState(line?.unitPrice ?? '');
   const placed = order.status === 'placed';
   const linked = !!line?.itemId;
   const mutation = line ? put : add;
-
-  const priceError = price.trim() ? validateAmount(price, { digits: currencyFractionDigits(order.currency) }) : placed ? 'format' : null;
-  const qtyOk = /^[1-9]\d*$/.test(quantity.trim());
-  const [tried, setTried] = useState(false);
-  const valid = !!teamId && !!name.trim() && qtyOk && !priceError;
-
-  const submit = () => {
-    setTried(true);
-    if (!valid) return;
-    const body: LineBody = { teamId, name: name.trim(), sku: sku.trim(), quantity: Number(quantity), unitPrice: price.trim() || null };
+  const form = useForm({
+    resolver: zodResolver(lineSchema(order.currency, placed)),
+    defaultValues: { teamId: line?.teamId ?? '', name: line?.name ?? '', sku: line?.sku ?? '', quantity: String(line?.quantity ?? 1), price: line?.unitPrice ?? '' },
+  });
+  const fieldError = useFieldError();
+  const err = form.formState.errors;
+  const submit = form.handleSubmit((v) => {
+    const body = { teamId: v.teamId, name: v.name.trim(), sku: v.sku.trim(), quantity: Number(v.quantity), unitPrice: v.price.trim() || null };
     if (line) put.mutate({ line, body }, { onSuccess: onClose });
     else add.mutate(body, { onSuccess: onClose });
-  };
+  });
 
   return (
     <>
       <Dialog.Body>
-        <Stack gap="3">
-          <SelectField
-            label={t('line.team')} value={teamId} onChange={setTeamId} placeholder={t('line.chooseTeam')} disabled={placed || linked}
-            errorText={tried && !teamId ? t('common:validation.required') : undefined}
-            options={teams.map((x) => ({ value: x.id, label: x.name }))}
-          />
-          <FormField label={t('line.name')} required errorText={tried && !name.trim() ? t('common:validation.required') : undefined}><Input value={name} onChange={(e) => setName(e.currentTarget.value)} /></FormField>
-          <FormField label={t('line.sku')}><Input value={sku} onChange={(e) => setSku(e.currentTarget.value)} /></FormField>
-          <HStack gap="3" align="flex-start">
-            <FormField label={t('line.quantity')} errorText={qtyOk ? undefined : t('line.quantityInvalid')} disabled={placed}>
-              <Input value={quantity} inputMode="numeric" onChange={(e) => setQuantity(e.currentTarget.value)} />
-            </FormField>
-            <FormField label={t('line.unitPrice', { currency: order.currency })} errorText={priceError && (price.trim() || tried) ? t(`amount.${priceError}`) : undefined}>
-              <Input value={price} inputMode="decimal" onChange={(e) => setPrice(e.currentTarget.value)} />
-            </FormField>
-          </HStack>
-          <ErrorAlert error={mutation.error} />
-        </Stack>
+        <form id="line-form" onSubmit={submit} noValidate>
+          <Stack gap="3">
+            <Controller control={form.control} name="teamId" render={({ field }) => (
+              <SelectField
+                label={t('line.team')} required name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+                placeholder={t('line.chooseTeam')} disabled={placed || linked} errorText={fieldError(err.teamId)}
+                options={teams.map((x) => ({ value: x.id, label: x.name }))}
+              />
+            )} />
+            <FormField label={t('line.name')} required errorText={fieldError(err.name)}><Input {...form.register('name')} /></FormField>
+            <FormField label={t('line.sku')}><Input {...form.register('sku')} /></FormField>
+            <SimpleGrid columns={2} gap="3">
+              <FormField label={t('line.quantity')} required errorText={fieldError(err.quantity)} disabled={placed}>
+                <Input inputMode="numeric" {...form.register('quantity')} />
+              </FormField>
+              <FormField label={t('line.unitPrice', { currency: order.currency })} required={placed} errorText={fieldError(err.price)}>
+                <Input inputMode="decimal" {...form.register('price')} />
+              </FormField>
+            </SimpleGrid>
+            <ErrorAlert error={mutation.error} />
+          </Stack>
+        </form>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" loading={mutation.isPending} onClick={submit}>{t('common:actions.save')}</Button>
+        <Button size="sm" type="submit" form="line-form" loading={mutation.isPending}>{t('common:actions.save')}</Button>
       </DialogFooter>
     </>
   );
 }
 
 /** Add a standalone line to a draft order, or edit a line (after placing: name, SKU and price only). */
-export function LineFormModal({ opened, onClose, ...rest }: Props) {
+export function LineFormModal({ open, onClose, ...rest }: Props) {
   const { t } = useTranslation('purchasing');
   return (
-    <AppDialog open={opened} onClose={onClose} title={rest.line ? t('line.edit') : t('line.add')}>
+    <AppDialog open={open} onClose={onClose} title={rest.line ? t('line.edit') : t('line.add')}>
       <Form onClose={onClose} {...rest} />
     </AppDialog>
   );

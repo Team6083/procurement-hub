@@ -51,6 +51,12 @@
     "updated": "更新於 {{date}}",
     "noCurrencies": "沒有其他支援的幣別。",
     "deleteTitle": "刪除 {{currency}} 匯率？",
-    "deleteBody": "在重新設定匯率前，{{currency}} 的估算不會換算成基準幣別。"
+    "deleteBody": "在重新設定匯率前，{{currency}} 的估算不會換算成基準幣別。",
+    "currency": "幣別",
+    "value": "匯率",
+    "set": "設定匯率",
+    "edit": "編輯匯率",
+    "delete": "刪除匯率",
+    "updatedAt": "更新時間"
   }
 }

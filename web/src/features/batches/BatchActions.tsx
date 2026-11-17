@@ -66,7 +66,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
       </Stack>
       {active && needsDeadline && (
         <DeadlineModal
-          opened
+          open
           title={t(`actions.${active}`)}
           required={active !== 'open' || !batch.deadline}
           initial={batch.deadline}
@@ -97,7 +97,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
       )}
       {active && UNDO.includes(active) && !needsDeadline && (
         <UndoDialog
-          opened
+          open
           title={t(`actions.${active}`)}
           body={t(`actions.confirm.${active}`)}
           confirmLabel={t(`actions.${active}`)}
@@ -109,7 +109,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
       )}
       {active && !needsDeadline && !UNDO.includes(active) && !primary(active) && (
         <ReasonModal
-          opened
+          open
           title={t(`actions.${active}`)}
           body={t(`actions.confirm.${active}`)}
           confirmLabel={t(`actions.${active}`)}

@@ -123,7 +123,6 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         <Breakdown order={order} baseCurrency={baseCurrency} headingAs={h} />
         {canWrite && order.status !== 'cancelled' && (
           <DetailsForm
-            key={JSON.stringify([order.vendorId, order.currency, order.externalOrderNo, order.expectedDeliveryDate, order.paymentNote, order.chargedAmountBase, order.sharedCosts, order.teamCostOverrides, order.overrideReason, order.teamIds])}
             order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} teamName={teamName} baseDigits={baseDigits} headingAs={h}
           />
         )}
@@ -135,20 +134,20 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         <OrderTimeline orderId={order.id} />
       </Stack>
 
-      <LineFormModal order={order} teams={teams} line={lineForm && lineForm !== 'new' ? lineForm : null} opened={lineForm !== null} onClose={() => setLineForm(null)} />
+      <LineFormModal order={order} teams={teams} line={lineForm && lineForm !== 'new' ? lineForm : null} open={lineForm !== null} onClose={() => setLineForm(null)} />
       <CloseLineModal orderId={order.id} line={closing} baseDigits={baseDigits} onClose={() => setClosing(null)} />
       <UndoDialog
-        opened={!!reopening} title={t('close.reopen')} body={t('close.reopenHelp')} confirmLabel={t('close.reopen')}
+        open={!!reopening} title={t('close.reopen')} body={t('close.reopenHelp')} confirmLabel={t('close.reopen')}
         loading={reopen.isPending} error={reopen.error} onClose={() => setReopening(null)}
         onConfirm={(reason) => reopening && reopen.mutate({ line: reopening, reason }, { onSuccess: () => setReopening(null) })}
       />
       <ReasonModal
-        opened={!!removing} danger title={t('line.remove')} body={removing && t('line.removeHelp', { name: removing.name })} confirmLabel={t('line.remove')}
+        open={!!removing} danger title={t('line.remove')} body={removing && t('line.removeHelp', { name: removing.name })} confirmLabel={t('line.remove')}
         loading={del.isPending} error={del.error} onClose={() => setRemoving(null)}
         onConfirm={() => removing && del.mutate(removing, { onSuccess: () => setRemoving(null) })}
       />
       <UndoDialog
-        opened={!!undo} title={t(`actions.${undo ?? 'unplace'}`)} body={t(`actions.${undo ?? 'unplace'}Help`)} confirmLabel={t(`actions.${undo ?? 'unplace'}`)}
+        open={!!undo} title={t(`actions.${undo ?? 'unplace'}`)} body={t(`actions.${undo ?? 'unplace'}Help`)} confirmLabel={t(`actions.${undo ?? 'unplace'}`)}
         loading={action.isPending} error={action.error} onClose={close}
         onConfirm={(reason) => undo && action.mutate({ action: undo, reason }, { onSuccess: close })}
       />

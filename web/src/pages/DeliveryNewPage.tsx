@@ -10,7 +10,8 @@ import { FormField } from '../components/ui/field';
 import { todayLocal } from '../features/dates';
 import { allocate, parseCount } from '../features/receiving/allocate';
 import { BoxLineCard, emptyLine, lineErrors, type BoxLineDraft } from '../features/receiving/BoxLineCard';
-import { ReceivingGuard } from '../features/receiving/access';
+import { RoleGuard } from '../components/PageStates';
+import { useAccess } from '../auth/useAccess';
 import { paths } from '../paths';
 
 function NewDelivery() {
@@ -87,10 +88,13 @@ function NewDelivery() {
 }
 
 /** /deliveries/new: register one box line by line, phone first, matching on the spot or later. */
+/** /deliveries/new: purchasers and receivers only; system admins may look at receiving but not register boxes. */
 export function DeliveryNewPage() {
+  const { t } = useTranslation('receiving');
+  const { canSeeReceiving } = useAccess();
   return (
-    <ReceivingGuard write>
+    <RoleGuard allow={(a) => a.canReceive} description={t(canSeeReceiving ? 'access.readOnly' : 'access.denied')}>
       <NewDelivery />
-    </ReceivingGuard>
+    </RoleGuard>
   );
 }

@@ -21,6 +21,7 @@ interface Props<T extends string> {
   /** Shown as an empty first option; choosing it clears the value. */
   placeholder?: string;
   disabled?: boolean;
+  required?: boolean;
   size?: 'xs' | 'sm' | 'md';
   w?: BoxProps['w'];
 }
@@ -29,9 +30,9 @@ interface Props<T extends string> {
  * Native <select> with Chakra styling: keyboard and screen-reader friendly, and it opens the
  * platform picker on phones.
  */
-export function SelectField<T extends string = string>({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, size = 'md', w, ...rest }: Props<T>) {
+export function SelectField<T extends string = string>({ label, helperText, errorText, value, onChange, onBlur, name, options, placeholder, disabled, required, size = 'md', w, ...rest }: Props<T>) {
   return (
-    <FormField label={label} helperText={helperText} errorText={errorText} disabled={disabled} w={w}>
+    <FormField label={label} helperText={helperText} errorText={errorText} disabled={disabled} required={required} w={w}>
       <NativeSelect.Root size={size} disabled={disabled}>
         <NativeSelect.Field
           aria-label={rest['aria-label']}

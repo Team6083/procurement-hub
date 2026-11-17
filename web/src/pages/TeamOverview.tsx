@@ -1,4 +1,5 @@
-import { Button, Card, HStack, List, Skeleton, Stack, Text, useDisclosure } from '@chakra-ui/react';
+import { Button, Card, HStack, List, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { useState } from 'react';
 import { EmptyState, FactList, SectionHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuPackage, LuPlus } from 'react-icons/lu';
@@ -17,7 +18,7 @@ export function TeamOverview() {
   const membership = memberships.find((m) => m.teamId === team.id);
   const list = useBatchList({ teamId: team.id });
   const batches = list.data?.pages.flatMap((p) => p.items) ?? [];
-  const { open: creating, onOpen: openCreate, onClose: closeCreate } = useDisclosure();
+  const [creating, setCreating] = useState(false);
   const active = full?.subgroups.filter((g) => g.active) ?? [];
   return (
     <Stack gap="6">
@@ -51,7 +52,7 @@ export function TeamOverview() {
           mb="0"
           actions={
             membership && !team.archived && (
-              <Button size="sm" variant="outline" onClick={openCreate}>
+              <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
                 <LuPlus />
                 {membership.role === 'admin' ? tb('list.new') : tb('list.propose')}
               </Button>
@@ -74,7 +75,7 @@ export function TeamOverview() {
           </HStack>
         )}
       </Stack>
-      {membership && <CreateBatchModal opened={creating} onClose={closeCreate} teams={[membership]} />}
+      {membership && <CreateBatchModal open={creating} onClose={() => setCreating(false)} teams={[membership]} />}
     </Stack>
   );
 }

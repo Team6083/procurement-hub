@@ -103,7 +103,7 @@ function ArchiveControl({ team }: { team: Team }) {
       </HStack>
       <ErrorAlert error={confirming ? null : toggle.error} />
       <ReasonModal
-        opened={confirming} danger title={t('general.archive.confirmTitle')} body={t('general.archive.confirmBody')}
+        open={confirming} danger title={t('general.archive.confirmTitle')} body={t('general.archive.confirmBody')}
         confirmLabel={t('general.archive.archive')} loading={toggle.isPending} error={toggle.error} onClose={() => setConfirming(false)}
         onConfirm={() => toggle.mutate(true, { onSuccess: () => setConfirming(false) })}
       />

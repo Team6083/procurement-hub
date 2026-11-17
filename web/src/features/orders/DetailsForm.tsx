@@ -1,28 +1,142 @@
-import { Button, Card, Checkbox, HStack, IconButton, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
-import { SectionHeader } from '@team6083/ui';
-import { useState } from 'react';
+import { Box, Button, Card, Checkbox, HStack, IconButton, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { SectionHeader, toaster } from '@team6083/ui';
+import { Controller, useFieldArray, useForm, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
+import { z } from 'zod';
 import { usePutOrder, type OrderBody } from '../../api/vendorOrders';
 import type { Vendor, VendorOrder } from '../../api/types';
-import { ErrorAlert, Notice } from '../../components/ErrorAlert';
+import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
+import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { add, format, parseDec, ZERO, type Dec } from '../batches/decimal';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 
 const TYPES = ['shipping', 'fee', 'tax', 'discount', 'other'] as const;
 
-interface Cost { type: string; amount: string; note: string }
+const detailsSchema = (baseDigits: number) =>
+  z.object({
+    vendorId: z.string(),
+    currency: z.string(),
+    externalNo: z.string(),
+    delivery: z.string(),
+    note: z.string(),
+    charged: z.string(),
+    costs: z.array(z.object({ type: z.string(), amount: z.string(), note: z.string() })),
+    byTeam: z.boolean(),
+    overrides: z.array(z.object({ teamId: z.string(), amount: z.string() })),
+    reason: z.string(),
+  }).superRefine((v, ctx) => {
+    const digits = currencyFractionDigits(v.currency) ?? 2;
+    const amountIssue = (value: string, path: (string | number)[], rules: Parameters<typeof validateAmount>[1]) => {
+      const e = validateAmount(value, rules);
+      if (e) ctx.addIssue({ code: 'custom', path, message: `purchasing:amount.${e}` });
+    };
+    v.costs.forEach((c, i) => amountIssue(c.amount, ['costs', i, 'amount'], { digits, sign: 'any' }));
+    if (v.charged.trim()) amountIssue(v.charged, ['charged'], { digits: baseDigits });
+    if (!v.byTeam) return;
+    v.overrides.forEach((o, i) => amountIssue(o.amount, ['overrides', i, 'amount'], { digits }));
+    if (!v.reason.trim()) ctx.addIssue({ code: 'custom', path: ['reason'], message: 'common:validation.required' });
+  });
+type Details = z.infer<ReturnType<typeof detailsSchema>>;
 
-function sum(costs: Cost[]): Dec {
-  return costs.reduce((acc, c) => {
+const toForm = (o: VendorOrder): Details => ({
+  vendorId: o.vendorId, currency: o.currency, externalNo: o.externalOrderNo, delivery: o.expectedDeliveryDate, note: o.paymentNote,
+  charged: o.chargedAmountBase ?? '', costs: o.sharedCosts.map((c) => ({ ...c })), byTeam: o.teamCostOverrides !== null,
+  overrides: o.teamIds.map((teamId) => ({ teamId, amount: o.teamCostOverrides?.find((x) => x.teamId === teamId)?.amount ?? '' })),
+  reason: o.overrideReason,
+});
+
+const toBody = (v: Details): OrderBody => ({
+  vendorId: v.vendorId, currency: v.currency, externalOrderNo: v.externalNo.trim(), sharedCosts: v.costs.map((c) => ({ ...c, note: c.note.trim() })),
+  teamCostOverrides: v.byTeam ? v.overrides : null, overrideReason: v.byTeam ? v.reason.trim() : '',
+  chargedAmountBase: v.charged.trim() || null, expectedDeliveryDate: v.delivery, paymentNote: v.note.trim(),
+});
+
+/** Sum of the amounts that parse; the ones that do not are flagged at their field. */
+function sum(amounts: string[]): Dec {
+  return amounts.reduce((acc, a) => {
     try {
-      return add(acc, parseDec(c.amount));
+      return add(acc, parseDec(a));
     } catch {
       return acc;
     }
   }, ZERO);
+}
+
+interface PartProps {
+  control: Control<Details>;
+  register: UseFormRegister<Details>;
+  errors: FieldErrors<Details>;
+}
+
+/** The order's shared costs (shipping, fees, discounts), one row each. */
+function SharedCosts({ control, register, errors, currency }: PartProps & { currency: string }) {
+  const { t } = useTranslation('purchasing');
+  const fieldError = useFieldError();
+  const costs = useFieldArray({ control, name: 'costs' });
+  return (
+    <Stack gap="2">
+      <Text fontWeight="medium">{t('details.sharedCosts', { currency })}</Text>
+      {costs.fields.length === 0 && <Text color="fg.muted">{t('details.noSharedCosts')}</Text>}
+      {costs.fields.map((c, i) => (
+        <HStack key={c.id} gap="2" align="flex-start" wrap={{ base: 'wrap', sm: 'nowrap' }}>
+          <Controller control={control} name={`costs.${i}.type`} render={({ field }) => (
+            <SelectField
+              aria-label={t('details.costType')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur} w={{ base: 'full', sm: '36' }}
+              options={TYPES.map((x) => ({ value: x, label: t(`details.costTypes.${x}`) }))}
+            />
+          )} />
+          <FormField errorText={fieldError(errors.costs?.[i]?.amount)} flex="1">
+            <Input aria-label={t('details.costAmount')} placeholder={t('details.costAmount')} inputMode="decimal" {...register(`costs.${i}.amount`)} />
+          </FormField>
+          <FormField flex="2">
+            <Input aria-label={t('details.costNote')} placeholder={t('details.costNote')} {...register(`costs.${i}.note`)} />
+          </FormField>
+          <IconButton variant="ghost" aria-label={t('details.removeCost')} onClick={() => costs.remove(i)}><LuTrash2 /></IconButton>
+        </HStack>
+      ))}
+      <Box>
+        <Button size="sm" variant="outline" onClick={() => costs.append({ type: 'shipping', amount: '', note: '' })}><LuPlus />{t('details.addCost')}</Button>
+      </Box>
+    </Stack>
+  );
+}
+
+/** The optional per-team split of the shared costs, which must add up to them and needs a reason. */
+function TeamAllocation({ control, register, errors, currency, teamName }: PartProps & { currency: string; teamName: (id: string) => string }) {
+  const { t } = useTranslation('purchasing');
+  const fieldError = useFieldError();
+  const [byTeam, overrides, costs] = useWatch({ control, name: ['byTeam', 'overrides', 'costs'] });
+  const total = sum(costs.map((c) => c.amount));
+  const allocated = sum(overrides.map((o) => o.amount));
+  const mismatch = byTeam && format(allocated) !== format(total);
+  return (
+    <Stack gap="2">
+      <Controller control={control} name="byTeam" render={({ field }) => (
+        <Checkbox.Root checked={field.value} onCheckedChange={(e) => field.onChange(!!e.checked)}>
+          <Checkbox.HiddenInput onBlur={field.onBlur} />
+          <Checkbox.Control />
+          <Checkbox.Label>{t('details.byTeam')}</Checkbox.Label>
+        </Checkbox.Root>
+      )} />
+      {byTeam && (
+        <Stack gap="2">
+          {overrides.map((o, i) => (
+            <FormField key={o.teamId} label={teamName(o.teamId)} errorText={fieldError(errors.overrides?.[i]?.amount)}>
+              <Input inputMode="decimal" {...register(`overrides.${i}.amount`)} />
+            </FormField>
+          ))}
+          {mismatch && <Text color="fg.error">{t('details.overrideMismatch', { total: formatMoney(format(total), currency), allocated: formatMoney(format(allocated), currency) })}</Text>}
+          <FormField label={t('details.overrideReason')} required errorText={fieldError(errors.reason)}>
+            <Textarea autoresize rows={2} {...register('reason')} />
+          </FormField>
+        </Stack>
+      )}
+    </Stack>
+  );
 }
 
 interface Props {
@@ -37,109 +151,71 @@ interface Props {
 /**
  * The editable order fields: vendor order number, shared costs, optional per-team allocation, the amount actually
  * charged, delivery date and note. PUT replaces them all, so the form always sends the whole set.
+ *
+ * The form follows the order: when the order changes (another write, or the refetch after a version conflict),
+ * fields the user did not touch take the new values and edited ones are kept, so a conflict never throws the
+ * user's edits away and saving again never reverts the other change.
  */
 export function DetailsForm({ order, vendors, supported, teamName, baseDigits, headingAs = 'h2' }: Props) {
   const { t } = useTranslation('purchasing');
   const put = usePutOrder(order.id);
   const draft = order.status === 'draft';
-  const [vendorId, setVendorId] = useState(order.vendorId);
-  const [currency, setCurrency] = useState(order.currency);
-  const [externalNo, setExternalNo] = useState(order.externalOrderNo);
-  const [delivery, setDelivery] = useState(order.expectedDeliveryDate);
-  const [note, setNote] = useState(order.paymentNote);
-  const [charged, setCharged] = useState(order.chargedAmountBase ?? '');
-  const [costs, setCosts] = useState<Cost[]>(order.sharedCosts.map((c) => ({ ...c })));
-  const [byTeam, setByTeam] = useState(order.teamCostOverrides !== null);
-  const [overrides, setOverrides] = useState<Record<string, string>>(Object.fromEntries((order.teamCostOverrides ?? []).map((o) => [o.teamId, o.amount])));
-  const [reason, setReason] = useState(order.overrideReason);
-  const digits = currencyFractionDigits(currency) ?? 2;
-  const [saved, setSaved] = useState(false);
-  const [tried, setTried] = useState(false);
+  const form = useForm({ resolver: zodResolver(detailsSchema(baseDigits)), values: toForm(order), resetOptions: { keepDirtyValues: true } });
+  const fieldError = useFieldError();
+  const err = form.formState.errors;
+  const currency = useWatch({ control: form.control, name: 'currency' });
+  const part = { control: form.control, register: form.register, errors: err };
 
-  const costErrors = costs.map((c) => validateAmount(c.amount, { digits, sign: 'any' }));
-  const chargedError = charged.trim() ? validateAmount(charged, { digits: baseDigits }) : null;
-  const overrideErrors = order.teamIds.map((id) => validateAmount(overrides[id] ?? '', { digits }));
-  const overrideSum = order.teamIds.reduce((acc, id) => {
-    try {
-      return add(acc, parseDec(overrides[id] ?? ''));
-    } catch {
-      return acc;
-    }
-  }, ZERO);
-  const mismatch = byTeam && format(overrideSum) !== format(sum(costs));
-  const valid = !costErrors.some(Boolean) && !chargedError && (!byTeam || (!overrideErrors.some(Boolean) && !mismatch && !!reason.trim()));
-
-  const body = (): OrderBody => ({
-    vendorId, currency, externalOrderNo: externalNo.trim(), sharedCosts: costs.map((c) => ({ ...c, note: c.note.trim() })),
-    teamCostOverrides: byTeam ? order.teamIds.map((id) => ({ teamId: id, amount: overrides[id] ?? '' })) : null,
-    overrideReason: byTeam ? reason.trim() : '', chargedAmountBase: charged.trim() || null, expectedDeliveryDate: delivery, paymentNote: note.trim(),
+  const submit = form.handleSubmit((v) => {
+    if (v.byTeam && format(sum(v.overrides.map((o) => o.amount))) !== format(sum(v.costs.map((c) => c.amount)))) return;
+    put.mutate(toBody(v), {
+      onSuccess: (saved) => {
+        form.reset(toForm(saved));
+        toaster.success({ title: t('details.saved') });
+      },
+    });
   });
-  const setCost = (i: number, patch: Partial<Cost>) => { setSaved(false); setCosts(costs.map((c, k) => (k === i ? { ...c, ...patch } : c))); };
+  const discard = () => {
+    put.reset();
+    form.reset(toForm(order));
+  };
 
   return (
     <Stack gap="2">
       <SectionHeader as={headingAs} mb="0" title={t('details.title')} />
       <Card.Root size="sm">
-        <Card.Body gap="3">
-          {draft && (
-            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-              <SelectField label={t('details.vendor')} value={vendorId} onChange={setVendorId} options={vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => ({ value: v.id, label: v.name }))} />
-              <SelectField label={t('details.currency')} value={currency} onChange={setCurrency} options={supported} />
-            </SimpleGrid>
-          )}
-          <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-            <FormField label={t('details.externalNo')}><Input value={externalNo} onChange={(e) => { setSaved(false); setExternalNo(e.currentTarget.value); }} /></FormField>
-            <FormField label={t('details.delivery')}><Input type="date" value={delivery} onChange={(e) => { setSaved(false); setDelivery(e.currentTarget.value); }} /></FormField>
-          </SimpleGrid>
-
-          <Stack gap="2">
-            <Text fontWeight="medium">{t('details.sharedCosts', { currency })}</Text>
-            {costs.length === 0 && <Text color="fg.muted">{t('details.noSharedCosts')}</Text>}
-            {costs.map((c, i) => (
-              <HStack key={i} gap="2" align="flex-start" wrap="wrap">
-                <SelectField aria-label={t('details.costType')} value={c.type} onChange={(v) => setCost(i, { type: v })} options={TYPES.map((x) => ({ value: x, label: t(`details.costTypes.${x}`) }))} />
-                <FormField errorText={c.amount && costErrors[i] ? t(`amount.${costErrors[i]}`) : undefined} flex="1">
-                  <Input aria-label={t('details.costAmount')} placeholder={t('details.costAmount')} value={c.amount} inputMode="decimal" onChange={(e) => setCost(i, { amount: e.currentTarget.value })} />
-                </FormField>
-                <FormField flex="2"><Input aria-label={t('details.costNote')} placeholder={t('details.costNote')} value={c.note} onChange={(e) => setCost(i, { note: e.currentTarget.value })} /></FormField>
-                <IconButton variant="ghost" aria-label={t('details.removeCost')} onClick={() => { setSaved(false); setCosts(costs.filter((_, k) => k !== i)); }}><LuTrash2 /></IconButton>
-              </HStack>
-            ))}
-            <div>
-              <Button size="sm" variant="outline" onClick={() => { setSaved(false); setCosts([...costs, { type: 'shipping', amount: '', note: '' }]); }}><LuPlus />{t('details.addCost')}</Button>
-            </div>
-          </Stack>
-
-          {order.teamIds.length > 1 && (
-            <Stack gap="2">
-              <Checkbox.Root checked={byTeam} onCheckedChange={(e) => { setSaved(false); setByTeam(!!e.checked); }}>
-                <Checkbox.HiddenInput />
-                <Checkbox.Control />
-                <Checkbox.Label>{t('details.byTeam')}</Checkbox.Label>
-              </Checkbox.Root>
-              {byTeam && (
-                <Stack gap="2">
-                  {order.teamIds.map((id, i) => (
-                    <FormField key={id} label={teamName(id)} errorText={overrides[id] && overrideErrors[i] ? t(`amount.${overrideErrors[i]}`) : undefined}>
-                      <Input value={overrides[id] ?? ''} inputMode="decimal" onChange={(e) => { setSaved(false); setOverrides({ ...overrides, [id]: e.currentTarget.value }); }} />
-                    </FormField>
-                  ))}
-                  {mismatch && <Text color="fg.error">{t('details.overrideMismatch', { total: formatMoney(format(sum(costs)), currency), allocated: formatMoney(format(overrideSum), currency) })}</Text>}
-                  <FormField label={t('details.overrideReason')} required errorText={tried && !reason.trim() ? t('common:validation.required') : undefined}><Textarea value={reason} onChange={(e) => { setSaved(false); setReason(e.currentTarget.value); }} autoresize rows={2} /></FormField>
-                </Stack>
+        <Card.Body>
+          <form onSubmit={submit} noValidate>
+            <Stack gap="3">
+              {draft && (
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  <Controller control={form.control} name="vendorId" render={({ field }) => (
+                    <SelectField
+                      label={t('details.vendor')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                      options={vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => ({ value: v.id, label: v.name }))}
+                    />
+                  )} />
+                  <Controller control={form.control} name="currency" render={({ field }) => (
+                    <SelectField label={t('details.currency')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur} options={supported} />
+                  )} />
+                </SimpleGrid>
               )}
+              <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                <FormField label={t('details.externalNo')}><Input {...form.register('externalNo')} /></FormField>
+                <FormField label={t('details.delivery')}><Input type="date" {...form.register('delivery')} /></FormField>
+              </SimpleGrid>
+              <SharedCosts {...part} currency={currency} />
+              {order.teamIds.length > 1 && <TeamAllocation {...part} currency={currency} teamName={teamName} />}
+              <FormField label={t('details.charged')} helperText={t('details.chargedHelp')} errorText={fieldError(err.charged)}>
+                <Input inputMode="decimal" {...form.register('charged')} />
+              </FormField>
+              <FormField label={t('details.paymentNote')}><Textarea autoresize rows={2} {...form.register('note')} /></FormField>
+              <ErrorAlert error={put.error} onDiscard={discard} />
+              <HStack justify="flex-end">
+                <Button size="sm" type="submit" loading={put.isPending}>{t('common:actions.save')}</Button>
+              </HStack>
             </Stack>
-          )}
-
-          <FormField label={t('details.charged')} helperText={t('details.chargedHelp')} errorText={chargedError ? t(`amount.${chargedError}`) : undefined}>
-            <Input value={charged} inputMode="decimal" onChange={(e) => { setSaved(false); setCharged(e.currentTarget.value); }} />
-          </FormField>
-          <FormField label={t('details.paymentNote')}><Textarea value={note} onChange={(e) => { setSaved(false); setNote(e.currentTarget.value); }} autoresize rows={2} /></FormField>
-          <ErrorAlert error={put.error} />
-          {saved && <Notice status="info">{t('details.saved')}</Notice>}
-          <HStack justify="flex-end">
-            <Button size="sm" loading={put.isPending} onClick={() => { setTried(true); if (valid) put.mutate(body(), { onSuccess: () => setSaved(true) }); }}>{t('common:actions.save')}</Button>
-          </HStack>
+          </form>
         </Card.Body>
       </Card.Root>
     </Stack>

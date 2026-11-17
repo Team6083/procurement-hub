@@ -9,12 +9,13 @@ import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { emptyItemForm, itemFormSchema, itemToForm, toItemRequest, type ItemForm } from './itemForm';
 
 interface Props {
-  opened: boolean;
+  open: boolean;
   onClose: () => void;
   batch: Batch;
   team: Team | undefined;
@@ -25,7 +26,7 @@ interface Props {
   prefill?: Item;
 }
 
-function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<Props, 'opened'>) {
+function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<Props, 'open'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const vendors = useVendors();
@@ -40,7 +41,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
   });
   const vendorChoice = useWatch({ control: form.control, name: 'vendorId' });
   const err = form.formState.errors;
-  const msg = (m: string | undefined) => (m ? t(m) : undefined);
+  const fieldError = useFieldError();
   const mutation = item ? patch : add;
   const label = (k: string) => priorityLabel(team?.priorityLabels, k as '1', (x) => t(`teams:priority.default.${x}`));
   const submit = form.handleSubmit((v) => {
@@ -54,7 +55,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
       <Dialog.Body>
         <form id="item-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('item.name')} errorText={msg(err.name?.message)}>
+            <FormField label={t('item.name')} required errorText={fieldError(err.name)}>
               <Input {...form.register('name')} />
             </FormField>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
@@ -72,14 +73,14 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
               </FormField>
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, sm: 3 }} gap="3">
-              <FormField label={t('item.quantity')} errorText={msg(err.quantity?.message)}>
+              <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
-              <FormField label={t('item.unitPrice')} errorText={msg(err.unitPrice?.message)}>
+              <FormField label={t('item.unitPrice')} required errorText={fieldError(err.unitPrice)}>
                 <Input inputMode="decimal" {...form.register('unitPrice')} />
               </FormField>
               <Controller control={form.control} name="currency" render={({ field }) => (
-                <SelectField label={t('item.currency')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={currencies} errorText={msg(err.currency?.message)} />
+                <SelectField label={t('item.currency')} required name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={currencies} errorText={fieldError(err.currency)} />
               )} />
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
@@ -90,10 +91,10 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                 <SelectField label={t('item.subgroup')} placeholder={t('item.noSubgroup')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={subgroups.map((g) => ({ value: g.id, label: g.name }))} />
               )} />
             </SimpleGrid>
-            <FormField label={t('item.purpose')} errorText={msg(err.purpose?.message)}>
+            <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>
               <Textarea autoresize rows={2} {...form.register('purpose')} />
             </FormField>
-            <FormField label={t('item.productUrl')} errorText={msg(err.productUrl?.message)}>
+            <FormField label={t('item.productUrl')} errorText={fieldError(err.productUrl)}>
               <Input type="url" placeholder="https://" {...form.register('productUrl')} />
             </FormField>
             <FormField label={t('item.notes')}>
@@ -113,7 +114,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
 export function ItemFormModal(props: Props) {
   const { t } = useTranslation('batches');
   return (
-    <AppDialog open={props.opened} onClose={props.onClose} title={props.item ? t('item.editTitle') : t('item.addTitle')} size="lg">
+    <AppDialog open={props.open} onClose={props.onClose} title={props.item ? t('item.editTitle') : t('item.addTitle')} size="lg">
       <Inner {...props} />
     </AppDialog>
   );

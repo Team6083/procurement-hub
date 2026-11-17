@@ -1,6 +1,8 @@
 import { Button, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
-import { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { z } from 'zod';
 import { usePatchBatch, useSetAssignments } from '../../api/batches';
 import { useRoleHolders } from '../../api/members';
 import type { Batch, PatchBatchRequest, TeamMember } from '../../api/types';
@@ -8,89 +10,120 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { Checklist } from '../../components/ui/checklist';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { requiredText, useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { deadlineChange, fromLocalInput, toLocalInput } from './datetime';
 
+const editSchema = z.object({
+  title: requiredText(200),
+  description: z.string(),
+  deadline: z.string().refine((v) => fromLocalInput(v) !== undefined, 'common:validation.invalid'),
+  visibility: z.enum(['inherit', 'public', 'members']),
+  approvers: z.array(z.string()),
+  purchasers: z.array(z.string()),
+});
+type EditForm = z.infer<typeof editSchema>;
+
+const toForm = (b: Batch): EditForm => ({
+  title: b.title, description: b.description, deadline: toLocalInput(b.deadline), visibility: b.visibilityOverride || 'inherit',
+  approvers: b.assignments.approvers, purchasers: b.assignments.purchasers,
+});
+
 function sameIds(a: string[], b: string[]) {
   return a.length === b.length && [...a].sort().join() === [...b].sort().join();
+}
+
+/** Only what differs from the batch as it is now (fields the user did not touch follow the latest version). */
+function patchBody(b: Batch, v: EditForm): PatchBatchRequest {
+  const body: PatchBatchRequest = {};
+  if (v.title.trim() !== b.title) body.title = v.title.trim();
+  if (v.description !== b.description) body.description = v.description;
+  const deadline = deadlineChange(b.deadline, v.deadline);
+  if (deadline !== undefined) body.deadline = deadline;
+  const override = v.visibility === 'inherit' ? null : v.visibility;
+  if ((override ?? '') !== (b.visibilityOverride ?? '')) body.visibilityOverride = override;
+  return body;
 }
 
 function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[]; onClose: () => void }) {
   const { t } = useTranslation('batches');
   const patch = usePatchBatch(batch.id);
   const assign = useSetAssignments(batch.id);
-  const [title, setTitle] = useState(batch.title);
-  const [description, setDescription] = useState(batch.description);
-  const [deadline, setDeadline] = useState(toLocalInput(batch.deadline));
-  const [override, setOverride] = useState<string>(batch.visibilityOverride || 'inherit');
-  const [a, setA] = useState(batch.assignments.approvers);
-  const [p, setP] = useState(batch.assignments.purchasers);
   const purchasers = useRoleHolders('purchaser');
+  // `values` follows the batch: after a version conflict refetches it, fields the user did not touch take the latest
+  // values and the edited ones are kept, so saving again never reverts someone else's change.
+  const form = useForm({ resolver: zodResolver(editSchema), values: toForm(batch), resetOptions: { keepDirtyValues: true } });
+  const fieldError = useFieldError();
+  const err = form.formState.errors;
   const options = members.map((m) => ({ value: m.userId, label: m.displayName || m.username }));
   const purchaserOptions = (purchasers.data ?? []).map((u) => ({ value: u.id, label: u.displayName || u.username }));
-  const newDeadline = fromLocalInput(deadline);
+  const error = patch.error ?? assign.error;
 
-  const [tried, setTried] = useState(false);
-  const save = async () => {
-    setTried(true);
-    if (!title.trim() || newDeadline === undefined) return;
-    // Sequential: each call returns the new version, which the next call reads from the cache.
-    const body: PatchBatchRequest = {};
-    if (title.trim() !== batch.title) body.title = title.trim();
-    if (description !== batch.description) body.description = description;
-    const changed = deadlineChange(batch.deadline, deadline);
-    if (changed !== undefined) body.deadline = changed;
-    const newOverride = override === 'inherit' ? '' : override;
-    if (newOverride !== batch.visibilityOverride) body.visibilityOverride = newOverride === '' ? null : (newOverride as 'public' | 'members');
+  const submit = form.handleSubmit(async (v) => {
+    patch.reset();
+    assign.reset();
     try {
+      // One after another: each write returns the next batch version, which the next one sends.
+      const body = patchBody(batch, v);
       if (Object.keys(body).length > 0) await patch.mutateAsync(body);
       const as = batch.assignments;
-      if (!sameIds(a, as.approvers) || !sameIds(p, as.purchasers)) {
-        await assign.mutateAsync({ approvers: a, purchasers: p });
+      if (!sameIds(v.approvers, as.approvers) || !sameIds(v.purchasers, as.purchasers)) {
+        await assign.mutateAsync({ approvers: v.approvers, purchasers: v.purchasers });
       }
       onClose();
     } catch {
-      /* errors are shown below; conflicts are refetched by the mutation hooks */
+      /* shown in the alert below */
     }
+  });
+  const discard = () => {
+    patch.reset();
+    assign.reset();
+    form.reset(toForm(batch));
   };
 
   return (
     <>
       <Dialog.Body>
-        <Stack gap="3">
-          <FormField label={t('create.title')} required errorText={tried && !title.trim() ? t('common:validation.required') : undefined}>
-            <Input value={title} onChange={(e) => setTitle(e.currentTarget.value)} maxLength={200} />
-          </FormField>
-          <FormField label={t('create.description')}>
-            <Textarea value={description} onChange={(e) => setDescription(e.currentTarget.value)} autoresize rows={2} />
-          </FormField>
-          <FormField label={t('header.deadline')} errorText={tried && newDeadline === undefined ? t('common:validation.invalid') : undefined}>
-            <Input type="datetime-local" value={deadline} onChange={(e) => setDeadline(e.currentTarget.value)} />
-          </FormField>
-          <SelectField
-            label={t('header.visibility')}
-            value={override}
-            onChange={(v) => v && setOverride(v)}
-            options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
-          />
-          <Checklist label={t('assignments.approvers')} options={options} value={a} onChange={setA} />
-          <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={p} onChange={setP} emptyText={t('assignments.none')} />
-          <Text color="fg.muted">{t('assignments.purchasersHelp')}</Text>
-          <ErrorAlert error={patch.error ?? assign.error} />
-        </Stack>
+        <form id="edit-batch-form" onSubmit={submit} noValidate>
+          <Stack gap="3">
+            <FormField label={t('create.title')} required errorText={fieldError(err.title)}>
+              <Input maxLength={200} {...form.register('title')} />
+            </FormField>
+            <FormField label={t('create.description')}>
+              <Textarea autoresize rows={2} {...form.register('description')} />
+            </FormField>
+            <FormField label={t('header.deadline')} errorText={fieldError(err.deadline)}>
+              <Input type="datetime-local" {...form.register('deadline')} />
+            </FormField>
+            <Controller control={form.control} name="visibility" render={({ field }) => (
+              <SelectField
+                label={t('header.visibility')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
+              />
+            )} />
+            <Controller control={form.control} name="approvers" render={({ field }) => (
+              <Checklist label={t('assignments.approvers')} options={options} value={field.value} onChange={field.onChange} />
+            )} />
+            <Controller control={form.control} name="purchasers" render={({ field }) => (
+              <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={field.value} onChange={field.onChange} emptyText={t('assignments.none')} />
+            )} />
+            <Text color="fg.muted">{t('assignments.purchasersHelp')}</Text>
+            <ErrorAlert error={error} onDiscard={discard} />
+          </Stack>
+        </form>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" loading={patch.isPending || assign.isPending} onClick={() => void save()}>{t('common:actions.save')}</Button>
+        <Button size="sm" type="submit" form="edit-batch-form" loading={patch.isPending || assign.isPending}>{t('common:actions.save')}</Button>
       </DialogFooter>
     </>
   );
 }
 
 /** Edit details and assignments; the assignee pickers only offer team members. */
-export function EditBatchModal({ opened, batch, members, onClose }: { opened: boolean; batch: Batch; members: TeamMember[]; onClose: () => void }) {
+export function EditBatchModal({ open, batch, members, onClose }: { open: boolean; batch: Batch; members: TeamMember[]; onClose: () => void }) {
   const { t } = useTranslation('batches');
   return (
-    <AppDialog open={opened} onClose={onClose} title={t('edit.title')}>
+    <AppDialog open={open} onClose={onClose} title={t('edit.title')}>
       <Inner batch={batch} members={members} onClose={onClose} />
     </AppDialog>
   );

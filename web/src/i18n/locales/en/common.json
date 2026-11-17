@@ -36,7 +36,8 @@
     "delete": "Delete",
     "edit": "Edit",
     "saved": "Saved.",
-    "close": "Close"
+    "close": "Close",
+    "discardChanges": "Discard my changes"
   },
   "validation": {
     "required": "This field is required.",
@@ -64,5 +65,9 @@
     "body": "This page does not exist or has moved.",
     "home": "Go home"
   },
-  "unknownTeam": "Unknown team"
+  "unknownTeam": "Unknown team",
+  "forbidden": {
+    "title": "No access",
+    "body": "Your roles do not open this page."
+  }
 }

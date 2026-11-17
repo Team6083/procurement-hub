@@ -51,6 +51,12 @@
     "updated": "Updated {{date}}",
     "noCurrencies": "No other currencies are supported.",
     "deleteTitle": "Delete the {{currency}} rate?",
-    "deleteBody": "Estimates in {{currency}} are not converted into the base currency until a new rate is set."
+    "deleteBody": "Estimates in {{currency}} are not converted into the base currency until a new rate is set.",
+    "currency": "Currency",
+    "value": "Rate",
+    "set": "Set rate",
+    "edit": "Edit rate",
+    "delete": "Delete rate",
+    "updatedAt": "Updated"
   }
 }

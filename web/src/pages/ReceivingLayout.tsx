@@ -1,42 +1,35 @@
-import { Stack, Tabs } from '@chakra-ui/react';
-import { PageHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuPlus } from 'react-icons/lu';
-import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Outlet } from 'react-router';
+import { useAccess } from '../auth/useAccess';
+import { RoleGuard } from '../components/PageStates';
 import { RouteButton } from '../components/RouteLinks';
-import { ReceivingGuard, useReceivingAccess } from '../features/receiving/access';
+import { SectionActions, SectionLayout } from '../components/SectionLayout';
 import { paths } from '../paths';
-
-type TabKey = 'workbench' | 'deliveries';
 
 function ReceivingSection() {
   const { t } = useTranslation('receiving');
-  const { canWrite } = useReceivingAccess();
-  const navigate = useNavigate();
-  const { pathname } = useLocation();
-  const active: TabKey = pathname.startsWith(paths.deliveries) ? 'deliveries' : 'workbench';
+  const { canReceive } = useAccess();
   return (
-    <Stack gap="4">
-      <PageHeader
-        mb="0" title={t('receiving.title')} description={active === 'deliveries' ? t('list.intro') : t('receiving.intro')}
-        actions={canWrite && <RouteButton size="sm" to={paths.newDelivery}><LuPlus />{t('box.title')}</RouteButton>}
-      />
-      <Tabs.Root value={active} onValueChange={(e) => void navigate(e.value === 'deliveries' ? paths.deliveries : paths.receiving)}>
-        <Tabs.List>
-          <Tabs.Trigger value="workbench">{t('tabs.workbench')}</Tabs.Trigger>
-          <Tabs.Trigger value="deliveries">{t('tabs.deliveries')}</Tabs.Trigger>
-        </Tabs.List>
-      </Tabs.Root>
+    <SectionLayout
+      title={t('receiving.title')}
+      tabs={[
+        { to: paths.receiving, label: t('tabs.workbench'), description: t('receiving.intro') },
+        { to: paths.deliveries, label: t('tabs.deliveries'), description: t('list.intro') },
+      ]}
+    >
+      {canReceive && <SectionActions><RouteButton size="sm" to={paths.newDelivery}><LuPlus />{t('box.title')}</RouteButton></SectionActions>}
       <Outlet />
-    </Stack>
+    </SectionLayout>
   );
 }
 
-/** /receiving and /deliveries: one Receiving page with the workbench and the deliveries list as URL-routed tabs. */
+/** /receiving and /deliveries: one Receiving section with the workbench and the deliveries list as URL-routed tabs. */
 export function ReceivingLayout() {
+  const { t } = useTranslation('receiving');
   return (
-    <ReceivingGuard>
+    <RoleGuard allow={(a) => a.canSeeReceiving} description={t('access.denied')}>
       <ReceivingSection />
-    </ReceivingGuard>
+    </RoleGuard>
   );
 }

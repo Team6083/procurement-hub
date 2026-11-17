@@ -231,7 +231,8 @@
     "sendToOrder": "Add to order",
     "orderDialog": "Vendor order",
     "unpurchasableHelp": "\"{{name}}\": the remaining quantity will not be bought. You can undo this later.",
-    "reason": "Reason"
+    "reason": "Reason",
+    "tab": "To purchase"
   },
   "send": {
     "title": "Add to a vendor order",

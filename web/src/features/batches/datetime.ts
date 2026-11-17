@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 const pad = (n: number) => String(n).padStart(2, '0');
 
 /** ISO timestamp -> value for <input type="datetime-local">, in the browser's local time. */
@@ -29,4 +31,17 @@ export function fromLocalInput(value: string): string | null | undefined {
 export function deadlineChange(stored: string | null | undefined, input: string): string | null | undefined {
   if (input === toLocalInput(stored)) return undefined;
   return fromLocalInput(input);
+}
+
+/**
+ * A datetime-local field in a form schema: parses to an RFC 3339 UTC timestamp, or null when empty. Unparseable input
+ * fails with "invalid", and an empty field fails with "required" when `required`.
+ */
+export function deadlineInput(required: boolean) {
+  return z.string().transform((v, ctx) => {
+    const parsed = fromLocalInput(v);
+    if (parsed === undefined) ctx.addIssue({ code: 'custom', message: 'common:validation.invalid' });
+    else if (parsed === null && required) ctx.addIssue({ code: 'custom', message: 'common:validation.required' });
+    return parsed ?? null;
+  });
 }

@@ -15,7 +15,7 @@ import { UndoDialog } from '../components/UndoDialog';
 import { shortDate, shortDay } from '../features/dates';
 import { currencyFractionDigits } from '../features/money';
 import { CloseLineModal } from '../features/orders/CloseLineModal';
-import { useReceivingAccess } from '../features/receiving/access';
+import { useAccess } from '../auth/useAccess';
 import { ResolveProblemModal } from '../features/receiving/ResolveProblemModal';
 import { MatchStateBadge, ProblemBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
@@ -100,7 +100,7 @@ function Problems({ canPurchase, baseDigits }: { canPurchase: boolean; baseDigit
       </Tabs.Root>
       <ResolveProblemModal problem={resolving} baseDigits={baseDigits} onClose={() => setResolving(null)} />
       <UndoDialog
-        opened={!!undoing} title={t('problem.unresolve')} body={t('problem.unresolveHelp')} confirmLabel={t('problem.unresolve')}
+        open={!!undoing} title={t('problem.unresolve')} body={t('problem.unresolveHelp')} confirmLabel={t('problem.unresolve')}
         loading={unresolve.isPending} error={unresolve.error} onClose={() => setUndoing(null)}
         onConfirm={(reason) => undoing && unresolve.mutate({ problem: undoing, reason }, { onSuccess: () => setUndoing(null) })}
       />
@@ -148,7 +148,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
 
 /** /receiving: the receiving workbench, the first tab of the Receiving page (ReceivingLayout). */
 export function ReceivingPage() {
-  const { canPurchase, isSystemAdmin } = useReceivingAccess();
+  const { isPurchaser: canPurchase, isSystemAdmin } = useAccess();
   const baseDigits = currencyFractionDigits(useBaseCurrency()) ?? 2;
   // Receivers see only the matching worklist (spec 17.1); problems and closing are the purchasers' (admins read them).
   const purchasingView = canPurchase || isSystemAdmin;

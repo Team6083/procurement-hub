@@ -42,7 +42,8 @@ describe('ItemsTab unpurchasable action', () => {
     await chooseMenuItem('Mark unpurchasable');
     const dialog = await screen.findByRole('dialog');
     const confirm = within(dialog).getByRole('button', { name: 'Mark unpurchasable' });
-    expect((confirm as HTMLButtonElement).disabled).toBe(true);
+    await act(async () => { fireEvent.click(confirm); });
+    expect(await within(dialog).findByText('This field is required.')).toBeTruthy();
     fireEvent.change(within(dialog).getByRole('textbox'), { target: { value: 'Discontinued' } });
     fireEvent.click(confirm);
     await waitFor(() => expect(calls.some((c) => c.method === 'POST' && c.path === '/items/i1/unpurchasable')).toBe(true));
@@ -101,8 +102,9 @@ describe('ItemsTab review workspace', () => {
     await act(async () => { fireEvent.click(screen.getAllByRole('checkbox', { name: 'Select row' })[0]!); });
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Return' })); });
     const dialog = await screen.findByRole('dialog');
-    expect((within(dialog).getByRole('button', { name: 'Return' }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.change(within(dialog).getByLabelText('Comment'), { target: { value: 'Which model?' } });
+    await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Return' })); });
+    expect(await within(dialog).findByText('This field is required.')).toBeTruthy();
+    fireEvent.change(within(dialog).getByLabelText(/^Comment/), { target: { value: 'Which model?' } });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Return' })); });
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'return', comment: 'Which model?' }] }));
   });
@@ -121,7 +123,7 @@ describe('ItemsTab review workspace', () => {
     await openRowMenu(rowWith('Servo'));
     await chooseMenuItem('Force reject');
     const dialog = await screen.findByRole('dialog');
-    fireEvent.change(within(dialog).getByLabelText('Reason'), { target: { value: 'Duplicate' } });
+    fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: 'Duplicate' } });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Force reject' })); });
     await waitFor(() => expect(calls.find((c) => c.path === '/items/i1/force-reject')?.body).toEqual({ reason: 'Duplicate' }));
   });

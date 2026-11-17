@@ -164,9 +164,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         {internal && batch.status === 'reviewing' && <ReviewBar batch={batch} caller={caller} selected={decidable} onDone={clearSelection} />}
       </SelectionBar>
 
-      <ItemFormModal opened={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
+      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
       <ReasonModal
-        opened={!!withdrawing}
+        open={!!withdrawing}
         title={t('item.withdraw')}
         body={t('item.withdrawConfirm', { name: withdrawing?.name })}
         confirmLabel={t('item.withdraw')}
@@ -177,7 +177,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         onConfirm={() => withdrawing && action.mutate({ item: withdrawing, action: 'withdraw' }, { onSuccess: () => setWithdrawing(null) })}
       />
       <ReasonModal
-        opened={!!forcing}
+        open={!!forcing}
         title={t('review.forceReject')}
         body={t('review.forceHelp', { name: forcing?.name })}
         reasonLabel={t('review.reason')}
@@ -189,7 +189,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         onConfirm={(reason) => forcing && action.mutate({ item: forcing, action: 'force-reject', reason }, { onSuccess: () => setForcing(null) })}
       />
       <UndoDialog
-        opened={!!undoing}
+        open={!!undoing}
         title={undoing?.what === 'review' ? t('item.undoReview') : t('item.unpurchasableUndo')}
         body={undoing?.what === 'review' ? t('item.undoReviewHelp', { name: undoing.item.name }) : t('item.unpurchasableUndoHelp', { name: undoing?.item.name })}
         confirmLabel={undoing?.what === 'review' ? t('item.undoReview') : t('item.unpurchasableUndo')}
@@ -199,7 +199,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         onConfirm={(reason) => undoing && action.mutate({ item: undoing.item, action: undoing.what === 'review' ? 'review/undo' : 'unpurchasable/undo', reason }, { onSuccess: () => setUndoing(null) })}
       />
       <ReasonModal
-        opened={!!unbuyable}
+        open={!!unbuyable}
         title={t('item.unpurchasable')}
         body={t('item.unpurchasableHelp', { name: unbuyable?.name })}
         reasonLabel={t('item.unpurchasableReason')}

@@ -127,7 +127,7 @@ export function MembersSettings() {
         </TableShell>
       )}
       <ReasonModal
-        opened={!!toRemove}
+        open={!!toRemove}
         title={t('members.removeTitle')}
         body={
           <>

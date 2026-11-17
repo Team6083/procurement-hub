@@ -1,4 +1,5 @@
-import { Badge, Button, Card, HStack, Skeleton, Stack, Tabs, Text, useDisclosure } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Skeleton, Stack, Tabs, Text } from '@chakra-ui/react';
+import { useState } from 'react';
 import { FactList, PageHeader } from '@team6083/ui';
 import { LuPencil } from 'react-icons/lu';
 import { useTranslation } from 'react-i18next';
@@ -33,7 +34,7 @@ export function BatchPage() {
   const caller = callerFor(me, batch?.teamId ?? '', teamData?.archived ?? false);
   const internals = isMember(caller) || caller.isSystemAdmin;
   const names = useNames(batch?.teamId, internals);
-  const { open: editing, onOpen: open, onClose: close } = useDisclosure();
+  const [editing, setEditing] = useState(false);
 
   if (batchQ.isPending) return <Skeleton h="32" rounded="l3" />;
   if (batchQ.error || !batch) return <ErrorAlert error={batchQ.error} />;
@@ -61,7 +62,7 @@ export function BatchPage() {
           actions={
             <HStack gap="2" wrap="wrap">
               {canEditBatch(batch, caller) && (
-                <Button size="sm" variant="outline" onClick={open}>
+                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                   <LuPencil />
                   {t('edit.button')}
                 </Button>
@@ -107,7 +108,7 @@ export function BatchPage() {
           <TimelineTab batchId={batch.id} nameOf={names.name} />
         </Tabs.Content>
       </Tabs.Root>
-      {canEditBatch(batch, caller) && <EditBatchModal opened={editing} batch={batch} members={names.members} onClose={close} />}
+      {canEditBatch(batch, caller) && <EditBatchModal open={editing} batch={batch} members={names.members} onClose={() => setEditing(false)} />}
     </Stack>
   );
 }

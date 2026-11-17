@@ -1,97 +1,65 @@
-import { Badge, Button, Card, HStack, Skeleton, Stack, Table, Text } from '@chakra-ui/react';
-import { EmptyState, PageHeader } from '@team6083/ui';
-import { LuPlus, LuShieldCheck } from 'react-icons/lu';
+import { Badge, Button, Card, Stack, Text } from '@chakra-ui/react';
+import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useMe } from '../api/me';
+import { LuPencil, LuPlus, LuShieldCheck, LuTrash2 } from 'react-icons/lu';
 import { useDeleteRoleMapping, useRoleMappings } from '../api/roleMappings';
 import type { RoleMapping } from '../api/types';
-import { ErrorAlert, Notice } from '../components/ErrorAlert';
+import { DataTable } from '../components/DataTable';
+import { ErrorAlert } from '../components/ErrorAlert';
+import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';
-import { TableShell } from '../components/ui/table';
+import { SectionActions } from '../components/SectionLayout';
 import { RoleMappingModal } from '../features/admin/RoleMappingModal';
 
+/** UI-managed role-mapping rules (system admins only; the admin section guards the route). */
 export function RoleMappingsPage() {
   const { t } = useTranslation('admin');
-  const { isSystemAdmin, isPending } = useMe();
-  const rules = useRoleMappings(isSystemAdmin);
+  const rules = useRoleMappings(true);
   const del = useDeleteRoleMapping();
-  const [editing, setEditing] = useState<RoleMapping | null>(null);
-  const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<RoleMapping | 'new' | null>(null);
   const [toDelete, setToDelete] = useState<RoleMapping | null>(null);
 
-  if (isPending) return <Skeleton h="24" rounded="l3" />;
-  if (!isSystemAdmin) return <Notice>{t('forbidden')}</Notice>;
+  const mono = (s: string) => <Text as="span" fontFamily="mono" textStyle="sm">{s}</Text>;
+  const columns: DataColumn<RoleMapping>[] = [
+    { key: 'pattern', header: t('form.pattern'), label: t('form.pattern'), priority: 'primary', cell: (r) => mono(r.pattern) },
+    { key: 'claim', header: t('form.claim'), cell: (r) => t(`claim.${r.claim}`) },
+    { key: 'team', header: t('form.team'), cell: (r) => mono(r.team) },
+    { key: 'role', header: t('form.role'), cell: (r) => <Badge variant="subtle">{t(`teams:role.${r.role}`)}</Badge> },
+    {
+      key: 'state', header: t('form.enabled'),
+      cell: (r) => (
+        <Stack direction="row" gap="1" wrap="wrap" justify="inherit">
+          {r.enabled ? <Badge colorPalette="green" variant="subtle">{t('on')}</Badge> : <Badge variant="outline">{t('off')}</Badge>}
+          {r.managed && <Badge variant="outline">{t('managed')}</Badge>}
+        </Stack>
+      ),
+    },
+    { key: 'description', header: t('form.description'), priority: 'secondary', cell: (r) => r.description || '—' },
+  ];
+  // Rules from the rules file are read-only.
+  const rowActions = (r: RoleMapping): RowAction[] => (r.managed ? [] : [
+    { value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(r) },
+    { value: 'delete', icon: <LuTrash2 />, label: t('common:actions.delete'), danger: true, onSelect: () => { del.reset(); setToDelete(r); } },
+  ]);
 
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0"
-        title={t('title')}
-        description={t('intro')}
-        actions={
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <LuPlus />
-            {t('create')}
-          </Button>
-        }
-      />
-      {rules.isPending && <Skeleton h="24" rounded="l3" />}
+      <SectionActions>
+        <Button size="sm" onClick={() => setEditing('new')}><LuPlus />{t('create')}</Button>
+      </SectionActions>
+      {rules.isPending && <ListSkeleton />}
       {rules.error && <ErrorAlert error={rules.error} />}
-      {rules.data?.length === 0 && (
-        <Card.Root size="sm">
-          <Card.Body>
-            <EmptyState icon={<LuShieldCheck />} title={t('empty')} />
-          </Card.Body>
-        </Card.Root>
+      {rules.data && (
+        <DataTable
+          aria-label={t('title')} rows={rules.data} columns={columns} getRowId={(r) => r.id} rowActions={rowActions}
+          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShieldCheck />} title={t('empty')} /></Card.Body></Card.Root>}
+        />
       )}
-      {rules.data && rules.data.length > 0 && (
-        <TableShell minW="760px">
-          <Table.Header>
-            <Table.Row>
-              <Table.ColumnHeader>{t('form.claim')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('form.pattern')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('form.team')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('form.role')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('form.enabled')}</Table.ColumnHeader>
-              <Table.ColumnHeader>{t('form.description')}</Table.ColumnHeader>
-              <Table.ColumnHeader />
-            </Table.Row>
-          </Table.Header>
-          <Table.Body>
-            {rules.data.map((r) => (
-              <Table.Row key={r.id}>
-                <Table.Cell>{t(`claim.${r.claim}`)}</Table.Cell>
-                <Table.Cell><Text fontFamily="mono" textStyle="sm">{r.pattern}</Text></Table.Cell>
-                <Table.Cell><Text fontFamily="mono" textStyle="sm">{r.team}</Text></Table.Cell>
-                <Table.Cell>{t(`teams:role.${r.role}`)}</Table.Cell>
-                <Table.Cell>{r.enabled ? t('on') : t('off')}</Table.Cell>
-                <Table.Cell>{r.description}</Table.Cell>
-                <Table.Cell>
-                  {r.managed ? (
-                    <Badge colorPalette="gray" variant="outline">{t('managed')}</Badge>
-                  ) : (
-                    <HStack gap="2">
-                      <Button size="xs" variant="outline" onClick={() => setEditing(r)}>{t('common:actions.edit')}</Button>
-                      <Button size="xs" colorPalette="red" variant="subtle" onClick={() => { del.reset(); setToDelete(r); }}>{t('common:actions.delete')}</Button>
-                    </HStack>
-                  )}
-                </Table.Cell>
-              </Table.Row>
-            ))}
-          </Table.Body>
-        </TableShell>
-      )}
-      <RoleMappingModal opened={creating || !!editing} rule={editing} onClose={() => { setCreating(false); setEditing(null); }} />
+      <RoleMappingModal open={editing !== null} rule={editing && editing !== 'new' ? editing : null} onClose={() => setEditing(null)} />
       <ReasonModal
-        opened={!!toDelete}
-        title={t('deleteTitle')}
-        body={t('deleteConfirm', { pattern: toDelete?.pattern })}
-        confirmLabel={t('common:actions.delete')}
-        danger
-        loading={del.isPending}
-        error={del.error}
-        onClose={() => setToDelete(null)}
+        open={!!toDelete} danger title={t('deleteTitle')} body={t('deleteConfirm', { pattern: toDelete?.pattern })}
+        confirmLabel={t('common:actions.delete')} loading={del.isPending} error={del.error} onClose={() => setToDelete(null)}
         onConfirm={() => toDelete && del.mutate(toDelete, { onSuccess: () => setToDelete(null) })}
       />
     </Stack>

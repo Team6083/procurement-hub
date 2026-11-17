@@ -1,4 +1,4 @@
-import { Combobox, Portal, createListCollection } from '@chakra-ui/react';
+import { Combobox, Field, Portal, createListCollection } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useUserSearch } from '../api/members';
@@ -11,6 +11,7 @@ interface Props {
   onChange: (userId: string | null) => void;
   label: string;
   error?: string;
+  required?: boolean;
   /** Users to hide (e.g. existing members). */
   excludeIds?: string[];
   /**
@@ -24,7 +25,7 @@ interface Props {
 const userLabel = (u: User) => `${u.displayName || u.username} (${u.email || u.username})`;
 
 /** Searchable user picker backed by GET /users?q= (needs at least 2 characters). */
-export function UserSearchSelect({ value, onChange, label, error, excludeIds = [], inDialog = false }: Props) {
+export function UserSearchSelect({ value, onChange, label, error, required, excludeIds = [], inDialog = false }: Props) {
   const { t } = useTranslation();
   const [search, setSearch] = useState('');
   const debounced = useDebouncedValue(search, 250);
@@ -35,7 +36,7 @@ export function UserSearchSelect({ value, onChange, label, error, excludeIds = [
   const collection = createListCollection({ items: options, itemToValue: (u) => u.id, itemToString: userLabel });
   const empty = debounced.trim().length < 2 ? t('common:userSearch.minChars') : q.isFetching ? t('loading') : t('common:userSearch.none');
   return (
-    <FormField errorText={error}>
+    <FormField errorText={error} required={required}>
       <Combobox.Root
         collection={collection}
         value={value ? [value] : []}
@@ -48,10 +49,9 @@ export function UserSearchSelect({ value, onChange, label, error, excludeIds = [
           onChange(id);
         }}
         openOnClick
-        size="sm"
         invalid={!!error}
       >
-        <Combobox.Label>{label}</Combobox.Label>
+        <Combobox.Label>{label}<Field.RequiredIndicator /></Combobox.Label>
         <Combobox.Control>
           <Combobox.Input placeholder={t('common:userSearch.placeholder')} />
           <Combobox.IndicatorGroup>

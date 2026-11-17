@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Skeleton, Stack, useDisclosure } from '@chakra-ui/react';
+import { Button, Card, HStack, Skeleton, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, PageHeader } from '@team6083/ui';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
@@ -23,7 +23,7 @@ export function BatchesPage() {
   const [status, setStatus] = useState('');
   const [text, setText] = useState('');
   const q = useDebouncedValue(text, 300);
-  const { open: opened, onOpen: open, onClose: close } = useDisclosure();
+  const [creating, setCreating] = useState(false);
   const list = useBatchList({ teamId: teamId || undefined, status: status || undefined, q });
   const batches = list.data?.pages.flatMap((p) => p.items) ?? [];
   const teamName = (id: string) => (teams.data ? teams.data.find((x) => x.id === id)?.name ?? t('common:unknownTeam') : '');
@@ -38,7 +38,7 @@ export function BatchesPage() {
         mb="0"
         actions={
           canCreate && (
-            <Button size="sm" onClick={open}>
+            <Button size="sm" onClick={() => setCreating(true)}>
               <LuPlus />
               {anyAdmin ? t('list.new') : t('list.propose')}
             </Button>
@@ -69,7 +69,7 @@ export function BatchesPage() {
           <Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button>
         </HStack>
       )}
-      <CreateBatchModal opened={opened} onClose={close} teams={mine} defaultTeamId={teamId && mine.some((m) => m.teamId === teamId) ? teamId : undefined} />
+      <CreateBatchModal open={creating} onClose={() => setCreating(false)} teams={mine} defaultTeamId={teamId && mine.some((m) => m.teamId === teamId) ? teamId : undefined} />
     </Stack>
   );
 }

@@ -49,7 +49,7 @@ export function BlockerList({ error }: { error: unknown }) {
 }
 
 interface Props {
-  opened: boolean;
+  open: boolean;
   title: string;
   body?: string;
   confirmLabel: string;

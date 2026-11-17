@@ -14,7 +14,7 @@ import { DeliveriesPage } from './pages/DeliveriesPage';
 import { DeliveryNewPage } from './pages/DeliveryNewPage';
 import { DeliveryPage } from './pages/DeliveryPage';
 import { HomePage } from './pages/HomePage';
-import { NotFound } from './pages/NotFound';
+import { NotFound } from './components/PageStates';
 import { Placeholder } from './pages/Placeholder';
 import { PurchasingPage } from './pages/PurchasingPage';
 import { ReceivingLayout } from './pages/ReceivingLayout';
