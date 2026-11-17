@@ -103,17 +103,10 @@ describe('api client', () => {
     await expect(client.post('/x', {})).resolves.toEqual({ ok: 1 });
   });
 
-  it('full.* exposes the ETag header alongside the body; plain verbs still return the body', async () => {
-    const { client } = setup([json(200, { id: 1 }, { ETag: '"5"' }), json(200, { id: 1 }, { ETag: '"5"' }), json(200, { id: 2 })]);
-    await expect(client.full.get('/teams/1')).resolves.toEqual({ data: { id: 1 }, etag: 5, status: 200 });
-    await expect(client.get('/teams/1')).resolves.toEqual({ id: 1 });
-    await expect(client.full.get('/x')).resolves.toMatchObject({ etag: undefined });
-  });
-
   it('passes If-Match through and handles 204', async () => {
     const { client, fetchImpl } = setup([new Response(null, { status: 204 })]);
-    const r = await client.full.delete('/x', { headers: { 'If-Match': '"2"' } });
-    expect(r).toEqual({ data: undefined, etag: undefined, status: 204 });
+    const r = await client.delete('/x', { headers: { 'If-Match': '"2"' } });
+    expect(r).toBeUndefined();
     expect((fetchImpl.mock.calls[0]![1].headers as Record<string, string>)['If-Match']).toBe('"2"');
   });
 

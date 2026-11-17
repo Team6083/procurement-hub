@@ -39,7 +39,8 @@ function Form({ items, vendorId: initialVendor, otherTeamCount, onDone }: Omit<P
       create.mutate({ vendorId, currency: currency || undefined, itemIds }, { onSuccess: (o) => onDone(o.id) });
       return;
     }
-    addTo.mutate({ orderId: target, version: draftOrders.find((o) => o.id === target)?.version ?? 0, itemIds }, { onSuccess: (o) => onDone(o.id) });
+    const order = draftOrders.find((o) => o.id === target);
+    if (order) addTo.mutate({ orderId: order.id, version: order.version, itemIds }, { onSuccess: (o) => onDone(o.id) });
   };
 
   return (

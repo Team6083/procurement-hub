@@ -4,8 +4,6 @@ import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
 import { useApi } from '../../api/context';
-import { meKey } from '../../api/me';
-import { teamsKey } from '../../api/teams';
 import type { Team } from '../../api/types';
 import { useGuardedMutation } from '../../api/useGuardedMutation';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -26,7 +24,6 @@ export function CreateTeamModal({ opened, onClose }: { opened: boolean; onClose:
   });
   const create = useGuardedMutation<CreateTeamForm, Team>({
     mutationFn: (body) => api.post<Team>('/teams', body),
-    invalidate: [teamsKey, meKey],
     onSuccess: (team) => {
       form.reset();
       onClose();

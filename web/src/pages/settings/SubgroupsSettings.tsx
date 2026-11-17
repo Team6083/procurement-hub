@@ -15,8 +15,8 @@ function AddSubgroup({ team }: { team: Team }) {
   const { t } = useTranslation('teams');
   const [name, setName] = useState('');
   const [tried, setTried] = useState(false);
-  const add = useTeamMutation<string>(team.id, (api, headers, n) =>
-    api.full.post<Team>(`/teams/${team.id}/subgroups`, { name: n }, { headers }),
+  const add = useTeamMutation<string>(team.id, (api, n, headers) =>
+    api.post<Team>(`/teams/${team.id}/subgroups`, { name: n }, { headers }),
   );
   return (
     <form
@@ -44,8 +44,7 @@ function SubgroupRow({ team, group }: { team: Team; group: Subgroup }) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(group.name);
   const [confirming, setConfirming] = useState(false);
-  const patch = useTeamMutation<{ name?: string; active?: boolean }>(team.id, (api, headers, body) =>
-    api.full.patch<Team>(`/teams/${team.id}/subgroups/${group.id}`, body, { headers }),
+  const patch = useTeamMutation<{ name?: string; active?: boolean }>(team.id, (api, body, headers) => api.patch<Team>(`/teams/${team.id}/subgroups/${group.id}`, body, { headers }),
   );
   const rename = () => {
     const n = name.trim();

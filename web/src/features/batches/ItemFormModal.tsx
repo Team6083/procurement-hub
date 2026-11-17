@@ -30,7 +30,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
   const meta = useMeta();
   const vendors = useVendors();
   const add = useAddItem(batch.id);
-  const patch = usePutItem(batch.id);
+  const patch = usePutItem();
   const currencies = meta.data?.supportedCurrencies ?? [];
   const base = meta.data?.baseCurrency ?? currencies[0] ?? '';
   const activeDefault = team?.subgroups.some((g) => g.id === defaultSubgroupId && g.active) ? defaultSubgroupId : '';

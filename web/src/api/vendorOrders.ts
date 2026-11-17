@@ -1,22 +1,16 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ApiClient } from './client';
-import { tasksKey } from './batches';
 import { useApi } from './context';
+import { AUDIT_PAGE_SIZE, keys } from './keys';
 import type { AuditEvent, Page, QueueGroup, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
-import { ifMatchHeader } from './versioned';
-
-const queueKey = ['purchasing', 'queue'] as const;
-export const ordersKey = ['vendor-orders'] as const;
-const orderKey = (id: string | undefined) => ['vendor-order', id] as const;
-const orderAuditKey = (id: string | undefined) => ['vendor-order', id, 'audit'] as const;
-export const linesToCloseKey = ['vendor-order-lines', 'toClose'] as const;
+import { ifMatchHeader, serial, useVersionedMutation } from './versioned';
 
 /** GET /purchasing/queue: approved items with quantity still to purchase, grouped by vendor. */
 export function useQueue(enabled = true) {
   const api = useApi();
   return useQuery({
-    queryKey: queueKey,
+    queryKey: keys.queue,
     enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: QueueGroup[] }>('/purchasing/queue', { signal })).items,
   });
@@ -33,7 +27,7 @@ export interface OrderFilters {
 export function useVendorOrderList(filters: OrderFilters, enabled = true) {
   const api = useApi();
   return useInfiniteQuery({
-    queryKey: [...ordersKey, filters],
+    queryKey: keys.orders(filters),
     enabled,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
@@ -49,7 +43,7 @@ export function useVendorOrderList(filters: OrderFilters, enabled = true) {
 export function useVendorOrder(id: string | undefined) {
   const api = useApi();
   return useQuery({
-    queryKey: orderKey(id),
+    queryKey: keys.order(id),
     enabled: !!id,
     queryFn: ({ signal }) => api.get<VendorOrder>(`/vendor-orders/${id}`, { signal }),
   });
@@ -59,41 +53,18 @@ export function useVendorOrder(id: string | undefined) {
 export function useOrderAudit(id: string | undefined) {
   const api = useApi();
   return useInfiniteQuery({
-    queryKey: orderAuditKey(id),
+    queryKey: keys.orderAudit(id),
     enabled: !!id,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'vendor_order', objectId: id, limit: 50, cursor: pageParam }, signal }),
+      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'vendor_order', objectId: id, limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }
 
-// Writes on one order go one after another: each takes the version the previous one produced, so
-// quickly editing several prices never races itself into a version conflict.
-const chains = new Map<string, Promise<unknown>>();
-function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const next = (chains.get(key) ?? Promise.resolve()).catch(() => undefined).then(fn);
-  chains.set(key, next);
-  return next;
-}
-
-const changed = (orderId: string) => [ordersKey, queueKey, tasksKey, orderAuditKey(orderId), linesToCloseKey, ['batch']];
-
-/**
- * A write on a vendor order: If-Match is the order version in the cache at the moment the write runs,
- * the response (the whole order) replaces the cache, and a conflict refetches.
- */
-function useOrderMutation<TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useGuardedMutation<TVars, VendorOrder>({
-    mutationFn: (vars) =>
-      serial(orderId, () => call(api, vars, ifMatchHeader(qc.getQueryData<VendorOrder>(orderKey(orderId))?.version))),
-    invalidate: changed(orderId),
-    conflictKeys: [orderKey(orderId)],
-    onSuccess: (o) => qc.setQueryData(orderKey(orderId), o),
-  });
-}
+/** A write on a vendor order (or one of its lines, ledger entries): If-Match is the cached order's version. */
+const useOrderMutation = <TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) =>
+  useVersionedMutation<TVars, VendorOrder>(keys.order(orderId), (api, vars, version) => call(api, vars, ifMatchHeader(version)));
 
 export interface LineBody {
   teamId: string;
@@ -160,24 +131,25 @@ export function useCreateOrder() {
   const api = useApi();
   return useGuardedMutation<{ vendorId: string; currency?: string; itemIds: string[] }, VendorOrder>({
     mutationFn: (body) => api.post<VendorOrder>('/vendor-orders', body),
-    invalidate: [ordersKey, queueKey, tasksKey, ['batch']],
   });
 }
 
-/** Adds items to an existing draft order, one line each (every write returns the next version). */
+/**
+ * Adds items to an existing draft order, one line each. The first write takes the order's version from the summary
+ * the user picked; each later one the version the previous write returned. Queued behind other writes on the order.
+ */
 export function useAddItemsToOrder() {
   const api = useApi();
   return useGuardedMutation<{ orderId: string; version: number; itemIds: string[] }, VendorOrder>({
-    mutationFn: async ({ orderId, version, itemIds }) => {
-      let cur: VendorOrder | undefined;
-      let v = version;
-      for (const itemId of itemIds) {
-        cur = await api.post<VendorOrder>(`/vendor-orders/${orderId}/lines`, { itemId }, { headers: ifMatchHeader(v) });
-        v = cur.version;
-      }
-      return cur as VendorOrder;
-    },
-    invalidate: [ordersKey, queueKey, tasksKey, ['batch']],
-    conflictKeys: [],
+    mutationFn: ({ orderId, version, itemIds }) =>
+      serial(JSON.stringify(keys.order(orderId)), async () => {
+        let cur: VendorOrder | undefined;
+        let v = version;
+        for (const itemId of itemIds) {
+          cur = await api.post<VendorOrder>(`/vendor-orders/${orderId}/lines`, { itemId }, { headers: ifMatchHeader(v) });
+          v = cur.version;
+        }
+        return cur as VendorOrder;
+      }),
   });
 }

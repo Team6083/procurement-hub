@@ -36,7 +36,7 @@ export function PurchasingPage() {
   const [sending, setSending] = useState(false);
   const [opened, setOpened] = useState<string | null>(null);
   const [marking, setMarking] = useState<QueueItem | null>(null);
-  const unbuy = useItemAction(marking?.batchId ?? '');
+  const unbuy = useItemAction();
 
   const groups = useMemo(() => queue.data ?? [], [queue.data]);
   const items = useMemo(() => groups.flatMap((g) => g.items), [groups]);

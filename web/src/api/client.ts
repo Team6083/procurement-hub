@@ -1,5 +1,4 @@
 import { ApiError, VersionMismatchError, parseApiError } from './errors';
-import { parseEtag } from './versioned';
 import { checkCommit, createVersionStore, versionStore } from './versionGuard';
 
 export interface ApiClientOptions {
@@ -25,13 +24,6 @@ export interface RequestOptions {
   signal?: AbortSignal;
   /** Set false for unauthenticated endpoints such as GET /meta. */
   auth?: boolean;
-}
-
-/** A response body plus the parsed `ETag` header (resource version), when present. */
-export interface ApiResult<T> {
-  data: T;
-  etag: number | undefined;
-  status: number;
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
@@ -63,7 +55,7 @@ export function createApiClient(opts: ApiClientOptions) {
     return res;
   }
 
-  async function requestFull<T>(method: string, path: string, o: RequestOptions = {}): Promise<ApiResult<T>> {
+  async function request<T>(method: string, path: string, o: RequestOptions = {}): Promise<T> {
     if (method !== 'GET' && store.isMismatch()) throw new VersionMismatchError();
     const useAuth = o.auth !== false;
     let res = await send(method, path, o, useAuth ? await opts.getToken() : undefined);
@@ -80,31 +72,17 @@ export function createApiClient(opts: ApiClientOptions) {
       if (err.status === 403 && err.code === 'missing_role') opts.onMissingRole?.();
       throw err;
     }
-    const etag = parseEtag(res.headers.get('ETag'));
-    if (res.status === 204) return { data: undefined as T, etag, status: res.status };
-    return { data: (await res.json()) as T, etag, status: res.status };
-  }
-
-  async function request<T>(method: string, path: string, o: RequestOptions = {}): Promise<T> {
-    return (await requestFull<T>(method, path, o)).data;
+    if (res.status === 204) return undefined as T;
+    return (await res.json()) as T;
   }
 
   return {
     request,
-    requestFull,
     get: <T>(path: string, o?: RequestOptions) => request<T>('GET', path, o),
     post: <T>(path: string, body?: unknown, o?: RequestOptions) => request<T>('POST', path, { ...o, body }),
     put: <T>(path: string, body?: unknown, o?: RequestOptions) => request<T>('PUT', path, { ...o, body }),
     patch: <T>(path: string, body?: unknown, o?: RequestOptions) => request<T>('PATCH', path, { ...o, body }),
     delete: <T>(path: string, o?: RequestOptions) => request<T>('DELETE', path, o),
-    /** Same verbs, but resolving to `{data, etag, status}` so callers can read the ETag header. */
-    full: {
-      get: <T>(path: string, o?: RequestOptions) => requestFull<T>('GET', path, o),
-      post: <T>(path: string, body?: unknown, o?: RequestOptions) => requestFull<T>('POST', path, { ...o, body }),
-      put: <T>(path: string, body?: unknown, o?: RequestOptions) => requestFull<T>('PUT', path, { ...o, body }),
-      patch: <T>(path: string, body?: unknown, o?: RequestOptions) => requestFull<T>('PATCH', path, { ...o, body }),
-      delete: <T>(path: string, o?: RequestOptions) => requestFull<T>('DELETE', path, o),
-    },
   };
 }
 

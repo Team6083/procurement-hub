@@ -27,7 +27,7 @@ export function TeamShell() {
   if (!teamId) return <Notice>{t('team.notFound')}</Notice>;
   if (team.error || !team.data) return <ErrorAlert error={team.error} />;
 
-  const data = team.data.data;
+  const data = team.data;
   const full = isFullTeam(data) ? data : undefined;
   const canAdmin = !!full && canAdminTeam(me, teamId);
   const member = !!full && (isTeamMember(me, teamId) || !!me?.isSystemAdmin);

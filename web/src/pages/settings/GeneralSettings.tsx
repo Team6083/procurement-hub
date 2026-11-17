@@ -20,8 +20,7 @@ import { generalSchema, type GeneralForm } from '../../features/teams/schemas';
 function GeneralSettingsForm({ team }: { team: Team }) {
   const { t } = useTranslation('teams');
   const form = useForm<GeneralForm>({ resolver: zodResolver(generalSchema), defaultValues: toForm(team) });
-  const save = useTeamMutation<PatchTeamRequest>(team.id, (api, headers, body) =>
-    api.full.patch<Team>(`/teams/${team.id}`, body, { headers }),
+  const save = useTeamMutation<PatchTeamRequest>(team.id, (api, body, headers) => api.patch<Team>(`/teams/${team.id}`, body, { headers }),
   );
   const err = form.formState.errors;
   const msg = (m: string | undefined) => (m ? t(m) : undefined);
@@ -90,8 +89,7 @@ function GeneralSettingsForm({ team }: { team: Team }) {
 function ArchiveControl({ team }: { team: Team }) {
   const { t } = useTranslation('teams');
   const [confirming, setConfirming] = useState(false);
-  const toggle = useTeamMutation<boolean>(team.id, (api, headers, archived) =>
-    api.full.patch<Team>(`/teams/${team.id}`, { archived }, { headers }),
+  const toggle = useTeamMutation<boolean>(team.id, (api, archived, headers) => api.patch<Team>(`/teams/${team.id}`, { archived }, { headers }),
   );
   return (
     <Stack gap="2" maxW="640px">

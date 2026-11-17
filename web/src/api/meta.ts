@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useApi } from './context';
+import { keys } from './keys';
 import type { components } from './schema';
 
 export type Meta = components['schemas']['Meta'];
@@ -8,7 +9,7 @@ export type Meta = components['schemas']['Meta'];
 export function useMeta() {
   const api = useApi();
   return useQuery({
-    queryKey: ['meta'],
+    queryKey: keys.meta,
     queryFn: ({ signal }) => api.get<Meta>('/meta', { auth: false, signal }),
     staleTime: Infinity,
   });

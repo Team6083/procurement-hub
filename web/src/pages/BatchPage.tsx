@@ -25,10 +25,10 @@ export function BatchPage() {
   const { id } = useParams();
   const { me } = useMe();
   const batchQ = useBatch(id);
-  const batch = batchQ.data?.data;
+  const batch = batchQ.data;
   const teamQ = useTeam(batch?.teamId);
   const items = useItems(id);
-  const teamData = teamQ.data?.data;
+  const teamData = teamQ.data;
   const full = teamData && isFullTeam(teamData) ? teamData : undefined;
   const caller = callerFor(me, batch?.teamId ?? '', teamData?.archived ?? false);
   const internals = isMember(caller) || caller.isSystemAdmin;

@@ -1,20 +1,10 @@
-import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ApiClient } from './client';
-import { tasksKey } from './batches';
 import { useApi } from './context';
+import { keys } from './keys';
 import type { Candidate, Delivery, DeliveryLine, DeliveryLineRequest, DeliverySummary, MatchRequest, Page, Problem, ProblemAction, VendorOrderLine } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
-import { linesToCloseKey, ordersKey } from './vendorOrders';
-import { ifMatchHeader } from './versioned';
-
-export const deliveriesKey = ['deliveries'] as const;
-export const deliveryKey = (id: string | undefined) => ['delivery', id] as const;
-export const pendingLinesKey = ['delivery-lines', 'pending'] as const;
-export const problemsKey = ['problems'] as const;
-const suggestionsKey = (lineId: string) => ['delivery-line', lineId, 'suggestions'] as const;
-
-/** Everything a receiving write can change: lists, the worklists, tasks, vendor orders and batch progress. */
-const touched = [deliveriesKey, pendingLinesKey, problemsKey, tasksKey, ordersKey, ['vendor-order'], linesToCloseKey, ['batch'], ['delivery-line']];
+import { ifMatchHeader, useVersionedMutation } from './versioned';
 
 export interface DeliveryFilters {
   voided?: 'true' | 'false';
@@ -27,7 +17,7 @@ export interface DeliveryFilters {
 export function useDeliveryList(filters: DeliveryFilters) {
   const api = useApi();
   return useInfiniteQuery({
-    queryKey: [...deliveriesKey, filters],
+    queryKey: keys.deliveries(filters),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<Page<DeliverySummary>>('/deliveries', {
@@ -42,7 +32,7 @@ export function useDeliveryList(filters: DeliveryFilters) {
 export function useDelivery(id: string | undefined) {
   const api = useApi();
   return useQuery({
-    queryKey: deliveryKey(id),
+    queryKey: keys.delivery(id),
     enabled: !!id,
     queryFn: ({ signal }) => api.get<Delivery>(`/deliveries/${id}`, { signal }),
   });
@@ -52,7 +42,7 @@ export function useDelivery(id: string | undefined) {
 export function usePendingLines(enabled = true) {
   const api = useApi();
   return useQuery({
-    queryKey: pendingLinesKey,
+    queryKey: keys.pendingLines,
     enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: DeliveryLine[] }>('/delivery-lines', { query: { matchState: 'unmatched,partial' }, signal })).items,
   });
@@ -62,7 +52,7 @@ export function usePendingLines(enabled = true) {
 export function useProblems(status: 'open' | 'resolved', enabled = true) {
   const api = useApi();
   return useQuery({
-    queryKey: [...problemsKey, status],
+    queryKey: keys.problems(status),
     enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: Problem[] }>('/problems', { query: { status }, signal })).items,
   });
@@ -72,7 +62,7 @@ export function useProblems(status: 'open' | 'resolved', enabled = true) {
 export function useLinesToClose(enabled = true) {
   const api = useApi();
   return useQuery({
-    queryKey: linesToCloseKey,
+    queryKey: keys.linesToClose,
     enabled,
     queryFn: async ({ signal }) => (await api.get<{ items: VendorOrderLine[] }>('/vendor-order-lines', { query: { toClose: true }, signal })).items,
   });
@@ -84,7 +74,7 @@ export function useMatchCandidates(sku: string, name: string) {
   const s = sku.trim();
   const n = name.trim();
   return useQuery({
-    queryKey: ['purchasing', 'match-candidates', s, n],
+    queryKey: keys.matchCandidates(s, n),
     enabled: s.length >= 2 || n.length >= 2,
     queryFn: async ({ signal }) =>
       (await api.get<{ items: Candidate[] }>('/purchasing/match-candidates', { query: { sku: s || undefined, name: n || undefined }, signal })).items,
@@ -95,7 +85,7 @@ export function useMatchCandidates(sku: string, name: string) {
 export function useSuggestions(lineId: string) {
   const api = useApi();
   return useQuery({
-    queryKey: suggestionsKey(lineId),
+    queryKey: keys.suggestions(lineId),
     staleTime: 0,
     gcTime: 0,
     queryFn: async ({ signal }) => (await api.get<{ items: Candidate[] }>(`/delivery-lines/${lineId}/suggestions`, { signal })).items,
@@ -114,36 +104,12 @@ export function useCreateDelivery() {
   const api = useApi();
   return useGuardedMutation<NewDelivery, Delivery>({
     mutationFn: (body) => api.post<Delivery>('/deliveries', body),
-    invalidate: touched,
   });
 }
 
-// Writes on one delivery go one after another, each with the version the previous one produced.
-const chains = new Map<string, Promise<unknown>>();
-function serial<T>(key: string, fn: () => Promise<T>): Promise<T> {
-  const next = (chains.get(key) ?? Promise.resolve()).catch(() => undefined).then(fn);
-  chains.set(key, next);
-  return next;
-}
-
-/**
- * A write on a delivery or one of its lines: If-Match is the delivery version in the cache when the write runs, and
- * the returned delivery replaces the cache before the next queued write starts. A conflict refetches.
- */
-function useDeliveryMutation<TVars>(deliveryId: string, call: (api: ApiClient, vars: TVars, version: number | undefined) => Promise<Delivery>) {
-  const api = useApi();
-  const qc = useQueryClient();
-  return useGuardedMutation<TVars, Delivery>({
-    mutationFn: (vars) =>
-      serial(deliveryId, async () => {
-        const d = await call(api, vars, qc.getQueryData<Delivery>(deliveryKey(deliveryId))?.version);
-        qc.setQueryData(deliveryKey(deliveryId), d);
-        return d;
-      }),
-    invalidate: touched,
-    conflictKeys: [deliveryKey(deliveryId)],
-  });
-}
+/** A write on a delivery or one of its lines: If-Match is the cached delivery's version. */
+const useDeliveryMutation = <TVars>(deliveryId: string, call: (api: ApiClient, vars: TVars, version: number | undefined) => Promise<Delivery>) =>
+  useVersionedMutation<TVars, Delivery>(keys.delivery(deliveryId), call);
 
 /**
  * PUT /delivery-lines/{id}/matches. With `markRest`, the rest of the line is then marked as needing no match with
@@ -174,7 +140,6 @@ export function useResolveProblem() {
   const api = useApi();
   return useGuardedMutation<{ problem: Problem; action: ProblemAction; refundBase: string | null; note: string }, Problem>({
     mutationFn: ({ problem, ...body }) => api.post<Problem>(`/problems/${problem.id}/resolve`, body, { headers: ifMatchHeader(problem.version) }),
-    invalidate: touched,
   });
 }
 
@@ -183,6 +148,5 @@ export function useUnresolveProblem() {
   const api = useApi();
   return useGuardedMutation<{ problem: Problem; reason: string }, Problem>({
     mutationFn: ({ problem, reason }) => api.post<Problem>(`/problems/${problem.id}/unresolve`, { reason }, { headers: ifMatchHeader(problem.version) }),
-    invalidate: touched,
   });
 }

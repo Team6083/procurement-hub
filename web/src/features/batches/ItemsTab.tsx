@@ -48,7 +48,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [forcing, setForcing] = useState<Item | null>(null);
   const [undoing, setUndoing] = useState<{ item: Item; what: 'review' | 'unpurchasable' } | null>(null);
   const [copyFrom, setCopyFrom] = useState<Item | null>(null);
-  const action = useItemAction(batch.id);
+  const action = useItemAction();
   const internal = isMember(caller) || caller.isSystemAdmin;
 
   const visible = useMemo(() => {
