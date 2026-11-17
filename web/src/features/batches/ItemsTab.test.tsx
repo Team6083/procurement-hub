@@ -18,6 +18,16 @@ function show(c = caller(), b = ordering, routes = {}) {
   return renderWithApi(<ItemsTab batch={b} team={team()} caller={c} items={items} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, routes);
 }
 
+describe('ItemsTab status filter', () => {
+  it('does not apply the to-purchase default when nothing is left to purchase, so the select and the list agree', async () => {
+    const bought = [item(1, { name: 'Wheel', status: 'approved', toPurchaseQuantity: 0 }), item(2, { name: 'Old', status: 'rejected' })];
+    renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={bought} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
+    expect((await filterSelect('Status')).value).toBe('');
+    expect(rowWith('Wheel')).toBeTruthy();
+    expect(rowWith('Old')).toBeTruthy();
+  });
+});
+
 describe('ItemsTab unpurchasable action', () => {
   it('offers mark on unmarked approved items and undo on marked ones, in the row menu', async () => {
     show();

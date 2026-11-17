@@ -37,10 +37,18 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   // The status filter starts where this caller works (pending for approvers, approved-and-still-to-purchase for purchasers); once
   // chosen it sticks until the batch changes status, then the default for the new status applies again.
   const defaultStatus = canReview(batch, caller) ? 'pending' : caller.isPurchaser && inPurchasing(batch) ? TO_PURCHASE : undefined;
+  const statusLabel = (s: string) => (s === TO_PURCHASE ? t('filters.toPurchase') : t(`itemStatus.${s}`, { defaultValue: s }));
+  const availableStatuses = [
+    ...(items.some((i) => i.status === 'approved' && i.toPurchaseQuantity > 0) ? [TO_PURCHASE] : []),
+    ...distinct(items.map((i) => i.status)),
+  ];
   const [others, setOthers] = useState<Omit<ItemFilters, 'status'>>({});
   const [search, setSearch] = useState('');
   const [chosen, setChosen] = useState<{ key: string; value: string | undefined } | null>(null);
-  const status = chosen && chosen.key === `${batch.status}:${defaultStatus ?? ''}` ? chosen.value : defaultStatus;
+  // The default applies only when some item has that status; otherwise the list would be empty while the select shows "All".
+  const status = chosen && chosen.key === `${batch.status}:${defaultStatus ?? ''}`
+    ? chosen.value
+    : defaultStatus && availableStatuses.includes(defaultStatus) ? defaultStatus : undefined;
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
@@ -65,10 +73,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const clearSelection = () => setPicked([]);
   const activeCount = [...Object.values(others), status].filter(Boolean).length;
   const clearFilters = () => { setOthers({}); setStatus(''); };
-  const statusOptions = [
-    ...(items.some((i) => i.status === 'approved' && i.toPurchaseQuantity > 0) ? [{ value: TO_PURCHASE, label: t('filters.toPurchase') }] : []),
-    ...distinct(items.map((i) => i.status)).map((s) => ({ value: s, label: t(`itemStatus.${s}`, { defaultValue: s }) })),
-  ];
+  // A chosen status stays listed after its last item moves on, so the select always shows the filter actually applied.
+  const statusOptions = [...availableStatuses, ...(status && !availableStatuses.includes(status) ? [status] : [])]
+    .map((s) => ({ value: s, label: statusLabel(s) }));
 
   const rowActions = (it: Item): RowAction[] => {
     const out: RowAction[] = [];
