@@ -31,6 +31,8 @@ interface Props {
 }
 
 const distinct = (xs: string[]) => [...new Set(xs.filter(Boolean))].sort();
+/** Values present in the items, plus the chosen one if no item has it any more, so a native select never shows "All" while filtering. */
+const withChosen = (values: string[], chosen: string | undefined) => (chosen && !values.includes(chosen) ? [...values, chosen] : values);
 
 export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId }: Props) {
   const { t } = useTranslation('batches');
@@ -74,8 +76,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const activeCount = [...Object.values(others), status].filter(Boolean).length;
   const clearFilters = () => { setOthers({}); setStatus(''); };
   // A chosen status stays listed after its last item moves on, so the select always shows the filter actually applied.
-  const statusOptions = [...availableStatuses, ...(status && !availableStatuses.includes(status) ? [status] : [])]
-    .map((s) => ({ value: s, label: statusLabel(s) }));
+  const statusOptions = withChosen(availableStatuses, status).map((s) => ({ value: s, label: statusLabel(s) }));
 
   const rowActions = (it: Item): RowAction[] => {
     const out: RowAction[] = [];
@@ -133,15 +134,15 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       >
         <SelectField size="sm" label={t('item.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={statusOptions} />
         <SelectField size="sm" label={t('item.subgroup')} placeholder={t('filters.all')} value={others.subgroup} onChange={set('subgroup')}
-          options={distinct(items.map((i) => i.subgroupId)).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? '—' }))} />
+          options={withChosen(distinct(items.map((i) => i.subgroupId)), others.subgroup).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? '—' }))} />
         {internal && (
           <SelectField size="sm" label={t('item.requester')} placeholder={t('filters.all')} value={others.requester} onChange={set('requester')}
-            options={distinct(items.map((i) => i.requesterId)).map((id) => ({ value: id, label: nameOf(id) }))} />
+            options={withChosen(distinct(items.map((i) => i.requesterId)), others.requester).map((id) => ({ value: id, label: nameOf(id) }))} />
         )}
         <SelectField size="sm" label={t('item.priority')} placeholder={t('filters.all')} value={others.priority} onChange={set('priority')}
           options={PRIORITIES.map((p) => ({ value: p, label: priorityLabel(team?.priorityLabels, p, (k) => t(`teams:priority.default.${k}`)) }))} />
         <SelectField size="sm" label={t('item.vendor')} placeholder={t('filters.all')} value={others.vendor} onChange={set('vendor')}
-          options={distinct(items.map((i) => i.vendorName))} />
+          options={withChosen(distinct(items.map((i) => i.vendorName)), others.vendor)} />
       </FilterBar>
 
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}
