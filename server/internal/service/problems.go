@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
 
@@ -219,7 +220,7 @@ func (s *Deliveries) Unresolve(ctx context.Context, actor authz.Actor, id bson.O
 			return err
 		}
 		if e := p.Resolution.RefundEntryID; e != nil {
-			if err := s.st.VoidLedger(ctx, *e, domain.Void{Reason: "resolution undone: " + reason, By: actor.UserID, At: st.now}); err != nil && err != store.ErrNotFound {
+			if err := s.st.VoidLedger(ctx, *e, domain.Void{Reason: "resolution undone: " + reason, By: actor.UserID, At: st.now}); err != nil && !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
 		}

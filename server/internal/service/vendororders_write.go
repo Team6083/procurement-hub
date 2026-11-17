@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -973,7 +974,7 @@ func (s *VendorOrders) ReopenLine(ctx context.Context, actor authz.Actor, lineID
 			return nil, Rule("invalid_transition", "The line is not closed.")
 		}
 		if l.Closure.RefundEntryID != nil {
-			if err := s.st.VoidLedger(ctx, *l.Closure.RefundEntryID, domain.Void{Reason: "line reopened: " + reason, By: actor.UserID, At: s.batches.now()}); err != nil && err != store.ErrNotFound {
+			if err := s.st.VoidLedger(ctx, *l.Closure.RefundEntryID, domain.Void{Reason: "line reopened: " + reason, By: actor.UserID, At: s.batches.now()}); err != nil && !errors.Is(err, store.ErrNotFound) {
 				return nil, err
 			}
 		}
@@ -1005,7 +1006,7 @@ func (s *VendorOrders) RecomputeCurrency(ctx context.Context, currency string) e
 			_, _, err = s.batches.recomputeOrder(ctx, o, recomputeOpts{})
 			return err
 		})
-		if err != nil && err != ErrNotFound {
+		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
 	}

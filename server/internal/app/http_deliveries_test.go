@@ -124,7 +124,7 @@ func TestHTTPDeliveryFlow(t *testing.T) {
 	if ol := w.orderLine(t, f); ol["status"] != "received" || ol["expectedQuantity"] != float64(1) {
 		t.Fatalf("line after return: %v", ol)
 	}
-	r = w.do(t, call{token: f.buyer, method: "POST", path: pp + "/unresolve", ifMatch: r.ETag(), body: map[string]any{"reason": "undo"}}).expect(200)
+	w.do(t, call{token: f.buyer, method: "POST", path: pp + "/unresolve", ifMatch: r.ETag(), body: map[string]any{"reason": "undo"}}).expect(200)
 	if e := w.order(t, f)["ledger"].([]any)[0].(map[string]any); e["voided"] == nil {
 		t.Errorf("refund entry should be voided: %v", e)
 	}
@@ -195,7 +195,7 @@ func TestHTTPConcurrentMatchesRespectLineQuantity(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	if !(codes[0] == 200 && codes[1] == 422) && !(codes[0] == 422 && codes[1] == 200) {
+	if (codes[0] != 200 || codes[1] != 422) && (codes[0] != 422 || codes[1] != 200) {
 		t.Fatalf("status codes = %v, want one 200 and one 422", codes)
 	}
 	if ol := w.orderLine(t, f); ol["receivedQuantity"] != float64(2) {

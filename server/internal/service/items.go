@@ -586,7 +586,7 @@ func (s *Items) UndoReview(ctx context.Context, actor authz.Actor, id bson.Objec
 	if t.Archived {
 		return nil, Rule("team_archived", "Archived teams are read-only.")
 	}
-	if it.Review == nil || !(actor.CanAdminTeam(t.ID) || it.Review.By == actor.UserID) {
+	if it.Review == nil || (!actor.CanAdminTeam(t.ID) && it.Review.By != actor.UserID) {
 		return nil, ErrForbidden
 	}
 	reason = strings.TrimSpace(reason)

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -353,7 +354,7 @@ func (s *VendorOrders) List(ctx context.Context, actor authz.Actor, in ListOrder
 		}
 		for i := range rows {
 			sm, err := s.summary(ctx, actor, acc, &rows[i], names)
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			if err != nil {

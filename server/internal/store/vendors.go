@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -54,7 +55,7 @@ func (s *Store) VendorKeyOwner(ctx context.Context, self bson.ObjectID, keys []s
 			bson.D{{Key: "aliasKeys", Value: bson.D{{Key: "$in", Value: keys}}}},
 		}},
 	}).Decode(&v)
-	if err == mongo.ErrNoDocuments {
+	if errors.Is(err, mongo.ErrNoDocuments) {
 		return nil, nil
 	}
 	if err != nil {
@@ -105,7 +106,7 @@ func (s *Store) UpdateRate(ctx context.Context, currency string, version int64, 
 		bson.D{{Key: "$set", Value: bson.D{{Key: "rateToBase", Value: rate}, {Key: "updatedAt", Value: time.Now().UTC()}, {Key: "updatedBy", Value: by}}},
 			{Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}}},
 		options.FindOneAndUpdate().SetReturnDocument(options.After)).Decode(&out)
-	if err == mongo.ErrNoDocuments {
+	if errors.Is(err, mongo.ErrNoDocuments) {
 		if _, gerr := s.GetRate(ctx, currency); gerr == nil {
 			return nil, ErrVersionConflict
 		}

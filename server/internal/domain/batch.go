@@ -250,7 +250,7 @@ func ApplyAction(from BatchStatus, in ActionInput) (ActionResult, error) {
 		return ActionResult{To: BatchCancelled, StatusBeforeCancel: BatchProposed}, nil
 
 	case ActRestoreProposal:
-		if !(from == BatchProposalRejected || (from == BatchCancelled && in.StatusBeforeCancel == BatchProposed)) {
+		if from != BatchProposalRejected && (from != BatchCancelled || in.StatusBeforeCancel != BatchProposed) {
 			return bad()
 		}
 		if in.Reason == "" {

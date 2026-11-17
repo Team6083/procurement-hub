@@ -448,7 +448,7 @@ func (s *Batches) Transition(ctx context.Context, actor authz.Actor, id bson.Obj
 		}
 	case domain.ActRestoreProposal:
 		// A withdrawn proposal may also be restored by its proposer.
-		if !actor.CanAdminTeam(t.ID) && !(isProposer && b.Status == domain.BatchCancelled) {
+		if !actor.CanAdminTeam(t.ID) && (!isProposer || b.Status != domain.BatchCancelled) {
 			return nil, ErrForbidden
 		}
 	case domain.ActConfirmReview, domain.ActUnconfirmReview:

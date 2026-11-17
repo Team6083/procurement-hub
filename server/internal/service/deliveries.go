@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strconv"
 	"strings"
@@ -563,7 +564,7 @@ func (s *Deliveries) applyMatches(ctx context.Context, st *txState, dl *domain.D
 				} else {
 					voidProblems[m.ID] = p
 				}
-			} else if err != store.ErrNotFound {
+			} else if !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
 		}
@@ -584,7 +585,7 @@ func (s *Deliveries) applyMatches(ctx context.Context, st *txState, dl *domain.D
 	for _, w := range toCreate {
 		l, o, err := s.loadLine(ctx, st, w.VendorOrderLineID)
 		if err != nil {
-			if err == ErrNotFound {
+			if errors.Is(err, ErrNotFound) {
 				return Invalid("matches", "unknown vendor order line")
 			}
 			return err
@@ -1005,7 +1006,7 @@ func (s *Deliveries) Void(ctx context.Context, actor authz.Actor, id bson.Object
 			}
 			if m.ProblemQuantity > 0 {
 				p, err := s.st.ProblemOfMatch(ctx, m.ID)
-				if err == store.ErrNotFound {
+				if errors.Is(err, store.ErrNotFound) {
 					continue
 				}
 				if err != nil {

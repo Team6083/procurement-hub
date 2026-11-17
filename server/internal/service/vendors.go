@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 
@@ -176,7 +177,7 @@ func (s *Vendors) Replace(ctx context.Context, actor authz.Actor, id bson.Object
 }
 
 func mapVendorErr(err error) error {
-	if err == store.ErrDuplicate {
+	if errors.Is(err, store.ErrDuplicate) {
 		return Rule("vendor_name_taken", "The name or an alias is already used by another vendor.")
 	}
 	return mapStore(err)
@@ -218,7 +219,7 @@ func (s *Vendors) PutRate(ctx context.Context, actor authz.Actor, currency, rate
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
 		prev, gerr := s.st.GetRate(ctx, cur)
 		switch {
-		case gerr == store.ErrNotFound:
+		case errors.Is(gerr, store.ErrNotFound):
 			if version != 0 {
 				return ErrNotFound
 			}

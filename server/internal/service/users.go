@@ -94,7 +94,7 @@ func (s *Users) Search(ctx context.Context, actor authz.Actor, q, role string) (
 	}
 	q = strings.TrimSpace(q)
 	// With role= the query may be empty: the role holders are the candidate list.
-	if len(q) < 2 && !(role != "" && q == "") {
+	if len(q) < 2 && (role == "" || q != "") {
 		return nil, Invalid("q", "at least 2 characters")
 	}
 	return s.st.SearchUsers(ctx, q, role, 20)

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -111,7 +112,7 @@ func (a *VendorsAPI) putRate(w http.ResponseWriter, r *http.Request) {
 	}
 	rate, created, err := a.Vendors.PutRate(r.Context(), CallerFrom(r.Context()).Actor, chi.URLParam(r, "currency"), req.RateToBase, ver)
 	if err != nil {
-		if ver == 0 && err == service.ErrVersionConflict {
+		if ver == 0 && errors.Is(err, service.ErrVersionConflict) {
 			WriteError(w, NewError(http.StatusPreconditionRequired, "if_match_required", "If-Match header is required."))
 			return
 		}

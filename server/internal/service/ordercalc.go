@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"sort"
 
 	"github.com/shopspring/decimal"
@@ -134,7 +135,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 			if r, err := s.st.GetRate(ctx, o.Currency); err == nil {
 				d := r.RateToBase.Decimal
 				in.Rate = &d
-			} else if err != store.ErrNotFound {
+			} else if !errors.Is(err, store.ErrNotFound) {
 				return nil, false, err
 			}
 		}

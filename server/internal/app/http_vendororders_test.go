@@ -12,7 +12,7 @@ func (w *world) confirmedBatch(t *testing.T, title string, names ...string) (bat
 		itemIDs = append(itemIDs, w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: itemBody(n)}).expect(201).String("id"))
 	}
 	b := w.do(t, call{token: w.adm, method: "GET", path: bp}).expect(200)
-	b = w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: b.ETag(), body: map[string]any{"action": "close"}}).expect(200)
+	w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: b.ETag(), body: map[string]any{"action": "close"}}).expect(200)
 	var ds []map[string]any
 	for _, iid := range itemIDs {
 		ds = append(ds, map[string]any{"itemId": iid, "decision": "approve"})
@@ -102,7 +102,7 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	if got := w.item(t, batchID, items[2]); got["toPurchaseQuantity"] != float64(1) {
 		t.Errorf("remaining quantity: %v", got)
 	}
-	o2 = w.do(t, call{token: buyer, method: "POST", path: w.path("/vendor-orders/{}", o2.String("id")) + "/place", ifMatch: o2.ETag()}).expect(200)
+	w.do(t, call{token: buyer, method: "POST", path: w.path("/vendor-orders/{}", o2.String("id")) + "/place", ifMatch: o2.ETag()}).expect(200)
 	cable := w.item(t, batchID, items[2])
 	w.do(t, call{token: buyer, method: "POST", path: w.path("/items/{}", items[2]) + "/unpurchasable", ifMatch: `"` + itoa(int(cable["version"].(float64))) + `"`,
 		body: map[string]any{"reason": "no more stock"}}).expect(200)
@@ -156,7 +156,7 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 		"teamId": beta.String("id"), "name": "freight", "quantity": 1, "unitPrice": "9"}}).expect(201)
 	p3 := w.path("/vendor-orders/{}", o3.String("id"))
 	w.do(t, call{token: w.mem, method: "GET", path: p3}).expect(404, "not_found")
-	o3 = w.do(t, call{token: buyer, method: "POST", path: p3 + "/lines", ifMatch: o3.ETag(), body: map[string]any{"itemId": items[0], "unitPrice": "1"}}).expect(201)
+	w.do(t, call{token: buyer, method: "POST", path: p3 + "/lines", ifMatch: o3.ETag(), body: map[string]any{"itemId": items[0], "unitPrice": "1"}}).expect(201)
 	seen := w.do(t, call{token: w.mem, method: "GET", path: p3}).expect(200).JSON()
 	if len(seen["lines"].([]any)) != 1 || seen["restricted"] != true || seen["otherTeams"].(map[string]any)["lines"] != float64(1) || seen["totals"].(map[string]any)["netBase"] != nil {
 		t.Errorf("restricted view: %v", seen)
