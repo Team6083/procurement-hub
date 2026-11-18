@@ -36,10 +36,14 @@ function TaskGroup({ title, count, children }: { title: string; count: number; c
 }
 
 /** A task that is only a count (purchasing and receiving work): one link to where it is done. */
-function CountGroup({ title, link, count, to }: { title: string; link: string; count: number | undefined; to: string }) {
+function CountGroup({ title, link, count, to, mine }: { title: string; link: string; count: number | undefined; to: string; mine?: number }) {
+  const { t } = useTranslation('batches');
   return (
     <TaskGroup title={title} count={count ?? 0}>
-      <RouteAnchor to={to}>{link}</RouteAnchor>
+      <HStack gap="2" wrap="wrap">
+        <RouteAnchor to={to}>{link}</RouteAnchor>
+        {!!mine && <Badge variant="outline" fontVariantNumeric="tabular-nums">{t('tasks.ownedMine', { count: mine })}</Badge>}
+      </HStack>
     </TaskGroup>
   );
 }
@@ -101,9 +105,9 @@ export function MyTasksCard() {
           </HStack>
         ))}
       </TaskGroup>
-      <CountGroup title={tb('tasks.draftOrders')} link={tb('tasks.draftOrdersLink')} count={d?.draftVendorOrders?.count} to={`${paths.vendorOrders}?status=draft`} />
-      <CountGroup title={tb('tasks.problems')} link={tb('tasks.problemsLink')} count={d?.openProblems?.count} to={paths.receiving} />
-      <CountGroup title={tb('tasks.linesToClose')} link={tb('tasks.linesToCloseLink')} count={d?.linesToClose?.count} to={paths.vendorOrders} />
+      <CountGroup title={tb('tasks.draftOrders')} link={tb('tasks.draftOrdersLink')} count={d?.draftVendorOrders?.count} mine={d?.draftVendorOrders?.mine} to={`${paths.vendorOrders}?status=draft`} />
+      <CountGroup title={tb('tasks.problems')} link={tb('tasks.problemsLink')} count={d?.openProblems?.count} mine={d?.openProblems?.mine} to={paths.receiving} />
+      <CountGroup title={tb('tasks.linesToClose')} link={tb('tasks.linesToCloseLink')} count={d?.linesToClose?.count} mine={d?.linesToClose?.mine} to={paths.vendorOrders} />
       <CountGroup title={tb('tasks.deliveriesToMatch')} link={tb('tasks.deliveriesToMatchLink')} count={d?.deliveriesToMatch?.count} to={paths.receiving} />
     </Stack>
   );

@@ -59,6 +59,7 @@ type VendorOrder struct {
 	VendorID          bson.ObjectID      `bson:"vendorId" json:"vendorId"`
 	Currency          string             `bson:"currency" json:"currency"`
 	Status            OrderStatus        `bson:"status" json:"status"`
+	OwnerIDs          []bson.ObjectID    `bson:"ownerIds" json:"ownerIds"`
 	ExternalOrderNo   string             `bson:"externalOrderNo" json:"externalOrderNo"`
 	PlacedAt          *time.Time         `bson:"placedAt" json:"placedAt"`
 	PlacedBy          *bson.ObjectID     `bson:"placedBy" json:"placedBy"`

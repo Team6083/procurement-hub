@@ -238,6 +238,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 	}
 	set := bson.D{
 		{Key: "vendorId", Value: o.VendorID}, {Key: "currency", Value: o.Currency}, {Key: "status", Value: o.Status},
+		{Key: "ownerIds", Value: o.OwnerIDs},
 		{Key: "externalOrderNo", Value: o.ExternalOrderNo}, {Key: "placedAt", Value: o.PlacedAt}, {Key: "placedBy", Value: o.PlacedBy},
 		{Key: "sharedCosts", Value: o.SharedCosts}, {Key: "teamCostOverrides", Value: o.TeamCostOverrides},
 		{Key: "overrideReason", Value: o.OverrideReason}, {Key: "chargedAmountBase", Value: o.ChargedAmountBase},

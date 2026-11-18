@@ -1923,6 +1923,11 @@ export interface components {
         CountTask: {
             count: number;
         };
+        OwnedCountTask: {
+            count: number;
+            /** @description How many of count belong to vendor orders the caller owns. */
+            mine: number;
+        };
         VendorTask: {
             vendor: string | null;
             count: number;
@@ -1934,9 +1939,9 @@ export interface components {
             returnedItems: components["schemas"]["Item"][];
             reviewsToConfirm: components["schemas"]["BatchTask"][];
             itemsToPurchase?: components["schemas"]["VendorTask"][];
-            draftVendorOrders?: components["schemas"]["CountTask"];
-            openProblems?: components["schemas"]["CountTask"];
-            linesToClose?: components["schemas"]["CountTask"];
+            draftVendorOrders?: components["schemas"]["OwnedCountTask"];
+            openProblems?: components["schemas"]["OwnedCountTask"];
+            linesToClose?: components["schemas"]["OwnedCountTask"];
             deliveriesToMatch?: components["schemas"]["CountTask"];
         };
         Incomplete: {
@@ -2085,6 +2090,8 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
+            /** @description Owners (purchasers). Only drive notifications and the tasks list; they grant no permission. */
+            ownerIds: string[];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;
@@ -2133,6 +2140,7 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
+            ownerIds: string[];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;
@@ -2179,10 +2187,14 @@ export interface components {
             /** @description Defaults to the vendor's default currency. */
             currency?: string;
             itemIds?: string[];
+            /** @description Purchasers by roleSnapshot (422 otherwise). Defaults to the creator. */
+            ownerIds?: string[];
         };
         VendorOrderRequest: {
             vendorId: string;
             currency: string;
+            /** @description Replaces the owners (purchasers by roleSnapshot); omit to keep them. Newly added owners get `assignment.added`. */
+            ownerIds?: string[];
             externalOrderNo?: string;
             sharedCosts?: components["schemas"]["SharedCost"][] | null;
             teamCostOverrides?: components["schemas"]["TeamCostOverride"][] | null;
@@ -4399,6 +4411,8 @@ export interface operations {
                 status?: "draft" | "placed" | "cancelled";
                 vendorId?: string;
                 teamId?: string;
+                /** @description A user id, or `me` for the caller: only orders that list that user as an owner. */
+                ownerId?: string;
                 q?: string;
                 /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];

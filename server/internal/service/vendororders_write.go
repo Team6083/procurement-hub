@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -111,6 +112,39 @@ type CreateOrderInput struct {
 	VendorID bson.ObjectID
 	Currency string // empty: the vendor's default
 	ItemIDs  []bson.ObjectID
+	OwnerIDs []bson.ObjectID // nil: the creator
+}
+
+// checkOwners validates owner ids (purchasers by roleSnapshot, unless already
+// owners), dropping duplicates.
+func (s *VendorOrders) checkOwners(ctx context.Context, ids, current []bson.ObjectID) ([]bson.ObjectID, error) {
+	out := make([]bson.ObjectID, 0, len(ids))
+	for _, id := range ids {
+		if slices.Contains(out, id) {
+			continue
+		}
+		if slices.Contains(current, id) {
+			out = append(out, id) // already an owner: stays even after losing the role
+			continue
+		}
+		u, err := s.st.GetUser(ctx, id)
+		if err != nil || !u.RoleSnapshot.Purchaser {
+			return nil, Invalid("ownerIds", id.Hex()+" is not a purchaser")
+		}
+		out = append(out, id)
+	}
+	return out, nil
+}
+
+// emitOwnersAdded sends assignment.added to owners that are new on the order.
+func (s *VendorOrders) ownersAdded(actor authz.Actor, o *domain.VendorOrder, old, now []bson.ObjectID) []store.EventRecord {
+	var out []store.EventRecord
+	for _, id := range now {
+		if !slices.Contains(old, id) {
+			out = append(out, store.EventRecord{Type: "assignment.added", Actor: actor.UserID.Hex(), ObjectID: o.ID.Hex(), Recipient: id.Hex()})
+		}
+	}
+	return out
 }
 
 // Create makes a draft order, optionally with one line per item.
@@ -129,13 +163,19 @@ func (s *VendorOrders) Create(ctx context.Context, actor authz.Actor, in CreateO
 	if !contains(s.supported, cur) {
 		return nil, Invalid("currency", cur+" is not a supported currency")
 	}
+	owners := []bson.ObjectID{actor.UserID}
+	if in.OwnerIDs != nil {
+		if owners, err = s.checkOwners(ctx, in.OwnerIDs, nil); err != nil {
+			return nil, err
+		}
+	}
 	var id bson.ObjectID
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
 		n, err := s.st.NextCounter(ctx, "vendorOrder")
 		if err != nil {
 			return mapStore(err)
 		}
-		o := &domain.VendorOrder{Number: n, VendorID: v.ID, Currency: cur, Status: domain.OrderDraft, CreatedBy: actor.UserID}
+		o := &domain.VendorOrder{Number: n, VendorID: v.ID, Currency: cur, Status: domain.OrderDraft, OwnerIDs: owners, CreatedBy: actor.UserID}
 		if err := s.st.InsertVendorOrder(ctx, o); err != nil {
 			return mapStore(err)
 		}
@@ -157,7 +197,18 @@ func (s *VendorOrders) Create(ctx context.Context, actor authz.Actor, in CreateO
 				evs[i].TeamIDs = out.TeamIDs
 			}
 		}
-		return s.audit.Record(ctx, evs...)
+		if err := s.audit.Record(ctx, evs...); err != nil {
+			return err
+		}
+		for _, e := range s.ownersAdded(actor, o, nil, owners) {
+			if e.Recipient == actor.UserID.Hex() {
+				continue // the creator knows
+			}
+			if err := s.st.Emit(ctx, e); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	if err != nil {
 		return nil, err
@@ -451,6 +502,7 @@ func (s *VendorOrders) DeleteLine(ctx context.Context, actor authz.Actor, lineID
 type OrderFields struct {
 	VendorID          bson.ObjectID
 	Currency          string
+	OwnerIDs          []bson.ObjectID // nil: unchanged
 	ExternalOrderNo   string
 	SharedCosts       []domain.SharedCost
 	TeamCostOverrides []domain.TeamCostOverride // nil: none
@@ -537,7 +589,20 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		} else {
 			reason = ""
 		}
+		var newOwners []bson.ObjectID
+		if f.OwnerIDs != nil {
+			var err error
+			if newOwners, err = s.checkOwners(ctx, f.OwnerIDs, o.OwnerIDs); err != nil {
+				return nil, err
+			}
+		}
 		var changes []domain.AuditChange
+		var emit []store.EventRecord
+		if f.OwnerIDs != nil && !slices.Equal(newOwners, o.OwnerIDs) && !(len(newOwners) == 0 && len(o.OwnerIDs) == 0) {
+			changes = append(changes, ch("ownerIds", idHexes(o.OwnerIDs), idHexes(newOwners)))
+			emit = s.ownersAdded(actor, o, o.OwnerIDs, newOwners)
+			o.OwnerIDs = newOwners
+		}
 		if f.VendorID != o.VendorID {
 			changes = append(changes, ch("vendorId", o.VendorID.Hex(), f.VendorID.Hex()))
 		}
@@ -565,7 +630,7 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		o.VendorID, o.Currency, o.ExternalOrderNo = f.VendorID, cur, f.ExternalOrderNo
 		o.SharedCosts, o.TeamCostOverrides, o.OverrideReason = costs, overrides, reason
 		o.ChargedAmountBase, o.ExpectedDelivery, o.PaymentNote = f.ChargedAmountBase, f.ExpectedDelivery, f.PaymentNote
-		return &orderMutation{events: []domain.AuditEvent{s.event(actor, o, "vendor_order.updated", "", changes...)}}, nil
+		return &orderMutation{events: []domain.AuditEvent{s.event(actor, o, "vendor_order.updated", "", changes...)}, emit: emit}, nil
 	})
 }
 
@@ -1023,4 +1088,12 @@ func NewLineFields(teamID *bson.ObjectID, name, sku *string, qty *int, price *do
 func lineClosedEvent(actor authz.Actor, o *domain.VendorOrder, l *domain.VendorOrderLine, undone bool) store.EventRecord {
 	return store.EventRecord{Type: "line.closed", Actor: actor.UserID.Hex(), TeamID: l.TeamID, BatchID: derefID(l.BatchID),
 		ObjectID: o.ID.Hex(), Undone: undone}
+}
+
+func idHexes(ids []bson.ObjectID) []string {
+	out := make([]string, len(ids))
+	for i, id := range ids {
+		out[i] = id.Hex()
+	}
+	return out
 }

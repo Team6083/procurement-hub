@@ -457,14 +457,16 @@ type MatchInput struct {
 }
 
 type txState struct {
-	actor    authz.Actor
-	d        *domain.Delivery
-	now      time.Time
-	affected map[bson.ObjectID]bool // vendor order line ids whose quantities may change
-	events   []domain.AuditEvent
-	emits    []store.EventRecord
-	teams    map[bson.ObjectID]bool
-	cache    *orderCache
+	actor         authz.Actor
+	d             *domain.Delivery
+	now           time.Time
+	affected      map[bson.ObjectID]bool // vendor order line ids whose quantities may change
+	events        []domain.AuditEvent
+	emits         []store.EventRecord
+	reported      []store.EventRecord // problem.reported events; recipients are resolved in finish
+	reportedLines []*domain.VendorOrderLine
+	teams         map[bson.ObjectID]bool
+	cache         *orderCache
 }
 
 func (s *Deliveries) newState(ctx context.Context, actor authz.Actor, d *domain.Delivery) *txState {
@@ -484,8 +486,36 @@ func (st *txState) lineEvent(o *domain.VendorOrder, l *domain.VendorOrderLine, a
 }
 
 func (st *txState) problemEvent(typ string, l *domain.VendorOrderLine, p *domain.LineProblem, undone bool) {
-	st.emits = append(st.emits, store.EventRecord{Type: typ, Actor: st.actor.UserID.Hex(), TeamID: l.TeamID, BatchID: derefID(l.BatchID),
-		ObjectID: p.ID.Hex(), Undone: undone})
+	e := store.EventRecord{Type: typ, Actor: st.actor.UserID.Hex(), TeamID: l.TeamID, BatchID: derefID(l.BatchID),
+		ObjectID: p.ID.Hex(), Undone: undone}
+	if typ == "problem.reported" {
+		st.reported, st.reportedLines = append(st.reported, e), append(st.reportedLines, l)
+		return
+	}
+	st.emits = append(st.emits, e)
+}
+
+// problemRecipients picks who hears about a problem on line l (spec §12.2):
+// the first non-empty group of the order's owners and the linked batch's
+// purchasers, counting only people who still have the purchaser role. Nil
+// means nobody specific, so all purchasers.
+func (s *Deliveries) problemRecipients(ctx context.Context, l *domain.VendorOrderLine) ([]bson.ObjectID, error) {
+	o, err := s.st.GetVendorOrder(ctx, l.VendorOrderID)
+	if err != nil {
+		return nil, mapStore(err)
+	}
+	owners, err := s.st.PurchaserIDs(ctx, o.OwnerIDs)
+	if err != nil || len(owners) > 0 {
+		return owners, err
+	}
+	if l.BatchID == nil {
+		return nil, nil
+	}
+	b, err := s.st.GetBatch(ctx, *l.BatchID)
+	if err != nil {
+		return nil, mapStore(err)
+	}
+	return s.st.PurchaserIDs(ctx, b.Assignments.Purchasers)
 }
 
 func (s *Deliveries) loadLine(ctx context.Context, st *txState, id bson.ObjectID) (*domain.VendorOrderLine, *domain.VendorOrder, error) {
@@ -738,6 +768,20 @@ func (s *Deliveries) finish(ctx context.Context, st *txState) error {
 	}
 	if err := s.audit.Record(ctx, st.events...); err != nil {
 		return err
+	}
+	for i, e := range st.reported {
+		rs, err := s.problemRecipients(ctx, st.reportedLines[i])
+		if err != nil {
+			return err
+		}
+		if len(rs) == 0 {
+			st.emits = append(st.emits, e) // no Recipient: all purchasers
+			continue
+		}
+		for _, uid := range rs {
+			e.Recipient = uid.Hex()
+			st.emits = append(st.emits, e)
+		}
 	}
 	for _, e := range st.emits {
 		if err := s.st.Emit(ctx, e); err != nil {

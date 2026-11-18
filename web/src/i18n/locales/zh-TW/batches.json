@@ -235,7 +235,8 @@
     "linesToCloseLink": "數量不足且沒有未處理問題的品項行",
     "deliveriesToMatch": "待對應的到貨",
     "deliveriesToMatchLink": "等待對應訂單的到貨品項",
-    "noVendor": "沒有廠商"
+    "noVendor": "沒有廠商",
+    "ownedMine": "您負責的有 {{count}} 項"
   },
   "validation": {
     "quantity": "請輸入至少為 1 的整數。",

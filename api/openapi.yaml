@@ -1295,6 +1295,7 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [draft, placed, cancelled] } }
         - { name: vendorId, in: query, schema: { type: string } }
         - { name: teamId, in: query, schema: { type: string } }
+        - { name: ownerId, in: query, description: "A user id, or `me` for the caller: only orders that list that user as an owner.", schema: { type: string } }
         - { name: q, in: query, schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
@@ -2772,6 +2773,12 @@ components:
       required: [count]
       properties:
         count: { type: integer }
+    OwnedCountTask:
+      type: object
+      required: [count, mine]
+      properties:
+        count: { type: integer }
+        mine: { type: integer, description: "How many of count belong to vendor orders the caller owns." }
     VendorTask:
       type: object
       required: [vendor, count, myBatches]
@@ -2788,9 +2795,9 @@ components:
         returnedItems: { type: array, items: { $ref: "#/components/schemas/Item" } }
         reviewsToConfirm: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
         itemsToPurchase: { type: array, items: { $ref: "#/components/schemas/VendorTask" } }
-        draftVendorOrders: { $ref: "#/components/schemas/CountTask" }
-        openProblems: { $ref: "#/components/schemas/CountTask" }
-        linesToClose: { $ref: "#/components/schemas/CountTask" }
+        draftVendorOrders: { $ref: "#/components/schemas/OwnedCountTask" }
+        openProblems: { $ref: "#/components/schemas/OwnedCountTask" }
+        linesToClose: { $ref: "#/components/schemas/OwnedCountTask" }
         deliveriesToMatch: { $ref: "#/components/schemas/CountTask" }
     Incomplete:
       type: object
@@ -2914,7 +2921,7 @@ components:
         totalBase: { type: [string, "null"] }
     VendorOrder:
       type: object
-      required: [id, number, vendorId, currency, status, externalOrderNo, placedAt, placedBy, sharedCosts, teamCostOverrides, overrideReason, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, ledger, restricted, otherTeams, visibleTotalBase, invariantOk]
+      required: [id, number, vendorId, currency, status, ownerIds, externalOrderNo, placedAt, placedBy, sharedCosts, teamCostOverrides, overrideReason, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, ledger, restricted, otherTeams, visibleTotalBase, invariantOk]
       properties:
         id: { type: string }
         number: { type: integer, description: "Displayed as VO-<number>." }
@@ -2922,6 +2929,7 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
+        ownerIds: { type: array, items: { type: string }, description: "Owners (purchasers). Only drive notifications and the tasks list; they grant no permission." }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         placedBy: { type: [string, "null"] }
@@ -2956,7 +2964,7 @@ components:
         overridesCleared: { type: boolean, description: True when this write removed the team cost overrides. }
     VendorOrderSummary:
       type: object
-      required: [id, number, vendorId, vendorName, currency, status, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, restricted, createdAt, version]
+      required: [id, number, vendorId, vendorName, currency, status, ownerIds, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, restricted, createdAt, version]
       properties:
         id: { type: string }
         number: { type: integer }
@@ -2964,6 +2972,7 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
+        ownerIds: { type: array, items: { type: string } }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         expectedDeliveryDate: { type: string }
@@ -3016,6 +3025,7 @@ components:
         vendorId: { type: string }
         currency: { type: string, description: Defaults to the vendor's default currency. }
         itemIds: { type: array, items: { type: string } }
+        ownerIds: { type: array, items: { type: string }, description: "Purchasers by roleSnapshot (422 otherwise). Defaults to the creator." }
     VendorOrderRequest:
       type: object
       additionalProperties: false
@@ -3023,6 +3033,7 @@ components:
       properties:
         vendorId: { type: string }
         currency: { type: string }
+        ownerIds: { type: array, items: { type: string }, description: "Replaces the owners (purchasers by roleSnapshot); omit to keep them. Newly added owners get `assignment.added`." }
         externalOrderNo: { type: string }
         sharedCosts: { type: [array, "null"], items: { $ref: "#/components/schemas/SharedCost" } }
         teamCostOverrides: { type: [array, "null"], items: { $ref: "#/components/schemas/TeamCostOverride" } }

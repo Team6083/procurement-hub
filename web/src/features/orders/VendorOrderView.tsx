@@ -15,6 +15,7 @@ import { ErrorAlert, Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
+import { useOwnerName } from './owners';
 import { Breakdown } from './Breakdown';
 import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
@@ -35,6 +36,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const meta = useMeta().data;
   const baseCurrency = useBaseCurrency();
   const teams = useTeams().data ?? [];
+  const ownerName = useOwnerName();
   const vendors = useVendors(true).data ?? [];
   const q = useVendorOrder(id);
   const action = useOrderAction(id);
@@ -98,6 +100,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
               minChildWidth={{ base: '9rem', md: '10rem' }}
               items={[
                 { label: t('details.currency'), value: order.currency },
+                { label: t('details.owners'), value: order.ownerIds.map(ownerName).join(', ') || '—' },
                 { label: t('details.externalNo'), value: order.externalOrderNo || '—' },
                 { label: t('details.placedAt'), value: shortDate(order.placedAt) },
                 { label: t('details.delivery'), value: shortDay(order.expectedDeliveryDate) },

@@ -158,6 +158,7 @@ type OrderSummary struct {
 	VendorName       string              `json:"vendorName"`
 	Currency         string              `json:"currency"`
 	Status           domain.OrderStatus  `json:"status"`
+	OwnerIDs         []bson.ObjectID     `json:"ownerIds"`
 	ExternalOrderNo  string              `json:"externalOrderNo"`
 	PlacedAt         any                 `json:"placedAt"`
 	ExpectedDelivery string              `json:"expectedDeliveryDate"`
@@ -323,6 +324,7 @@ type ListOrdersInput struct {
 	Status   domain.OrderStatus
 	VendorID bson.ObjectID
 	TeamID   bson.ObjectID
+	OwnerID  bson.ObjectID // only orders owned by this user
 	Query    string
 	Cursor   bson.ObjectID
 	Limit    int
@@ -357,7 +359,7 @@ func (s *VendorOrders) summary(ctx context.Context, actor authz.Actor, acc *line
 	}
 	sm := &OrderSummary{
 		ID: o.ID, Number: o.Number, VendorID: o.VendorID, VendorName: name, Currency: o.Currency, Status: o.Status,
-		ExternalOrderNo: o.ExternalOrderNo, ExpectedDelivery: o.ExpectedDelivery, LineCount: visible, TeamIDs: sortedIDs(teams),
+		OwnerIDs: ownerIDs(o), ExternalOrderNo: o.ExternalOrderNo, ExpectedDelivery: o.ExpectedDelivery, LineCount: visible, TeamIDs: sortedIDs(teams),
 		Provisional: o.Totals.Provisional, Incomplete: o.Totals.Incomplete, Restricted: !priv, CreatedAt: o.CreatedAt, Version: o.Version,
 	}
 	if o.PlacedAt != nil {
@@ -380,7 +382,7 @@ func (s *VendorOrders) List(ctx context.Context, actor authz.Actor, in ListOrder
 	if limit > 100 {
 		limit = 100
 	}
-	f := store.OrderFilter{Status: in.Status, VendorID: in.VendorID, TeamID: in.TeamID, After: in.Cursor}
+	f := store.OrderFilter{Status: in.Status, VendorID: in.VendorID, TeamID: in.TeamID, OwnerID: in.OwnerID, After: in.Cursor}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		f.ExtNo = q
 		if n, err := strconv.Atoi(strings.TrimPrefix(strings.ToUpper(q), "VO-")); err == nil {
@@ -603,4 +605,12 @@ func linkedLines(ctx context.Context, st *store.Store, itemIDs []bson.ObjectID) 
 		}
 	}
 	return out, nil
+}
+
+// ownerIDs is the order's owners, never nil (older rows may lack the field).
+func ownerIDs(o *domain.VendorOrder) []bson.ObjectID {
+	if o.OwnerIDs == nil {
+		return []bson.ObjectID{}
+	}
+	return o.OwnerIDs
 }

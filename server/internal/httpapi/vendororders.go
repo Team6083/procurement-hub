@@ -115,6 +115,15 @@ func (a *VendorOrdersAPI) list(w http.ResponseWriter, r *http.Request) {
 	if in.VendorID, err = queryID(r, "vendorId"); err == nil {
 		in.TeamID, err = queryID(r, "teamId")
 	}
+	if err == nil {
+		switch o := q.Get("ownerId"); o {
+		case "":
+		case "me":
+			in.OwnerID = CallerFrom(r.Context()).Actor.UserID
+		default:
+			in.OwnerID, err = queryID(r, "ownerId")
+		}
+	}
 	if err != nil {
 		fail(w, r, err)
 		return
@@ -136,6 +145,7 @@ func (a *VendorOrdersAPI) create(w http.ResponseWriter, r *http.Request) {
 		VendorID string   `json:"vendorId"`
 		Currency string   `json:"currency"`
 		ItemIDs  []string `json:"itemIds"`
+		OwnerIDs []string `json:"ownerIds"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
@@ -154,6 +164,17 @@ func (a *VendorOrdersAPI) create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		in.ItemIDs = append(in.ItemIDs, id)
+	}
+	if req.OwnerIDs != nil {
+		in.OwnerIDs = []bson.ObjectID{}
+		for _, s := range req.OwnerIDs {
+			id, err := bson.ObjectIDFromHex(s)
+			if err != nil {
+				fail(w, r, service.Invalid("ownerIds", "must be user ids"))
+				return
+			}
+			in.OwnerIDs = append(in.OwnerIDs, id)
+		}
 	}
 	d, err := a.Orders.Create(r.Context(), CallerFrom(r.Context()).Actor, in)
 	respondOrder(w, r, http.StatusCreated, d, err)
@@ -192,6 +213,7 @@ func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		VendorID          string          `json:"vendorId"`
 		Currency          string          `json:"currency"`
+		OwnerIDs          []string        `json:"ownerIds"`
 		ExternalOrderNo   string          `json:"externalOrderNo"`
 		SharedCosts       []sharedCostReq `json:"sharedCosts"`
 		TeamCostOverrides []overrideReq   `json:"teamCostOverrides"`
@@ -210,6 +232,17 @@ func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 	if f.VendorID, err = bson.ObjectIDFromHex(req.VendorID); err != nil {
 		fail(w, r, service.Invalid("vendorId", "must be a vendor id"))
 		return
+	}
+	if req.OwnerIDs != nil {
+		f.OwnerIDs = []bson.ObjectID{}
+		for _, s := range req.OwnerIDs {
+			id, err := bson.ObjectIDFromHex(s)
+			if err != nil {
+				fail(w, r, service.Invalid("ownerIds", "must be user ids"))
+				return
+			}
+			f.OwnerIDs = append(f.OwnerIDs, id)
+		}
 	}
 	for _, sc := range req.SharedCosts {
 		amt, err := optDecimal("sharedCosts", &sc.Amount)

@@ -9,6 +9,7 @@ import { useTeams } from '../api/teams';
 import type { VendorOrderSummary } from '../api/types';
 import { useVendorOrderList, type OrderFilters } from '../api/vendorOrders';
 import { useVendors } from '../api/vendors';
+import { useOwnerName } from '../features/orders/owners';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
@@ -25,19 +26,21 @@ export function VendorOrdersPage() {
   const { t, i18n } = useTranslation('purchasing');
   const baseCurrency = useBaseCurrency();
   const [params] = useSearchParams();
-  const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined }));
+  const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined, ownerId: params.get('ownerId') || undefined }));
   const [search, setSearch] = useState('');
   const list = useVendorOrderList({ ...filters, q: search });
   const vendors = useVendors(true).data ?? [];
   const teams = useTeams().data ?? [];
+  const ownerName = useOwnerName();
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const set = (k: keyof OrderFilters) => (v: string) => setFilters({ ...filters, [k]: v || undefined });
-  const activeCount = [filters.status, filters.vendorId, filters.teamId].filter(Boolean).length;
+  const activeCount = [filters.status, filters.vendorId, filters.teamId, filters.ownerId].filter(Boolean).length;
 
   const columns: DataColumn<VendorOrderSummary>[] = [
     { key: 'no', header: t('list.number'), priority: 'primary', cell: (o) => <RouteAnchor to={paths.vendorOrder(o.id)}>{orderLabel(o.number)}</RouteAnchor> },
     { key: 'vendor', header: t('list.vendor'), cell: (o) => o.vendorName },
     { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalBadge />}</HStack> },
+    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => o.ownerIds.map(ownerName).join(', ') || '—' },
     { key: 'ext', header: t('details.externalNo'), priority: 'secondary', cell: (o) => o.externalOrderNo || '—' },
     { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? t('common:unknownTeam')).join(', ') },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (o) => (o.restricted ? <Badge variant="outline">{t('list.visibleLines', { count: o.lineCount })}</Badge> : o.lineCount) },
@@ -54,6 +57,7 @@ export function VendorOrdersPage() {
           options={['draft', 'placed', 'cancelled'].map((s) => ({ value: s, label: t(`orderStatus.${s}`) }))} />
         <SelectField size="sm" label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
         <SelectField size="sm" label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
+        <SelectField size="sm" label={t('list.owner')} placeholder={t('list.all')} value={filters.ownerId} onChange={set('ownerId')} options={[{ value: 'me', label: t('list.ownerMine') }]} />
       </FilterBar>
       {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}

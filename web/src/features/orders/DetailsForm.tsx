@@ -11,7 +11,10 @@ import type { Vendor, VendorOrder } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
+import { Checklist } from '../../components/ui/checklist';
 import { SelectField } from '../../components/ui/select';
+import { useRoleHolders } from '../../api/members';
+import { useOwnerName } from './owners';
 import { add, format, parseDec, ZERO, type Dec } from '../batches/decimal';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 
@@ -21,6 +24,7 @@ const detailsSchema = (baseDigits: number) =>
   z.object({
     vendorId: z.string(),
     currency: z.string(),
+    owners: z.array(z.string()),
     externalNo: z.string(),
     delivery: z.string(),
     note: z.string(),
@@ -44,14 +48,14 @@ const detailsSchema = (baseDigits: number) =>
 type Details = z.infer<ReturnType<typeof detailsSchema>>;
 
 const toForm = (o: VendorOrder): Details => ({
-  vendorId: o.vendorId, currency: o.currency, externalNo: o.externalOrderNo, delivery: o.expectedDeliveryDate, note: o.paymentNote,
+  vendorId: o.vendorId, currency: o.currency, owners: o.ownerIds, externalNo: o.externalOrderNo, delivery: o.expectedDeliveryDate, note: o.paymentNote,
   charged: o.chargedAmountBase ?? '', costs: o.sharedCosts.map((c) => ({ ...c })), byTeam: o.teamCostOverrides !== null,
   overrides: o.teamIds.map((teamId) => ({ teamId, amount: o.teamCostOverrides?.find((x) => x.teamId === teamId)?.amount ?? '' })),
   reason: o.overrideReason,
 });
 
 const toBody = (v: Details): OrderBody => ({
-  vendorId: v.vendorId, currency: v.currency, externalOrderNo: v.externalNo.trim(), sharedCosts: v.costs.map((c) => ({ ...c, note: c.note.trim() })),
+  vendorId: v.vendorId, currency: v.currency, ownerIds: v.owners, externalOrderNo: v.externalNo.trim(), sharedCosts: v.costs.map((c) => ({ ...c, note: c.note.trim() })),
   teamCostOverrides: v.byTeam ? v.overrides : null, overrideReason: v.byTeam ? v.reason.trim() : '',
   chargedAmountBase: v.charged.trim() || null, expectedDeliveryDate: v.delivery, paymentNote: v.note.trim(),
 });
@@ -162,6 +166,13 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
   const { t } = useTranslation('purchasing');
   const baseCurrency = useBaseCurrency();
   const put = usePutOrder(order.id);
+  const purchasers = useRoleHolders('purchaser').data ?? [];
+  const ownerName = useOwnerName();
+  // Candidates are the current purchasers; an owner who lost the role stays listed so saving does not drop them.
+  const ownerOptions = [
+    ...purchasers.map((u) => ({ value: u.id, label: u.displayName || u.username })),
+    ...order.ownerIds.filter((id) => !purchasers.some((u) => u.id === id)).map((id) => ({ value: id, label: ownerName(id) })),
+  ];
   const draft = order.status === 'draft';
   const form = useForm({ resolver: zodResolver(detailsSchema(baseDigits)), values: toForm(order), resetOptions: { keepDirtyValues: true } });
   const fieldError = useFieldError();
@@ -203,6 +214,9 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
                   )} />
                 </SimpleGrid>
               )}
+              <Controller control={form.control} name="owners" render={({ field }) => (
+                <Checklist label={t('details.owners')} options={ownerOptions} value={field.value} onChange={field.onChange} emptyText={t('details.noOwners')} />
+              )} />
               <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                 <FormField label={t('details.externalNo')}><Input {...form.register('externalNo')} /></FormField>
                 <FormField label={t('details.delivery')}><Input type="date" {...form.register('delivery')} /></FormField>

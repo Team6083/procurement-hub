@@ -184,7 +184,9 @@
     "chargedHelp": "信用卡或銀行實際扣的金額，可以之後再補；補上之前以參考匯率估算。",
     "paymentNote": "付款備註",
     "saved": "已儲存。",
-    "overridesCleared": "訂單的團隊組合改變，團隊分攤已清除，需要的話請重新設定。"
+    "overridesCleared": "訂單的團隊組合改變，團隊分攤已清除，需要的話請重新設定。",
+    "owners": "負責人",
+    "noOwners": "沒有可選的採購人員。"
   },
   "actions": {
     "place": "按「已下單」",
@@ -207,7 +209,10 @@
     "search": "搜尋 VO 編號或廠商訂單編號",
     "all": "全部",
     "empty": "還沒有廠商訂單。",
-    "loadMore": "載入更多"
+    "loadMore": "載入更多",
+    "owners": "負責人",
+    "owner": "負責人",
+    "ownerMine": "我負責的"
   },
   "queue": {
     "title": "採購",

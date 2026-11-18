@@ -33,6 +33,13 @@ type CountTask struct {
 	Count int `json:"count"`
 }
 
+// OwnedCountTask is a counter that also reports how many of the counted things
+// belong to vendor orders the caller owns (spec §16.2).
+type OwnedCountTask struct {
+	Count int `json:"count"`
+	Mine  int `json:"mine"`
+}
+
 // MyTasks is the "my tasks" payload (spec §16.2). Role-specific parts are nil
 // for callers without the role.
 type MyTasks struct {
@@ -40,11 +47,11 @@ type MyTasks struct {
 	ItemsToReview     []BatchTask
 	ReturnedItems     []domain.Item
 	ReviewsToConfirm  []BatchTask
-	ItemsToPurchase   []VendorTask // purchasers
-	DraftVendorOrders *CountTask   // purchasers
-	OpenProblems      *CountTask   // purchasers
-	LinesToClose      *CountTask   // purchasers
-	DeliveriesToMatch *CountTask   // purchasers and receivers
+	ItemsToPurchase   []VendorTask    // purchasers
+	DraftVendorOrders *OwnedCountTask // purchasers
+	OpenProblems      *OwnedCountTask // purchasers
+	LinesToClose      *OwnedCountTask // purchasers
+	DeliveriesToMatch *CountTask      // purchasers and receivers
 }
 
 func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
@@ -118,7 +125,39 @@ func (s *Tasks) For(ctx context.Context, actor authz.Actor) (*MyTasks, error) {
 		if err != nil {
 			return nil, err
 		}
-		out.DraftVendorOrders, out.OpenProblems, out.LinesToClose = &CountTask{Count: drafts}, &CountTask{Count: open}, &CountTask{Count: len(toClose)}
+		draftsMine, err := s.st.CountDraftOrdersOwnedBy(ctx, actor.UserID)
+		if err != nil {
+			return nil, err
+		}
+		owned, err := s.st.OrderIDsOwnedBy(ctx, actor.UserID)
+		if err != nil {
+			return nil, err
+		}
+		ownedSet := map[bson.ObjectID]bool{}
+		for _, id := range owned {
+			ownedSet[id] = true
+		}
+		closeMine := 0
+		for _, l := range toClose {
+			if ownedSet[l.VendorOrderID] {
+				closeMine++
+			}
+		}
+		ownedLines, err := s.st.LinesByOrders(ctx, owned)
+		if err != nil {
+			return nil, err
+		}
+		lineIDs := make([]bson.ObjectID, len(ownedLines))
+		for i, l := range ownedLines {
+			lineIDs[i] = l.ID
+		}
+		openMine, err := s.st.CountOpenProblemsOnLines(ctx, lineIDs)
+		if err != nil {
+			return nil, err
+		}
+		out.DraftVendorOrders = &OwnedCountTask{Count: drafts, Mine: draftsMine}
+		out.OpenProblems = &OwnedCountTask{Count: open, Mine: openMine}
+		out.LinesToClose = &OwnedCountTask{Count: len(toClose), Mine: closeMine}
 	}
 	if actor.IsPurchaser || actor.IsReceiver {
 		n, err := s.st.CountPendingDeliveryLines(ctx)

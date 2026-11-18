@@ -20,6 +20,8 @@ export interface OrderFilters {
   status?: string;
   vendorId?: string;
   teamId?: string;
+  /** `me`: only orders the caller owns. */
+  ownerId?: string;
   q?: string;
 }
 
@@ -32,7 +34,7 @@ export function useVendorOrderList(filters: OrderFilters, enabled = true) {
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<Page<VendorOrderSummary>>('/vendor-orders', {
-        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
+        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, ownerId: filters.ownerId || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
         signal,
       }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -88,6 +90,7 @@ export const useDeleteLine = (orderId: string) =>
 export interface OrderBody {
   vendorId: string;
   currency: string;
+  ownerIds: string[];
   externalOrderNo: string;
   sharedCosts: { type: string; amount: string; note: string }[];
   teamCostOverrides: { teamId: string; amount: string }[] | null;
@@ -129,7 +132,7 @@ export const useReopenLine = (orderId: string) =>
 /** POST /vendor-orders: a draft for a vendor, with one line per item. */
 export function useCreateOrder() {
   const api = useApi();
-  return useGuardedMutation<{ vendorId: string; currency?: string; itemIds: string[] }, VendorOrder>({
+  return useGuardedMutation<{ vendorId: string; currency?: string; itemIds: string[]; ownerIds?: string[] }, VendorOrder>({
     mutationFn: (body) => api.post<VendorOrder>('/vendor-orders', body),
   });
 }

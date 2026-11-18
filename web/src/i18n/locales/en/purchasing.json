@@ -185,7 +185,9 @@
     "chargedHelp": "What the card or bank actually charged. Add it later when known; until then amounts use the reference rate.",
     "paymentNote": "Payment note",
     "saved": "Saved.",
-    "overridesCleared": "The teams on this order changed, so the per-team allocation was cleared. Set it again if needed."
+    "overridesCleared": "The teams on this order changed, so the per-team allocation was cleared. Set it again if needed.",
+    "owners": "Owners",
+    "noOwners": "No purchasers to choose from."
   },
   "actions": {
     "place": "Mark as placed",
@@ -208,7 +210,10 @@
     "search": "Search by VO number or vendor order number",
     "all": "All",
     "empty": "No vendor orders yet.",
-    "loadMore": "Load more"
+    "loadMore": "Load more",
+    "owners": "Owners",
+    "owner": "Owner",
+    "ownerMine": "Mine"
   },
   "queue": {
     "title": "Purchasing",

@@ -237,7 +237,8 @@
     "linesToCloseLink": "Short lines with no open problem",
     "deliveriesToMatch": "Deliveries to match",
     "deliveriesToMatchLink": "Delivery lines waiting for a match",
-    "noVendor": "No vendor"
+    "noVendor": "No vendor",
+    "ownedMine": "{{count}} yours"
   },
   "validation": {
     "quantity": "Enter a whole number of at least 1.",

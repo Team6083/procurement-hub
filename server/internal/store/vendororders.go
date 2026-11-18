@@ -41,6 +41,9 @@ func (s *Store) InsertVendorOrder(ctx context.Context, o *domain.VendorOrder) er
 }
 
 func ensureOrderSlices(o *domain.VendorOrder) {
+	if o.OwnerIDs == nil {
+		o.OwnerIDs = []bson.ObjectID{}
+	}
 	if o.SharedCosts == nil {
 		o.SharedCosts = []domain.SharedCost{}
 	}
@@ -68,8 +71,9 @@ type OrderFilter struct {
 	Status   domain.OrderStatus
 	VendorID bson.ObjectID
 	TeamID   bson.ObjectID
-	Number   int    // exact number, from q such as "VO-12" or "12"
-	ExtNo    string // substring of the vendor's order number
+	OwnerID  bson.ObjectID // orders that list this user as an owner
+	Number   int           // exact number, from q such as "VO-12" or "12"
+	ExtNo    string        // substring of the vendor's order number
 	After    bson.ObjectID
 }
 
@@ -84,6 +88,9 @@ func (s *Store) ListVendorOrders(ctx context.Context, f OrderFilter, limit int64
 	}
 	if !f.TeamID.IsZero() {
 		q = append(q, bson.E{Key: "teamIds", Value: f.TeamID})
+	}
+	if !f.OwnerID.IsZero() {
+		q = append(q, bson.E{Key: "ownerIds", Value: f.OwnerID})
 	}
 	var or bson.A
 	if f.Number > 0 {
@@ -142,6 +149,31 @@ func (s *Store) CountDraftOrders(ctx context.Context) (int, error) {
 	return int(n), err
 }
 
+// CountDraftOrdersOwnedBy counts draft vendor orders that list the user as an owner.
+func (s *Store) CountDraftOrdersOwnedBy(ctx context.Context, user bson.ObjectID) (int, error) {
+	n, err := s.c("vendorOrders").CountDocuments(ctx, bson.D{{Key: "status", Value: domain.OrderDraft}, {Key: "ownerIds", Value: user}})
+	return int(n), err
+}
+
+// OrderIDsOwnedBy lists the ids of the orders that list the user as an owner.
+func (s *Store) OrderIDsOwnedBy(ctx context.Context, user bson.ObjectID) ([]bson.ObjectID, error) {
+	cur, err := s.c("vendorOrders").Find(ctx, bson.D{{Key: "ownerIds", Value: user}}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ID bson.ObjectID `bson:"_id"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+	ids := make([]bson.ObjectID, len(rows))
+	for i, r := range rows {
+		ids[i] = r.ID
+	}
+	return ids, nil
+}
+
 // ---- lines ----
 
 func (s *Store) InsertLine(ctx context.Context, l *domain.VendorOrderLine) error {
@@ -174,6 +206,13 @@ func (s *Store) findLines(ctx context.Context, f bson.D, opts ...options.Lister[
 
 func (s *Store) LinesByOrder(ctx context.Context, orderID bson.ObjectID) ([]domain.VendorOrderLine, error) {
 	return s.findLines(ctx, bson.D{{Key: "vendorOrderId", Value: orderID}}, options.Find().SetSort(bson.D{{Key: "lineNo", Value: 1}}))
+}
+
+func (s *Store) LinesByOrders(ctx context.Context, orderIDs []bson.ObjectID) ([]domain.VendorOrderLine, error) {
+	if len(orderIDs) == 0 {
+		return nil, nil
+	}
+	return s.findLines(ctx, bson.D{{Key: "vendorOrderId", Value: bson.D{{Key: "$in", Value: orderIDs}}}})
 }
 
 func (s *Store) LinesByItem(ctx context.Context, itemID bson.ObjectID) ([]domain.VendorOrderLine, error) {
