@@ -136,9 +136,18 @@ function ReviewSummary({ items, rates }: { items: Item[]; rates: Parameters<type
   const { t } = useTranslation('batches');
   const approved = items.filter((i) => i.status === 'approved');
   const rejected = items.filter((i) => i.status === 'rejected').length;
+  // Approved items per vendor, the largest first.
+  const perVendor = new Map<string, number>();
+  for (const i of approved) perVendor.set(i.vendorName || t('actions.summaryNoVendor'), (perVendor.get(i.vendorName || t('actions.summaryNoVendor')) ?? 0) + 1);
+  const vendors = [...perVendor].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
   return (
     <Stack gap="2" borderWidth="1px" borderRadius="md" p="3">
       <Text fontWeight="medium">{t('actions.summary', { approved: approved.length, rejected })}</Text>
+      {vendors.length > 0 && (
+        <Text textStyle="sm" color="fg.muted" overflowWrap="anywhere">
+          {t('actions.summaryVendors', { vendors: vendors.map(([name, n]) => `${name} (${n})`).join(', ') })}
+        </Text>
+      )}
       {approved.length > 0 && <EstimateSummary items={approved} rates={rates} />}
     </Stack>
   );

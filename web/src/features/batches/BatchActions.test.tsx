@@ -12,10 +12,11 @@ const admin: Caller = { userId: 'u1', isSystemAdmin: false, teamRole: 'admin', a
 
 describe('review confirmation', () => {
   it('summarises how many items were approved and rejected', async () => {
-    const items = [item(1, { status: 'approved' }), item(2, { status: 'approved' }), item(3, { status: 'rejected' }), item(4, { status: 'withdrawn' })];
+    const items = [item(1, { status: 'approved', vendorName: 'WCP' }), item(2, { status: 'approved', vendorName: 'WCP' }), item(3, { status: 'rejected', vendorName: 'Other' }), item(4, { status: 'withdrawn' })];
     renderWithApi(<BatchActions batch={batch({ status: 'reviewing' })} caller={admin} pendingItems={0} undecidedItems={0} items={items} />, { 'GET /reference-rates': { items: [] }, 'GET /meta': { baseCurrency: 'TWD', supportedCurrencies: ['TWD'] } });
     fireEvent.click(await screen.findByRole('button', { name: 'Confirm review' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Approved: 2, rejected: 1')).toBeTruthy();
+    expect(within(dialog).getByText('Vendors: WCP (2)')).toBeTruthy();
   });
 });

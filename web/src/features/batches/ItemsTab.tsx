@@ -144,7 +144,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     <Stack gap="4">
       <FilterBar
         mb="0"
-        positioning={{ placement: "right-start" }}
+        // Anchored to the button's left edge and kept below it: the button grows a count badge as filters are set, which
+        // would otherwise move a popover anchored to its right edge (or one that flips above it).
+        positioning={{ placement: 'bottom-start', flip: false }}
         search={{ value: search, onChange: setSearch, placeholder: t('filters.searchItems') }}
         activeCount={activeCount}
         onClear={clearFilters}
