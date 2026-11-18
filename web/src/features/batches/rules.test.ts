@@ -84,13 +84,10 @@ describe('item permissions mirror backend canModify', () => {
 });
 
 describe('copy as new item', () => {
-  it('is offered for the requester or a team admin on any status while the batch takes items', () => {
-    for (const status of ['pending', 'returned', 'approved', 'rejected', 'withdrawn'] as const) {
-      expect(canCopyItem(item({ status }), batch({ status: 'collecting' }), caller())).toBe(true);
-    }
-    expect(canCopyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller())).toBe(false);
-    expect(canCopyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller({ teamRole: 'admin' }))).toBe(true);
-    expect(canCopyItem(item(), batch({ status: 'reviewing' }), caller())).toBe(false);
+  it('is offered to anyone who can add items, for any item', () => {
+    expect(canCopyItem(batch({ status: 'collecting' }), caller())).toBe(true);
+    expect(canCopyItem(batch({ status: 'reviewing' }), caller())).toBe(false);
+    expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }))).toBe(false);
   });
 });
 

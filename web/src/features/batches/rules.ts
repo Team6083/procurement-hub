@@ -142,7 +142,7 @@ export function canUndoReview(it: Pick<Item, 'status' | 'review'>, b: Pick<Batch
   return isTeamAdmin(c) || it.review.by === c.userId;
 }
 
-/** Copy an item (whatever its status) into a new one: its requester or a team admin, while the batch takes items. */
-export function canCopyItem(it: Pick<Item, 'requesterId'>, b: Batch, c: Caller): boolean {
-  return canAddItem(b, c) && (it.requesterId === c.userId || isTeamAdmin(c));
+/** Copy any item (whatever its status or requester) into a new one, by anyone who can add items to the batch. */
+export function canCopyItem(b: Batch, c: Caller): boolean {
+  return canAddItem(b, c);
 }

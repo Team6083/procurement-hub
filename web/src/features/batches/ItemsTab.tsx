@@ -108,7 +108,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     if (canUndoReview(it, batch, caller)) {
       out.push({ value: 'review-undo', icon: <LuUndo2 />, label: t('item.undoReview'), onSelect: () => { action.reset(); setUndoing({ item: it, what: 'review' }); } });
     }
-    if (canCopyItem(it, batch, caller)) {
+    if (canCopyItem(batch, caller)) {
       out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
     }
     if (canForceReject(it, batch, caller)) {
