@@ -115,7 +115,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
             </FormField>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="vendorId" render={({ field }) => (
-                <SelectField label={t('item.vendor')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
                   // Choosing a listed vendor fills in its default currency (still changeable afterwards).
                   onChange={(id) => {
                     field.onChange(id);

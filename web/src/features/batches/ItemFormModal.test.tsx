@@ -27,6 +27,8 @@ describe('ItemFormModal product lookup', () => {
     expect(field('Vendor name').value).toBe('Acme Store');
     expect(field('Name').value).toBe('My wheel');
     expect(screen.getByText(/different values.*Name/)).toBeTruthy();
+    // Name, vendor, SKU and price (the URL was identical) each show the mark.
+    expect(screen.getAllByText('Auto-filled by lookup')).toHaveLength(3);
     fireEvent.click(screen.getByRole('button', { name: 'Overwrite' }));
     expect(field('Name').value).toBe('Wheel 5in');
     expect(calls.find((c) => c.path === '/lookup')).toBeTruthy();
