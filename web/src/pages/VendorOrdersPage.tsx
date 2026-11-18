@@ -9,7 +9,6 @@ import { useTeams } from '../api/teams';
 import type { VendorOrderSummary } from '../api/types';
 import { useVendorOrderList, type OrderFilters } from '../api/vendorOrders';
 import { useVendors } from '../api/vendors';
-import { useOwnerName } from '../features/orders/owners';
 import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
@@ -31,7 +30,6 @@ export function VendorOrdersPage() {
   const list = useVendorOrderList({ ...filters, q: search });
   const vendors = useVendors(true).data ?? [];
   const teams = useTeams().data ?? [];
-  const ownerName = useOwnerName();
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const set = (k: keyof OrderFilters) => (v: string) => setFilters({ ...filters, [k]: v || undefined });
   const activeCount = [filters.status, filters.vendorId, filters.teamId, filters.ownerId, filters.completed, filters.receivingState, filters.accountingState].filter(Boolean).length;
@@ -41,7 +39,7 @@ export function VendorOrdersPage() {
     { key: 'vendor', header: t('list.vendor'), cell: (o) => o.vendorName },
     { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalBadge />}</HStack> },
     { key: 'progress', header: t('progress.title'), cell: (o) => <HStack gap="2" wrap="wrap"><OrderProgressBadges order={o} /></HStack> },
-    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => o.ownerIds.map(ownerName).join(', ') || '—' },
+    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => o.owners.map((x) => x.displayName).join(', ') || '—' },
     { key: 'ext', header: t('details.externalNo'), priority: 'secondary', cell: (o) => o.externalOrderNo || '—' },
     { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? t('common:unknownTeam')).join(', ') },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (o) => (o.restricted ? <Badge variant="outline">{t('list.visibleLines', { count: o.lineCount })}</Badge> : o.lineCount) },

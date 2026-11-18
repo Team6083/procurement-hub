@@ -155,6 +155,25 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	if len(seen["lines"].([]any)) != 1 || seen["restricted"] != true || seen["otherTeams"].(map[string]any)["lines"] != float64(1) || seen["totals"].(map[string]any)["netBase"] != nil {
 		t.Errorf("restricted view: %v", seen)
 	}
+	// The visible line carries its item's requester; the merged other-team row carries nothing.
+	if rq, _ := seen["lines"].([]any)[0].(map[string]any)["requester"].(map[string]any); rq == nil || rq["id"] == "" || rq["displayName"] == "" {
+		t.Errorf("visible line requester: %v", seen["lines"])
+	}
+	if _, has := seen["otherTeams"].(map[string]any)["requester"]; has {
+		t.Errorf("otherTeams leaks requester: %v", seen["otherTeams"])
+	}
+	if ow, _ := seen["owners"].([]any); len(ow) != 1 || ow[0].(map[string]any)["displayName"] == "" || ow[0].(map[string]any)["isPurchaser"] != true {
+		t.Errorf("owners = %v", seen["owners"])
+	}
+	if _, has := seen["ownerIds"]; has {
+		t.Errorf("ownerIds still in response")
+	}
+	// A purchaser sees every line; the standalone line has no requester.
+	for _, l := range w.do(t, call{token: buyer, method: "GET", path: p3}).expect(200).JSON()["lines"].([]any) {
+		if m := l.(map[string]any); m["itemId"] == nil && m["requester"] != nil {
+			t.Errorf("standalone line requester: %v", m["requester"])
+		}
+	}
 }
 
 // Undoing the review confirmation removes the draft lines of the batch's items.

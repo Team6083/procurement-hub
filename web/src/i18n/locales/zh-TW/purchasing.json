@@ -151,6 +151,7 @@
     "paymentNote": "付款備註",
     "saved": "已儲存。",
     "owners": "負責人",
+    "noLongerPurchaser": "不再是採購人員",
     "noOwners": "沒有可選的採購人員。"
   },
   "actions": {

@@ -13,7 +13,6 @@ import { useFieldError } from '../../components/ui/form';
 import { Checklist } from '../../components/ui/checklist';
 import { SelectField } from '../../components/ui/select';
 import { useRoleHolders } from '../../api/members';
-import { useOwnerName } from './owners';
 import { validateAmount } from '../money';
 
 const detailsSchema = (baseDigits: number) =>
@@ -33,7 +32,7 @@ const detailsSchema = (baseDigits: number) =>
 type Details = z.infer<ReturnType<typeof detailsSchema>>;
 
 const toForm = (o: VendorOrder): Details => ({
-  vendorId: o.vendorId, currency: o.currency, owners: o.ownerIds, externalNo: o.externalOrderNo, delivery: o.expectedDeliveryDate, note: o.paymentNote,
+  vendorId: o.vendorId, currency: o.currency, owners: o.owners.map((x) => x.id), externalNo: o.externalOrderNo, delivery: o.expectedDeliveryDate, note: o.paymentNote,
   charged: o.chargedAmountBase ?? '',
 });
 
@@ -63,11 +62,10 @@ export function DetailsForm({ order, vendors, supported, baseDigits, headingAs =
   const baseCurrency = useBaseCurrency();
   const put = usePutOrder(order.id);
   const purchasers = useRoleHolders('purchaser').data ?? [];
-  const ownerName = useOwnerName();
   // Candidates are the current purchasers; an owner who lost the role stays listed so saving does not drop them.
   const ownerOptions = [
     ...purchasers.map((u) => ({ value: u.id, label: u.displayName || u.username })),
-    ...order.ownerIds.filter((id) => !purchasers.some((u) => u.id === id)).map((id) => ({ value: id, label: ownerName(id) })),
+    ...order.owners.filter((o) => !purchasers.some((u) => u.id === o.id)).map((o) => ({ value: o.id, label: o.isPurchaser ? o.displayName : `${o.displayName} (${t('details.noLongerPurchaser')})` })),
   ];
   const draft = order.status === 'draft';
   const form = useForm({ resolver: zodResolver(detailsSchema(baseDigits)), values: toForm(order), resetOptions: { keepDirtyValues: true } });

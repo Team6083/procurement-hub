@@ -152,6 +152,7 @@
     "paymentNote": "Payment note",
     "saved": "Saved.",
     "owners": "Owners",
+    "noLongerPurchaser": "no longer a purchaser",
     "noOwners": "No purchasers to choose from."
   },
   "actions": {

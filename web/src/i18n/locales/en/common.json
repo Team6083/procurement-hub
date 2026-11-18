@@ -69,6 +69,5 @@
   "forbidden": {
     "title": "No access",
     "body": "Your roles do not open this page."
-  },
-  "unknownUser": "Unknown user"
+  }
 }

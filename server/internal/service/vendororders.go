@@ -79,12 +79,63 @@ type LineView struct {
 	VendorOrderVersion int64            `json:"vendorOrderVersion"`
 	VendorOrderNumber  int              `json:"vendorOrderNumber"`
 	Problems           []ProblemSummary `json:"problems"`
+	// Requester is the linked item's requester; null without an item.
+	Requester *PersonRef `json:"requester"`
+}
+
+// PersonRef is a user as shown in responses.
+type PersonRef struct {
+	ID          bson.ObjectID `json:"id"`
+	DisplayName string        `json:"displayName"`
+}
+
+// OwnerRef is an order owner; IsPurchaser comes from users.roleSnapshot.
+type OwnerRef struct {
+	ID          bson.ObjectID `json:"id"`
+	DisplayName string        `json:"displayName"`
+	IsPurchaser bool          `json:"isPurchaser"`
+}
+
+// personName is the user's display name, falling back to username, email, then the id.
+func personName(u domain.User, id bson.ObjectID) string {
+	for _, n := range []string{u.DisplayName, u.Username, u.Email} {
+		if n != "" {
+			return n
+		}
+	}
+	return id.Hex()
+}
+
+// resolveUsers loads the users once; a failed lookup leaves the map empty so names fall back.
+func (s *VendorOrders) resolveUsers(ctx context.Context, ids []bson.ObjectID) map[bson.ObjectID]domain.User {
+	users, err := s.st.UsersByIDs(ctx, ids)
+	if err != nil {
+		return map[bson.ObjectID]domain.User{}
+	}
+	return users
+}
+
+func ownerRefs(owners []bson.ObjectID, users map[bson.ObjectID]domain.User) []OwnerRef {
+	out := make([]OwnerRef, 0, len(owners))
+	for _, id := range owners {
+		u := users[id]
+		out = append(out, OwnerRef{ID: id, DisplayName: personName(u, id), IsPurchaser: u.RoleSnapshot.Purchaser})
+	}
+	return out
+}
+
+func requesterRef(it itemInfo, users map[bson.ObjectID]domain.User) *PersonRef {
+	if it.requesterID == nil {
+		return nil
+	}
+	return &PersonRef{ID: *it.requesterID, DisplayName: personName(users[*it.requesterID], *it.requesterID)}
 }
 
 // itemInfo is what a line view shows of its item.
 type itemInfo struct {
-	url      string
-	estimate *domain.Money
+	url         string
+	estimate    *domain.Money
+	requesterID *bson.ObjectID
 }
 
 type productURLs map[bson.ObjectID]itemInfo
@@ -114,7 +165,8 @@ func (s *VendorOrders) productURLs(ctx context.Context, lines []domain.VendorOrd
 	}
 	for _, it := range items {
 		est := it.EstimatedUnitPrice
-		out[it.ID] = itemInfo{url: it.ProductURL, estimate: &est}
+		rid := it.RequesterID
+		out[it.ID] = itemInfo{url: it.ProductURL, estimate: &est, requesterID: &rid}
 	}
 	return out
 }
@@ -140,6 +192,7 @@ type OtherTeams struct {
 // OrderDetail is the full order as one caller may see it.
 type OrderDetail struct {
 	domain.VendorOrder
+	Owners           []OwnerRef         `json:"owners"`
 	VendorName       string             `json:"vendorName"`
 	Lines            []LineView         `json:"lines"`
 	CostEntries      []domain.CostEntry `json:"costEntries"`
@@ -158,7 +211,7 @@ type OrderSummary struct {
 	VendorName       string              `json:"vendorName"`
 	Currency         string              `json:"currency"`
 	Status           domain.OrderStatus  `json:"status"`
-	OwnerIDs         []bson.ObjectID     `json:"ownerIds"`
+	Owners           []OwnerRef          `json:"owners"`
 	ExternalOrderNo  string              `json:"externalOrderNo"`
 	PlacedAt         any                 `json:"placedAt"`
 	ExpectedDelivery string              `json:"expectedDeliveryDate"`
@@ -210,6 +263,17 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 	priv := privileged(actor)
 	d := &OrderDetail{VendorOrder: *o, VendorName: s.vendorName(ctx, o.VendorID), Lines: []LineView{}, CostEntries: []domain.CostEntry{}}
 	urls := s.productURLs(ctx, lines)
+	// One user lookup covers the owners and the requesters of visible lines.
+	userIDs := append([]bson.ObjectID{}, ownerIDs(o)...)
+	for i := range lines {
+		if acc.sees(&lines[i]) {
+			if r := urls.of(&lines[i]).requesterID; r != nil {
+				userIDs = append(userIDs, *r)
+			}
+		}
+	}
+	users := s.resolveUsers(ctx, userIDs)
+	d.Owners = ownerRefs(ownerIDs(o), users)
 	visible := map[bson.ObjectID]bool{}
 	hidden := 0
 	var hiddenTotal, visTotal decimal.Decimal
@@ -231,7 +295,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 		} else {
 			visTotal = visTotal.Add(l.TotalBase.Decimal)
 		}
-		lv := LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}}
+		lv := LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}, Requester: requesterRef(urls.of(&l), users)}
 		for _, p := range problems {
 			if p.VendorOrderLineID != l.ID {
 				continue
@@ -337,7 +401,7 @@ type OrderPage struct {
 	NextCursor *bson.ObjectID
 }
 
-func (s *VendorOrders) summary(ctx context.Context, actor authz.Actor, acc *lineAccess, o *domain.VendorOrder, names map[bson.ObjectID]string) (*OrderSummary, error) {
+func (s *VendorOrders) summary(ctx context.Context, actor authz.Actor, acc *lineAccess, o *domain.VendorOrder, names map[bson.ObjectID]string, users map[bson.ObjectID]domain.User) (*OrderSummary, error) {
 	lines, err := s.st.LinesByOrder(ctx, o.ID)
 	if err != nil {
 		return nil, err
@@ -361,7 +425,7 @@ func (s *VendorOrders) summary(ctx context.Context, actor authz.Actor, acc *line
 	}
 	sm := &OrderSummary{
 		ID: o.ID, Number: o.Number, VendorID: o.VendorID, VendorName: name, Currency: o.Currency, Status: o.Status,
-		OwnerIDs: ownerIDs(o), ExternalOrderNo: o.ExternalOrderNo, ExpectedDelivery: o.ExpectedDelivery, LineCount: visible, TeamIDs: sortedIDs(teams),
+		Owners: ownerRefs(ownerIDs(o), users), ExternalOrderNo: o.ExternalOrderNo, ExpectedDelivery: o.ExpectedDelivery, LineCount: visible, TeamIDs: sortedIDs(teams),
 		Provisional: o.Totals.Provisional, Incomplete: o.Totals.Incomplete,
 		ReceivingState: o.ReceivingState, AccountingState: o.AccountingState, Completed: o.Completed, Restricted: !priv, CreatedAt: o.CreatedAt, Version: o.Version,
 	}
@@ -400,8 +464,13 @@ func (s *VendorOrders) List(ctx context.Context, actor authz.Actor, in ListOrder
 		if err != nil {
 			return nil, err
 		}
+		var ownerIDsAll []bson.ObjectID
 		for i := range rows {
-			sm, err := s.summary(ctx, actor, acc, &rows[i], names)
+			ownerIDsAll = append(ownerIDsAll, ownerIDs(&rows[i])...)
+		}
+		users := s.resolveUsers(ctx, ownerIDsAll)
+		for i := range rows {
+			sm, err := s.summary(ctx, actor, acc, &rows[i], names, users)
 			if errors.Is(err, ErrNotFound) {
 				continue
 			}
@@ -557,6 +626,13 @@ func (s *VendorOrders) LinesToClose(ctx context.Context, actor authz.Actor) ([]L
 		return nil, err
 	}
 	urls := s.productURLs(ctx, lines)
+	var rids []bson.ObjectID
+	for i := range lines {
+		if r := urls.of(&lines[i]).requesterID; r != nil {
+			rids = append(rids, *r)
+		}
+	}
+	users := s.resolveUsers(ctx, rids)
 	orders := map[bson.ObjectID]*domain.VendorOrder{}
 	out := []LineView{}
 	for _, l := range lines {
@@ -567,7 +643,7 @@ func (s *VendorOrders) LinesToClose(ctx context.Context, actor authz.Actor) ([]L
 			}
 			orders[l.VendorOrderID] = o
 		}
-		out = append(out, LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}})
+		out = append(out, LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}, Requester: requesterRef(urls.of(&l), users)})
 	}
 	return out, nil
 }

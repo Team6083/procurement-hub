@@ -2,7 +2,6 @@ import { Button, Dialog, Input, SimpleGrid, Stack, Text, Textarea } from '@chakr
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
-import { useRequesters } from '../../api/batches';
 import { useBaseCurrency, useMeta } from '../../api/meta';
 import type { CostEntry, VendorOrder } from '../../api/types';
 import { useCreateCostEntry, usePutCostEntry } from '../../api/vendorOrders';
@@ -11,7 +10,6 @@ import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { Checklist } from '../../components/ui/checklist';
 import { FormField } from '../../components/ui/field';
 import { SelectField } from '../../components/ui/select';
-import { useNames } from '../batches/useNames';
 import {
   bodyOf, effective, emptyValues, entryIssues, forcesSeparate, linesRequestedBy, manualRemaining, noteRequired, typesFor, valuesOf, type EntryValues, type Issue,
 } from './costEntries';
@@ -39,8 +37,6 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
   const [issues, setIssues] = useState<Issue[]>([]);
   const [shown, setShown] = useState(false);
   const v = useWatch({ control: form.control }) as EntryValues;
-  const names = useNames(undefined, false);
-  const requesters = useRequesters(order.batchIds, v.mode === 'lines');
   const lineIds = order.lines.map((l) => l.id);
   const { settlement, currency } = effective(v, order.currency);
   const separate = settlement === 'separate';
@@ -49,10 +45,11 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
     const i = (shown ? issues : []).find((x) => x.path.join('.') === path);
     return i ? t(i.message) : undefined;
   };
-  const byRequester = new Map<string, number>();
+  const byRequester = new Map<string, { name: string; count: number }>();
   for (const l of order.lines) {
-    const r = l.itemId ? requesters.get(l.itemId) : undefined;
-    if (r) byRequester.set(r, (byRequester.get(r) ?? 0) + 1);
+    if (!l.requester) continue;
+    const cur = byRequester.get(l.requester.id);
+    byRequester.set(l.requester.id, { name: l.requester.displayName, count: (cur?.count ?? 0) + 1 });
   }
 
   const submit = form.handleSubmit((values) => {
@@ -143,11 +140,11 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
                     label={tc('byRequester')} value="" placeholder={tc('byRequesterPlaceholder')} helperText={tc('byRequesterHelp')}
                     onChange={(r) => {
                       if (!r) return;
-                      const picked = linesRequestedBy(order.lines, requesters, r);
+                      const picked = linesRequestedBy(order.lines, r);
                       form.setValue('lineIds', [...new Set([...form.getValues('lineIds'), ...picked])]);
                       recheck();
                     }}
-                    options={[...byRequester].map(([id, n], i) => ({ value: id, label: `${names.name(id)} #${i + 1} (${tc('lineCount', { count: n })})` }))}
+                    options={[...byRequester].map(([id, r]) => ({ value: id, label: `${r.name} (${tc('lineCount', { count: r.count })})` }))}
                   />
                 )}
                 <Controller control={form.control} name="lineIds" render={({ field }) => (

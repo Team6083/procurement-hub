@@ -57,8 +57,7 @@ describe('entry validation', () => {
 
 describe('linesRequestedBy', () => {
   it('selects every line whose item was requested by the person', () => {
-    const lines = [{ id: 'l1', itemId: 'i1' }, { id: 'l2', itemId: 'i2' }, { id: 'l3', itemId: null }, { id: 'l4', itemId: 'i3' }];
-    const req = new Map([['i1', 'u1'], ['i2', 'u2'], ['i3', 'u1']]);
-    expect(linesRequestedBy(lines, req, 'u1')).toEqual(['l1', 'l4']);
+    const lines = [{ id: 'l1', requester: { id: 'u1' } }, { id: 'l2', requester: { id: 'u2' } }, { id: 'l3', requester: null }, { id: 'l4', requester: { id: 'u1' } }];
+    expect(linesRequestedBy(lines, 'u1')).toEqual(['l1', 'l4']);
   });
 });

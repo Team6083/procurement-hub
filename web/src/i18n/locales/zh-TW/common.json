@@ -69,6 +69,5 @@
   "forbidden": {
     "title": "無法存取",
     "body": "你的角色無法開啟這個頁面。"
-  },
-  "unknownUser": "未知的使用者"
+  }
 }

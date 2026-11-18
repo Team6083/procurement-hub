@@ -2902,15 +2902,29 @@ components:
         version: { type: integer, format: int64, description: "Purchasers, receivers and system admins only; the problem version for If-Match." }
         deliveryId: { type: string, description: "Purchasers, receivers and system admins only." }
         note: { type: string, description: "Purchasers, receivers and system admins only." }
+    PersonRef:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+    OwnerRef:
+      type: object
+      required: [id, displayName, isPurchaser]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        isPurchaser: { type: boolean, description: "From users.roleSnapshot; false for an owner who lost the purchaser role." }
     VendorOrderLine:
       type: object
-      required: [id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, separateBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
+      required: [requester, id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, separateBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
       properties:
         id: { type: string }
         vendorOrderId: { type: string }
         lineNo: { type: integer }
         teamId: { type: string, description: Cost attribution team. }
         itemId: { type: [string, "null"] }
+        requester: { oneOf: [{ $ref: "#/components/schemas/PersonRef" }, { type: "null" }], description: "The linked item's requester; null without an item. Only present on lines the caller can see." }
         batchId: { type: [string, "null"] }
         name: { type: string }
         sku: { type: string }
@@ -2991,7 +3005,7 @@ components:
         totalBase: { type: [string, "null"] }
     VendorOrder:
       type: object
-      required: [id, number, vendorId, currency, status, ownerIds, externalOrderNo, placedAt, placedBy, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, receivingState, accountingState, completed, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, costEntries, restricted, otherTeams, visibleTotalBase, invariantOk]
+      required: [id, number, vendorId, currency, status, owners, externalOrderNo, placedAt, placedBy, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, receivingState, accountingState, completed, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, costEntries, restricted, otherTeams, visibleTotalBase, invariantOk]
       properties:
         id: { type: string }
         number: { type: integer, description: "Displayed as VO-<number>." }
@@ -2999,7 +3013,7 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
-        ownerIds: { type: array, items: { type: string }, description: "Owners (purchasers). Only drive notifications and the tasks list; they grant no permission." }
+        owners: { type: array, items: { $ref: "#/components/schemas/OwnerRef" }, description: "Owners. Only drive notifications and the tasks list; they grant no permission. isPurchaser comes from users.roleSnapshot." }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         placedBy: { type: [string, "null"] }
@@ -3034,7 +3048,7 @@ components:
         allocationsReset: { type: boolean, description: "True when this write reset cost entries whose teams or lines disappeared to `all`." }
     VendorOrderSummary:
       type: object
-      required: [id, number, vendorId, vendorName, currency, status, ownerIds, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, receivingState, accountingState, completed, restricted, createdAt, version]
+      required: [id, number, vendorId, vendorName, currency, status, owners, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, receivingState, accountingState, completed, restricted, createdAt, version]
       properties:
         id: { type: string }
         number: { type: integer }
@@ -3042,7 +3056,7 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
-        ownerIds: { type: array, items: { type: string } }
+        owners: { type: array, items: { $ref: "#/components/schemas/OwnerRef" } }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         expectedDeliveryDate: { type: string }

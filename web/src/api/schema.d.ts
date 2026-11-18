@@ -2027,6 +2027,16 @@ export interface components {
             /** @description Purchasers, receivers and system admins only. */
             note?: string;
         };
+        PersonRef: {
+            id: string;
+            displayName: string;
+        };
+        OwnerRef: {
+            id: string;
+            displayName: string;
+            /** @description From users.roleSnapshot; false for an owner who lost the purchaser role. */
+            isPurchaser: boolean;
+        };
         VendorOrderLine: {
             id: string;
             vendorOrderId: string;
@@ -2034,6 +2044,8 @@ export interface components {
             /** @description Cost attribution team. */
             teamId: string;
             itemId: string | null;
+            /** @description The linked item's requester; null without an item. Only present on lines the caller can see. */
+            requester: components["schemas"]["PersonRef"] | null;
             batchId: string | null;
             name: string;
             sku: string;
@@ -2130,8 +2142,8 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
-            /** @description Owners (purchasers). Only drive notifications and the tasks list; they grant no permission. */
-            ownerIds: string[];
+            /** @description Owners. Only drive notifications and the tasks list; they grant no permission. isPurchaser comes from users.roleSnapshot. */
+            owners: components["schemas"]["OwnerRef"][];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;
@@ -2183,7 +2195,7 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
-            ownerIds: string[];
+            owners: components["schemas"]["OwnerRef"][];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;

@@ -43,6 +43,17 @@ func TestVendorOrderOwnersAndProblemRecipients(t *testing.T) {
 		t.Fatal("non-purchaser owner must be refused")
 	}
 
+	owners := func() []OwnerRef {
+		got, err := orders.Get(ctx, buyer, d.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.Owners
+	}
+	if o := owners(); len(o) != 1 || o[0].ID != buyer.UserID || o[0].DisplayName != "buyer" || !o[0].IsPurchaser {
+		t.Fatalf("owners view: %+v", o)
+	}
+
 	l := &domain.VendorOrderLine{VendorOrderID: d.ID, TeamID: e.team.ID}
 	rec := func() []bson.ObjectID {
 		rs, err := dels.problemRecipients(ctx, l)
@@ -54,6 +65,16 @@ func TestVendorOrderOwnersAndProblemRecipients(t *testing.T) {
 	// Owners come first.
 	if rs := rec(); len(rs) != 1 || rs[0] != buyer.UserID {
 		t.Fatalf("owners: %v", rs)
+	}
+	// isPurchaser follows roleSnapshot: false after the role is lost; the name stays.
+	if err := e.st.MarkSynced(ctx, buyer.UserID, d.UpdatedAt, "buyer", "buyer@example.org", "buyer", domain.RoleSnapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	if o := owners(); len(o) != 1 || o[0].IsPurchaser || o[0].DisplayName != "buyer" {
+		t.Fatalf("owners view after role loss: %+v", o)
+	}
+	if err := e.st.MarkSynced(ctx, buyer.UserID, d.UpdatedAt, "buyer", "buyer@example.org", "buyer", domain.RoleSnapshot{Purchaser: true}); err != nil {
+		t.Fatal(err)
 	}
 	// An owner who lost the role does not count; no batch purchasers: everyone.
 	if err := e.st.MarkSynced(ctx, buyer.UserID, d.UpdatedAt, "buyer", "buyer@example.org", "buyer", domain.RoleSnapshot{}); err != nil {

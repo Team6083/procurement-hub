@@ -1,4 +1,4 @@
-import type { CostAllocation, CostEntry, CostEntryBody, VendorOrder, VendorOrderLine } from '../../api/types';
+import type { CostAllocation, CostEntry, CostEntryBody, VendorOrder } from '../../api/types';
 import { add, mulInt, parseDec, toFixed, ZERO, type Dec } from '../batches/decimal';
 import { currencyFractionDigits, validateAmount, type AmountError, type AmountRules } from '../money';
 
@@ -158,6 +158,6 @@ export function bodyOf(v: EntryValues, order: Pick<VendorOrder, 'currency'>, bas
 }
 
 /** Lines whose item was requested by the person (the "pick items requested by" shortcut). */
-export function linesRequestedBy(lines: Pick<VendorOrderLine, 'id' | 'itemId'>[], requesterOf: Map<string, string>, requesterId: string): string[] {
-  return lines.filter((l) => l.itemId && requesterOf.get(l.itemId) === requesterId).map((l) => l.id);
+export function linesRequestedBy(lines: { id: string; requester?: { id: string } | null }[], requesterId: string): string[] {
+  return lines.filter((l) => l.requester?.id === requesterId).map((l) => l.id);
 }

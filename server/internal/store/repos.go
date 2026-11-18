@@ -99,6 +99,26 @@ func (s *Store) GetUser(ctx context.Context, id bson.ObjectID) (*domain.User, er
 	return &u, nil
 }
 
+// UsersByIDs loads users in one query; missing ids are simply absent.
+func (s *Store) UsersByIDs(ctx context.Context, ids []bson.ObjectID) (map[bson.ObjectID]domain.User, error) {
+	out := map[bson.ObjectID]domain.User{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	cur, err := s.c("users").Find(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: ids}}}})
+	if err != nil {
+		return nil, err
+	}
+	var rows []domain.User
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+	for _, u := range rows {
+		out[u.ID] = u
+	}
+	return out, nil
+}
+
 // PurchaserIDs returns those of ids that still have the purchaser role in
 // users.roleSnapshot, keeping the order of ids.
 func (s *Store) PurchaserIDs(ctx context.Context, ids []bson.ObjectID) ([]bson.ObjectID, error) {
