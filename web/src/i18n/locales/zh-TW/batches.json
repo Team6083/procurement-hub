@@ -131,6 +131,8 @@
     "unpurchasableHelp": "要把 {{name}} 標記為無法採購嗎？沒有已下單明細行時不會採購；已有已下單明細行時，剩餘數量不採購。必須填寫原因。",
     "unpurchasableReason": "原因",
     "resubmit": "重新送審",
+    "saveAndResubmit": "儲存並重新送審",
+    "saveOptions": "儲存選項",
     "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
     "returnedComment": "已退回：{{comment}}",
     "rejectedComment": "已駁回：{{comment}}",

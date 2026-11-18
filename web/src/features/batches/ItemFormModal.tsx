@@ -1,9 +1,10 @@
-import { Alert, Button, Dialog, Group, Input, GridItem, NativeSelect, Separator, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Dialog, Group, IconButton, Input, GridItem, Menu, NativeSelect, Portal, Separator, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { useAddItem, usePutItem } from '../../api/batches';
+import { LuChevronDown, LuSend } from 'react-icons/lu';
+import { useAddItem, useItemAction, usePutItem } from '../../api/batches';
 import { useApi } from '../../api/context';
 import { errorMessage } from '../../api/errors';
 import { useVendors } from '../../api/vendors';
@@ -28,14 +29,17 @@ interface Props {
   item?: Item;
   /** A withdrawn item whose content prefills a new item (copy as new item). */
   prefill?: Item;
+  /** The edited item is returned to its requester in a batch under review: offer "save and resubmit". */
+  resubmittable?: boolean;
 }
 
-function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<Props, 'open'>) {
+function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmittable }: Omit<Props, 'open'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const vendors = useVendors();
   const add = useAddItem(batch.id);
   const patch = usePutItem();
+  const resubmit = useItemAction();
   const currencies = meta.data?.supportedCurrencies ?? [];
   const base = meta.data?.baseCurrency ?? currencies[0] ?? '';
   const activeDefault = team?.subgroups.some((g) => g.id === defaultSubgroupId && g.active) ? defaultSubgroupId : '';
@@ -47,6 +51,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
   const err = form.formState.errors;
   const fieldError = useFieldError();
   const mutation = item ? patch : add;
+  const busy = mutation.isPending || resubmit.isPending;
   const label = (k: string) => priorityLabel(team?.priorityLabels, k as '1', (x) => t(`teams:priority.default.${x}`));
   // Product lookup (spec 14.3): fills empty fields, asks before overwriting, marks what it filled until edited.
   const api = useApi();
@@ -112,11 +117,16 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
     if (lookupEnabled && safeHttpUrl(text)) void runLookup(text);
   };
   const mark = (f: LookupField) => (autoFilled.includes(f) ? t('lookup.autoFilled') : undefined);
-  const submit = form.handleSubmit((v) => {
+  const submitWith = (andResubmit: boolean) => form.handleSubmit((v) => {
     const body = { ...toItemRequest(v), ...(!item && autoFilled.length > 0 ? { autoFilledFields: autoFilled, lookupProvider: LOOKUP_PROVIDER } : {}) };
-    if (item) patch.mutate({ item, body }, { onSuccess: onClose });
+    if (item) {
+      patch.mutate({ item, body }, {
+        onSuccess: (saved) => (andResubmit ? resubmit.mutate({ item: saved, action: 'resubmit' }, { onSuccess: onClose }) : onClose()),
+      });
+    }
     else add.mutate(body, { onSuccess: onClose });
   }, () => setExpanded(true));
+  const submit = submitWith(false);
   const subgroups = (team?.subgroups ?? []).filter((g) => g.active || g.id === item?.subgroupId);
   return (
     <>
@@ -240,12 +250,32 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
             <FormField label={t('item.notes')}>
               <Textarea autoresize rows={2} {...form.register('notes')} />
             </FormField>
-            <ErrorAlert error={mutation.error} />
+            <ErrorAlert error={mutation.error ?? resubmit.error} />
           </Stack>
         </form>
       </Dialog.Body>
       <DialogFooter>
-        <Button size="sm" type="submit" form="item-form" loading={mutation.isPending}>{item ? t('common:actions.save') : t('item.add')}</Button>
+        {item && resubmittable ? (
+          <Group attached>
+            <Button size="sm" type="submit" form="item-form" loading={busy}>{t('common:actions.save')}</Button>
+            <Menu.Root positioning={{ placement: 'top-end' }}>
+              <Menu.Trigger asChild>
+                <IconButton size="sm" aria-label={t('item.saveOptions')} disabled={busy}><LuChevronDown /></IconButton>
+              </Menu.Trigger>
+              <Portal>
+                <Menu.Positioner>
+                  <Menu.Content>
+                    <Menu.Item value="save-resubmit" onSelect={() => void submitWith(true)()}>
+                      <LuSend />{t('item.saveAndResubmit')}
+                    </Menu.Item>
+                  </Menu.Content>
+                </Menu.Positioner>
+              </Portal>
+            </Menu.Root>
+          </Group>
+        ) : (
+          <Button size="sm" type="submit" form="item-form" loading={busy}>{item ? t('common:actions.save') : t('item.add')}</Button>
+        )}
       </DialogFooter>
     </>
   );

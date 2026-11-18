@@ -173,7 +173,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         {internal && batch.status === 'reviewing' && <ReviewBar batch={batch} caller={caller} selected={decidable} onDone={clearSelection} />}
       </SelectionBar>
 
-      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
+      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} resubmittable={editing !== null && editing !== 'new' && showResubmit(editing, batch, caller)} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
       <ReasonModal
         open={!!withdrawing}
         title={t('item.withdraw')}

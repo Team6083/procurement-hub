@@ -131,6 +131,8 @@
     "unpurchasableHelp": "Mark {{name}} as unpurchasable? Without placed lines the item will not be bought; with placed lines the remaining quantity will not be bought. A reason is required.",
     "unpurchasableReason": "Reason",
     "resubmit": "Resubmit",
+    "saveAndResubmit": "Save and resubmit",
+    "saveOptions": "Save options",
     "resubmitNeedsEdit": "Edit the item before resubmitting it.",
     "returnedComment": "Returned: {{comment}}",
     "rejectedComment": "Rejected: {{comment}}",
