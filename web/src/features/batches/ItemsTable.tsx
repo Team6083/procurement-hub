@@ -1,5 +1,6 @@
-import { Badge, Box, Button, HStack, Icon, Link, Text } from '@chakra-ui/react';
+import { Badge, Box, Button, Flex, HStack, Icon, Link, Text } from '@chakra-ui/react';
 import { type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
+import { ClampedText } from '../../components/ClampedText';
 import { DataTable } from '../../components/DataTable';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -86,12 +87,16 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         const url = safeHttpUrl(it.productUrl);
         return (
           <Box as="span" display="block" textAlign="start" overflowWrap="anywhere">
-            <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
-            {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : <Text as="span">{it.name}</Text>}
-            {/* The priority rides along with the name instead of taking a column of its own (B3: the table must fit). */}
-            <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
-              <Badge variant="outline" size="sm" ms="1.5" tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
-            </Tooltip>
+            <Flex as="span" align="flex-start" gap="1.5">
+              <ClampedText text={`#${it.seqNo} ${it.name}`} flex="0 1 auto" minW="0">
+                <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
+                {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : it.name}
+              </ClampedText>
+              {/* The priority rides along with the name instead of taking a column of its own (B3: the table must fit). */}
+              <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
+                <Badge variant="outline" size="sm" flexShrink={0} tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
+              </Tooltip>
+            </Flex>
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}

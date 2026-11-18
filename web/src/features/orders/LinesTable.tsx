@@ -1,3 +1,4 @@
+import { ClampedText } from '../../components/ClampedText';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 import { Badge, Input, Stack, Text } from '@chakra-ui/react';
 import { type DataColumn, type RowAction } from '@team6083/ui';
@@ -68,7 +69,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
       key: 'name', header: t('line.name'), priority: 'primary',
       cell: (l) => (
         <Stack gap="0">
-          <span>{l.name}</span>
+          <ClampedText text={l.name} />
           {l.sku && <Text textStyle="xs" color="fg.muted">{l.sku}</Text>}
           {l.batchId && <RouteAnchor to={paths.batch(l.batchId)} textStyle="xs" color="fg.muted">{t('line.fromBatch')}</RouteAnchor>}
         </Stack>
