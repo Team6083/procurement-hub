@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"math/rand"
 	"strings"
 	"testing"
@@ -317,7 +318,7 @@ func TestOrderCostInvariant(t *testing.T) {
 			first := e.Amount.Div(decimal.NewFromInt(3)).Round(2)
 			e.Manual = []ManualShare{{l.LineID, first}}
 			rest := e.Amount.Sub(first)
-			if other := in.Lines[(int(l.LineNo))%len(in.Lines)]; other.LineID != l.LineID {
+			if other := in.Lines[l.LineNo%len(in.Lines)]; other.LineID != l.LineID {
 				e.Manual = append(e.Manual, ManualShare{other.LineID, rest})
 			} else {
 				e.Manual[0].Amount = e.Amount
@@ -422,8 +423,9 @@ func TestCostEntryValidate(t *testing.T) {
 	e := entry(CostFee, SettleWithCheckout, "USD", "10", func(e *CostEntry) {
 		e.Allocation = Allocation{Mode: AllocManual, Amounts: []ManualAmount{{Amount: Decimal{dd("4")}}}}
 	})
-	if _, ok := e.Validate("USD").(*AllocationError); !ok {
-		t.Errorf("manual sum mismatch: %v", e.Validate("USD"))
+	var allocErr *AllocationError
+	if err := e.Validate("USD"); !errors.As(err, &allocErr) {
+		t.Errorf("manual sum mismatch: %v", err)
 	}
 }
 

@@ -553,7 +553,7 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		}
 		var changes []domain.AuditChange
 		var emit []store.EventRecord
-		if f.OwnerIDs != nil && !slices.Equal(newOwners, o.OwnerIDs) && !(len(newOwners) == 0 && len(o.OwnerIDs) == 0) {
+		if f.OwnerIDs != nil && !slices.Equal(newOwners, o.OwnerIDs) && (len(newOwners) != 0 || len(o.OwnerIDs) != 0) {
 			changes = append(changes, ch("ownerIds", idHexes(o.OwnerIDs), idHexes(newOwners)))
 			emit = s.ownersAdded(actor, o, o.OwnerIDs, newOwners)
 			o.OwnerIDs = newOwners
