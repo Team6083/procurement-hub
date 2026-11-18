@@ -1,6 +1,7 @@
 import { ClampedText } from '../../components/ClampedText';
+import { safeHttpUrl } from './itemForm';
 import { orderLabel } from '../labels';
-import { Card, Stack, Text } from '@chakra-ui/react';
+import { Card, Link, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, type DataColumn } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
@@ -25,7 +26,9 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithL
   const columns: Col[] = [
     { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => (
       <>
-        <ClampedText text={`#${i.seqNo} ${i.name}`} />
+        {safeHttpUrl(i.productUrl)
+          ? <Link href={safeHttpUrl(i.productUrl)} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px"><ClampedText text={`#${i.seqNo} ${i.name}`} /></Link>
+          : <ClampedText text={`#${i.seqNo} ${i.name}`} />}
         {i.unpurchasable?.reason && <Text textStyle="xs" fontWeight="normal" color="fg.muted">{t('item.unpurchasableReason', { reason: i.unpurchasable.reason })}</Text>}
       </>
     ) },
