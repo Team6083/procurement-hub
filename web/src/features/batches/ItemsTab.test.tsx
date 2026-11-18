@@ -185,4 +185,9 @@ describe('ItemsTab review workspace', () => {
     expect(screen.getByLabelText('Approved')).toBeTruthy();
     expect(screen.queryAllByText('Approved').filter((e) => e.closest('[data-scope="badge"]'))).toHaveLength(0);
   });
+
+  it('shows why an item was marked unpurchasable under its name', () => {
+    renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={[item(1, { name: 'Gear', status: 'approved', unpurchasable: { by: 'u1', at: '2026-01-01T00:00:00Z', reason: 'Discontinued' }, toPurchaseQuantity: 1 })]} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
+    expect(screen.getByText('Unpurchasable: Discontinued')).toBeTruthy();
+  });
 });

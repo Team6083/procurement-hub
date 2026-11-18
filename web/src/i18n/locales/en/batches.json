@@ -140,6 +140,7 @@
     "saveOptions": "Save options",
     "resubmitNeedsEdit": "Edit the item before resubmitting it.",
     "returnedComment": "Returned: {{comment}}",
+    "unpurchasableReason": "Unpurchasable: {{reason}}",
     "rejectedComment": "Rejected: {{comment}}",
     "empty": "No items yet.",
     "undoReview": "Undo decision",

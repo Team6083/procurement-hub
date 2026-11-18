@@ -23,7 +23,12 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithL
   const { t, i18n } = useTranslation('batches');
   const baseCurrency = useBaseCurrency();
   const columns: Col[] = [
-    { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => <ClampedText text={`#${i.seqNo} ${i.name}`} /> },
+    { key: 'name', header: t('item.name'), priority: 'primary', cell: (i) => (
+      <>
+        <ClampedText text={`#${i.seqNo} ${i.name}`} />
+        {i.unpurchasable?.reason && <Text textStyle="xs" fontWeight="normal" color="fg.muted">{t('item.unpurchasableReason', { reason: i.unpurchasable.reason })}</Text>}
+      </>
+    ) },
     { key: 'fulfillment', header: t('item.fulfillment'), cell: (i) => (i.fulfillment ? <FulfillmentBadge value={i.fulfillment} /> : '—') },
     { key: 'ordered', header: t('purchasingTab.ordered'), numeric: true, cell: (i) => `${i.orderedQuantity} / ${i.quantity}` },
     { key: 'received', header: t('purchasingTab.received'), numeric: true, cell: (i) => i.receivedQuantity },

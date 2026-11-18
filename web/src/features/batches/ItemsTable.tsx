@@ -107,6 +107,9 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
             {it.status === 'rejected' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
             )}
+            {it.unpurchasable?.reason && (
+              <Text textStyle="xs" fontWeight="normal" color="fg.muted">{t('item.unpurchasableReason', { reason: it.unpurchasable.reason })}</Text>
+            )}
           </Box>
         );
       },

@@ -140,6 +140,7 @@
     "saveOptions": "儲存選項",
     "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
     "returnedComment": "已退回：{{comment}}",
+    "unpurchasableReason": "無法採購：{{reason}}",
     "rejectedComment": "已駁回：{{comment}}",
     "empty": "尚無品項。",
     "undoReview": "撤銷決定",
