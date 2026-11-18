@@ -46,7 +46,7 @@ export function useItems(batchId: string | undefined) {
   });
 }
 
-/** Batch timeline (includes item events), oldest first, cursor-paginated. */
+/** Batch timeline (includes item events), newest first, cursor-paginated. */
 export function useBatchAudit(batchId: string | undefined) {
   const api = useApi();
   return useInfiniteQuery({
@@ -54,7 +54,7 @@ export function useBatchAudit(batchId: string | undefined) {
     enabled: !!batchId,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'batch', objectId: batchId, limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
+      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'batch', objectId: batchId, order: 'desc', limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }

@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `GET /audit` takes `order=asc|desc` (default `asc`); the batch and vendor order timelines in the web UI now show the newest event first, with an icon per event.
 - Product lookup (API and web UI): the item form can fill the name, vendor, SKU, price and URL from a SKU or product URL, and marks the vendor as auto-filled. `GET /api/v1/lookup?q=` looks up a SKU or product URL through the configured provider (`LOOKUP_PROVIDER=partfinder` calls part-finder's `GET /api/v1/lookup`), maps the store name to a vendor by name or alias, and is limited to 30 requests per minute per user. See `docs/product-lookup.md`.
 - Teams, members and role-mapping rules synchronized from OIDC token claims; batches and items with the review flow.
 - Ordering (API only): team orders, external orders (vendor transactions) that can merge orders of several teams (the caller must be purchaser of every batch), marking items unpurchasable, and automatic `ordering` to `receiving`/`completed` batch transitions. Actual costs are computed in the base currency from the charged amount (or a reference rate, flagged provisional), with proportional or overridden allocation of shared costs and largest-remainder rounding so the amounts add up exactly to the charge. Adds migration `0002_order_indexes`; run `migrate` before starting this version.
