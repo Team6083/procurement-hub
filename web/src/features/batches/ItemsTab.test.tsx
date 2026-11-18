@@ -119,22 +119,30 @@ describe('ItemsTab review workspace', () => {
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'return', comment: 'Which model?' }] }));
   });
 
-  it('offers force reject only to team admins on pending and returned items', async () => {
+  it('offers return and reject on pending items and force reject on returned ones, to reviewers only', async () => {
+    // An assigned approver who is no admin decides on pending items but cannot force-reject returned ones.
     showReview(caller('member'));
-    expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
-    cleanup();
-    const { calls } = showReview(caller('admin'), { 'POST /items/i1/force-reject': item(1, { status: 'rejected' }) });
     fireEvent.change(await statusFilter(), { target: { value: '' } });
-    for (const name of ['Servo', 'Cable', 'Gear']) {
-      expect(await openRowMenu(rowWith(name))).toContain('Force reject');
+    expect((await openRowMenu(rowWith('Servo'))).some((l) => l.startsWith('Reject'))).toBe(true);
+    await closeMenu();
+    expect((await openRowMenu(rowWith('Gear'))).some((l) => l.startsWith('Force reject'))).toBe(false);
+    await closeMenu();
+    cleanup();
+    const { calls } = showReview(caller('admin'), { 'POST /items/i3/force-reject': item(3, { status: 'rejected' }) });
+    fireEvent.change(await statusFilter(), { target: { value: '' } });
+    for (const name of ['Servo', 'Cable']) {
+      const labels = await openRowMenu(rowWith(name));
+      expect(labels.some((l) => l.startsWith('Return'))).toBe(true);
+      expect(labels.some((l) => l.startsWith('Reject'))).toBe(true);
+      expect(labels.some((l) => l.startsWith('Force reject'))).toBe(false);
       await closeMenu();
     }
     expect(within(rowWith('Wheel')).queryByRole('button', { name: 'More actions' })).toBeNull();
-    await openRowMenu(rowWith('Servo'));
-    await chooseMenuItem('Force reject');
+    expect((await openRowMenu(rowWith('Gear'))).some((l) => l.startsWith('Force reject'))).toBe(true);
+    await chooseMenuItem(/^Force reject/);
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: 'Duplicate' } });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Force reject' })); });
-    await waitFor(() => expect(calls.find((c) => c.path === '/items/i1/force-reject')?.body).toEqual({ reason: 'Duplicate' }));
+    await waitFor(() => expect(calls.find((c) => c.path === '/items/i3/force-reject')?.body).toEqual({ reason: 'Duplicate' }));
   });
 });

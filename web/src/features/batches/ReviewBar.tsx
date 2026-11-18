@@ -44,7 +44,7 @@ export function ReviewBar({ batch, caller, selected, onDone }: Props) {
       <ReasonModal
         open={dialog !== null}
         title={dialog === 'reject' ? t('review.reject') : t('review.return')}
-        body={t('review.commentHelp', { count: selected.length })}
+        body={`${t('review.commentHelp', { count: selected.length })} ${dialog === 'reject' ? t('review.rejectNote') : t('review.returnNote')}`}
         reasonLabel={t('review.comment')}
         confirmLabel={dialog === 'reject' ? t('review.reject') : t('review.return')}
         danger={dialog === 'reject'}

@@ -3,7 +3,7 @@ import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/u
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuUndo2, LuX } from 'react-icons/lu';
-import { useItemAction } from '../../api/batches';
+import { useItemAction, useReview } from '../../api/batches';
 import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -56,6 +56,8 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
   const [unbuyable, setUnbuyable] = useState<Item | null>(null);
   const [forcing, setForcing] = useState<Item | null>(null);
+  const [deciding, setDeciding] = useState<{ item: Item; decision: 'return' | 'reject' } | null>(null);
+  const review = useReview(batch.id);
   const [undoing, setUndoing] = useState<{ item: Item; what: 'review' | 'unpurchasable' } | null>(null);
   const [copyFrom, setCopyFrom] = useState<Item | null>(null);
   const action = useItemAction();
@@ -78,6 +80,12 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   // A chosen status stays listed after its last item moves on, so the select always shows the filter actually applied.
   const statusOptions = withChosen(availableStatuses, status).map((s) => ({ value: s, label: statusLabel(s) }));
 
+  const hinted = (label: string, hint: string) => (
+    <Stack gap="0">
+      <span>{label}</span>
+      <Text as="span" textStyle="xs" color="fg.muted">{hint}</Text>
+    </Stack>
+  );
   const rowActions = (it: Item): RowAction[] => {
     const out: RowAction[] = [];
     if (showResubmit(it, batch, caller)) {
@@ -111,8 +119,13 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     if (canCopyItem(batch, caller)) {
       out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
     }
-    if (canForceReject(it, batch, caller)) {
-      out.push({ value: 'force-reject', icon: <LuX />, label: t('review.forceReject'), danger: true, onSelect: () => { action.reset(); setForcing(it); } });
+    if (canReview(batch, caller) && it.status === 'pending') {
+      out.push({ value: 'return', icon: <LuUndo2 />, label: hinted(t('review.return'), t('review.returnHint')), onSelect: () => { review.reset(); setDeciding({ item: it, decision: 'return' }); } });
+      out.push({ value: 'reject', icon: <LuX />, label: hinted(t('review.reject'), t('review.rejectHint')), danger: true, onSelect: () => { review.reset(); setDeciding({ item: it, decision: 'reject' }); } });
+    }
+    // Pending items are rejected with the review decision above; force-reject is for returned items that wait for the requester.
+    if (canForceReject(it, batch, caller) && it.status === 'returned') {
+      out.push({ value: 'force-reject', icon: <LuX />, label: hinted(t('review.forceReject'), t('review.forceRejectHint')), danger: true, onSelect: () => { action.reset(); setForcing(it); } });
     }
     return out;
   };
@@ -186,9 +199,21 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         onConfirm={() => withdrawing && action.mutate({ item: withdrawing, action: 'withdraw' }, { onSuccess: () => setWithdrawing(null) })}
       />
       <ReasonModal
+        open={!!deciding}
+        title={deciding?.decision === 'reject' ? t('review.reject') : t('review.return')}
+        body={`${t('review.commentHelp', { count: 1 })} ${deciding?.decision === 'reject' ? t('review.rejectNote') : t('review.returnNote')}`}
+        reasonLabel={t('review.comment')}
+        confirmLabel={deciding?.decision === 'reject' ? t('review.reject') : t('review.return')}
+        danger={deciding?.decision === 'reject'}
+        loading={review.isPending}
+        error={deciding ? review.error : null}
+        onClose={() => setDeciding(null)}
+        onConfirm={(comment) => deciding && review.mutate({ decisions: [{ itemId: deciding.item.id, decision: deciding.decision, comment }] }, { onSuccess: () => setDeciding(null) })}
+      />
+      <ReasonModal
         open={!!forcing}
         title={t('review.forceReject')}
-        body={t('review.forceHelp', { name: forcing?.name })}
+        body={`${t('review.forceHelp', { name: forcing?.name })} ${t('review.forceRejectHint')}`}
         reasonLabel={t('review.reason')}
         confirmLabel={t('review.forceReject')}
         danger

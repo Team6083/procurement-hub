@@ -3,7 +3,7 @@ import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { LuChevronDown, LuSend } from 'react-icons/lu';
+import { LuChevronDown, LuSave } from 'react-icons/lu';
 import { useAddItem, useItemAction, usePutItem } from '../../api/batches';
 import { useApi } from '../../api/context';
 import { errorMessage } from '../../api/errors';
@@ -126,7 +126,8 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
     }
     else add.mutate(body, { onSuccess: onClose });
   }, () => setExpanded(true));
-  const submit = submitWith(false);
+  // For a returned item the main button saves and resubmits; plain save is in the menu beside it.
+  const submit = submitWith(!!(item && resubmittable));
   const subgroups = (team?.subgroups ?? []).filter((g) => g.active || g.id === item?.subgroupId);
   return (
     <>
@@ -256,23 +257,23 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
       </Dialog.Body>
       <DialogFooter>
         {item && resubmittable ? (
-          <Group attached>
-            <Button size="sm" type="submit" form="item-form" loading={busy}>{t('common:actions.save')}</Button>
-            <Menu.Root positioning={{ placement: 'top-end' }}>
+          <Menu.Root positioning={{ placement: 'top-end' }}>
+            <Group attached>
+              <Button size="sm" type="submit" form="item-form" loading={busy}>{t('item.saveAndResubmit')}</Button>
               <Menu.Trigger asChild>
                 <IconButton size="sm" aria-label={t('item.saveOptions')} disabled={busy}><LuChevronDown /></IconButton>
               </Menu.Trigger>
-              <Portal>
-                <Menu.Positioner>
-                  <Menu.Content>
-                    <Menu.Item value="save-resubmit" onSelect={() => void submitWith(true)()}>
-                      <LuSend />{t('item.saveAndResubmit')}
-                    </Menu.Item>
-                  </Menu.Content>
-                </Menu.Positioner>
-              </Portal>
-            </Menu.Root>
-          </Group>
+            </Group>
+            <Portal>
+              <Menu.Positioner>
+                <Menu.Content>
+                  <Menu.Item value="save" onSelect={() => void submitWith(false)()}>
+                    <LuSave />{t('common:actions.save')}
+                  </Menu.Item>
+                </Menu.Content>
+              </Menu.Positioner>
+            </Portal>
+          </Menu.Root>
         ) : (
           <Button size="sm" type="submit" form="item-form" loading={busy}>{item ? t('common:actions.save') : t('item.add')}</Button>
         )}
