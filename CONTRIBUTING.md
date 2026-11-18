@@ -52,7 +52,7 @@ npx playwright install chromium   # once
 npm run e2e:ci                    # start the environment, run the tests, tear it down
 ```
 
-`npm run e2e` runs the tests against an environment already started with `npm run e2e:up` (stop it with `npm run e2e:down`). [`web/README.md`](web/README.md#end-to-end-tests) describes the environment and the test users. CI runs the suite in the `e2e` job and uploads the HTML report, traces and service logs when it fails. Add a flow to `web/e2e/` when a change affects sign-in, permissions or a multi-user workflow; keep tests independent of run order across files, use unique names per run, and wait with Playwright assertions instead of sleeps.
+`npm run e2e` runs the tests against an environment already started with `npm run e2e:up` (stop it with `npm run e2e:down`). [`web/README.md`](web/README.md#end-to-end-tests) describes the environment and the test users. CI runs the suite in the `e2e` job on `main` only (it is slow, so pull requests skip it) and uploads the HTML report, traces and service logs when it fails. Add a flow to `web/e2e/` when a change affects sign-in, permissions or a multi-user workflow; keep tests independent of run order across files, use unique names per run, and wait with Playwright assertions instead of sleeps.
 
 `npm run build:cloudflare` additionally needs `APP_CONFIG` (see [`web/README.md`](web/README.md)). Lint is ESLint with typescript-eslint and the full `eslint-plugin-react-hooks` recommended set; `react-hooks/exhaustive-deps` is an error.
 
