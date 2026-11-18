@@ -80,6 +80,7 @@ function SharedCosts({ control, register, errors, currency }: PartProps & { curr
   return (
     <Stack gap="2">
       <Text fontWeight="medium">{t('details.sharedCosts', { currency })}</Text>
+      {costs.fields.length > 0 && <Text textStyle="xs" color="fg.muted">{t('details.costsHelp')}</Text>}
       {costs.fields.length === 0 && <Text color="fg.muted">{t('details.noSharedCosts')}</Text>}
       {costs.fields.map((c, i) => (
         <HStack key={c.id} gap="2" align="flex-start" wrap={{ base: 'wrap', sm: 'nowrap' }}>
@@ -90,7 +91,7 @@ function SharedCosts({ control, register, errors, currency }: PartProps & { curr
             />
           )} />
           <FormField errorText={fieldError(errors.costs?.[i]?.amount)} flex="1">
-            <Input aria-label={t('details.costAmount')} placeholder={t('details.costAmount')} inputMode="decimal" {...register(`costs.${i}.amount`)} />
+            <Input aria-label={t('details.costAmount')} placeholder={t('details.costAmountPlaceholder')} inputMode="decimal" {...register(`costs.${i}.amount`)} />
           </FormField>
           <FormField flex="2">
             <Input aria-label={t('details.costNote')} placeholder={t('details.costNote')} {...register(`costs.${i}.note`)} />

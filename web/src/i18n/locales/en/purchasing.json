@@ -173,6 +173,8 @@
       "other": "Other"
     },
     "costAmount": "Amount (discounts negative)",
+    "costAmountPlaceholder": "Amount",
+    "costsHelp": "Enter a discount as a negative amount.",
     "costNote": "Note",
     "removeCost": "Remove cost",
     "addCost": "Add cost",

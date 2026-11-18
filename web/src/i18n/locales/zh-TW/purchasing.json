@@ -172,6 +172,8 @@
       "other": "其他"
     },
     "costAmount": "金額（折扣為負數）",
+    "costAmountPlaceholder": "金額",
+    "costsHelp": "折扣請輸入負數。",
     "costNote": "備註",
     "removeCost": "移除費用",
     "addCost": "新增費用",
