@@ -190,4 +190,9 @@ describe('ItemsTab review workspace', () => {
     renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={[item(1, { name: 'Gear', status: 'approved', unpurchasable: { by: 'u1', at: '2026-01-01T00:00:00Z', reason: 'Discontinued' }, toPurchaseQuantity: 1 })]} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
     expect(screen.getByText('Unpurchasable: Discontinued')).toBeTruthy();
   });
+
+  it('shows the purpose under the name', () => {
+    renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={[item(1, { name: 'Wheel', status: 'approved', toPurchaseQuantity: 1, purpose: 'Replace the worn drive wheel', notes: 'Black, 6 in' })]} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
+    expect(screen.getByText('Replace the worn drive wheel')).toBeTruthy();
+  });
 });
