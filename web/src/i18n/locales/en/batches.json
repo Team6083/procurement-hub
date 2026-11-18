@@ -251,6 +251,10 @@
     "closed": "Closed"
   },
   "lookup": {
+    "queryLabel": "Product URL or SKU",
+    "queryHelp": "Paste a product URL or type a SKU, then look it up to fill in the product details.",
+    "queryPlaceholder": "https://… or SKU",
+    "manual": "Fill in manually",
     "action": "Look up",
     "help": "Paste a product URL, or type a SKU and click Look up, to fill in the empty fields.",
     "autoFilled": "Auto-filled by lookup",
