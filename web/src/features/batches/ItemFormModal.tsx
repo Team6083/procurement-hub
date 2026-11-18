@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, SimpleGrid, Stack, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Group, Input, NativeSelect, SimpleGrid, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -60,7 +60,13 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
             </FormField>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="vendorId" render={({ field }) => (
-                <SelectField label={t('item.vendor')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+                <SelectField label={t('item.vendor')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                  // Choosing a listed vendor fills in its default currency (still changeable afterwards).
+                  onChange={(id) => {
+                    field.onChange(id);
+                    const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
+                    if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
+                  }}
                   options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
               )} />
               {vendorChoice === 'other' && (
@@ -72,16 +78,32 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                 <Input {...form.register('sku')} />
               </FormField>
             </SimpleGrid>
-            <SimpleGrid columns={{ base: 1, sm: 3 }} gap="3">
+            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
-              <FormField label={t('item.unitPrice')} required errorText={fieldError(err.unitPrice)}>
-                <Input inputMode="decimal" {...form.register('unitPrice')} />
+              {/* Price and currency read as one input: the currency is the price's end addon. */}
+              <FormField label={t('item.unitPrice')} required errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
+                <Group attached w="full">
+                  <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
+                  <Controller control={form.control} name="currency" render={({ field }) => (
+                    <NativeSelect.Root width="auto" invalid={!!err.currency}>
+                      <NativeSelect.Field
+                        aria-label={t('item.currency')}
+                        borderLeftRadius="0"
+                        name={field.name}
+                        value={field.value}
+                        onChange={(e) => field.onChange(e.currentTarget.value)}
+                        onBlur={field.onBlur}
+                      >
+                        {!field.value && <option value="" />}
+                        {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
+                      </NativeSelect.Field>
+                      <NativeSelect.Indicator />
+                    </NativeSelect.Root>
+                  )} />
+                </Group>
               </FormField>
-              <Controller control={form.control} name="currency" render={({ field }) => (
-                <SelectField label={t('item.currency')} required name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={currencies} errorText={fieldError(err.currency)} />
-              )} />
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="priority" render={({ field }) => (
