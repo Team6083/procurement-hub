@@ -91,7 +91,7 @@ export function BatchPage() {
       </Stack>
 
       <Tabs.Root defaultValue="items" lazyMount unmountOnExit>
-        <Tabs.List overflowX="auto">
+        <Tabs.List>
           <Tabs.Trigger value="items">{t('tabs.items')}</Tabs.Trigger>
           <Tabs.Trigger value="purchasing">{t('tabs.purchasing')}</Tabs.Trigger>
           <Tabs.Trigger value="timeline">{t('tabs.timeline')}</Tabs.Trigger>
