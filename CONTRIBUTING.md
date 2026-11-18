@@ -17,6 +17,8 @@ The [README](README.md#development) shows how to start the backend and the SPA. 
 
 CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the following on every pull request and push to `main`. Run them locally before opening a pull request.
 
+Vulnerability checks are split in two. A pull request fails only on vulnerabilities it introduces (`actions/dependency-review-action`, high severity and above). `govulncheck` and `npm audit --audit-level=high` scan the whole dependency tree on pushes to `main` and weekly, so a newly published advisory does not block unrelated pull requests. Run them locally when you change dependencies.
+
 ### Server (`server/`)
 
 ```sh
@@ -24,7 +26,7 @@ gofmt -l .                      # must print nothing
 go vet ./...
 golangci-lint run ./...         # v2.15.0, configured in server/.golangci.yml (staticcheck enabled)
 HTTP_COVERAGE_STRICT=1 go test -race ./...
-go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
+go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...   # main and weekly CI only
 ```
 
 Use the golangci-lint version pinned in `ci.yml` (`GOLANGCI_LINT_VERSION`), for example from the [official release binaries](https://github.com/golangci/golangci-lint/releases) or with `go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0 run ./...`.
@@ -40,7 +42,7 @@ npm run typecheck
 npm run lint
 npm test
 npm run build
-npm audit --audit-level=high
+npm audit --audit-level=high      # main and weekly CI only
 ```
 
 End-to-end tests (Playwright against Keycloak, MongoDB, the server image and the production build; needs Docker):

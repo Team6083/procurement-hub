@@ -4,6 +4,10 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    # Weekly scan for vulnerabilities already in the dependency tree.
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,6 +22,51 @@ env:
   GOVULNCHECK_VERSION: v1.9.0
 
 jobs:
+  # Pull requests only fail on vulnerabilities they introduce. Vulnerabilities
+  # already in the tree are found by the `vulnerabilities` job below.
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  vulnerabilities:
+    name: vulnerabilities (main and weekly)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: govulncheck
+        working-directory: server
+        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/package.json
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: npm audit
+        working-directory: web
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          npm ci
+          npm audit --audit-level=high
+
   server:
     name: server (Go)
     runs-on: ubuntu-latest
@@ -53,8 +102,6 @@ jobs:
         env:
           HTTP_COVERAGE_STRICT: "1"
         run: go test -race -count=1 ./...
-      - name: govulncheck
-        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
 
   web:
     name: web (Node)
@@ -92,7 +139,6 @@ jobs:
       - run: npm run lint
       - run: npm test -- --run
       - run: npm run build
-      - run: npm audit --audit-level=high
 
   e2e:
     name: end-to-end (Playwright)
