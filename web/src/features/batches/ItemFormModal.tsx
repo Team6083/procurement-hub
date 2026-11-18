@@ -53,6 +53,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
   const fieldError = useFieldError();
   const mutation = item ? patch : add;
   const busy = mutation.isPending || resubmit.isPending;
+  const [saveMenuOpen, setSaveMenuOpen] = useState(false);
   // A returned item can only be resubmitted once it was edited after the return (the server refuses otherwise).
   const needsEdit = !!(item && resubmittable && !isEditedSinceReturn(item) && !form.formState.isDirty);
   const label = (k: string) => priorityLabel(team?.priorityLabels, k as '1', (x) => t(`teams:priority.default.${x}`));
@@ -260,7 +261,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
       </Dialog.Body>
       <DialogFooter>
         {item && resubmittable ? (
-          <Menu.Root positioning={{ placement: 'top-end' }}>
+          <Menu.Root positioning={{ placement: 'top-end' }} open={saveMenuOpen && !busy} onOpenChange={(e) => setSaveMenuOpen(e.open)} lazyMount unmountOnExit>
             {needsEdit && <Text textStyle="xs" color="fg.muted" alignSelf="center" me="3">{t('item.resubmitNeedsEdit')}</Text>}
             <Group attached>
               <Button size="sm" type="submit" form="item-form" loading={busy} disabled={needsEdit}>{t('item.saveAndResubmit')}</Button>
@@ -271,7 +272,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
             <Portal>
               <Menu.Positioner>
                 <Menu.Content>
-                  <Menu.Item value="save" onSelect={() => void submitWith(false)()}>
+                  <Menu.Item value="save" onSelect={() => { setSaveMenuOpen(false); void submitWith(false)(); }}>
                     <LuSave />{t('common:actions.save')}
                   </Menu.Item>
                 </Menu.Content>
