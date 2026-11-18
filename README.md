@@ -154,6 +154,8 @@ The backend is configured only through environment variables. [`docs/configurati
 
 `ADMIN_ROLES` and `ALLOWED_ROLES` use oauth2-proxy's `--allowed-role` notation: a bare name is a Keycloak **realm role**, `<client id>:<role>` is a **client role**, and any match in the comma-separated list is enough. Examples: `ADMIN_ROLES=system-admin` (realm role), `ADMIN_ROLES=procurement-hub-api:admin` (client role), `ADMIN_ROLES=system-admin,procurement-hub-api:admin` (either). When `ALLOWED_ROLES` is set, callers that are neither system admins nor hold one of its roles get `403 missing_role` and no user record is created. The role must be present in the **access token**: the SPA client `procurement-hub-web` has *Full scope allowed* off and the roles are assigned to its dedicated scope; an Audience mapper adds `procurement-hub-api`. See [`docs/keycloak.md`](docs/keycloak.md).
 
+Product lookup is off by default (`LOOKUP_PROVIDER=none`). To fill an item's name, vendor, SKU, price and URL from a SKU or product URL, set `LOOKUP_PROVIDER=partfinder` and `PARTFINDER_URL` (the root URL of a part-finder server the backend can reach); `PARTFINDER_PRICE_CURRENCY` (default `USD`) and `LOOKUP_TIMEOUT` (default `10s`) are optional. See [`docs/product-lookup.md`](docs/product-lookup.md).
+
 Role-mapping rules map token claim values to team roles. Example `ROLE_MAPPINGS_FILE`:
 
 ```yaml
@@ -202,7 +204,7 @@ server/                   Go module github.com/team6083/procurement-hub/server
   Dockerfile, .env.example, .golangci.yml
 web/                      React SPA (Vite); src/api holds the generated API types, see web/README.md
 examples/                 docker-compose.yml for a local trial
-docs/                     configuration.md, keycloak.md
+docs/                     configuration.md, keycloak.md, product-lookup.md
 .github/                  CI, release and Dependabot configuration
 ```
 
