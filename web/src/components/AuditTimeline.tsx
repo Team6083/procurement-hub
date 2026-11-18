@@ -32,7 +32,7 @@ export function AuditTimeline({ audit, format, emptyTitle }: { audit: UseInfinit
   if (events.length === 0) return <Card.Root size="sm"><Card.Body><EmptyState icon={<LuHistory />} title={emptyTitle} /></Card.Body></Card.Root>;
   return (
     <Stack gap="4">
-      <Timeline.Root size="md">
+      <Timeline.Root size="sm">
         {events.map((ev) => {
           const detail = format.detail?.(ev);
           return (
