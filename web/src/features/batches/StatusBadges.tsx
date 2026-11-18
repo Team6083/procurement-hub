@@ -7,8 +7,8 @@ import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 import { Tooltip } from '../../components/ui/tooltip';
 
 const BATCH_TONE: Record<BatchStatus, StatusTone> = {
-  proposed: 'attention', proposal_rejected: 'bad', draft: 'neutral', collecting: 'active', reviewing: 'attention',
-  purchasing: 'active', receiving: 'active', completed: 'finished', cancelled: 'neutral',
+  proposed: 'attention', proposal_rejected: 'bad', draft: 'neutral', collecting: 'collecting', reviewing: 'attention',
+  purchasing: 'purchasing', receiving: 'receiving', completed: 'finished', cancelled: 'neutral',
 };
 const ITEM_TONE: Partial<Record<ItemStatus, StatusTone>> = {
   pending: 'attention', approved: 'done', returned: 'returned', rejected: 'bad', withdrawn: 'neutral',
