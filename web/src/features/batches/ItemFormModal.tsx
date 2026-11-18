@@ -1,8 +1,11 @@
-import { Button, Dialog, Group, Input, NativeSelect, SimpleGrid, Stack, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Dialog, Group, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useAddItem, usePutItem } from '../../api/batches';
+import { useApi } from '../../api/context';
+import { errorMessage } from '../../api/errors';
 import { useVendors } from '../../api/vendors';
 import { useMeta } from '../../api/meta';
 import type { Batch, Item, Team } from '../../api/types';
@@ -12,7 +15,8 @@ import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
-import { emptyItemForm, itemFormSchema, itemToForm, toItemRequest, type ItemForm } from './itemForm';
+import { emptyItemForm, itemFormSchema, itemToForm, safeHttpUrl, toItemRequest, type ItemForm } from './itemForm';
+import { FORM_TO_LOOKUP_FIELD, LOOKUP_PROVIDER, planLookupFill, type LookupField, type LookupPatch, type LookupResult } from './productLookup';
 
 interface Props {
   open: boolean;
@@ -44,8 +48,59 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
   const fieldError = useFieldError();
   const mutation = item ? patch : add;
   const label = (k: string) => priorityLabel(team?.priorityLabels, k as '1', (x) => t(`teams:priority.default.${x}`));
+  // Product lookup (spec 14.3): fills empty fields, asks before overwriting, marks what it filled until edited.
+  const api = useApi();
+  const lookupEnabled = meta.data?.lookupEnabled === true;
+  const [lookupBusy, setLookupBusy] = useState(false);
+  const [lookupError, setLookupError] = useState<unknown>(null);
+  const [lookupNote, setLookupNote] = useState('');
+  const [pending, setPending] = useState<LookupPatch[]>([]);
+  const [autoFilled, setAutoFilled] = useState<LookupField[]>([]);
+  const applyPatches = (patches: LookupPatch[]) => {
+    for (const p of patches) {
+      for (const [k, v] of Object.entries(p.values)) form.setValue(k as keyof ItemForm, v, { shouldDirty: true, shouldValidate: form.formState.isSubmitted });
+    }
+    setAutoFilled((cur) => [...new Set([...cur, ...patches.map((p) => p.field)])]);
+  };
+  useEffect(() => {
+    // Only the user's own edits (type "change") end the mark; setValue calls from the lookup do not.
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ name, type }) => {
+        const f = name && type === 'change' ? FORM_TO_LOOKUP_FIELD[name as keyof ItemForm] : undefined;
+        if (f) setAutoFilled((cur) => (cur.includes(f) ? cur.filter((x) => x !== f) : cur));
+      },
+    });
+  }, [form]);
+  const lookupSeq = useRef(0);
+  const runLookup = async (q: string) => {
+    q = q.trim();
+    if (!q) return;
+    const seq = ++lookupSeq.current;
+    setLookupBusy(true);
+    setLookupError(null);
+    setLookupNote('');
+    setPending([]);
+    try {
+      const r = await api.get<LookupResult>('/lookup', { query: { q } });
+      if (seq !== lookupSeq.current) return;
+      const { fills, conflicts } = planLookupFill(form.getValues(), r, currencies);
+      applyPatches(fills);
+      setPending(conflicts);
+      setLookupNote(r.inStock === true ? t('lookup.inStock') : r.inStock === false ? t('lookup.outOfStock') : '');
+    } catch (e) {
+      if (seq === lookupSeq.current) setLookupError(e);
+    } finally {
+      if (seq === lookupSeq.current) setLookupBusy(false);
+    }
+  };
+  const onUrlPaste = (e: ClipboardEvent<HTMLInputElement>) => {
+    const text = e.clipboardData.getData('text').trim();
+    if (lookupEnabled && safeHttpUrl(text)) void runLookup(text);
+  };
+  const mark = (f: LookupField) => (autoFilled.includes(f) ? t('lookup.autoFilled') : undefined);
   const submit = form.handleSubmit((v) => {
-    const body = toItemRequest(v);
+    const body = { ...toItemRequest(v), ...(!item && autoFilled.length > 0 ? { autoFilledFields: autoFilled, lookupProvider: LOOKUP_PROVIDER } : {}) };
     if (item) patch.mutate({ item, body }, { onSuccess: onClose });
     else add.mutate(body, { onSuccess: onClose });
   });
@@ -55,12 +110,12 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
       <Dialog.Body>
         <form id="item-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('item.name')} required errorText={fieldError(err.name)}>
+            <FormField label={t('item.name')} required helperText={mark('name')} errorText={fieldError(err.name)}>
               <Input {...form.register('name')} />
             </FormField>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="vendorId" render={({ field }) => (
-                <SelectField label={t('item.vendor')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
                   // Choosing a listed vendor fills in its default currency (still changeable afterwards).
                   onChange={(id) => {
                     field.onChange(id);
@@ -74,7 +129,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                   <Input {...form.register('vendorName')} />
                 </FormField>
               )}
-              <FormField label={t('item.sku')}>
+              <FormField label={t('item.sku')} helperText={mark('sku')}>
                 <Input {...form.register('sku')} />
               </FormField>
             </SimpleGrid>
@@ -83,7 +138,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
               {/* Price and currency read as one input: the currency is the price's end addon. */}
-              <FormField label={t('item.unitPrice')} required errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
+              <FormField label={t('item.unitPrice')} required helperText={mark('estimatedUnitPrice')} errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
                 <Group attached w="full">
                   <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
                   <Controller control={form.control} name="currency" render={({ field }) => (
@@ -116,9 +171,40 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
             <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>
               <Textarea autoresize rows={2} {...form.register('purpose')} />
             </FormField>
-            <FormField label={t('item.productUrl')} errorText={fieldError(err.productUrl)}>
-              <Input type="url" placeholder="https://" {...form.register('productUrl')} />
+            <FormField label={t('item.productUrl')} helperText={mark('productUrl') ?? (lookupEnabled ? t('lookup.help') : undefined)} errorText={fieldError(err.productUrl)}>
+              {lookupEnabled ? (
+                <Group attached w="full">
+                  <Input flex="1" type="url" placeholder="https://" onPaste={onUrlPaste} {...form.register('productUrl')} />
+                  <Button type="button" variant="outline" loading={lookupBusy}
+                    onClick={() => void runLookup(form.getValues('productUrl') || form.getValues('sku'))}>
+                    {t('lookup.action')}
+                  </Button>
+                </Group>
+              ) : (
+                <Input type="url" placeholder="https://" {...form.register('productUrl')} />
+              )}
             </FormField>
+            {lookupEnabled && lookupError != null && (
+              <Alert.Root status="warning" role="status">
+                <Alert.Indicator />
+                <Alert.Content><Alert.Description>{errorMessage(t, lookupError)}</Alert.Description></Alert.Content>
+              </Alert.Root>
+            )}
+            {lookupEnabled && pending.length > 0 && (
+              <Alert.Root status="info" role="status">
+                <Alert.Indicator />
+                <Alert.Content>
+                  <Alert.Description>
+                    {t('lookup.overwritePrompt', { fields: pending.map((p) => t(`lookup.fields.${p.field}`)).join(', ') })}
+                  </Alert.Description>
+                  <Group mt="2">
+                    <Button size="xs" type="button" onClick={() => { applyPatches(pending); setPending([]); }}>{t('lookup.overwrite')}</Button>
+                    <Button size="xs" type="button" variant="outline" onClick={() => setPending([])}>{t('lookup.keep')}</Button>
+                  </Group>
+                </Alert.Content>
+              </Alert.Root>
+            )}
+            {lookupEnabled && lookupNote && <Text fontSize="sm" color="fg.muted">{lookupNote}</Text>}
             <FormField label={t('item.notes')}>
               <Textarea autoresize rows={2} {...form.register('notes')} />
             </FormField>

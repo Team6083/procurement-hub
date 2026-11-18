@@ -48,7 +48,10 @@
     "line_missing_price": "Every line needs a unit price before the order can be placed.",
     "order_not_placed": "Ledger entries can only be added to a placed order.",
     "line_not_closable": "Only lines that are short and have no open problem can be closed.",
-    "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one."
+    "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one.",
+    "lookup_not_found": "No product was found for that SKU or URL. You can fill in the item by hand.",
+    "lookup_disabled": "Product lookup is not enabled.",
+    "upstream_timeout": "The product lookup took too long. Please try again."
   },
   "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes."
 }
