@@ -190,9 +190,12 @@ test('the requester edits and resubmits the returned item; its approval and the 
   const page = await as(browser, 'alice', batchPath);
   const row = itemRow(page, items.servo.name);
   await expect(row).toContainText('Returned: Which model? Add the SKU.');
-  // No buttons in rows: Resubmit waits in the row's menu, disabled until the item is edited.
+  // No buttons in rows: Resubmit waits in the row's menu; the dialog needs a reply unless the item was edited.
   await openRowMenu(page, items.servo.name);
-  await expect(page.getByRole('menuitem', { name: /^Resubmit/ })).toBeDisabled();
+  await page.getByRole('menuitem', { name: 'Resubmit', exact: true }).click();
+  await expect(page.getByRole('dialog', { name: 'Resubmit' }).getByRole('button', { name: 'Resubmit' })).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await openRowMenu(page, items.servo.name);
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit item' });
   await dialog.getByLabel('SKU').fill('MG996R');
@@ -200,6 +203,7 @@ test('the requester edits and resubmits the returned item; its approval and the 
   await expect(dialog).toBeHidden();
   await openRowMenu(page, items.servo.name);
   await page.getByRole('menuitem', { name: 'Resubmit', exact: true }).click();
+  await page.getByRole('dialog', { name: 'Resubmit' }).getByRole('button', { name: 'Resubmit' }).click();
   await expect(row).toContainText('Pending');
   await expectBatchStatus(page, 'Reviewing');
 
