@@ -531,7 +531,11 @@ export interface paths {
         put?: never;
         /**
          * Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
-         * @description Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
+         * @description While the batch is `reviewing`, only a requester who currently has a `returned` item in it and team admins may add
+         *     (others 403); the new item starts `pending`, is marked `addedDuringReview` (withdraw only, never deletable), must be
+         *     decided before `confirm_review`, and emits `item.added_during_review` to the batch's assigned approvers (team admins if
+         *     none; no channel message). `relatedItemId` (optional, create only) must be an item of the same batch (400 `invalid_request`).
+         *     Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
          *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `invalid_request`
          *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
          *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
@@ -638,8 +642,9 @@ export interface paths {
         put?: never;
         /**
          * Send a returned item back to review (requester only)
-         * @description Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and that the item was edited after it was returned
-         *     (`item.updatedAt` after `item.review.at`, else 422 `item_not_edited`). No request body.
+         * @description Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and either that the item was edited after
+         *     it was returned (`item.version` greater than `item.review.atVersion`) or a non-blank `resubmitNote` (else 422
+         *     `item_not_edited`). The body is optional; the note is stored on the item and shown to approvers.
          */
         post: operations["resubmitItem"];
         delete?: never;
@@ -1839,6 +1844,12 @@ export interface components {
             review: components["schemas"]["Review"] | null;
             /** @description Time of the first review decision; never cleared, not even by undoing the decision. */
             firstReviewedAt: string | null;
+            /** @description An item of the same batch this one relates to. */
+            relatedItemId: string | null;
+            /** @description Reply from the latest resubmission; empty when none. */
+            resubmitNote: string;
+            /** @description Created while the batch was reviewing; can be withdrawn but not deleted. */
+            addedDuringReview: boolean;
             lookup: components["schemas"]["LookupInfo"] | null;
             unpurchasable: {
                 by: string;
@@ -1881,6 +1892,8 @@ export interface components {
             productUrl?: string;
             autoFilledFields?: string[];
             lookupProvider?: string;
+            /** @description Create only: an item of the same batch this one relates to. */
+            relatedItemId?: string | null;
         };
         ReviewRequest: {
             decisions: {
@@ -1894,6 +1907,10 @@ export interface components {
         ReviewResult: {
             batch: components["schemas"]["Batch"];
             items: components["schemas"]["Item"][];
+        };
+        ResubmitRequest: {
+            /** @description Optional reply to the approver; required when the item was not edited. */
+            resubmitNote?: string;
         };
         ForceRejectRequest: {
             reason: string;
@@ -3969,7 +3986,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResubmitRequest"];
+            };
+        };
         responses: {
             /** @description Updated item */
             200: {

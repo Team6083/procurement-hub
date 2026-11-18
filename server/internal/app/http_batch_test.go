@@ -79,12 +79,12 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 	got = w.do(t, call{token: w.root, method: "PUT", path: ip, ifMatch: got.ETag(), body: itemBody("a by sysadmin")}).expect(200)
 	w.do(t, call{token: w.appr, method: "PUT", path: ip, ifMatch: got.ETag(), body: edit}).expect(403, "forbidden")
 
-	// Close collection -> reviewing; adding is no longer possible.
+	// Close collection -> reviewing; adding is no longer possible (except related items, spec §10.2).
 	batch := w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: w.do(t, call{token: w.adm, method: "GET", path: bp}).ETag(), body: map[string]any{"action": "close"}}).expect(200)
 	if batch.String("status") != "reviewing" {
 		t.Fatalf("status = %s", batch.String("status"))
 	}
-	w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: itemBody("late")}).expect(422, "batch_not_collecting")
+	w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: itemBody("late")}).expect(403, "forbidden")
 	w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: batch.ETag(), body: map[string]any{"action": "close"}}).expect(409, "invalid_transition")
 
 	// Review: a plain member may not; returning requires a comment; all-or-nothing.

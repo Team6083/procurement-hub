@@ -32,7 +32,7 @@
     "reason_required": "必須填寫原因。",
     "item_not_deletable": "此品項已無法刪除，請改用撤回。",
     "item_not_editable": "此品項已無法編輯或撤回。",
-    "item_not_edited": "請先編輯品項才能重新送審。",
+    "item_not_edited": "請先編輯品項或填寫回覆說明才能重新送審。",
     "item_not_reviewable": "其中有品項已無法審核（可能已被決定）。",
     "batch_item_limit": "此批次的品項已達上限（5000 項）。",
     "blocked_by_dependency": "還有其他紀錄依賴這筆資料，請先撤銷它們。",

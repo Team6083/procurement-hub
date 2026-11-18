@@ -114,9 +114,9 @@ const REASON_ACTIONS: ItemAction[] = ['force-reject', 'unpurchasable', 'unpurcha
 
 export function useItemAction() {
   const api = useApi();
-  return useGuardedMutation<{ item: Pick<Item, 'id' | 'version'>; action: ItemAction; reason?: string }, Item>({
-    mutationFn: ({ item, action, reason }) =>
-      api.post<Item>(`/items/${item.id}/${action}`, REASON_ACTIONS.includes(action) ? { reason } : undefined, { headers: ifMatchHeader(item.version) }),
+  return useGuardedMutation<{ item: Pick<Item, 'id' | 'version'>; action: ItemAction; reason?: string; note?: string }, Item>({
+    mutationFn: ({ item, action, reason, note }) =>
+      api.post<Item>(`/items/${item.id}/${action}`, REASON_ACTIONS.includes(action) ? { reason } : action === 'resubmit' && note ? { resubmitNote: note } : undefined, { headers: ifMatchHeader(item.version) }),
   });
 }
 

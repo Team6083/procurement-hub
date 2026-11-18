@@ -111,6 +111,12 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}
+            {it.resubmitNote && it.status === 'pending' && (
+              <Text textStyle="xs" fontWeight="normal" color="fg.info" whiteSpace="pre-wrap" overflowWrap="anywhere">{t('item.resubmitNoteLine', { note: it.resubmitNote })}</Text>
+            )}
+            {it.relatedItemId && (
+              <Text textStyle="xs" fontWeight="normal" color="fg.muted">{t('item.relatedTo', { seq: items.find((o) => o.id === it.relatedItemId)?.seqNo ?? '?' })}</Text>
+            )}
             {it.status === 'rejected' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.error">{t('item.rejectedComment', { comment: it.review.comment })}</Text>
             )}

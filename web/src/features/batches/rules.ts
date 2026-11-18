@@ -77,18 +77,28 @@ export function canEditBatch(b: Batch, c: Caller): boolean {
 }
 
 export function canAddItem(b: Batch, c: Caller): boolean {
+  // While reviewing, team admins may add; requesters with a returned item use "add related item" (spec §10.2).
+  if (b.status === 'reviewing') return !c.archived && isTeamAdmin(c);
   if (!isMember(c) || c.archived) return false;
   if (b.status === 'proposed') return b.createdBy === c.userId;
   return b.status === 'collecting';
 }
 
+/** "Add related item" next to a returned item during review: its requester, or a team admin (backend Items.Add). */
+export function canAddRelatedItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+  if (c.archived || b.status !== 'reviewing' || it.status !== 'returned') return false;
+  return isTeamAdmin(c) || (isMember(c) && it.requesterId === c.userId);
+}
+
 /** Mirrors backend canModify: requester rules, plus the admin override (team or system admin) while collecting. */
-export function canModifyItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+export function canModifyItem(it: Pick<Item, 'requesterId' | 'status' | 'addedDuringReview'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
   if (c.archived) return false;
   if (it.requesterId === c.userId) {
     if (it.status === 'pending' && (b.status === 'proposed' || b.status === 'collecting')) return true;
     if (it.status === 'returned' && b.status === 'reviewing') return true;
+    if (it.status === 'pending' && it.addedDuringReview && b.status === 'reviewing') return true;
   }
+  if (it.status === 'pending' && it.addedDuringReview && b.status === 'reviewing' && isTeamAdmin(c)) return true;
   // Team admins and system admins (backend CanAdminTeam); system admins still have no implicit membership.
   return canAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
 }
@@ -97,14 +107,14 @@ export function canModifyItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<
  * Mirrors backend itemDeletable/canDelete (spec §10.2): a never-reviewed pending item in a draft, proposed or collecting batch,
  * deleted by its requester or a team/system admin. Items that do not qualify keep the withdraw flow.
  */
-export function canDeleteItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
-  if (c.archived) return false;
+export function canDeleteItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt' | 'addedDuringReview'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+  if (c.archived || it.addedDuringReview) return false;
   if (!['draft', 'proposed', 'collecting'].includes(b.status)) return false;
   if (it.status !== 'pending' || it.firstReviewedAt) return false;
   return it.requesterId === c.userId || canAdmin(c);
 }
 
-/** Resubmit only after an edit since the return: item.version above review.atVersion (backend item_not_edited). */
+/** An edit since the return (item.version above review.atVersion); without one a reply note is required (backend item_not_edited). */
 export function isEditedSinceReturn(it: Pick<Item, 'version' | 'review'>): boolean {
   if (!it.review) return true;
   return it.version > it.review.atVersion;
@@ -155,5 +165,5 @@ export function canUndoReview(it: Pick<Item, 'status' | 'review'>, b: Pick<Batch
 
 /** Copy any item (whatever its status or requester) into a new one, by anyone who can add items to the batch. */
 export function canCopyItem(b: Batch, c: Caller): boolean {
-  return canAddItem(b, c);
+  return b.status !== 'reviewing' && canAddItem(b, c);
 }

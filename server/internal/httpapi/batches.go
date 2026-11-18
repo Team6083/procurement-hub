@@ -242,6 +242,7 @@ type itemReq struct {
 	ProductURL         string       `json:"productUrl"`
 	AutoFilledFields   []string     `json:"autoFilledFields"`
 	LookupProvider     string       `json:"lookupProvider"`
+	RelatedItemID      *string      `json:"relatedItemId"`
 }
 
 // vendorOID parses vendorId; a malformed id becomes a zero id that fails vendor lookup.
@@ -257,7 +258,15 @@ func (q itemReq) vendorOID() *bson.ObjectID {
 }
 
 func (q itemReq) input() service.ItemInput {
-	return service.ItemInput{
+	var related *bson.ObjectID
+	if q.RelatedItemID != nil && *q.RelatedItemID != "" {
+		id, err := bson.ObjectIDFromHex(*q.RelatedItemID)
+		if err != nil {
+			id = bson.ObjectID{}
+		}
+		related = &id
+	}
+	return service.ItemInput{RelatedItemID: related,
 		SubgroupID: q.SubgroupID, Name: q.Name, VendorID: q.vendorOID(), VendorName: q.VendorName, SKU: q.SKU, Quantity: q.Quantity,
 		EstimatedUnitPrice: q.EstimatedUnitPrice, Priority: q.Priority, Purpose: q.Purpose, Notes: q.Notes,
 		ProductURL: q.ProductURL, AutoFilledFields: q.AutoFilledFields, LookupProvider: q.LookupProvider,
@@ -360,7 +369,16 @@ func (a *BatchesAPI) resubmitItem(w http.ResponseWriter, r *http.Request) {
 		WriteError(w, e)
 		return
 	}
-	it, err := a.Items.Resubmit(r.Context(), a.actor(r).Actor, id, ver)
+	var req struct {
+		ResubmitNote string `json:"resubmitNote"`
+	}
+	if r.ContentLength != 0 {
+		if e := decode(r, &req); e != nil {
+			WriteError(w, e)
+			return
+		}
+	}
+	it, err := a.Items.Resubmit(r.Context(), a.actor(r).Actor, id, ver, req.ResubmitNote)
 	respondItem(w, r, http.StatusOK, it, err)
 }
 

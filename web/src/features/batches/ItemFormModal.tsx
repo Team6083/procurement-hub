@@ -30,11 +30,13 @@ interface Props {
   item?: Item;
   /** A withdrawn item whose content prefills a new item (copy as new item). */
   prefill?: Item;
+  /** A returned item the new item relates to (spec §10.2): sent as relatedItemId. */
+  relatedTo?: Item;
   /** The edited item is returned to its requester in a batch under review: offer "save and resubmit". */
   resubmittable?: boolean;
 }
 
-function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmittable }: Omit<Props, 'open'>) {
+function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, relatedTo, resubmittable }: Omit<Props, 'open'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const vendors = useVendors();
@@ -122,7 +124,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
   };
   const mark = (f: LookupField) => (autoFilled.includes(f) ? t('lookup.autoFilled') : undefined);
   const submitWith = (andResubmit: boolean) => form.handleSubmit((v) => {
-    const body = { ...toItemRequest(v), ...(!item && autoFilled.length > 0 ? { autoFilledFields: autoFilled, lookupProvider: LOOKUP_PROVIDER } : {}) };
+    const body = { ...toItemRequest(v), ...(!item && relatedTo ? { relatedItemId: relatedTo.id } : {}), ...(!item && autoFilled.length > 0 ? { autoFilledFields: autoFilled, lookupProvider: LOOKUP_PROVIDER } : {}) };
     if (item) {
       patch.mutate({ item, body }, {
         onSuccess: (saved) => (andResubmit ? resubmit.mutate({ item: saved, action: 'resubmit' }, { onSuccess: onClose }) : onClose()),

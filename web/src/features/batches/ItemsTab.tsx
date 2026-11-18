@@ -13,12 +13,13 @@ import { SelectField } from '../../components/ui/select';
 import { UndoDialog } from '../../components/UndoDialog';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { EstimateSummary, useEstimateText } from './EstimateSummary';
+import { ResubmitDialog } from './ResubmitDialog';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
 import { TO_PURCHASE, countsTowardEstimate, filterItems, type ItemFilters } from './filters';
 import { ReviewBar } from './ReviewBar';
 import {
-  canAddItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, canUndoReview, canUndoUnpurchasable,
+  canAddItem, canAddRelatedItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canModifyItem, canReview, canUndoReview, canUndoUnpurchasable,
   inPurchasing, isMember, showResubmit, type Caller,
 } from './rules';
 
@@ -62,6 +63,8 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const review = useReview(batch.id);
   const [undoing, setUndoing] = useState<{ item: Item; what: 'review' | 'unpurchasable' } | null>(null);
   const [copyFrom, setCopyFrom] = useState<Item | null>(null);
+  const [relatedTo, setRelatedTo] = useState<Item | null>(null);
+  const [resubmitting, setResubmitting] = useState<Item | null>(null);
   const action = useItemAction();
   const remove = useDeleteItem();
   const internal = isMember(caller) || caller.isSystemAdmin;
@@ -92,19 +95,10 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const rowActions = (it: Item): RowAction[] => {
     const out: RowAction[] = [];
     if (showResubmit(it, batch, caller)) {
-      const ready = canResubmitItem(it, batch, caller);
-      out.push({
-        value: 'resubmit',
-        icon: <LuRotateCcw />,
-        label: ready ? t('item.resubmit') : (
-          <Stack gap="0">
-            <span>{t('item.resubmit')}</span>
-            <Text as="span" textStyle="xs" color="fg.muted">{t('item.resubmitNeedsEdit')}</Text>
-          </Stack>
-        ),
-        disabled: !ready,
-        onSelect: () => action.mutate({ item: it, action: 'resubmit' }),
-      });
+      out.push({ value: 'resubmit', icon: <LuRotateCcw />, label: t('item.resubmit'), onSelect: () => { action.reset(); setResubmitting(it); } });
+    }
+    if (canAddRelatedItem(it, batch, caller)) {
+      out.push({ value: 'add-related', icon: <LuPlus />, label: t('item.addRelated'), onSelect: () => { setCopyFrom(null); setRelatedTo(it); setEditing('new'); } });
     }
     if (canModifyItem(it, batch, caller)) {
       out.push({ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(it) });
@@ -152,7 +146,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         activeCount={activeCount}
         onClear={clearFilters}
         actions={canAddItem(batch, caller) && (
-          <Button size="sm" onClick={() => { setCopyFrom(null); setEditing('new'); }}>
+          <Button size="sm" onClick={() => { setCopyFrom(null); setRelatedTo(null); setEditing('new'); }}>
             <LuPlus />
             {t('item.add')}
           </Button>
@@ -173,7 +167,6 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
 
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}
 
-      <ErrorAlert error={action.variables?.action === 'resubmit' ? action.error : null} />
       <ErrorAlert error={!deciding && review.variables?.decisions[0]?.decision === 'approve' ? review.error : null} />
       <ItemsTable
         items={visible}
@@ -200,7 +193,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         {internal && batch.status === 'reviewing' && <ReviewBar batch={batch} caller={caller} selected={decidable} onDone={clearSelection} />}
       </SelectionBar>
 
-      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} resubmittable={editing !== null && editing !== 'new' && showResubmit(editing, batch, caller)} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} />
+      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); setRelatedTo(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} resubmittable={editing !== null && editing !== 'new' && showResubmit(editing, batch, caller)} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} relatedTo={editing === 'new' ? relatedTo ?? undefined : undefined} />
+      <ResubmitDialog item={resubmitting} loading={action.isPending} error={resubmitting ? action.error : null} onClose={() => setResubmitting(null)}
+        onConfirm={(note) => resubmitting && action.mutate({ item: resubmitting, action: 'resubmit', note }, { onSuccess: () => setResubmitting(null) })} />
       <ReasonModal
         open={!!withdrawing}
         title={t('item.withdraw')}
