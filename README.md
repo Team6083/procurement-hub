@@ -22,9 +22,9 @@ Licensed under the [Apache License 2.0](LICENSE).
 | Notifications (in-app, email, Slack, Discord) | Not yet |
 | CSV import and export | Not yet |
 | Cost report | Not yet |
-| Product lookup (part-finder) | Not yet |
+| Product lookup (part-finder) | API only |
 
-Configuration variables for the missing features (`SMTP_*`, `LOOKUP_*`, `PARTFINDER_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
+Configuration variables for the missing features (`SMTP_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
 
 ## Architecture
 

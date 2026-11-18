@@ -66,6 +66,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/lookup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Look up a product by SKU or product URL
+         * @description Calls the configured product lookup provider on the server (spec section 14). Limited to 30 requests per
+         *     minute per user (`429 rate_limited`). `vendorId` is set when the provider's store name matches an active
+         *     vendor's name or alias (case-insensitive); `vendorName` is then the vendor's name. Otherwise `vendorId` is
+         *     null and `vendorName` is the store name as the provider reported it. Codes: `lookup_not_found` (404),
+         *     `lookup_disabled` (503, `LOOKUP_PROVIDER=none`), `upstream_unavailable` (503), `upstream_timeout` (504),
+         *     `rate_limited` (429), `invalid_request` (400, `q` missing). Upstream error details are never returned.
+         */
+        get: operations["lookupProduct"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vendors": {
         parameters: {
             query?: never;
@@ -1663,6 +1688,15 @@ export interface components {
             lookupEnabled: boolean;
             emailEnabled: boolean;
         };
+        LookupResult: {
+            name: string;
+            vendorId: string | null;
+            vendorName: string;
+            sku: string;
+            unitPrice: components["schemas"]["Money"] | null;
+            url: string;
+            inStock: boolean | null;
+        };
         Money: {
             /** @description Decimal string with no fixed number of fractional digits ("12.5", "100"). */
             amount: string;
@@ -2244,11 +2278,11 @@ export interface components {
          * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
          *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
-         *     503 `upstream_unavailable`;
+         *     503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "line_not_closable" | "line_not_matchable";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
         VoidInfo: {
             reason: string;
             by: string;
@@ -2533,7 +2567,7 @@ export interface components {
             };
         };
         /**
-         * @description `upstream_unavailable`: a dependency is unavailable. Authenticated operations return it while the OIDC
+         * @description `upstream_unavailable`: a dependency is unavailable (also `lookup_disabled` on `GET /lookup`). Authenticated operations return it while the OIDC
          *     discovery document has not been loaded yet (the IdP was unreachable at startup; the server keeps retrying
          *     and `/readyz` reports the `oidc` check as failing). Retry later; this is not a token problem.
          */
@@ -2708,6 +2742,55 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    lookupProduct: {
+        parameters: {
+            query: {
+                /** @description SKU or product URL. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LookupResult"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description `rate_limited`. `Retry-After` gives the seconds to wait. */
+            429: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    "Retry-After"?: number;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
+            503: components["responses"]["ServiceUnavailable"];
+            /** @description `upstream_timeout`: the provider did not answer within `LOOKUP_TIMEOUT`. */
+            504: {
+                headers: {
+                    "X-Request-ID": components["headers"]["XRequestID"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Error"];
+                };
+            };
         };
     };
     listVendors: {

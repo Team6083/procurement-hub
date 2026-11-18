@@ -95,6 +95,45 @@ paths:
         "401": { $ref: "#/components/responses/Unauthorized" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /lookup:
+    get:
+      operationId: lookupProduct
+      summary: Look up a product by SKU or product URL
+      description: |
+        Calls the configured product lookup provider on the server (spec section 14). Limited to 30 requests per
+        minute per user (`429 rate_limited`). `vendorId` is set when the provider's store name matches an active
+        vendor's name or alias (case-insensitive); `vendorName` is then the vendor's name. Otherwise `vendorId` is
+        null and `vendorName` is the store name as the provider reported it. Codes: `lookup_not_found` (404),
+        `lookup_disabled` (503, `LOOKUP_PROVIDER=none`), `upstream_unavailable` (503), `upstream_timeout` (504),
+        `rate_limited` (429), `invalid_request` (400, `q` missing). Upstream error details are never returned.
+      parameters:
+        - { name: q, in: query, required: true, schema: { type: string }, description: SKU or product URL. }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/LookupResult" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "429":
+          description: "`rate_limited`. `Retry-After` gives the seconds to wait."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+            Retry-After: { schema: { type: integer } }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+        "504":
+          description: "`upstream_timeout`: the provider did not answer within `LOOKUP_TIMEOUT`."
+          headers:
+            X-Request-ID: { $ref: "#/components/headers/XRequestID" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
   /vendors:
     get:
       operationId: listVendors
@@ -2145,7 +2184,7 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     ServiceUnavailable:
       description: |
-        `upstream_unavailable`: a dependency is unavailable. Authenticated operations return it while the OIDC
+        `upstream_unavailable`: a dependency is unavailable (also `lookup_disabled` on `GET /lookup`). Authenticated operations return it while the OIDC
         discovery document has not been loaded yet (the IdP was unreachable at startup; the server keeps retrying
         and `/readyz` reports the `oidc` check as failing). Retry later; this is not a token problem.
       headers:
@@ -2464,6 +2503,17 @@ components:
         supportedCurrencies: { type: array, items: { type: string } }
         lookupEnabled: { type: boolean }
         emailEnabled: { type: boolean }
+    LookupResult:
+      type: object
+      required: [name, vendorId, vendorName, sku, unitPrice, url, inStock]
+      properties:
+        name: { type: string }
+        vendorId: { type: [string, "null"] }
+        vendorName: { type: string }
+        sku: { type: string }
+        unitPrice: { oneOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }] }
+        url: { type: string }
+        inStock: { type: [boolean, "null"] }
     Money:
       type: object
       required: [amount, currency]
@@ -3087,7 +3137,7 @@ components:
         Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
         401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
         413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
-        503 `upstream_unavailable`;
+        503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
         422 for every other (business-rule) code.
       enum:
         - invalid_request
@@ -3136,6 +3186,10 @@ components:
         - order_not_placed
         - line_not_closable
         - line_not_matchable
+        - lookup_not_found
+        - lookup_disabled
+        - upstream_timeout
+        - rate_limited
     VoidInfo:
       type: object
       required: [reason, by, at]

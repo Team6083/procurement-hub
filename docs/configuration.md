@@ -2,7 +2,7 @@
 
 The backend (`server/`) is configured only through environment variables. [`server/.env.example`](../server/.env.example) lists all of them with safe placeholder values.
 
-> **Implementation status.** Notifications (email, Slack, Discord), product lookup, CSV import/export and the cost report are not implemented yet (see the README). Their variables below are already read and validated at startup, so a bad value stops the service, but they have no other effect yet. The only visible effect today: `GET /api/v1/meta` reports `emailEnabled` and `lookupEnabled` from `EMAIL_ENABLED` and `LOOKUP_PROVIDER`. The same applies to `FRONTEND_URL` and `WEBHOOK_ENCRYPTION_KEY`, which are required and validated now but used only by the notification and webhook features. Each such section is marked below.
+> **Implementation status.** Notifications (email, Slack, Discord), CSV import/export and the cost report are not implemented yet (see the README). Their variables below are already read and validated at startup, so a bad value stops the service, but they have no other effect yet. The only visible effect today: `GET /api/v1/meta` reports `emailEnabled` from `EMAIL_ENABLED`. The same applies to `FRONTEND_URL` and `WEBHOOK_ENCRYPTION_KEY`, which are required and validated now but used only by the notification and webhook features. Each such section is marked below.
 
 ## Format rules
 
@@ -120,13 +120,13 @@ Validated at startup only; no email is sent by this version.
 | `SMTP_TLS_MODE` | no | `starttls` | `starttls`, `tls` (implicit TLS) or `none`. Validated even when email is disabled. |
 | `NOTIFY_DIGEST_WINDOW` | no | `5m` | Window in which notifications for the same recipient are merged into one digest. A duration; must not be negative. |
 
-### Product lookup (not implemented yet)
+### Product lookup
 
-Validated at startup only; no lookup is performed by this version.
+See [product-lookup.md](product-lookup.md) for the endpoint and the provider contract.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `LOOKUP_PROVIDER` | no | `none` | `none` or `partfinder`; anything else stops startup. Any value other than `none` makes `GET /api/v1/meta` report `lookupEnabled: true`, although no lookup endpoint exists yet. |
+| `LOOKUP_PROVIDER` | no | `none` | `none` or `partfinder`; anything else stops startup. Any value other than `none` makes `GET /api/v1/meta` report `lookupEnabled: true`. |
 | `PARTFINDER_URL` | when `LOOKUP_PROVIDER=partfinder` | — | Root URL of the part-finder HTTP server. An absolute `http(s)` URL when set. |
 | `PARTFINDER_PRICE_CURRENCY` | no | `USD` | Currency code assumed when a part-finder response has no currency. |
 | `LOOKUP_TIMEOUT` | no | `10s` | Timeout of one lookup request. A duration; must not be negative. |
