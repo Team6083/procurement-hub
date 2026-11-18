@@ -36,10 +36,12 @@ function PriceCell({ order, line, put }: { order: VendorOrder; line: VendorOrder
     if (v === (line.unitPrice ?? '') || error) return;
     put.mutate({ line, body: { teamId: line.teamId, name: line.name, sku: line.sku, quantity: line.quantity, unitPrice: v || null } });
   };
+  const est = line.estimatedUnitPrice;
+  const placeholder = est ? (est.currency === order.currency ? est.amount : `${est.amount} ${est.currency}`) : undefined;
   return (
     <Stack gap="1" align="flex-end">
       <Input
-        size="xs" w="28" textAlign="end" value={value} inputMode="decimal" aria-label={t('line.priceOf', { n: line.lineNo })} aria-invalid={!!error || failed}
+        size="xs" w="28" placeholder={placeholder} textAlign="end" value={value} inputMode="decimal" aria-label={t('line.priceOf', { n: line.lineNo })} aria-invalid={!!error || failed}
         onChange={(e) => setValue(e.currentTarget.value)} onBlur={save} onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
       />
       {error && v && <Text textStyle="xs" color="fg.error">{t(`amount.${error}`)}</Text>}

@@ -22,4 +22,13 @@ describe('LinesTable', () => {
     expect(screen.getByRole('link', { name: 'Part 1' }).getAttribute('href')).toBe('https://shop.example.org/a');
     expect(screen.queryByRole('link', { name: 'Part 2' })).toBeNull();
   });
+
+  it('shows the item estimate as the price placeholder, with the currency only when it differs', () => {
+    const order = { id: 'vo1', status: 'draft', currency: 'USD', lines: [
+      line(1, { estimatedUnitPrice: { amount: '12.5', currency: 'USD' } }), line(2, { estimatedUnitPrice: { amount: '1500', currency: 'JPY' } }), line(3, {}),
+    ] } as unknown as VendorOrder;
+    renderWithApi(<LinesTable order={order} baseCurrency="USD" teamName={() => 'Team'} canWrite onEdit={() => {}} onRemove={() => {}} onClose={() => {}} onReopen={() => {}} />, {});
+    const ph = screen.getAllByRole('textbox').map((e) => e.getAttribute('placeholder'));
+    expect(ph).toEqual(['12.5', '1500 JPY', null]);
+  });
 });

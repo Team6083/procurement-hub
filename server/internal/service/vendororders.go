@@ -72,9 +72,51 @@ func (a *lineAccess) canReadBatch(id bson.ObjectID) bool {
 // LineView is a line with the version its writes need in If-Match.
 type LineView struct {
 	domain.VendorOrderLine
+	// ProductURL is the item's current product URL, read at request time; empty without an item or URL.
+	ProductURL         string           `json:"productUrl"`
+	// EstimatedUnitPrice is the item's current estimate; null without an item.
+	EstimatedUnitPrice *domain.Money    `json:"estimatedUnitPrice"`
 	VendorOrderVersion int64            `json:"vendorOrderVersion"`
 	VendorOrderNumber  int              `json:"vendorOrderNumber"`
 	Problems           []ProblemSummary `json:"problems"`
+}
+
+// itemInfo is what a line view shows of its item.
+type itemInfo struct {
+	url      string
+	estimate *domain.Money
+}
+
+type productURLs map[bson.ObjectID]itemInfo
+
+func (m productURLs) of(l *domain.VendorOrderLine) itemInfo {
+	if l.ItemID == nil {
+		return itemInfo{}
+	}
+	return m[*l.ItemID]
+}
+
+// productURLs loads the current product URL and estimate of the lines' items in one query.
+func (s *VendorOrders) productURLs(ctx context.Context, lines []domain.VendorOrderLine) productURLs {
+	var ids []bson.ObjectID
+	for i := range lines {
+		if lines[i].ItemID != nil {
+			ids = append(ids, *lines[i].ItemID)
+		}
+	}
+	out := productURLs{}
+	if len(ids) == 0 {
+		return out
+	}
+	items, err := s.st.ItemsByIDs(ctx, ids)
+	if err != nil {
+		return out
+	}
+	for _, it := range items {
+		est := it.EstimatedUnitPrice
+		out[it.ID] = itemInfo{url: it.ProductURL, estimate: &est}
+	}
+	return out
 }
 
 // ProblemSummary is what regular users see of a problem: no delivery ids.
@@ -163,6 +205,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 	acc := s.access(ctx, actor)
 	priv := privileged(actor)
 	d := &OrderDetail{VendorOrder: *o, VendorName: s.vendorName(ctx, o.VendorID), Lines: []LineView{}, Ledger: []domain.LedgerEntry{}}
+	urls := s.productURLs(ctx, lines)
 	visible := map[bson.ObjectID]bool{}
 	hidden := 0
 	var hiddenTotal, visTotal decimal.Decimal
@@ -184,7 +227,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 		} else {
 			visTotal = visTotal.Add(l.TotalBase.Decimal)
 		}
-		lv := LineView{VendorOrderLine: l, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}}
+		lv := LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}}
 		for _, p := range problems {
 			if p.VendorOrderLineID != l.ID {
 				continue
@@ -508,6 +551,7 @@ func (s *VendorOrders) LinesToClose(ctx context.Context, actor authz.Actor) ([]L
 	if err != nil {
 		return nil, err
 	}
+	urls := s.productURLs(ctx, lines)
 	orders := map[bson.ObjectID]*domain.VendorOrder{}
 	out := []LineView{}
 	for _, l := range lines {
@@ -518,7 +562,7 @@ func (s *VendorOrders) LinesToClose(ctx context.Context, actor authz.Actor) ([]L
 			}
 			orders[l.VendorOrderID] = o
 		}
-		out = append(out, LineView{VendorOrderLine: l, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}})
+		out = append(out, LineView{VendorOrderLine: l, ProductURL: urls.of(&l).url, EstimatedUnitPrice: urls.of(&l).estimate, VendorOrderVersion: o.Version, VendorOrderNumber: o.Number, Problems: []ProblemSummary{}})
 	}
 	return out, nil
 }

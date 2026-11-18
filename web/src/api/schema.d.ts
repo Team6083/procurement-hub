@@ -1997,8 +1997,10 @@ export interface components {
             batchId: string | null;
             name: string;
             sku: string;
-            /** @description The item's product URL (http/https) copied when the line was created from an item; empty otherwise. Read-only. */
+            /** @description The linked item's current product URL (http/https), read when the order is fetched; empty when the line has no item or the item has no URL. Read-only. */
             productUrl: string;
+            /** @description The linked item's current estimated unit price; null when the line has no item. Read-only. */
+            estimatedUnitPrice?: components["schemas"]["Money"] | null;
             quantity: number;
             /** @description Decimal string in the order currency. */
             unitPrice: string | null;

@@ -64,6 +64,9 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	if u := lines[0].(map[string]any)["productUrl"]; u != "https://shop.example.org/motor" {
 		t.Errorf("line productUrl = %v", u)
 	}
+	if e, _ := lines[0].(map[string]any)["estimatedUnitPrice"].(map[string]any); e["amount"] != "10.5" && e["amount"] != "10.50" || e["currency"] != "USD" {
+		t.Errorf("line estimatedUnitPrice = %v", e)
+	}
 	if got := w.item(t, batchID, items[0])["toPurchaseQuantity"]; got != float64(0) {
 		t.Errorf("planned item still to purchase: %v", got)
 	}

@@ -134,6 +134,16 @@ func (s *Store) GetItem(ctx context.Context, id bson.ObjectID) (*domain.Item, er
 	return &it, nil
 }
 
+// ItemsByIDs returns the items that exist among ids, in one query.
+func (s *Store) ItemsByIDs(ctx context.Context, ids []bson.ObjectID) ([]domain.Item, error) {
+	cur, err := s.c("items").Find(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: ids}}}})
+	if err != nil {
+		return nil, err
+	}
+	var out []domain.Item
+	return out, cur.All(ctx, &out)
+}
+
 func (s *Store) ListItems(ctx context.Context, batchID bson.ObjectID) ([]domain.Item, error) {
 	cur, err := s.c("items").Find(ctx, bson.D{{Key: "batchId", Value: batchID}},
 		options.Find().SetSort(bson.D{{Key: "seqNo", Value: 1}}))

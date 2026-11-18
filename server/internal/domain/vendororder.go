@@ -98,7 +98,6 @@ type VendorOrderLine struct {
 	BatchID         *bson.ObjectID `bson:"batchId" json:"batchId"`
 	Name            string         `bson:"name" json:"name"`
 	SKU             string         `bson:"sku" json:"sku"`
-	ProductURL      string         `bson:"productUrl" json:"productUrl"` // snapshot of the item's product URL when the line was created
 	Quantity        int            `bson:"quantity" json:"quantity"`
 	UnitPrice       *Decimal       `bson:"unitPrice" json:"unitPrice"`
 	ReturnedQty     int            `bson:"returnedQuantity" json:"returnedQuantity"`

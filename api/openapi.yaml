@@ -2840,7 +2840,8 @@ components:
         batchId: { type: [string, "null"] }
         name: { type: string }
         sku: { type: string }
-        productUrl: { type: string, description: "The item's product URL (http/https) copied when the line was created from an item; empty otherwise. Read-only." }
+        productUrl: { type: string, description: "The linked item's current product URL (http/https), read when the order is fetched; empty when the line has no item or the item has no URL. Read-only." }
+        estimatedUnitPrice: { anyOf: [{ $ref: "#/components/schemas/Money" }, { type: "null" }], description: "The linked item's current estimated unit price; null when the line has no item. Read-only." }
         quantity: { type: integer }
         unitPrice: { type: [string, "null"], description: Decimal string in the order currency. }
         returnedQuantity: { type: integer }
