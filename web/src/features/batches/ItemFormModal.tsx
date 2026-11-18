@@ -1,4 +1,4 @@
-import { Alert, Button, Dialog, Group, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Dialog, Group, Input, GridItem, NativeSelect, Separator, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -72,10 +72,19 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
       },
     });
   }, [form]);
+  // Lookup first: a new item starts with just a query box; product fields stay in form state while hidden.
+  const lookupFirst = lookupEnabled && !item && !prefill;
+  const [expanded, setExpanded] = useState(false);
+  const [query, setQuery] = useState('');
+  const showProduct = !lookupFirst || expanded;
   const lookupSeq = useRef(0);
   const runLookup = async (q: string) => {
     q = q.trim();
     if (!q) return;
+    // Seed the URL or SKU field from the query when empty (a result fills them anyway when it has them).
+    if (safeHttpUrl(q)) {
+      if (!form.getValues('productUrl').trim()) form.setValue('productUrl', q, { shouldDirty: true });
+    } else if (!form.getValues('sku').trim()) form.setValue('sku', q, { shouldDirty: true });
     const seq = ++lookupSeq.current;
     setLookupBusy(true);
     setLookupError(null);
@@ -87,9 +96,13 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
       const { fills, conflicts } = planLookupFill(form.getValues(), r, currencies);
       applyPatches(fills);
       setPending(conflicts);
+      setExpanded(true);
       setLookupNote(r.inStock === true ? t('lookup.inStock') : r.inStock === false ? t('lookup.outOfStock') : '');
     } catch (e) {
-      if (seq === lookupSeq.current) setLookupError(e);
+      if (seq === lookupSeq.current) {
+        setLookupError(e);
+        setExpanded(true);
+      }
     } finally {
       if (seq === lookupSeq.current) setLookupBusy(false);
     }
@@ -103,87 +116,92 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
     const body = { ...toItemRequest(v), ...(!item && autoFilled.length > 0 ? { autoFilledFields: autoFilled, lookupProvider: LOOKUP_PROVIDER } : {}) };
     if (item) patch.mutate({ item, body }, { onSuccess: onClose });
     else add.mutate(body, { onSuccess: onClose });
-  });
+  }, () => setExpanded(true));
   const subgroups = (team?.subgroups ?? []).filter((g) => g.active || g.id === item?.subgroupId);
   return (
     <>
       <Dialog.Body>
         <form id="item-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('item.name')} required helperText={mark('name')} errorText={fieldError(err.name)}>
-              <Input {...form.register('name')} />
-            </FormField>
-            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-              <Controller control={form.control} name="vendorId" render={({ field }) => (
-                <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
-                  // Choosing a listed vendor fills in its default currency (still changeable afterwards).
-                  onChange={(id) => {
-                    field.onChange(id);
-                    const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
-                    if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
-                  }}
-                  options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
-              )} />
-              {vendorChoice === 'other' && (
-                <FormField label={t('item.vendorOtherName')}>
-                  <Input {...form.register('vendorName')} />
+            {lookupFirst && !expanded && (
+              <Stack gap="1">
+                <FormField label={t('lookup.queryLabel')} helperText={t('lookup.queryHelp')}>
+                  <Group attached w="full">
+                    <Input flex="1" value={query} placeholder={t('lookup.queryPlaceholder')} onChange={(e) => setQuery(e.currentTarget.value)}
+                      onPaste={onUrlPaste} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void runLookup(query); } }} />
+                    <Button type="button" variant="outline" loading={lookupBusy} onClick={() => void runLookup(query)}>{t('lookup.action')}</Button>
+                  </Group>
                 </FormField>
-              )}
-              <FormField label={t('item.sku')} helperText={mark('sku')}>
-                <Input {...form.register('sku')} />
-              </FormField>
-            </SimpleGrid>
-            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-              <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
-                <Input inputMode="numeric" {...form.register('quantity')} />
-              </FormField>
-              {/* Price and currency read as one input: the currency is the price's end addon. */}
-              <FormField label={t('item.unitPrice')} required helperText={mark('estimatedUnitPrice')} errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
-                <Group attached w="full">
-                  <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
-                  <Controller control={form.control} name="currency" render={({ field }) => (
-                    <NativeSelect.Root width="auto" invalid={!!err.currency}>
-                      <NativeSelect.Field
-                        aria-label={t('item.currency')}
-                        borderLeftRadius="0"
-                        name={field.name}
-                        value={field.value}
-                        onChange={(e) => field.onChange(e.currentTarget.value)}
-                        onBlur={field.onBlur}
-                      >
-                        {!field.value && <option value="" />}
-                        {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
-                      </NativeSelect.Field>
-                      <NativeSelect.Indicator />
-                    </NativeSelect.Root>
+                <Button type="button" size="xs" variant="ghost" alignSelf="start" ms="-2" onClick={() => setExpanded(true)}>{t('lookup.manual')}</Button>
+                <Separator mt="2" />
+              </Stack>
+            )}
+            {showProduct && (
+              <>
+                <FormField label={t('item.name')} required helperText={mark('name')} errorText={fieldError(err.name)}>
+                  <Input {...form.register('name')} />
+                </FormField>
+                <FormField label={t('item.productUrl')} helperText={mark('productUrl') ?? (lookupEnabled ? t('lookup.help') : undefined)} errorText={fieldError(err.productUrl)}>
+                  {lookupEnabled ? (
+                    <Group attached w="full">
+                      <Input flex="1" type="url" placeholder="https://" onPaste={onUrlPaste} {...form.register('productUrl')} />
+                      <Button type="button" variant="outline" loading={lookupBusy}
+                        onClick={() => void runLookup(form.getValues('productUrl') || form.getValues('sku'))}>
+                        {t('lookup.action')}
+                      </Button>
+                    </Group>
+                  ) : (
+                    <Input type="url" placeholder="https://" {...form.register('productUrl')} />
+                  )}
+                </FormField>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  <GridItem colSpan={{ base: 1, sm: vendorChoice === 'other' ? 1 : 2 }}>
+                  <Controller control={form.control} name="vendorId" render={({ field }) => (
+                    <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                      // Choosing a listed vendor fills in its default currency (still changeable afterwards).
+                      onChange={(id) => {
+                        field.onChange(id);
+                        const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
+                        if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
+                      }}
+                      options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
                   )} />
-                </Group>
-              </FormField>
-            </SimpleGrid>
-            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-              <Controller control={form.control} name="priority" render={({ field }) => (
-                <SelectField label={t('item.priority')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={PRIORITIES.map((k) => ({ value: k, label: `${k} - ${label(k)}` }))} />
-              )} />
-              <Controller control={form.control} name="subgroupId" render={({ field }) => (
-                <SelectField label={t('item.subgroup')} placeholder={t('item.noSubgroup')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={subgroups.map((g) => ({ value: g.id, label: g.name }))} />
-              )} />
-            </SimpleGrid>
-            <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>
-              <Textarea autoresize rows={2} {...form.register('purpose')} />
-            </FormField>
-            <FormField label={t('item.productUrl')} helperText={mark('productUrl') ?? (lookupEnabled ? t('lookup.help') : undefined)} errorText={fieldError(err.productUrl)}>
-              {lookupEnabled ? (
-                <Group attached w="full">
-                  <Input flex="1" type="url" placeholder="https://" onPaste={onUrlPaste} {...form.register('productUrl')} />
-                  <Button type="button" variant="outline" loading={lookupBusy}
-                    onClick={() => void runLookup(form.getValues('productUrl') || form.getValues('sku'))}>
-                    {t('lookup.action')}
-                  </Button>
-                </Group>
-              ) : (
-                <Input type="url" placeholder="https://" {...form.register('productUrl')} />
-              )}
-            </FormField>
+                  </GridItem>
+                  {vendorChoice === 'other' && (
+                    <FormField label={t('item.vendorOtherName')}>
+                      <Input {...form.register('vendorName')} />
+                    </FormField>
+                  )}
+                </SimpleGrid>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  <FormField label={t('item.sku')} helperText={mark('sku')}>
+                    <Input {...form.register('sku')} />
+                  </FormField>
+                  {/* Price and currency read as one input: the currency is the price's end addon. */}
+                  <FormField label={t('item.unitPrice')} required helperText={mark('estimatedUnitPrice')} errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
+                    <Group attached w="full">
+                      <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
+                      <Controller control={form.control} name="currency" render={({ field }) => (
+                        <NativeSelect.Root width="auto" invalid={!!err.currency}>
+                          <NativeSelect.Field
+                            aria-label={t('item.currency')}
+                            borderLeftRadius="0"
+                            name={field.name}
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.currentTarget.value)}
+                            onBlur={field.onBlur}
+                          >
+                            {!field.value && <option value="" />}
+                            {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
+                      )} />
+                    </Group>
+                  </FormField>
+                </SimpleGrid>
+              </>
+            )}
             {lookupEnabled && lookupError != null && (
               <Alert.Root status="warning" role="status">
                 <Alert.Indicator />
@@ -205,6 +223,20 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
               </Alert.Root>
             )}
             {lookupEnabled && lookupNote && <Text fontSize="sm" color="fg.muted">{lookupNote}</Text>}
+            <SimpleGrid templateColumns={{ base: '1fr', sm: '7rem 1fr 1fr' }} gap="3">
+              <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
+                <Input inputMode="numeric" {...form.register('quantity')} />
+              </FormField>
+              <Controller control={form.control} name="priority" render={({ field }) => (
+                <SelectField label={t('item.priority')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={PRIORITIES.map((k) => ({ value: k, label: `${k} - ${label(k)}` }))} />
+              )} />
+              <Controller control={form.control} name="subgroupId" render={({ field }) => (
+                <SelectField label={t('item.subgroup')} placeholder={t('item.noSubgroup')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={subgroups.map((g) => ({ value: g.id, label: g.name }))} />
+              )} />
+            </SimpleGrid>
+            <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>
+              <Textarea autoresize rows={2} {...form.register('purpose')} />
+            </FormField>
             <FormField label={t('item.notes')}>
               <Textarea autoresize rows={2} {...form.register('notes')} />
             </FormField>
