@@ -2146,6 +2146,11 @@ export interface components {
             teamIds: string[];
             batchIds: string[];
             totals: components["schemas"]["OrderTotals"];
+            /** @description Computed; null for draft and cancelled orders. */
+            receivingState: components["schemas"]["ReceivingState"] | null;
+            accountingState: components["schemas"]["AccountingState"] | null;
+            /** @description receivingState is closed and accountingState is final. Computed, never set by hand. */
+            completed: boolean | null;
             cancellation: {
                 reason: string;
                 by: string;
@@ -2190,12 +2195,19 @@ export interface components {
             netBase: string | null;
             provisional: boolean;
             incomplete: components["schemas"]["Incomplete"][];
+            receivingState: components["schemas"]["ReceivingState"] | null;
+            accountingState: components["schemas"]["AccountingState"] | null;
+            completed: boolean | null;
             restricted: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
             version: number;
         };
+        /** @enum {string} */
+        ReceivingState: "none" | "partial" | "closed";
+        /** @enum {string} */
+        AccountingState: "incomplete" | "provisional" | "final";
         VendorOrderPage: {
             items: components["schemas"]["VendorOrderSummary"][];
             nextCursor: string | null;
@@ -4477,6 +4489,10 @@ export interface operations {
                 teamId?: string;
                 /** @description A user id, or `me` for the caller: only orders that list that user as an owner. */
                 ownerId?: string;
+                /** @description `false`: placed orders that are not completed yet; `true`: completed ones (spec 10.3). Drafts and cancelled orders match neither. */
+                completed?: boolean;
+                receivingState?: components["schemas"]["ReceivingState"];
+                accountingState?: components["schemas"]["AccountingState"];
                 q?: string;
                 /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];

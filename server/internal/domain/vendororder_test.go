@@ -42,3 +42,37 @@ func TestComputeQuantities(t *testing.T) {
 		t.Errorf("quantities = %+v", got)
 	}
 }
+
+func TestDeriveOrderProgress(t *testing.T) {
+	final, prov := OrderTotals{}, OrderTotals{Provisional: true}
+	inc := OrderTotals{Provisional: true, Incomplete: []Incomplete{{Code: IncompleteNoConversion}}}
+	closed := []LineStatus{LineReceived, LineShortAccepted, LineNotObtained}
+	cases := []struct {
+		name  string
+		order OrderStatus
+		lines []LineStatus
+		t     OrderTotals
+		recv  string
+		acc   string
+		done  bool
+	}{
+		{"nothing yet", OrderPlaced, []LineStatus{LineOrdered, LineOrdered}, final, ReceivingNone, AccountingFinal, false},
+		{"one line partly", OrderPlaced, []LineStatus{LineOrdered, LinePartiallyReceived}, final, ReceivingPartial, AccountingFinal, false},
+		{"one line closed", OrderPlaced, []LineStatus{LineOrdered, LineReceived}, final, ReceivingPartial, AccountingFinal, false},
+		{"all closed and final", OrderPlaced, closed, final, ReceivingClosed, AccountingFinal, true},
+		{"new refund is provisional", OrderPlaced, closed, prov, ReceivingClosed, AccountingProvisional, false},
+		{"incomplete wins", OrderPlaced, closed, inc, ReceivingClosed, AccountingIncomplete, false},
+		{"reopened line", OrderPlaced, []LineStatus{LineReceived, LineOrdered}, final, ReceivingPartial, AccountingFinal, false},
+	}
+	for _, c := range cases {
+		p := DeriveOrderProgress(c.order, c.lines, c.t)
+		if *p.Receiving != c.recv || *p.Accounting != c.acc || *p.Completed != c.done {
+			t.Errorf("%s: got %s/%s/%v", c.name, *p.Receiving, *p.Accounting, *p.Completed)
+		}
+	}
+	for _, st := range []OrderStatus{OrderDraft, OrderCancelled} {
+		if p := DeriveOrderProgress(st, closed, final); p.Receiving != nil || p.Accounting != nil || p.Completed != nil {
+			t.Errorf("%s must have no progress", st)
+		}
+	}
+}

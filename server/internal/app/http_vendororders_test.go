@@ -176,3 +176,43 @@ func TestHTTPUnconfirmRemovesDraftLines(t *testing.T) {
 		t.Errorf("item computed fields: %v", it)
 	}
 }
+
+// The order progress is computed and filterable: it follows deliveries,
+// closure, reopening and a refund without a rate.
+func TestHTTPVendorOrderProgress(t *testing.T) {
+	w := setup(t)
+	f := w.placedOrder(t)
+	ids := func(q string) int {
+		return len(w.do(t, call{token: f.buyer, method: "GET", path: "/api/v1/vendor-orders?" + q}).expect(200).Items())
+	}
+	state := func() (string, string, any) {
+		o := w.order(t, f)
+		return o["receivingState"].(string), o["accountingState"].(string), o["completed"]
+	}
+	if r, a, c := state(); r != "none" || a != "final" || c != false || ids("completed=false") != 1 || ids("completed=true") != 0 {
+		t.Fatalf("placed: %s %s %v", r, a, c)
+	}
+	d := w.do(t, call{token: f.recv, method: "POST", path: "/api/v1/deliveries", body: map[string]any{
+		"lines": []map[string]any{{"name": "motor", "goodQuantity": 1}}}}).expect(201)
+	dl := d.JSON()["lines"].([]any)[0].(map[string]any)
+	w.do(t, call{token: f.recv, method: "PUT", path: w.path("/delivery-lines/{}/matches", dl["id"].(string)), ifMatch: d.ETag(),
+		body: map[string]any{"matches": []map[string]any{{"vendorOrderLineId": f.lineID, "goodQuantity": 1, "problemQuantity": 0}}}}).expect(200)
+	if r, _, _ := state(); r != "partial" {
+		t.Fatalf("after delivery: %s", r)
+	}
+	lp := w.path("/vendor-order-lines/{}", f.lineID)
+	o := w.do(t, call{token: f.buyer, method: "GET", path: f.orderPath}).expect(200)
+	o = w.do(t, call{token: f.buyer, method: "POST", path: lp + "/close", ifMatch: o.ETag(), body: map[string]any{"type": "short_accepted", "reason": "short"}}).expect(200)
+	if r, a, c := state(); r != "closed" || a != "final" || c != true || ids("completed=true") != 1 || ids("completed=false") != 0 || ids("receivingState=closed") != 1 {
+		t.Fatalf("closed: %s %s %v", r, a, c)
+	}
+	o = w.do(t, call{token: f.buyer, method: "POST", path: lp + "/reopen", ifMatch: o.ETag(), body: map[string]any{"reason": "more coming"}}).expect(200)
+	if r, _, c := state(); r != "partial" || c != false {
+		t.Fatalf("reopened: %s %v", r, c)
+	}
+	w.do(t, call{token: f.buyer, method: "POST", path: lp + "/close", ifMatch: o.ETag(), body: map[string]any{
+		"type": "short_accepted", "reason": "short", "refund": map[string]any{"currency": "TWD", "amount": "100", "method": "cash"}}}).expect(200)
+	if r, a, c := state(); r != "closed" || a == "final" || c != false || ids("completed=false") != 1 {
+		t.Fatalf("refund without rate: %s %s %v", r, a, c)
+	}
+}

@@ -1,6 +1,6 @@
 import { Badge } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
-import type { LineStatus, OrderStatus } from '../../api/types';
+import type { AccountingState, LineStatus, OrderStatus, ReceivingState } from '../../api/types';
 import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 
 const ORDER_TONE: Record<OrderStatus, StatusTone> = { draft: 'neutral', placed: 'active', cancelled: 'neutral' };
@@ -22,4 +22,19 @@ export function LineStatusBadge({ status }: { status: LineStatus }) {
 export function ProvisionalBadge() {
   const { t } = useTranslation('purchasing');
   return <Badge variant="outline" colorPalette="orange">{t('provisional')}</Badge>;
+}
+
+const RECEIVING_TONE: Record<ReceivingState, StatusTone> = { none: 'neutral', partial: 'active', closed: 'done' };
+const ACCOUNTING_TONE: Record<AccountingState, StatusTone> = { incomplete: 'attention', provisional: 'active', final: 'done' };
+
+/** Receiving and accounting progress of a placed order (spec 10.3); nothing for drafts and cancelled orders. */
+export function OrderProgressBadges({ order }: { order: { receivingState: ReceivingState | null; accountingState: AccountingState | null } }) {
+  const { t } = useTranslation('purchasing');
+  if (!order.receivingState || !order.accountingState) return null;
+  return (
+    <>
+      <StatusBadge tone={RECEIVING_TONE[order.receivingState]}>{t(`progress.receivingState.${order.receivingState}`)}</StatusBadge>
+      <StatusBadge tone={ACCOUNTING_TONE[order.accountingState]}>{t(`progress.accountingState.${order.accountingState}`)}</StatusBadge>
+    </>
+  );
 }

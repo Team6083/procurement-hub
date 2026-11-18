@@ -167,6 +167,9 @@ type OrderSummary struct {
 	NetBase          *domain.Decimal     `json:"netBase"`
 	Provisional      bool                `json:"provisional"`
 	Incomplete       []domain.Incomplete `json:"incomplete"`
+	ReceivingState   *string             `json:"receivingState"`
+	AccountingState  *string             `json:"accountingState"`
+	Completed        *bool               `json:"completed"`
 	Restricted       bool                `json:"restricted"`
 	CreatedAt        any                 `json:"createdAt"`
 	Version          int64               `json:"version"`
@@ -317,13 +320,16 @@ func (s *VendorOrders) Get(ctx context.Context, actor authz.Actor, id bson.Objec
 
 // ListInput filters the order list.
 type ListOrdersInput struct {
-	Status   domain.OrderStatus
-	VendorID bson.ObjectID
-	TeamID   bson.ObjectID
-	OwnerID  bson.ObjectID // only orders owned by this user
-	Query    string
-	Cursor   bson.ObjectID
-	Limit    int
+	Status     domain.OrderStatus
+	VendorID   bson.ObjectID
+	TeamID     bson.ObjectID
+	OwnerID    bson.ObjectID // only orders owned by this user
+	Completed  *bool
+	Receiving  string
+	Accounting string
+	Query      string
+	Cursor     bson.ObjectID
+	Limit      int
 }
 
 type OrderPage struct {
@@ -356,7 +362,8 @@ func (s *VendorOrders) summary(ctx context.Context, actor authz.Actor, acc *line
 	sm := &OrderSummary{
 		ID: o.ID, Number: o.Number, VendorID: o.VendorID, VendorName: name, Currency: o.Currency, Status: o.Status,
 		OwnerIDs: ownerIDs(o), ExternalOrderNo: o.ExternalOrderNo, ExpectedDelivery: o.ExpectedDelivery, LineCount: visible, TeamIDs: sortedIDs(teams),
-		Provisional: o.Totals.Provisional, Incomplete: o.Totals.Incomplete, Restricted: !priv, CreatedAt: o.CreatedAt, Version: o.Version,
+		Provisional: o.Totals.Provisional, Incomplete: o.Totals.Incomplete,
+		ReceivingState: o.ReceivingState, AccountingState: o.AccountingState, Completed: o.Completed, Restricted: !priv, CreatedAt: o.CreatedAt, Version: o.Version,
 	}
 	if o.PlacedAt != nil {
 		sm.PlacedAt = *o.PlacedAt
@@ -378,7 +385,7 @@ func (s *VendorOrders) List(ctx context.Context, actor authz.Actor, in ListOrder
 	if limit > 100 {
 		limit = 100
 	}
-	f := store.OrderFilter{Status: in.Status, VendorID: in.VendorID, TeamID: in.TeamID, OwnerID: in.OwnerID, After: in.Cursor}
+	f := store.OrderFilter{Status: in.Status, VendorID: in.VendorID, TeamID: in.TeamID, OwnerID: in.OwnerID, Completed: in.Completed, Receiving: in.Receiving, Accounting: in.Accounting, After: in.Cursor}
 	if q := strings.TrimSpace(in.Query); q != "" {
 		f.ExtNo = q
 		if n, err := strconv.Atoi(strings.TrimPrefix(strings.ToUpper(q), "VO-")); err == nil {

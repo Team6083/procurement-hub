@@ -65,13 +65,16 @@ func (s *Store) GetVendorOrder(ctx context.Context, id bson.ObjectID) (*domain.V
 
 // OrderFilter narrows ListVendorOrders; zero values mean "any".
 type OrderFilter struct {
-	Status   domain.OrderStatus
-	VendorID bson.ObjectID
-	TeamID   bson.ObjectID
-	OwnerID  bson.ObjectID // orders that list this user as an owner
-	Number   int           // exact number, from q such as "VO-12" or "12"
-	ExtNo    string        // substring of the vendor's order number
-	After    bson.ObjectID
+	Status     domain.OrderStatus
+	VendorID   bson.ObjectID
+	TeamID     bson.ObjectID
+	OwnerID    bson.ObjectID // orders that list this user as an owner
+	Completed  *bool         // placed orders by the computed completed flag
+	Receiving  string        // receivingState
+	Accounting string        // accountingState
+	Number     int           // exact number, from q such as "VO-12" or "12"
+	ExtNo      string        // substring of the vendor's order number
+	After      bson.ObjectID
 }
 
 // ListVendorOrders returns orders newest first (by _id).
@@ -88,6 +91,15 @@ func (s *Store) ListVendorOrders(ctx context.Context, f OrderFilter, limit int64
 	}
 	if !f.OwnerID.IsZero() {
 		q = append(q, bson.E{Key: "ownerIds", Value: f.OwnerID})
+	}
+	if f.Completed != nil {
+		q = append(q, bson.E{Key: "completed", Value: *f.Completed})
+	}
+	if f.Receiving != "" {
+		q = append(q, bson.E{Key: "receivingState", Value: f.Receiving})
+	}
+	if f.Accounting != "" {
+		q = append(q, bson.E{Key: "accountingState", Value: f.Accounting})
 	}
 	var or bson.A
 	if f.Number > 0 {

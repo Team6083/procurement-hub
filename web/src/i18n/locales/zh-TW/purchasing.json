@@ -317,5 +317,22 @@
       "manualEmpty": "至少填一行的金額。",
       "manualSum": "各行金額加總必須等於金額。"
     }
+  },
+  "progress": {
+    "title": "進度",
+    "receiving": "收貨進度",
+    "accounting": "帳務",
+    "completed": "已完成",
+    "notCompleted": "未完成",
+    "receivingState": {
+      "none": "尚未收貨",
+      "partial": "部分收貨",
+      "closed": "全部結案"
+    },
+    "accountingState": {
+      "incomplete": "金額未齊",
+      "provisional": "金額暫估",
+      "final": "金額確定"
+    }
   }
 }

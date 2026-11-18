@@ -22,6 +22,10 @@ export interface OrderFilters {
   teamId?: string;
   /** `me`: only orders the caller owns. */
   ownerId?: string;
+  /** `false`: placed orders not completed yet. */
+  completed?: string;
+  receivingState?: string;
+  accountingState?: string;
   q?: string;
 }
 
@@ -34,7 +38,7 @@ export function useVendorOrderList(filters: OrderFilters, enabled = true) {
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<Page<VendorOrderSummary>>('/vendor-orders', {
-        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, ownerId: filters.ownerId || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
+        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, ownerId: filters.ownerId || undefined, completed: filters.completed || undefined, receivingState: filters.receivingState || undefined, accountingState: filters.accountingState || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
         signal,
       }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,

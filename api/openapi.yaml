@@ -1296,6 +1296,9 @@ paths:
         - { name: vendorId, in: query, schema: { type: string } }
         - { name: teamId, in: query, schema: { type: string } }
         - { name: ownerId, in: query, description: "A user id, or `me` for the caller: only orders that list that user as an owner.", schema: { type: string } }
+        - { name: completed, in: query, description: "`false`: placed orders that are not completed yet; `true`: completed ones (spec 10.3). Drafts and cancelled orders match neither.", schema: { type: boolean } }
+        - { name: receivingState, in: query, schema: { $ref: "#/components/schemas/ReceivingState" } }
+        - { name: accountingState, in: query, schema: { $ref: "#/components/schemas/AccountingState" } }
         - { name: q, in: query, schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
@@ -2989,7 +2992,7 @@ components:
         totalBase: { type: [string, "null"] }
     VendorOrder:
       type: object
-      required: [id, number, vendorId, currency, status, ownerIds, externalOrderNo, placedAt, placedBy, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, costEntries, restricted, otherTeams, visibleTotalBase, invariantOk]
+      required: [id, number, vendorId, currency, status, ownerIds, externalOrderNo, placedAt, placedBy, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, receivingState, accountingState, completed, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, costEntries, restricted, otherTeams, visibleTotalBase, invariantOk]
       properties:
         id: { type: string }
         number: { type: integer, description: "Displayed as VO-<number>." }
@@ -3007,6 +3010,9 @@ components:
         teamIds: { type: array, items: { type: string } }
         batchIds: { type: array, items: { type: string } }
         totals: { $ref: "#/components/schemas/OrderTotals" }
+        receivingState: { oneOf: [{ $ref: "#/components/schemas/ReceivingState" }, { type: "null" }], description: "Computed; null for draft and cancelled orders." }
+        accountingState: { oneOf: [{ $ref: "#/components/schemas/AccountingState" }, { type: "null" }] }
+        completed: { type: [boolean, "null"], description: "receivingState is closed and accountingState is final. Computed, never set by hand." }
         cancellation:
           oneOf:
             - type: object
@@ -3029,7 +3035,7 @@ components:
         allocationsReset: { type: boolean, description: "True when this write reset cost entries whose teams or lines disappeared to `all`." }
     VendorOrderSummary:
       type: object
-      required: [id, number, vendorId, vendorName, currency, status, ownerIds, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, restricted, createdAt, version]
+      required: [id, number, vendorId, vendorName, currency, status, ownerIds, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, receivingState, accountingState, completed, restricted, createdAt, version]
       properties:
         id: { type: string }
         number: { type: integer }
@@ -3046,9 +3052,14 @@ components:
         netBase: { type: [string, "null"] }
         provisional: { type: boolean }
         incomplete: { type: array, items: { $ref: "#/components/schemas/Incomplete" } }
+        receivingState: { oneOf: [{ $ref: "#/components/schemas/ReceivingState" }, { type: "null" }] }
+        accountingState: { oneOf: [{ $ref: "#/components/schemas/AccountingState" }, { type: "null" }] }
+        completed: { type: [boolean, "null"] }
         restricted: { type: boolean }
         createdAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
+    ReceivingState: { type: string, enum: [none, partial, closed] }
+    AccountingState: { type: string, enum: [incomplete, provisional, final] }
     VendorOrderPage:
       type: object
       required: [items, nextCursor]

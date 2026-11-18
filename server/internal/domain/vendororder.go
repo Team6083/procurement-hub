@@ -52,6 +52,9 @@ type VendorOrder struct {
 	TeamIDs           []bson.ObjectID `bson:"teamIds" json:"teamIds"`
 	BatchIDs          []bson.ObjectID `bson:"batchIds" json:"batchIds"`
 	Totals            OrderTotals     `bson:"totals" json:"totals"`
+	ReceivingState    *string         `bson:"receivingState" json:"receivingState"`
+	AccountingState   *string         `bson:"accountingState" json:"accountingState"`
+	Completed         *bool           `bson:"completed" json:"completed"`
 	Cancellation      *Cancellation   `bson:"cancellation" json:"cancellation"`
 	LineCounter       int             `bson:"lineCounter" json:"-"`
 	CreatedBy         bson.ObjectID   `bson:"createdBy" json:"createdBy"`
@@ -210,4 +213,57 @@ func ComputeQuantities(matches []DeliveryMatch, problems []LineProblem) LineQuan
 		}
 	}
 	return q
+}
+
+// Order progress values (spec §10.3).
+const (
+	ReceivingNone    = "none"
+	ReceivingPartial = "partial"
+	ReceivingClosed  = "closed"
+
+	AccountingIncomplete  = "incomplete"
+	AccountingProvisional = "provisional"
+	AccountingFinal       = "final"
+)
+
+// OrderProgress is the computed progress of a placed order; all nil for drafts
+// and cancelled orders.
+type OrderProgress struct {
+	Receiving  *string
+	Accounting *string
+	Completed  *bool
+}
+
+// DeriveOrderProgress computes receivingState, accountingState and completed
+// from the line statuses and the order totals (spec §10.3).
+func DeriveOrderProgress(order OrderStatus, lines []LineStatus, t OrderTotals) OrderProgress {
+	if order != OrderPlaced {
+		return OrderProgress{}
+	}
+	closed, started := 0, false
+	for _, st := range lines {
+		switch st {
+		case LineReceived, LineShortAccepted, LineNotObtained:
+			closed++
+			started = true
+		case LinePartiallyReceived:
+			started = true
+		}
+	}
+	recv := ReceivingPartial
+	switch {
+	case closed == len(lines) && closed > 0:
+		recv = ReceivingClosed
+	case !started || len(lines) == 0:
+		recv = ReceivingNone
+	}
+	acc := AccountingFinal
+	switch {
+	case len(t.Incomplete) > 0:
+		acc = AccountingIncomplete
+	case t.Provisional:
+		acc = AccountingProvisional
+	}
+	done := recv == ReceivingClosed && acc == AccountingFinal
+	return OrderProgress{Receiving: &recv, Accounting: &acc, Completed: &done}
 }

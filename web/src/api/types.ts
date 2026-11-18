@@ -62,6 +62,8 @@ export type QueueGroup = components['schemas']['QueueGroup'];
 export type QueueItem = components['schemas']['QueueItem'];
 export type LineStatus = components['schemas']['LineStatus'];
 export type OrderStatus = VendorOrder['status'];
+export type ReceivingState = components['schemas']['ReceivingState'];
+export type AccountingState = components['schemas']['AccountingState'];
 
 export type Delivery = components['schemas']['Delivery'];
 export type DeliverySummary = components['schemas']['DeliverySummary'];

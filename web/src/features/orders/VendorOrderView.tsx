@@ -22,7 +22,7 @@ import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
 import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
-import { OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
+import { OrderProgressBadges, OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
 import { OrderTimeline } from './OrderTimeline';
 import { PageSkeleton, LoadError } from '../../components/PageStates';
 
@@ -64,6 +64,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const header = (
     <>
       <OrderStatusBadge status={order.status} />
+      <OrderProgressBadges order={order} />
       {order.totals.provisional && <ProvisionalBadge />}
     </>
   );

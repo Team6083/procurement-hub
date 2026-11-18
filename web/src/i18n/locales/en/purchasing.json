@@ -324,5 +324,22 @@
       "manualEmpty": "Enter an amount for at least one line.",
       "manualSum": "The line amounts must add up to the amount."
     }
+  },
+  "progress": {
+    "title": "Progress",
+    "receiving": "Receiving",
+    "accounting": "Accounting",
+    "completed": "Completed",
+    "notCompleted": "Not completed",
+    "receivingState": {
+      "none": "Nothing received",
+      "partial": "Partly received",
+      "closed": "All closed"
+    },
+    "accountingState": {
+      "incomplete": "Amounts incomplete",
+      "provisional": "Amounts provisional",
+      "final": "Amounts final"
+    }
   }
 }

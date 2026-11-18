@@ -126,6 +126,23 @@ func (a *VendorOrdersAPI) list(w http.ResponseWriter, r *http.Request) {
 			in.OwnerID, err = queryID(r, "ownerId")
 		}
 	}
+	if err == nil {
+		switch c := q.Get("completed"); c {
+		case "":
+		case "true", "false":
+			b := c == "true"
+			in.Completed = &b
+		default:
+			err = service.Invalid("completed", "must be true or false")
+		}
+		in.Receiving, in.Accounting = q.Get("receivingState"), q.Get("accountingState")
+		if rs := in.Receiving; rs != "" && rs != domain.ReceivingNone && rs != domain.ReceivingPartial && rs != domain.ReceivingClosed {
+			err = service.Invalid("receivingState", "must be none, partial or closed")
+		}
+		if as := in.Accounting; as != "" && as != domain.AccountingIncomplete && as != domain.AccountingProvisional && as != domain.AccountingFinal {
+			err = service.Invalid("accountingState", "must be incomplete, provisional or final")
+		}
+	}
 	if err != nil {
 		fail(w, r, err)
 		return

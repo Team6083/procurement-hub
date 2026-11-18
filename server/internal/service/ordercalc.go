@@ -251,7 +251,14 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		t.LinesC, t.OriginalC, t.Factor = decPtr(cost.LinesC), decPtr(cost.OriginalC), decPtr(cost.F)
 		t.TargetBase, t.SeparateBase, t.NetBase = decPtr(cost.TargetBase), decPtr(cost.SeparateBase), decPtr(cost.NetBase)
 	}
+	sts := make([]domain.LineStatus, len(lines))
+	for i := range lines {
+		sts[i] = lines[i].Status
+	}
+	pr := domain.DeriveOrderProgress(o.Status, sts, t)
+	o.ReceivingState, o.AccountingState, o.Completed = pr.Receiving, pr.Accounting, pr.Completed
 	set := bson.D{
+		{Key: "receivingState", Value: pr.Receiving}, {Key: "accountingState", Value: pr.Accounting}, {Key: "completed", Value: pr.Completed},
 		{Key: "vendorId", Value: o.VendorID}, {Key: "currency", Value: o.Currency}, {Key: "status", Value: o.Status},
 		{Key: "ownerIds", Value: o.OwnerIDs},
 		{Key: "externalOrderNo", Value: o.ExternalOrderNo}, {Key: "placedAt", Value: o.PlacedAt}, {Key: "placedBy", Value: o.PlacedBy},
