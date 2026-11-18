@@ -590,7 +590,14 @@ export interface paths {
          */
         put: operations["putItem"];
         post?: never;
-        delete?: never;
+        /**
+         * Delete an item that was never reviewed
+         * @description Hard delete, no undo. Allowed only while the batch is `draft`, `proposed` or `collecting`, the item is `pending` and
+         *     `firstReviewedAt` is null (else 422 `item_not_deletable`; withdraw the item instead). The requester may delete their own
+         *     item; team admins and system admins any item. Audit records `item.deleted` with the pre-delete content in `changes`.
+         *     No request body.
+         */
+        delete: operations["deleteItem"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1830,6 +1837,8 @@ export interface components {
             productUrl: string;
             status: components["schemas"]["ItemStatus"];
             review: components["schemas"]["Review"] | null;
+            /** @description Time of the first review decision; never cleared, not even by undoing the decision. */
+            firstReviewedAt: string | null;
             lookup: components["schemas"]["LookupInfo"] | null;
             unpurchasable: {
                 by: string;
@@ -3864,6 +3873,40 @@ export interface operations {
             404: components["responses"]["NotFound"];
             409: components["responses"]["VersionConflict"];
             413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteItem: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                id: components["parameters"]["ItemId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["VersionConflict"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
             503: components["responses"]["ServiceUnavailable"];

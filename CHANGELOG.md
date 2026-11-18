@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `DELETE /items/{id}` deletes an item that was never reviewed (pending, `firstReviewedAt` null, batch draft, proposed or collecting; requester or team admin), writing an `item.deleted` audit event with the item's content; other items keep the withdraw flow (422 `item_not_deletable`). Items gain `firstReviewedAt`, set on the first review decision and never cleared. The web UI shows Delete instead of Withdraw on such items.
 - `GET /audit` takes `order=asc|desc` (default `asc`); the batch and vendor order timelines in the web UI now show the newest event first, with an icon per event.
 - Product lookup (API and web UI): the item form can fill the name, vendor, SKU, price and URL from a SKU or product URL, and marks the vendor as auto-filled. `GET /api/v1/lookup?q=` looks up a SKU or product URL through the configured provider (`LOOKUP_PROVIDER=partfinder` calls part-finder's `GET /api/v1/lookup`), maps the store name to a vendor by name or alias, and is limited to 30 requests per minute per user. See `docs/product-lookup.md`.
 - Teams, members and role-mapping rules synchronized from OIDC token claims; batches and items with the review flow.

@@ -931,6 +931,25 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: deleteItem
+      summary: Delete an item that was never reviewed
+      description: |
+        Hard delete, no undo. Allowed only while the batch is `draft`, `proposed` or `collecting`, the item is `pending` and
+        `firstReviewedAt` is null (else 422 `item_not_deletable`; withdraw the item instead). The requester may delete their own
+        item; team admins and system admins any item. Audit records `item.deleted` with the pre-delete content in `changes`.
+        No request body.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/VersionConflict" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /items/{id}/withdraw:
     parameters:
       - $ref: "#/components/parameters/ItemId"
@@ -2633,7 +2652,7 @@ components:
         autoFilledFields: { type: array, items: { type: string } }
     Item:
       type: object
-      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
+      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, firstReviewedAt, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
       properties:
         id: { type: string }
         teamId: { type: string }
@@ -2653,6 +2672,9 @@ components:
         productUrl: { type: string }
         status: { $ref: "#/components/schemas/ItemStatus" }
         review: { oneOf: [{ $ref: "#/components/schemas/Review" }, { type: "null" }] }
+        firstReviewedAt:
+          description: Time of the first review decision; never cleared, not even by undoing the decision.
+          oneOf: [{ type: string, format: date-time }, { type: "null" }]
         lookup: { oneOf: [{ $ref: "#/components/schemas/LookupInfo" }, { type: "null" }] }
         unpurchasable:
           oneOf:

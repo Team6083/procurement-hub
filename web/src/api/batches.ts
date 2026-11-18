@@ -101,6 +101,14 @@ export function usePutItem() {
   });
 }
 
+/** DELETE /items/{id}: hard delete of an item that was never reviewed (204). */
+export function useDeleteItem() {
+  const api = useApi();
+  return useGuardedMutation<Pick<Item, 'id' | 'version'>, void>({
+    mutationFn: (item) => api.delete<void>(`/items/${item.id}`, { headers: ifMatchHeader(item.version) }),
+  });
+}
+
 type ItemAction = 'withdraw' | 'resubmit' | 'force-reject' | 'unpurchasable' | 'unpurchasable/undo' | 'review/undo';
 const REASON_ACTIONS: ItemAction[] = ['force-reject', 'unpurchasable', 'unpurchasable/undo', 'review/undo'];
 

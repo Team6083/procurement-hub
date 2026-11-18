@@ -379,6 +379,60 @@ func (s *Items) Withdraw(ctx context.Context, actor authz.Actor, id bson.ObjectI
 	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvWithdraw, "item.withdrawn", "", nil)
 }
 
+// canDelete reports whether the actor may delete the item (spec §10.2): the
+// requester for their own item, a team admin for any. Whether the item
+// qualifies at all is itemDeletable.
+func canDelete(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
+	return it.RequesterID == actor.UserID || actor.CanAdminTeam(b.TeamID)
+}
+
+// itemDeletable is the "never reviewed" rule of spec §10.2.
+func itemDeletable(it *domain.Item, b *domain.Batch) bool {
+	switch b.Status {
+	case domain.BatchDraft, domain.BatchProposed, domain.BatchCollecting:
+	default:
+		return false
+	}
+	return it.Status == domain.ItemPending && it.FirstReviewedAt == nil
+}
+
+// Delete removes an item that was never reviewed (hard delete, no undo). The
+// audit event keeps the full pre-delete content; seqNo is not reused and no
+// notification is sent (spec §10.2).
+func (s *Items) Delete(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) error {
+	it, b, t, err := s.loadItem(ctx, actor, id)
+	if err != nil {
+		return err
+	}
+	if t.Archived {
+		return Rule("team_archived", "Archived teams are read-only.")
+	}
+	if !canDelete(actor, it, b) {
+		return ErrForbidden
+	}
+	if !itemDeletable(it, b) {
+		return Rule("item_not_deletable", "This item can no longer be deleted; withdraw it instead.")
+	}
+	return s.st.WithTx(ctx, func(ctx context.Context) error {
+		// The batch may have moved on since the check above.
+		cur, err := s.st.GetBatch(ctx, b.ID)
+		if err != nil {
+			return mapStore(err)
+		}
+		if !itemDeletable(it, cur) {
+			return Rule("item_not_deletable", "This item can no longer be deleted; withdraw it instead.")
+		}
+		if err := s.st.DeleteItem(ctx, it.ID, version); err != nil {
+			return mapStore(err)
+		}
+		if err := s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, it, "item.deleted", "",
+			domain.AuditChange{Field: "item", From: it, To: nil})); err != nil {
+			return err
+		}
+		return s.st.BumpBatch(ctx, b.ID)
+	})
+}
+
 // Resubmit sends a returned item back to review. The requester must have
 // edited it since it was returned (spec §10.2).
 func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) (*domain.Item, error) {
@@ -418,6 +472,9 @@ func (s *Items) transitionItemSet(ctx context.Context, actor string, b *domain.B
 	if review != nil {
 		review.AtVersion = version + 1
 		set = append(set, bson.E{Key: "review", Value: review})
+		if it.FirstReviewedAt == nil {
+			set = append(set, bson.E{Key: "firstReviewedAt", Value: review.At})
+		}
 	}
 	var out *domain.Item
 	err = s.st.WithTx(ctx, func(ctx context.Context) error {
@@ -520,10 +577,14 @@ func (s *Items) Review(ctx context.Context, actor authz.Actor, batchID bson.Obje
 				return Rule("item_not_reviewable", "Item #%d is %s and cannot be %s.", it.SeqNo, it.Status, meta.recorded)
 			}
 			comment := strings.TrimSpace(d.Comment)
-			ni, err := s.st.UpdateItem(ctx, it.ID, it.Version, bson.D{
+			set := bson.D{
 				{Key: "status", Value: to},
 				{Key: "review", Value: domain.Review{Decision: meta.recorded, By: actor.UserID, At: now, Comment: comment, AtVersion: it.Version + 1}},
-			})
+			}
+			if it.FirstReviewedAt == nil {
+				set = append(set, bson.E{Key: "firstReviewedAt", Value: now})
+			}
+			ni, err := s.st.UpdateItem(ctx, it.ID, it.Version, set)
 			if err != nil {
 				return mapStore(err)
 			}

@@ -93,6 +93,17 @@ export function canModifyItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<
   return canAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
 }
 
+/**
+ * Mirrors backend itemDeletable/canDelete (spec §10.2): a never-reviewed pending item in a draft, proposed or collecting batch,
+ * deleted by its requester or a team/system admin. Items that do not qualify keep the withdraw flow.
+ */
+export function canDeleteItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+  if (c.archived) return false;
+  if (!['draft', 'proposed', 'collecting'].includes(b.status)) return false;
+  if (it.status !== 'pending' || it.firstReviewedAt) return false;
+  return it.requesterId === c.userId || canAdmin(c);
+}
+
 /** Resubmit only after an edit since the return: item.version above review.atVersion (backend item_not_edited). */
 export function isEditedSinceReturn(it: Pick<Item, 'version' | 'review'>): boolean {
   if (!it.review) return true;
