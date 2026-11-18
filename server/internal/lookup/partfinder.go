@@ -64,7 +64,7 @@ func (p *Partfinder) Lookup(ctx context.Context, query string) (*LookupResult, e
 	u := strings.TrimRight(p.BaseURL, "/") + "/api/v1/lookup?q=" + url.QueryEscape(query)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrUpstream, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstream, err)
 	}
 	req.Header.Set("Accept", "application/json")
 	client := p.Client
@@ -76,15 +76,15 @@ func (p *Partfinder) Lookup(ctx context.Context, query string) (*LookupResult, e
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, ErrTimeout
 		}
-		return nil, fmt.Errorf("%w: %v", ErrUpstream, err)
+		return nil, fmt.Errorf("%w: %w", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) {
 			return nil, ErrTimeout
 		}
-		return nil, fmt.Errorf("%w: reading body: %v", ErrUpstream, err)
+		return nil, fmt.Errorf("%w: reading body: %w", ErrUpstream, err)
 	}
 	switch {
 	case resp.StatusCode == http.StatusNotFound:
