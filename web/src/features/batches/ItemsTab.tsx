@@ -122,6 +122,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     <Stack gap="4">
       <FilterBar
         mb="0"
+        positioning={{ placement: "right-start" }}
         search={{ value: search, onChange: setSearch, placeholder: t('filters.searchItems') }}
         activeCount={activeCount}
         onClear={clearFilters}
