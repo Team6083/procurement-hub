@@ -632,6 +632,17 @@ func (s *VendorOrders) Place(ctx context.Context, actor authz.Actor, id bson.Obj
 				return nil, Rule("line_missing_price", "Line #%d has no unit price.", l.LineNo)
 			}
 		}
+		entries, err := s.st.CostEntriesByOrder(ctx, o.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range entries {
+			if e.Voided == nil {
+				if err := checkLinesScope(e.Allocation, lines); err != nil {
+					return nil, err
+				}
+			}
+		}
 		m := &orderMutation{}
 		for i, it := range items {
 			if err := itemLinkable(it, batches[i]); err != nil {

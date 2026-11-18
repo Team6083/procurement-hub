@@ -1,6 +1,6 @@
-import { Button, Dialog, Input, Stack, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm } from 'react-hook-form';
+import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useBaseCurrency } from '../../api/meta';
 import { z } from 'zod';
@@ -9,23 +9,25 @@ import type { VendorOrderLine } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
-import { amountText, requiredText, useFieldError } from '../../components/ui/form';
+import { requiredText, useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
+import { RefundFields, checkRefundAmount, refundBody, refundDefaults, refundShape } from './RefundFields';
 
 const closeSchema = (baseDigits: number) => z.object({
   type: z.enum(['short_accepted', 'not_obtained']),
   reason: requiredText(),
-  refund: amountText({ digits: baseDigits, sign: 'nonNegative', nonZero: true }, true),
-});
+  ...refundShape(baseDigits),
+}).superRefine(checkRefundAmount);
 
 function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: VendorOrderLine; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('purchasing');
   const baseCurrency = useBaseCurrency();
   const close = useCloseLine(orderId);
-  const form = useForm({ resolver: zodResolver(closeSchema(baseDigits)), defaultValues: { type: 'short_accepted' as const, reason: '', refund: '' } });
+  const form = useForm({ resolver: zodResolver(closeSchema(baseDigits)), defaultValues: { type: 'short_accepted' as const, reason: '', ...refundDefaults(baseCurrency) } });
+  const refundCurrency = useWatch({ control: form.control, name: 'refundCurrency' });
   const fieldError = useFieldError();
   const err = form.formState.errors;
-  const submit = form.handleSubmit((v) => close.mutate({ line, type: v.type, reason: v.reason.trim(), refundBase: v.refund.trim() || null }, { onSuccess: onClose }));
+  const submit = form.handleSubmit((v) => close.mutate({ line, type: v.type, reason: v.reason.trim(), refund: refundBody(v, baseCurrency) }, { onSuccess: onClose }));
   return (
     <>
       <Dialog.Body>
@@ -40,9 +42,9 @@ function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: V
             <FormField label={t('undo.reason')} required errorText={fieldError(err.reason)}>
               <Textarea autoresize rows={2} {...form.register('reason')} />
             </FormField>
-            <FormField label={t('close.refund', { currency: baseCurrency })} helperText={t('close.refundHelp')} errorText={fieldError(err.refund)}>
-              <Input inputMode="decimal" {...form.register('refund')} />
-            </FormField>
+            <FormProvider {...form}>
+              <RefundFields currency={refundCurrency} baseCurrency={baseCurrency} />
+            </FormProvider>
             <ErrorAlert error={close.error} />
           </Stack>
         </form>

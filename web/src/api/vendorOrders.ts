@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ApiClient } from './client';
 import { useApi } from './context';
 import { AUDIT_PAGE_SIZE, keys } from './keys';
-import type { AuditEvent, Page, QueueGroup, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
+import type { AuditEvent, CostEntry, CostEntryBody, Page, QueueGroup, RefundBody, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
 import { ifMatchHeader, serial, useVersionedMutation } from './versioned';
 
@@ -107,8 +107,28 @@ export const useOrderAction = (orderId: string) =>
   );
 
 export const useCloseLine = (orderId: string) =>
-  useOrderMutation<{ line: VendorOrderLine; type: 'short_accepted' | 'not_obtained'; reason: string; refundBase: string | null }>(orderId, (api, { line, ...body }, headers) =>
+  useOrderMutation<{ line: VendorOrderLine; type: 'short_accepted' | 'not_obtained'; reason: string; refund: RefundBody | null }>(orderId, (api, { line, ...body }, headers) =>
     api.post<VendorOrder>(`/vendor-order-lines/${line.id}/close`, body, { headers }),
+  );
+
+/** POST /vendor-orders/{id}/cost-entries: refunds and extra charges need a placed order. */
+export const useCreateCostEntry = (orderId: string) =>
+  useOrderMutation<CostEntryBody>(orderId, (api, body, headers) => api.post<VendorOrder>(`/vendor-orders/${orderId}/cost-entries`, body, { headers }));
+
+/** PUT /cost-entries/{id}: replaces the entry (draft or placed). */
+export const usePutCostEntry = (orderId: string) =>
+  useOrderMutation<{ entry: CostEntry; body: CostEntryBody }>(orderId, (api, { entry, body }, headers) =>
+    api.put<VendorOrder>(`/cost-entries/${entry.id}`, body, { headers }),
+  );
+
+/** DELETE /cost-entries/{id}: draft orders only. */
+export const useDeleteCostEntry = (orderId: string) =>
+  useOrderMutation<CostEntry>(orderId, (api, entry, headers) => api.delete<VendorOrder>(`/cost-entries/${entry.id}`, { headers }));
+
+/** POST /cost-entries/{id}/void: placed orders; entries of a problem or closure are voided by undoing it (409). */
+export const useVoidCostEntry = (orderId: string) =>
+  useOrderMutation<{ entry: CostEntry; reason: string }>(orderId, (api, { entry, reason }, headers) =>
+    api.post<VendorOrder>(`/cost-entries/${entry.id}/void`, { reason }, { headers }),
   );
 
 export const useReopenLine = (orderId: string) =>

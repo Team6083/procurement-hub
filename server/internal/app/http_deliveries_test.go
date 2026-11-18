@@ -102,7 +102,7 @@ func TestHTTPDeliveryFlow(t *testing.T) {
 	pp := w.path("/problems/{}", pr["id"].(string))
 	w.do(t, call{token: f.recv, method: "POST", path: pp + "/resolve", ifMatch: `"` + itoa(int(pr["version"].(float64))) + `"`, body: map[string]any{"action": "accept"}}).expect(403, "forbidden")
 	w.do(t, call{token: f.buyer, method: "POST", path: pp + "/resolve", ifMatch: `"` + itoa(int(pr["version"].(float64))) + `"`,
-		body: map[string]any{"action": "accept", "refundBase": "1"}}).expect(400, "invalid_request")
+		body: map[string]any{"action": "accept", "refund": map[string]any{"currency": "USD", "amount": "1", "method": "cash"}}}).expect(400, "invalid_request")
 	r := w.do(t, call{token: f.buyer, method: "POST", path: pp + "/resolve", ifMatch: `"` + itoa(int(pr["version"].(float64))) + `"`, body: map[string]any{"action": "accept"}}).expect(200)
 	if ol := w.orderLine(t, f); ol["status"] != "received" || ol["receivedQuantity"] != float64(2) {
 		t.Fatalf("line after accept: %v", ol)
@@ -116,7 +116,7 @@ func TestHTTPDeliveryFlow(t *testing.T) {
 	if st := w.batchStatus(t, f); st != "receiving" {
 		t.Errorf("batch should be receiving again: %s", st)
 	}
-	r = w.do(t, call{token: f.buyer, method: "POST", path: pp + "/resolve", ifMatch: r.ETag(), body: map[string]any{"action": "return_no_replace", "refundBase": "5"}}).expect(200)
+	r = w.do(t, call{token: f.buyer, method: "POST", path: pp + "/resolve", ifMatch: r.ETag(), body: map[string]any{"action": "return_no_replace", "refund": map[string]any{"currency": "USD", "amount": "5", "method": "cash"}}}).expect(200)
 	o := w.order(t, f)
 	if es := o["costEntries"].([]any); len(es) != 1 || es[0].(map[string]any)["amount"] != "-5" || es[0].(map[string]any)["type"] != "refund" ||
 		es[0].(map[string]any)["source"] != "problem" || o["invariantOk"] != true {

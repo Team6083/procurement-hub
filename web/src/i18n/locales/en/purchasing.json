@@ -132,8 +132,6 @@
     "type": "How to close",
     "short_accepted": "Accept the shortage (the vendor sent less)",
     "not_obtained": "Not obtained (cancel the rest)",
-    "refund": "Refund ({{currency}})",
-    "refundHelp": "Optional, entered as a positive amount; it becomes a refund cost entry on this line.",
     "confirm": "Close line",
     "reopen": "Reopen line",
     "reopenHelp": "The line is open again and its refund entry is voided."
@@ -219,5 +217,16 @@
     "defaultCurrency": "Vendor default {{currency}}",
     "create": "Create order",
     "add": "Add to order"
+  },
+  "refundInput": {
+    "currency": "Refund currency",
+    "amount": "Refund amount ({{currency}})",
+    "amountHelp": "Optional, entered as a positive amount; it becomes a refund cost entry on this line.",
+    "actual": "Actual amount ({{currency}})",
+    "actualHelp": "Optional. What the refund really came to in the base currency; you can fill it in later.",
+    "method": "Refund method",
+    "cash": "Cash or card refund",
+    "coupon": "Coupon (booked at face value)",
+    "note": "Refund note"
   }
 }

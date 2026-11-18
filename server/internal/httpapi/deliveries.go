@@ -282,19 +282,15 @@ func (a *DeliveriesAPI) resolve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Action     string  `json:"action"`
-		RefundBase *string `json:"refundBase"`
-		Note       string  `json:"note"`
+		Action string     `json:"action"`
+		Refund *refundReq `json:"refund"`
+		Note   string     `json:"note"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	in := service.ResolveInput{Action: req.Action, Note: req.Note}
-	if req.RefundBase != nil {
-		// D1 stub: the old base-currency body, booked as a cash refund in the base currency.
-		in.Refund = &service.RefundInput{Amount: *req.RefundBase, Method: domain.RefundCash}
-	}
+	in := service.ResolveInput{Action: req.Action, Note: req.Note, Refund: req.Refund.input()}
 	p, err := a.Deliveries.Resolve(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
 	respondProblem(w, r, p, err)
 }

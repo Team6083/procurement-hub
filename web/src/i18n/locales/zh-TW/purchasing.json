@@ -131,8 +131,6 @@
     "type": "結案方式",
     "short_accepted": "接受短少（廠商少給，不追了）",
     "not_obtained": "未取得（取消剩餘數量）",
-    "refund": "退款（{{currency}}）",
-    "refundHelp": "選填，以正數輸入；會在這一行建立一筆退款。",
     "confirm": "結案",
     "reopen": "撤銷結案",
     "reopenHelp": "明細行重新打開，它的退款紀錄會作廢。"
@@ -213,5 +211,16 @@
     "defaultCurrency": "廠商預設 {{currency}}",
     "create": "建立訂單",
     "add": "加入訂單"
+  },
+  "refundInput": {
+    "currency": "退款幣別",
+    "amount": "退款金額（{{currency}}）",
+    "amountHelp": "選填，以正數輸入；會在這一行建立一筆退款。",
+    "actual": "實際金額（{{currency}}）",
+    "actualHelp": "選填。退款換算後實際的本位幣金額，可以晚點再補。",
+    "method": "退款方式",
+    "cash": "現金或刷卡退款",
+    "coupon": "優惠券（以面額記帳）",
+    "note": "退款備註"
   }
 }

@@ -48,6 +48,7 @@
     "order_has_no_lines": "The order has no lines.",
     "line_missing_price": "Every line needs a unit price before the order can be placed.",
     "order_not_placed": "Refunds and extra charges can only be added to a placed order.",
+    "cost_entry_voided": "This entry is voided and can no longer be changed.",
     "line_not_closable": "Only lines that are short and have no open problem can be closed.",
     "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one.",
     "lookup_not_found": "No product was found for that SKU or URL. You can fill in the item by hand.",

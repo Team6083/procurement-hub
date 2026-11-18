@@ -48,6 +48,7 @@
     "order_has_no_lines": "訂單沒有明細行。",
     "line_missing_price": "每一行都要有單價才能按已下單。",
     "order_not_placed": "只有已下單的訂單可以新增退款或補款。",
+    "cost_entry_voided": "這筆費用已作廢，無法再修改。",
     "line_not_closable": "只有數量短少且沒有未處理問題的明細行可以結案。",
     "line_not_matchable": "這一行明細不能對應到貨：廠商訂單尚未下單或這一行已結案。請先撤銷結案或改選其他明細行。",
     "lookup_not_found": "找不到符合此 SKU 或網址的產品，請手動填寫。",

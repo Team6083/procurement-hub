@@ -138,9 +138,7 @@
       "exchange": "等廠商補寄，補寄品照常對應。",
       "return_no_replace": "退回且不再等這些數量，可以記錄退款。",
       "accept": "這些數量計入已到。"
-    },
-    "refund": "退款（{{currency}}）",
-    "refundHelp": "選填，以正數輸入，會在這一行建立一筆退款。"
+    }
   },
   "toClose": {
     "title": "待決定的短少明細行",

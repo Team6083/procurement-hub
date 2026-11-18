@@ -138,9 +138,7 @@
       "exchange": "Wait for the vendor to send a replacement; it is matched like any delivery.",
       "return_no_replace": "The units are returned and no longer expected; you can record a refund.",
       "accept": "The units count as received."
-    },
-    "refund": "Refund ({{currency}})",
-    "refundHelp": "Optional, entered as a positive amount; it becomes a refund cost entry on the line."
+    }
   },
   "toClose": {
     "title": "Short lines to decide on",

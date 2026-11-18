@@ -53,6 +53,10 @@ export type VendorOrder = components['schemas']['VendorOrder'];
 export type VendorOrderSummary = components['schemas']['VendorOrderSummary'];
 export type VendorOrderLine = components['schemas']['VendorOrderLine'];
 export type CostEntry = components['schemas']['CostEntry'];
+export type CostEntryBody = components['schemas']['CostEntryRequest'];
+export type CostAllocation = components['schemas']['CostAllocation'];
+/** The `refund` object of a line closure or problem resolution. */
+export type RefundBody = components['schemas']['RefundInput'];
 export type OrderTotals = components['schemas']['OrderTotals'];
 export type QueueGroup = components['schemas']['QueueGroup'];
 export type QueueItem = components['schemas']['QueueItem'];

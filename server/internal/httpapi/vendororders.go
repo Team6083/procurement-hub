@@ -27,6 +27,10 @@ func (a *VendorOrdersAPI) Mount(r chi.Router) {
 	r.Delete("/vendor-order-lines/{id}", a.deleteLine)
 	r.Post("/vendor-order-lines/{id}/close", a.closeLine)
 	r.Post("/vendor-order-lines/{id}/reopen", a.reopenLine)
+	r.Post("/vendor-orders/{id}/cost-entries", a.createCostEntry)
+	r.Put("/cost-entries/{id}", a.putCostEntry)
+	r.Delete("/cost-entries/{id}", a.deleteCostEntry)
+	r.Post("/cost-entries/{id}/void", a.voidCostEntry)
 	r.Post("/vendor-orders/{id}/place", a.place)
 	r.Post("/vendor-orders/{id}/unplace", a.unplace)
 	r.Post("/vendor-orders/{id}/cancel", a.cancel)
@@ -407,19 +411,113 @@ func (a *VendorOrdersAPI) closeLine(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Type       domain.LineStatus `json:"type"`
-		Reason     string            `json:"reason"`
-		RefundBase *string           `json:"refundBase"`
+		Type   domain.LineStatus `json:"type"`
+		Reason string            `json:"reason"`
+		Refund *refundReq        `json:"refund"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	in := service.CloseInput{Type: req.Type, Reason: req.Reason}
-	if req.RefundBase != nil {
-		// D1 stub: the old base-currency body, booked as a cash refund in the base currency.
-		in.Refund = &service.RefundInput{Amount: *req.RefundBase, Method: domain.RefundCash}
-	}
+	in := service.CloseInput{Type: req.Type, Reason: req.Reason, Refund: req.Refund.input()}
 	d, err := a.Orders.CloseLine(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
 	respondOrder(w, r, http.StatusOK, d, err)
+}
+
+// refundReq is the refund object of a closure or problem resolution.
+type refundReq struct {
+	Currency         string `json:"currency"`
+	Amount           string `json:"amount"`
+	ActualAmountBase string `json:"actualAmountBase"`
+	Method           string `json:"method"`
+	Note             string `json:"note"`
+}
+
+func (r *refundReq) input() *service.RefundInput {
+	if r == nil {
+		return nil
+	}
+	return &service.RefundInput{Currency: r.Currency, Amount: r.Amount, ActualAmountBase: r.ActualAmountBase, Method: r.Method, Note: r.Note}
+}
+
+type costEntryReq struct {
+	Type             string             `json:"type"`
+	Settlement       string             `json:"settlement"`
+	Currency         string             `json:"currency"`
+	Amount           string             `json:"amount"`
+	ActualAmountBase *string            `json:"actualAmountBase"`
+	RefundMethod     *string            `json:"refundMethod"`
+	Allocation       *domain.Allocation `json:"allocation"`
+	Note             string             `json:"note"`
+}
+
+func (c costEntryReq) input() service.CostEntryInput {
+	in := service.CostEntryInput{Type: c.Type, Settlement: c.Settlement, Currency: c.Currency, Amount: c.Amount, Note: c.Note}
+	if c.ActualAmountBase != nil {
+		in.ActualAmountBase = *c.ActualAmountBase
+	}
+	if c.RefundMethod != nil {
+		in.RefundMethod = *c.RefundMethod
+	}
+	if c.Allocation != nil {
+		in.Allocation = *c.Allocation
+	}
+	return in
+}
+
+// costEntryWrite parses If-Match and the body shared by create and replace.
+func costEntryWrite(w http.ResponseWriter, r *http.Request) (id bson.ObjectID, ver int64, in service.CostEntryInput, ok bool) {
+	id, ok = idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return id, ver, in, false
+	}
+	var req costEntryReq
+	if e := decode(r, &req); e != nil {
+		WriteError(w, e)
+		return id, ver, in, false
+	}
+	return id, ver, req.input(), true
+}
+
+func (a *VendorOrdersAPI) createCostEntry(w http.ResponseWriter, r *http.Request) {
+	id, ver, in, ok := costEntryWrite(w, r)
+	if !ok {
+		return
+	}
+	d, err := a.Orders.CreateCostEntry(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
+	respondOrder(w, r, http.StatusCreated, d, err)
+}
+
+func (a *VendorOrdersAPI) putCostEntry(w http.ResponseWriter, r *http.Request) {
+	id, ver, in, ok := costEntryWrite(w, r)
+	if !ok {
+		return
+	}
+	d, err := a.Orders.ReplaceCostEntry(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
+	respondOrder(w, r, http.StatusOK, d, err)
+}
+
+func (a *VendorOrdersAPI) deleteCostEntry(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	d, err := a.Orders.DeleteCostEntry(r.Context(), CallerFrom(r.Context()).Actor, id, ver)
+	respondOrder(w, r, http.StatusOK, d, err)
+}
+
+func (a *VendorOrdersAPI) voidCostEntry(w http.ResponseWriter, r *http.Request) {
+	a.reasonAction(w, r, func(r *http.Request, id bson.ObjectID, ver int64, reason string) (*service.OrderDetail, error) {
+		return a.Orders.VoidCostEntry(r.Context(), CallerFrom(r.Context()).Actor, id, ver, reason)
+	})
 }

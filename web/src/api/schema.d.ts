@@ -1001,7 +1001,7 @@ export interface paths {
         /**
          * Close the remaining quantity of a short line (purchasers)
          * @description `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
-         *     and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative `refund` cost entry (separate, base currency, cash) on the line. This body is a temporary shape until the `refund` object of spec 10.3 is added. `If-Match` is the vendor order version.
+         *     and have no open problem (422 `line_not_closable`). An optional `refund` (positive `amount`) is stored as a negative `refund` cost entry (separate, source `closure`) allocated to the line. `If-Match` is the vendor order version.
          */
         post: operations["closeVendorOrderLine"];
         delete?: never;
@@ -1051,6 +1051,83 @@ export interface paths {
          *     in a review-confirmed batch that is not purchased outside, and not unpurchasable (422 `item_not_purchasable`).  Takes no body.
          */
         post: operations["placeVendorOrder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/vendor-orders/{id}/cost-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a cost entry to a vendor order (purchasers)
+         * @description Shipping, fees, taxes, discounts, coupons used, refunds, extra charges and other adjustments. `refund` and `extra_charge` only after the order is placed
+         *     (422 `order_not_placed`); other types also in draft. Invalid signs, currencies or fields yield 400; an allocation that does not fit yields 422 `shared_cost_allocation_invalid`.
+         *     `If-Match` is the vendor order version. Returns the updated order.
+         */
+        post: operations["createCostEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cost-entries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a cost entry (purchasers)
+         * @description Replaces every editable field, in a draft or after placing (audited, amounts recomputed). A voided entry cannot be edited (422 `cost_entry_voided`).
+         *     `If-Match` is the vendor order version.
+         */
+        put: operations["putCostEntry"];
+        post?: never;
+        /**
+         * Delete a cost entry of a draft order (purchasers)
+         * @description Only while the order is a draft (422 `order_not_draft`); after placing, void the entry instead. `If-Match` is the vendor order version.
+         */
+        delete: operations["deleteCostEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cost-entries/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a cost entry of a placed order (purchasers)
+         * @description Needs a `reason`. Entries created by a problem resolution or a line closure can only be voided by undoing that action
+         *     (409 `blocked_by_dependency`). `If-Match` is the vendor order version.
+         */
+        post: operations["voidCostEntry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1364,8 +1441,8 @@ export interface paths {
         put?: never;
         /**
          * Settle an open problem (purchasers)
-         * @description `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refundBase`, entered positive, stored as a negative `refund` cost entry on the line; temporary shape until the `refund` object of spec 10.3 is added)
-         *     or `accept` (counts as received). `refundBase` with any other action yields 400. `If-Match` is the problem version.
+         * @description `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refund` with a positive `amount`, stored as a negative `refund` cost entry on the line, source `problem`)
+         *     or `accept` (counts as received). `refund` with any other action yields 400. `If-Match` is the problem version.
          */
         post: operations["resolveProblem"];
         delete?: never;
@@ -2181,12 +2258,45 @@ export interface components {
         ReasonRequest: {
             reason: string;
         };
+        RefundInput: {
+            /** @description Any supported currency. */
+            currency: string;
+            /** @description Positive decimal string in `currency`; stored negative. */
+            amount: string;
+            /** @description Positive decimal string; the real base-currency amount, may be filled later by editing the entry. */
+            actualAmountBase?: string | null;
+            /** @enum {string} */
+            method: "cash" | "coupon";
+            note?: string;
+        };
+        CostEntryRequest: {
+            /** @enum {string} */
+            type: "shipping" | "fee" | "tax" | "discount" | "coupon_used" | "refund" | "extra_charge" | "other";
+            /**
+             * @description Required except for refund and extra_charge, which are always separate.
+             * @enum {string}
+             */
+            settlement?: "with_checkout" | "separate";
+            /** @description with_checkout: the order currency; separate: any supported currency. */
+            currency: string;
+            /** @description Signed decimal string, non-zero: discounts and refunds negative, coupon_used and extra_charge positive. */
+            amount: string;
+            /** @description Separate entries only: the real base-currency amount, same sign as amount. */
+            actualAmountBase?: string | null;
+            /**
+             * @description Required for refunds, forbidden otherwise.
+             * @enum {string|null}
+             */
+            refundMethod?: "cash" | "coupon" | null;
+            allocation?: components["schemas"]["CostAllocation"];
+            /** @description Required when the allocation mode is not all, and for refund, extra_charge, coupon_used and other. */
+            note?: string;
+        };
         CloseLineRequest: {
             /** @enum {string} */
             type: "short_accepted" | "not_obtained";
             reason: string;
-            /** @description Positive decimal string in the base currency. */
-            refundBase?: string | null;
+            refund?: components["schemas"]["RefundInput"] | null;
         };
         UnpurchasableRequest: {
             reason: string;
@@ -2278,7 +2388,7 @@ export interface components {
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
         VoidInfo: {
             reason: string;
             by: string;
@@ -2468,8 +2578,8 @@ export interface components {
         ResolveProblemRequest: {
             /** @enum {string} */
             action: "exchange" | "return_no_replace" | "accept";
-            /** @description Positive decimal string in the base currency; only with return_no_replace. */
-            refundBase?: string | null;
+            /** @description Only with return_no_replace; any other action yields 400. */
+            refund?: components["schemas"]["RefundInput"] | null;
             note?: string;
         };
     };
@@ -2583,7 +2693,7 @@ export interface components {
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
          *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
          *     `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
-         *     `line_missing_price`, `order_not_placed`, `line_not_closable`, `line_not_matchable`.
+         *     `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -4757,6 +4867,178 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    createCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    voidCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
         responses: {
             /** @description Updated order */
             200: {

@@ -1505,7 +1505,7 @@ paths:
       summary: "Close the remaining quantity of a short line (purchasers)"
       description: |
         `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
-        and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative `refund` cost entry (separate, base currency, cash) on the line. This body is a temporary shape until the `refund` object of spec 10.3 is added. `If-Match` is the vendor order version.
+        and have no open problem (422 `line_not_closable`). An optional `refund` (positive `amount`) is stored as a negative `refund` cost entry (separate, source `closure`) allocated to the line. `If-Match` is the vendor order version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1573,6 +1573,130 @@ paths:
         in a review-confirmed batch that is not purchased outside, and not unpurchasable (422 `item_not_purchasable`).  Takes no body.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/cost-entries:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: createCostEntry
+      summary: "Add a cost entry to a vendor order (purchasers)"
+      description: |
+        Shipping, fees, taxes, discounts, coupons used, refunds, extra charges and other adjustments. `refund` and `extra_charge` only after the order is placed
+        (422 `order_not_placed`); other types also in draft. Invalid signs, currencies or fields yield 400; an allocation that does not fit yields 422 `shared_cost_allocation_invalid`.
+        `If-Match` is the vendor order version. Returns the updated order.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CostEntryRequest" }
+      responses:
+        "201":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /cost-entries/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      operationId: putCostEntry
+      summary: "Replace a cost entry (purchasers)"
+      description: |
+        Replaces every editable field, in a draft or after placing (audited, amounts recomputed). A voided entry cannot be edited (422 `cost_entry_voided`).
+        `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CostEntryRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: deleteCostEntry
+      summary: "Delete a cost entry of a draft order (purchasers)"
+      description: |
+        Only while the order is a draft (422 `order_not_draft`); after placing, void the entry instead. `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /cost-entries/{id}/void:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: voidCostEntry
+      summary: "Void a cost entry of a placed order (purchasers)"
+      description: |
+        Needs a `reason`. Entries created by a problem resolution or a line closure can only be voided by undoing that action
+        (409 `blocked_by_dependency`). `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
       responses:
         "200":
           description: Updated order
@@ -1963,8 +2087,8 @@ paths:
       operationId: resolveProblem
       summary: "Settle an open problem (purchasers)"
       description: |
-        `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refundBase`, entered positive, stored as a negative `refund` cost entry on the line; temporary shape until the `refund` object of spec 10.3 is added)
-        or `accept` (counts as received). `refundBase` with any other action yields 400. `If-Match` is the problem version.
+        `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refund` with a positive `amount`, stored as a negative `refund` cost entry on the line, source `problem`)
+        or `accept` (counts as received). `refund` with any other action yields 400. `If-Match` is the problem version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -2164,7 +2288,7 @@ components:
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
         `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
         `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
-        `line_missing_price`, `order_not_placed`, `line_not_closable`, `line_not_matchable`.
+        `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -3005,6 +3129,29 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+    RefundInput:
+      type: object
+      additionalProperties: false
+      required: [currency, amount, method]
+      properties:
+        currency: { type: string, description: Any supported currency. }
+        amount: { type: string, description: Positive decimal string in `currency`; stored negative. }
+        actualAmountBase: { type: [string, "null"], description: "Positive decimal string; the real base-currency amount, may be filled later by editing the entry." }
+        method: { type: string, enum: [cash, coupon] }
+        note: { type: string }
+    CostEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [type, currency, amount]
+      properties:
+        type: { type: string, enum: [shipping, fee, tax, discount, coupon_used, refund, extra_charge, other] }
+        settlement: { type: string, enum: [with_checkout, separate], description: "Required except for refund and extra_charge, which are always separate." }
+        currency: { type: string, description: "with_checkout: the order currency; separate: any supported currency." }
+        amount: { type: string, description: "Signed decimal string, non-zero: discounts and refunds negative, coupon_used and extra_charge positive." }
+        actualAmountBase: { type: [string, "null"], description: "Separate entries only: the real base-currency amount, same sign as amount." }
+        refundMethod: { type: [string, "null"], enum: [cash, coupon, null], description: "Required for refunds, forbidden otherwise." }
+        allocation: { $ref: "#/components/schemas/CostAllocation" }
+        note: { type: string, description: "Required when the allocation mode is not all, and for refund, extra_charge, coupon_used and other." }
     CloseLineRequest:
       type: object
       additionalProperties: false
@@ -3012,7 +3159,7 @@ components:
       properties:
         type: { type: string, enum: [short_accepted, not_obtained] }
         reason: { type: string }
-        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency. }
+        refund: { anyOf: [{ $ref: "#/components/schemas/RefundInput" }, { type: "null" }] }
     UnpurchasableRequest:
       type: object
       additionalProperties: false
@@ -3170,6 +3317,7 @@ components:
         - order_has_no_lines
         - line_missing_price
         - order_not_placed
+        - cost_entry_voided
         - line_not_closable
         - line_not_matchable
         - lookup_not_found
@@ -3382,5 +3530,5 @@ components:
       required: [action]
       properties:
         action: { type: string, enum: [exchange, return_no_replace, accept] }
-        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency; only with return_no_replace. }
+        refund: { anyOf: [{ $ref: "#/components/schemas/RefundInput" }, { type: "null" }], description: "Only with return_no_replace; any other action yields 400." }
         note: { type: string }
