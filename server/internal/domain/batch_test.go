@@ -36,6 +36,7 @@ func TestApplyAction(t *testing.T) {
 		{"start review no pending", BatchDraft, ActionInput{Action: ActStartReview, Assignments: fullAssign()}, "", "", ErrNoPendingItems},
 		{"close with items", BatchCollecting, ActionInput{Action: ActClose, Items: ItemCounts{ItemPending: 2}}, BatchReviewing, "", nil},
 		{"close with only returned", BatchCollecting, ActionInput{Action: ActClose, Items: ItemCounts{ItemReturned: 1}}, BatchReviewing, "", nil},
+		{"close with only decided items", BatchCollecting, ActionInput{Action: ActClose, Items: ItemCounts{ItemApproved: 1, ItemRejected: 1}}, BatchReviewing, "", nil},
 		{"close empty auto-cancels", BatchCollecting, ActionInput{Action: ActClose}, BatchCancelled, "no_items", nil},
 		{"reopen ok", BatchReviewing, ActionInput{Action: ActReopen, Deadline: &future}, BatchCollecting, "", nil},
 		{"reopen past deadline", BatchReviewing, ActionInput{Action: ActReopen, Deadline: &past}, "", "", ErrDeadlinePast},

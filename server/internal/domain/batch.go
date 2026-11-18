@@ -190,7 +190,7 @@ func ApplyAction(from BatchStatus, in ActionInput) (ActionResult, error) {
 		if from != BatchCollecting {
 			return bad()
 		}
-		if in.Items.sum(ItemPending, ItemReturned) == 0 {
+		if in.Items.sum(ItemPending, ItemReturned, ItemApproved, ItemRejected) == 0 {
 			return ActionResult{To: BatchCancelled, Reason: "no_items", StatusBeforeCancel: BatchCollecting}, nil
 		}
 		return ActionResult{To: BatchReviewing}, nil
