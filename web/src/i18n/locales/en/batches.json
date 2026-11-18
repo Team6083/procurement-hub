@@ -99,6 +99,7 @@
     "restore_proposal": "Restore proposal",
     "confirm_review": "Confirm review",
     "unconfirm_review": "Undo review confirmation",
+    "summary": "Approved: {{approved}}, rejected: {{rejected}}",
     "purchaseOutside": "Buy outside this system (the batch completes right away)",
     "newDeadline": "This batch was collecting and its deadline has passed: set a new deadline."
   },

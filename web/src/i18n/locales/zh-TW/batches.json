@@ -99,6 +99,7 @@
     "restore_proposal": "恢復提案",
     "confirm_review": "審核確認",
     "unconfirm_review": "撤銷審核確認",
+    "summary": "核准 {{approved}} 個、駁回 {{rejected}} 個",
     "purchaseOutside": "在系統外採購（批次直接完成）",
     "newDeadline": "此批次取消前在收集中，截止時間已過：請設定新的截止時間。"
   },

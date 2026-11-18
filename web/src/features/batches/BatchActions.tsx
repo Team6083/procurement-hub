@@ -2,7 +2,8 @@ import { Box, Button, Checkbox, Dialog, HStack, Stack, Text } from '@chakra-ui/r
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTransition } from '../../api/batches';
-import type { Batch, BatchAction } from '../../api/types';
+import { useReferenceRates } from '../../api/vendors';
+import type { Batch, BatchAction, Item } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
@@ -10,6 +11,7 @@ import { Tooltip } from '../../components/ui/tooltip';
 import { UndoDialog } from '../../components/UndoDialog';
 import { availableActions, type Caller } from './rules';
 import { DeadlineModal } from './DeadlineModal';
+import { EstimateSummary } from './EstimateSummary';
 
 const NEEDS_REASON: BatchAction[] = ['cancel', 'reject_proposal'];
 const UNDO: BatchAction[] = ['uncancel', 'restore_proposal', 'unconfirm_review'];
@@ -18,13 +20,16 @@ const PRIMARY: BatchAction[] = ['confirm_review', 'open', 'close', 'reopen'];
 const DANGER: BatchAction[] = ['cancel', 'reject_proposal', 'withdraw_proposal'];
 
 /** Role-aware lifecycle buttons with reason / deadline dialogs where the backend requires them. */
-export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
+export function BatchActions({ batch, caller, pendingItems, undecidedItems, items }: {
   batch: Batch;
   caller: Caller;
   pendingItems: number | undefined;
   undecidedItems?: number;
+  /** The batch's items, for the review confirmation's summary. */
+  items?: Item[];
 }) {
   const { t } = useTranslation('batches');
+  const rates = useReferenceRates().data ?? [];
   const [active, setActive] = useState<BatchAction | null>(null);
   const [outside, setOutside] = useState(false);
   const transition = useTransition(batch.id);
@@ -82,6 +87,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
           <Dialog.Body>
             <Stack gap="3">
               <Text>{t('actions.confirm.confirm_review')}</Text>
+              {items && <ReviewSummary items={items} rates={rates} />}
               <Checkbox.Root checked={outside} onCheckedChange={(e) => setOutside(e.checked === true)}>
                 <Checkbox.HiddenInput />
                 <Checkbox.Control />
@@ -122,5 +128,18 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems }: {
         />
       )}
     </>
+  );
+}
+
+/** What the review confirmation locks in: how many items were approved and rejected, and the estimate of the approved ones. */
+function ReviewSummary({ items, rates }: { items: Item[]; rates: Parameters<typeof EstimateSummary>[0]['rates'] }) {
+  const { t } = useTranslation('batches');
+  const approved = items.filter((i) => i.status === 'approved');
+  const rejected = items.filter((i) => i.status === 'rejected').length;
+  return (
+    <Stack gap="2" borderWidth="1px" borderRadius="md" p="3">
+      <Text fontWeight="medium">{t('actions.summary', { approved: approved.length, rejected })}</Text>
+      {approved.length > 0 && <EstimateSummary items={approved} rates={rates} />}
+    </Stack>
   );
 }

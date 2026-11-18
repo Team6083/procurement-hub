@@ -69,7 +69,7 @@ export function BatchPage() {
                   {t('edit.button')}
                 </Button>
               )}
-              <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} />
+              <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} items={items.data} />
             </HStack>
           }
         />
