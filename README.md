@@ -22,7 +22,7 @@ Licensed under the [Apache License 2.0](LICENSE).
 | Notifications (in-app, email, Slack, Discord) | Not yet |
 | CSV import and export | Not yet |
 | Cost report | Not yet |
-| Product lookup (part-finder) | API only |
+| Product lookup (part-finder): fills an item's name, vendor, SKU, price and URL from a SKU or product URL | Works (API and web UI) |
 
 Configuration variables for the missing features (`SMTP_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
 
@@ -206,7 +206,7 @@ docs/                     configuration.md, keycloak.md
 .github/                  CI, release and Dependabot configuration
 ```
 
-Notification, product lookup, CSV and outbound-HTTP packages arrive with later milestones.
+Notification, CSV and outbound-HTTP packages arrive with later milestones.
 
 ## 12-factor self-check
 
