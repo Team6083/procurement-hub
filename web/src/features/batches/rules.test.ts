@@ -3,7 +3,7 @@ import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
 import { auditActionKey } from '../../components/AuditTimeline';
-import { availableActions, canAddItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
+import { availableActions, canAddItem, canCopyItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });
 const batch = (o: Partial<Batch> = {}): Batch =>
@@ -80,6 +80,17 @@ describe('item permissions mirror backend canModify', () => {
     expect(canAddItem(batch({ status: 'collecting' }), caller())).toBe(true);
     expect(canAddItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }))).toBe(false);
     expect(canAddItem(batch({ status: 'draft' }), caller({ teamRole: 'admin' }))).toBe(false);
+  });
+});
+
+describe('copy as new item', () => {
+  it('is offered for the requester or a team admin on any status while the batch takes items', () => {
+    for (const status of ['pending', 'returned', 'approved', 'rejected', 'withdrawn'] as const) {
+      expect(canCopyItem(item({ status }), batch({ status: 'collecting' }), caller())).toBe(true);
+    }
+    expect(canCopyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller())).toBe(false);
+    expect(canCopyItem(item({ requesterId: 'x' }), batch({ status: 'collecting' }), caller({ teamRole: 'admin' }))).toBe(true);
+    expect(canCopyItem(item(), batch({ status: 'reviewing' }), caller())).toBe(false);
   });
 });
 

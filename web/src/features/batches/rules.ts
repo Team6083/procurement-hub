@@ -142,7 +142,7 @@ export function canUndoReview(it: Pick<Item, 'status' | 'review'>, b: Pick<Batch
   return isTeamAdmin(c) || it.review.by === c.userId;
 }
 
-/** Copy a withdrawn item into a new one: its requester or a team admin, while the batch takes items. */
-export function canCopyItem(it: Pick<Item, 'status' | 'requesterId'>, b: Batch, c: Caller): boolean {
-  return it.status === 'withdrawn' && canAddItem(b, c) && (it.requesterId === c.userId || isTeamAdmin(c));
+/** Copy an item (whatever its status) into a new one: its requester or a team admin, while the batch takes items. */
+export function canCopyItem(it: Pick<Item, 'requesterId'>, b: Batch, c: Caller): boolean {
+  return canAddItem(b, c) && (it.requesterId === c.userId || isTeamAdmin(c));
 }
