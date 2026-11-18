@@ -14,11 +14,21 @@ const actionIcons: Record<string, ReactNode> = {
   'item.unpurchasable': <LuShoppingCart />,
 };
 
+/** `#seqNo name` of the item an `item.deleted` event removed, from its stored snapshot. */
+export function deletedItemLabel(ev: AuditEvent): string | null {
+  const from = ev.changes?.[0]?.from;
+  if (!from || typeof from !== 'object') return null;
+  const { seqNo, name } = from as { seqNo?: unknown; name?: unknown };
+  const parts = [typeof seqNo === 'number' ? `#${seqNo}` : '', typeof name === 'string' ? name : ''].filter(Boolean);
+  return parts.length ? parts.join(' ') : null;
+}
+
 /** A batch's timeline, its items' events included; people by name. */
 export function TimelineTab({ batchId, nameOf }: { batchId: string; nameOf: (id: string) => string }) {
   const { t } = useTranslation('batches');
   const audit = useBatchAudit(batchId);
   const statusChange = (ev: AuditEvent) => {
+    if (ev.action === 'item.deleted') return deletedItemLabel(ev);
     const c = ev.changes?.find((x) => x.field === 'status');
     if (!c || typeof c.to !== 'string' || !c.to) return null;
     const label = (s: unknown) => (typeof s === 'string' && s ? t(`${ev.objectType === 'item' ? 'itemStatus' : 'status'}.${s}`, { defaultValue: s }) : '');

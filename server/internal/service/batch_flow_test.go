@@ -216,8 +216,12 @@ func TestAllRejectedCompletesBatch(t *testing.T) {
 	if _, err := e.items.ForceReject(ctx, e.admin, it.ID, it.Version, ""); err == nil {
 		t.Error("force-reject needs a reason")
 	}
-	if _, err := e.items.ForceReject(ctx, e.admin, it.ID, it.Version, "duplicate"); err != nil {
+	rejected, err := e.items.ForceReject(ctx, e.admin, it.ID, it.Version, "duplicate")
+	if err != nil {
 		t.Fatal(err)
+	}
+	if rejected.FirstReviewedAt == nil {
+		t.Error("force-reject must set firstReviewedAt")
 	}
 	got, _ := e.st.GetBatch(ctx, b.ID)
 	done, err := e.batches.Transition(ctx, e.admin, b.ID, got.Version, TransitionInput{Action: domain.ActConfirmReview})

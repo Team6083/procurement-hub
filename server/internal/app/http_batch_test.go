@@ -333,3 +333,16 @@ func TestHTTPBatchItemLimit(t *testing.T) {
 	w.do(t, call{token: w.mem, method: "POST", path: w.path("/items/{}", a.String("id")) + "/withdraw", ifMatch: a.ETag()}).expect(200)
 	w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: itemBody("c")}).expect(201)
 }
+
+func TestHTTPDeleteItem(t *testing.T) {
+	w := setup(t)
+	id, _ := w.openBatch(t, "Delete round")
+	bp := w.path("/batches/{}", id)
+	it := w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: itemBody("gone")}).expect(201)
+	ip := w.path("/items/{}", it.String("id"))
+	w.do(t, call{token: w.mem, method: "DELETE", path: ip, skipRequestValidation: true}).expect(428, "if_match_required")
+	w.do(t, call{token: w.mem, method: "DELETE", path: ip, ifMatch: it.ETag()}).expect(204)
+	if n := len(w.do(t, call{token: w.mem, method: "GET", path: bp + "/items"}).expect(200).Items()); n != 0 {
+		t.Fatalf("items after delete = %d", n)
+	}
+}
