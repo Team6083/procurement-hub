@@ -99,12 +99,12 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     }
     if (canModifyItem(it, batch, caller)) {
       out.push({ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(it) });
-      // Never-reviewed items are deleted; the rest keep the withdraw flow (spec §10.2).
-      if (canDeleteItem(it, batch, caller)) {
-        out.push({ value: 'delete', icon: <LuTrash2 />, label: t('item.delete'), danger: true, onSelect: () => { remove.reset(); setDeleting(it); } });
-      } else {
-        out.push({ value: 'withdraw', icon: <LuUndo2 />, label: t('item.withdraw'), danger: true, onSelect: () => { action.reset(); setWithdrawing(it); } });
-      }
+    }
+    // Never-reviewed items are deleted; the rest keep the withdraw flow (spec §10.2).
+    if (canDeleteItem(it, batch, caller)) {
+      out.push({ value: 'delete', icon: <LuTrash2 />, label: t('item.delete'), danger: true, onSelect: () => { remove.reset(); setDeleting(it); } });
+    } else if (canModifyItem(it, batch, caller)) {
+      out.push({ value: 'withdraw', icon: <LuUndo2 />, label: t('item.withdraw'), danger: true, onSelect: () => { action.reset(); setWithdrawing(it); } });
     }
     if (canMarkUnpurchasable(it, batch, caller)) {
       out.push({ value: 'unpurchasable', icon: <LuBan />, label: t('item.unpurchasable'), danger: true, onSelect: () => { action.reset(); setUnbuyable(it); } });

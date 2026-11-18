@@ -47,13 +47,17 @@ func TestDeleteNeverReviewedItem(t *testing.T) {
 	if !found || snap.Name != "first" || snap.SeqNo != first.SeqNo {
 		t.Fatalf("item.deleted audit with snapshot missing: %+v", pg.Events)
 	}
-	// seqNo is not reused, and the admin may delete any item.
+	// A stale version is a conflict.
+	if err := e.items.Delete(ctx, e.admin, second.ID, second.Version+1); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale version: want conflict, got %v", err)
+	}
+	// Deleting the highest seqNo (as admin) must not let it be reused.
+	if err := e.items.Delete(ctx, e.admin, second.ID, second.Version); err != nil {
+		t.Fatalf("admin delete: %v", err)
+	}
 	third := e.item(t, e.member, b.ID, "third")
 	if third.SeqNo != second.SeqNo+1 {
 		t.Fatalf("seqNo reused: first=%d second=%d third=%d", first.SeqNo, second.SeqNo, third.SeqNo)
-	}
-	if err := e.items.Delete(ctx, e.admin, second.ID, second.Version); err != nil {
-		t.Fatalf("admin delete: %v", err)
 	}
 }
 

@@ -410,6 +410,9 @@ func (s *Items) Delete(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 	if !canDelete(actor, it, b) {
 		return ErrForbidden
 	}
+	if it.Version != version {
+		return ErrVersionConflict
+	}
 	if !itemDeletable(it, b) {
 		return Rule("item_not_deletable", "This item can no longer be deleted; withdraw it instead.")
 	}
