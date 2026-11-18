@@ -1,7 +1,7 @@
 import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuListTodo, LuPackage, LuPackageCheck, LuShieldCheck, LuShoppingCart } from 'react-icons/lu';
+import { LuPackage, LuPackageCheck, LuShieldCheck, LuShoppingCart } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
 import { useSession } from '../auth/AuthGate';
 import { useAccess } from '../auth/useAccess';
@@ -28,7 +28,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
   // At most five pages per role (the team's DESIGN.md: Frame); vendor orders and vendors open from the Purchasing
   // page, deliveries are a tab of Receiving, and the admin pages share one entry.
   const nav: (NavItem & { match?: string[] })[] = [
-    { href: '/', label: t('nav.home'), icon: <LuListTodo /> },
     { href: '/batches', label: t('nav.batches'), icon: <LuPackage /> },
     ...(canPurchase
       ? [{

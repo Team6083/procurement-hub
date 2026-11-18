@@ -3,7 +3,6 @@
     "name": "採購中心"
   },
   "nav": {
-    "home": "我的待辦",
     "batches": "採購批次",
     "admin": "管理",
     "purchasing": "採購",
@@ -25,7 +24,7 @@
     "body": "此頁面尚未開放。"
   },
   "pages": {
-    "home": "我的待辦",
+    "home": "首頁",
     "batches": "採購批次",
     "reports": "報表",
     "notFound": "找不到頁面"

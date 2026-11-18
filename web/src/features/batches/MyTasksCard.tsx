@@ -46,7 +46,7 @@ function CountGroup({ title, link, count, to }: { title: string; link: string; c
 
 /**
  * The home page's tasks: batch work (proposals, reviews, returned items) and, for purchasers and receivers, the
- * purchasing and receiving work. The page header already says 我的待辦, so the groups carry no title of their own.
+ * purchasing and receiving work. The page header already says 首頁, so the groups carry no title of their own.
  */
 export function MyTasksCard() {
   const { t } = useTranslation('teams');

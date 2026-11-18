@@ -3,7 +3,6 @@
     "name": "Procurement Hub"
   },
   "nav": {
-    "home": "My tasks",
     "batches": "Batches",
     "admin": "Admin",
     "purchasing": "Purchasing",
@@ -25,7 +24,7 @@
     "body": "This page is not available yet."
   },
   "pages": {
-    "home": "My tasks",
+    "home": "Home",
     "batches": "Batches",
     "reports": "Reports",
     "notFound": "Page not found"

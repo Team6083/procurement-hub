@@ -53,9 +53,14 @@ export function HomePage() {
                 return (
                   <Fragment key={team.id}>
                     {index > 0 && <Separator />}
-                    <HStack justify="space-between" gap="3" py="2">
+                    <HStack position="relative" justify="space-between" gap="3" py="2" _hover={{ bg: 'bg.muted' }}>
                       <Stack gap="0" minW="0">
-                        <RouteAnchor to={paths.team(team.slug)} fontWeight="medium">
+                        <RouteAnchor
+                          to={paths.team(team.slug)}
+                          fontWeight="medium"
+                          // The link's click area covers the whole row, so the arrow is clickable too.
+                          _after={{ content: '""', position: 'absolute', inset: 0 }}
+                        >
                           {team.name}
                         </RouteAnchor>
                         {team.description && (
