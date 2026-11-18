@@ -3,7 +3,7 @@ import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
 import { auditActionKey } from '../../components/AuditTimeline';
-import { availableActions, canAddItem, canCopyItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
+import { availableActions, canAddItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });
 const batch = (o: Partial<Batch> = {}): Batch =>
@@ -88,6 +88,19 @@ describe('copy as new item', () => {
     expect(canCopyItem(batch({ status: 'collecting' }), caller())).toBe(true);
     expect(canCopyItem(batch({ status: 'reviewing' }), caller())).toBe(false);
     expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }))).toBe(false);
+  });
+});
+
+describe('canDeleteItem', () => {
+  const fresh = item({ firstReviewedAt: null });
+  it('requester deletes own never-reviewed item; a team admin deletes any, also in a proposed batch', () => {
+    expect(canDeleteItem(fresh, batch({ status: 'collecting' }), caller())).toBe(true);
+    expect(canDeleteItem(item({ requesterId: 'x', firstReviewedAt: null }), batch({ status: 'proposed' }), caller({ teamRole: 'admin' }))).toBe(true);
+    expect(canDeleteItem(item({ requesterId: 'x', firstReviewedAt: null }), batch({ status: 'proposed' }), caller())).toBe(false);
+    expect(canDeleteItem(fresh, batch({ status: 'reviewing' }), caller())).toBe(false);
+  });
+  it('refuses a reviewed item even when pending again', () => {
+    expect(canDeleteItem(item({ firstReviewedAt: '2026-01-01T00:00:00Z' }), batch({ status: 'collecting' }), caller())).toBe(false);
   });
 });
 

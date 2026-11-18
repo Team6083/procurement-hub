@@ -30,6 +30,7 @@
     "deadline_not_in_future": "The deadline must be in the future.",
     "no_pending_items": "There are no pending items to review.",
     "reason_required": "A reason is required.",
+    "item_not_deletable": "This item can no longer be deleted. Withdraw it instead.",
     "item_not_editable": "This item can no longer be edited or withdrawn.",
     "item_not_edited": "Edit the item before resubmitting it.",
     "item_not_reviewable": "One of the items can no longer be reviewed (it may have been decided already).",

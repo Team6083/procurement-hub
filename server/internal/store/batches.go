@@ -152,6 +152,21 @@ func (s *Store) UpdateItem(ctx context.Context, id bson.ObjectID, version int64,
 	return &out, nil
 }
 
+// DeleteItem removes an item if its version equals expected.
+func (s *Store) DeleteItem(ctx context.Context, id bson.ObjectID, expected int64) error {
+	res, err := s.c("items").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "version", Value: expected}})
+	if err != nil {
+		return err
+	}
+	if res.DeletedCount == 0 {
+		if n, cerr := s.c("items").CountDocuments(ctx, bson.D{{Key: "_id", Value: id}}); cerr == nil && n > 0 {
+			return ErrVersionConflict
+		}
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ItemCounts counts a batch's items by status, excluding withdrawn ones
 // (withdrawn items are ignored by every "all items" condition, spec §10.1).
 func (s *Store) ItemCounts(ctx context.Context, batchID bson.ObjectID) (domain.ItemCounts, error) {

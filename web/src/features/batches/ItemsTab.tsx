@@ -2,8 +2,8 @@ import { Button, Card, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuUndo2, LuX } from 'react-icons/lu';
-import { useItemAction, useReview } from '../../api/batches';
+import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
+import { useDeleteItem, useItemAction, useReview } from '../../api/batches';
 import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -17,7 +17,7 @@ import { ItemsTable } from './ItemsTable';
 import { TO_PURCHASE, countsTowardEstimate, filterItems, type ItemFilters } from './filters';
 import { ReviewBar } from './ReviewBar';
 import {
-  canAddItem, canCopyItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, canUndoReview, canUndoUnpurchasable,
+  canAddItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canModifyItem, canResubmitItem, canReview, canUndoReview, canUndoUnpurchasable,
   inPurchasing, isMember, showResubmit, type Caller,
 } from './rules';
 
@@ -54,6 +54,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
+  const [deleting, setDeleting] = useState<Item | null>(null);
   const [unbuyable, setUnbuyable] = useState<Item | null>(null);
   const [forcing, setForcing] = useState<Item | null>(null);
   const [deciding, setDeciding] = useState<{ item: Item; decision: 'return' | 'reject' } | null>(null);
@@ -61,6 +62,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [undoing, setUndoing] = useState<{ item: Item; what: 'review' | 'unpurchasable' } | null>(null);
   const [copyFrom, setCopyFrom] = useState<Item | null>(null);
   const action = useItemAction();
+  const remove = useDeleteItem();
   const internal = isMember(caller) || caller.isSystemAdmin;
 
   const visible = useMemo(() => {
@@ -105,6 +107,11 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     }
     if (canModifyItem(it, batch, caller)) {
       out.push({ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(it) });
+    }
+    // Never-reviewed items are deleted; the rest keep the withdraw flow (spec §10.2).
+    if (canDeleteItem(it, batch, caller)) {
+      out.push({ value: 'delete', icon: <LuTrash2 />, label: t('item.delete'), danger: true, onSelect: () => { remove.reset(); setDeleting(it); } });
+    } else if (canModifyItem(it, batch, caller)) {
       out.push({ value: 'withdraw', icon: <LuUndo2 />, label: t('item.withdraw'), danger: true, onSelect: () => { action.reset(); setWithdrawing(it); } });
     }
     if (canMarkUnpurchasable(it, batch, caller)) {
@@ -209,6 +216,17 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         error={deciding ? review.error : null}
         onClose={() => setDeciding(null)}
         onConfirm={(comment) => deciding && review.mutate({ decisions: [{ itemId: deciding.item.id, decision: deciding.decision, comment }] }, { onSuccess: () => setDeciding(null) })}
+      />
+      <ReasonModal
+        open={!!deleting}
+        title={t('item.delete')}
+        body={t('item.deleteConfirm', { name: deleting?.name })}
+        confirmLabel={t('item.delete')}
+        danger
+        loading={remove.isPending}
+        error={deleting ? remove.error : null}
+        onClose={() => setDeleting(null)}
+        onConfirm={() => deleting && remove.mutate(deleting, { onSuccess: () => setDeleting(null) })}
       />
       <ReasonModal
         open={!!forcing}

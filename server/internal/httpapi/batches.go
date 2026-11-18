@@ -34,6 +34,7 @@ func (a *BatchesAPI) Mount(r chi.Router) {
 	r.Post("/batches/{id}/reviews", a.review)
 	r.Put("/items/{id}", a.putItem)
 	r.Post("/items/{id}/withdraw", a.withdrawItem)
+	r.Delete("/items/{id}", a.deleteItem)
 	r.Post("/items/{id}/resubmit", a.resubmitItem)
 	r.Post("/items/{id}/force-reject", a.forceReject)
 	r.Post("/items/{id}/unpurchasable", a.unpurchasable)
@@ -330,6 +331,23 @@ func (a *BatchesAPI) withdrawItem(w http.ResponseWriter, r *http.Request) {
 	}
 	it, err := a.Items.Withdraw(r.Context(), a.actor(r).Actor, id, ver)
 	respondItem(w, r, http.StatusOK, it, err)
+}
+
+func (a *BatchesAPI) deleteItem(w http.ResponseWriter, r *http.Request) {
+	id, ok := idParam(w, r, "id")
+	if !ok {
+		return
+	}
+	ver, e := ifMatch(r)
+	if e != nil {
+		WriteError(w, e)
+		return
+	}
+	if err := a.Items.Delete(r.Context(), a.actor(r).Actor, id, ver); err != nil {
+		fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (a *BatchesAPI) resubmitItem(w http.ResponseWriter, r *http.Request) {

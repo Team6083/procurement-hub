@@ -30,6 +30,7 @@
     "deadline_not_in_future": "截止時間必須在未來。",
     "no_pending_items": "沒有待審核的品項。",
     "reason_required": "必須填寫原因。",
+    "item_not_deletable": "此品項已無法刪除，請改用撤回。",
     "item_not_editable": "此品項已無法編輯或撤回。",
     "item_not_edited": "請先編輯品項才能重新送審。",
     "item_not_reviewable": "其中有品項已無法審核（可能已被決定）。",

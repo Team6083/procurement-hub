@@ -54,7 +54,11 @@ type Item struct {
 	ProductURL         string         `bson:"productUrl,omitempty" json:"productUrl"`
 	Status             ItemStatus     `bson:"status" json:"status"`
 	Review             *Review        `bson:"review" json:"review"`
-	Lookup             *LookupInfo    `bson:"lookup" json:"lookup"`
+	// FirstReviewedAt is the time of the first review decision. It is never
+	// cleared, not even by undoing the decision (spec §9.1); it decides whether
+	// the item can still be deleted (spec §10.2).
+	FirstReviewedAt *time.Time  `bson:"firstReviewedAt,omitempty" json:"firstReviewedAt"`
+	Lookup          *LookupInfo `bson:"lookup" json:"lookup"`
 	// Unpurchasable is set while the purchaser has marked the item (spec §10.2).
 	Unpurchasable *UnpurchasableMark `bson:"unpurchasable,omitempty" json:"unpurchasable"`
 	// Computed fields (spec §9.1); null/0 until the batch is review-confirmed.
