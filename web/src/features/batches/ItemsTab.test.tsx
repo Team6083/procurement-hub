@@ -194,5 +194,8 @@ describe('ItemsTab review workspace', () => {
   it('shows the purpose under the name', () => {
     renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={[item(1, { name: 'Wheel', status: 'approved', toPurchaseQuantity: 1, purpose: 'Replace the worn drive wheel', notes: 'Black, 6 in' })]} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
     expect(screen.getByText('Replace the worn drive wheel')).toBeTruthy();
+    // Notes are marked by an icon, not spelled out in the row.
+    expect(screen.getByLabelText('Notes: Black, 6 in')).toBeTruthy();
+    expect(screen.queryByText('Black, 6 in')).toBeNull();
   });
 });

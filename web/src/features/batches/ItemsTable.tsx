@@ -4,7 +4,7 @@ import { ClampedText } from '../../components/ClampedText';
 import { DataTable } from '../../components/DataTable';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuArrowDown, LuArrowUp } from 'react-icons/lu';
+import { LuArrowDown, LuArrowUp, LuStickyNote } from 'react-icons/lu';
 import type { Item, Team } from '../../api/types';
 import { Tooltip } from '../../components/ui/tooltip';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
@@ -100,10 +100,14 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
               <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
                 <Badge variant="outline" size="sm" flexShrink={0} tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
               </Tooltip>
+              {/* A marker that this item has notes; the notes show on hover or focus. */}
+              {it.notes && (
+                <Tooltip content={<Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="xs">{it.notes}</Text>}>
+                  <Icon as={LuStickyNote} boxSize="4" mt="0.5" color="fg.muted" flexShrink={0} tabIndex={0} role="img" aria-label={`${t('item.notes')}: ${it.notes}`} />
+                </Tooltip>
+              )}
             </Flex>
-            {(it.purpose || it.notes) && (
-              <ClampedText text={it.purpose} extra={it.notes ? `${t('item.notes')}: ${it.notes}` : undefined} lines={2} display="block" textStyle="xs" fontWeight="normal" color="fg.muted" />
-            )}
+            {it.purpose && <ClampedText text={it.purpose} lines={2} display="block" textStyle="xs" fontWeight="normal" color="fg.muted" />}
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}
