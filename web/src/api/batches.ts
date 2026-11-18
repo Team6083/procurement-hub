@@ -1,4 +1,4 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQueries, useQuery } from '@tanstack/react-query';
 import { useApi } from './context';
 import { AUDIT_PAGE_SIZE, keys } from './keys';
 import type {
@@ -43,6 +43,24 @@ export function useItems(batchId: string | undefined) {
     // Purchasers and receivers outside the team get a restricted item projection without `lines`.
     queryFn: async ({ signal }) =>
       (await api.get<{ items: ItemWithLines[] }>(`/batches/${batchId}/items`, { signal })).items.map((i) => ({ ...i, lines: i.lines ?? [] })),
+  });
+}
+
+/** item id -> requester id over the items of several batches (the vendor order page's "requested by" shortcut). */
+export function useRequesters(batchIds: string[], enabled: boolean) {
+  const api = useApi();
+  return useQueries({
+    queries: batchIds.map((batchId) => ({
+      queryKey: keys.items(batchId),
+      enabled,
+      queryFn: async ({ signal }: { signal: AbortSignal }) =>
+        (await api.get<{ items: ItemWithLines[] }>(`/batches/${batchId}/items`, { signal })).items.map((i) => ({ ...i, lines: i.lines ?? [] })),
+    })),
+    combine: (rs) => {
+      const m = new Map<string, string>();
+      for (const r of rs) for (const i of r.data ?? []) m.set(i.id, i.requesterId);
+      return m;
+    },
   });
 }
 

@@ -113,7 +113,11 @@
     "status": "狀態",
     "total": "合計（{{currency}}）",
     "problemLink": "{{count}} 件{{type}}（{{state}}）：查看到貨紀錄",
-    "notSaved": "未儲存"
+    "notSaved": "未儲存",
+    "goods": "貨款（{{currency}}）",
+    "checkout": "隨貨款（{{currency}}）",
+    "separate": "另外付款（{{currency}}）",
+    "totals": "合計"
   },
   "amount": {
     "format": "請輸入數字。",
@@ -222,5 +226,96 @@
     "cash": "現金或刷卡退款",
     "coupon": "優惠券（以面額記帳）",
     "note": "退款備註"
+  },
+  "costs": {
+    "title": "費用與調整",
+    "empty": "還沒有費用或調整。",
+    "add": "新增費用或調整",
+    "edit": "編輯",
+    "delete": "刪除",
+    "void": "作廢",
+    "deleteHelp": "刪除這筆費用與調整？它的金額會從訂單中移除。",
+    "voidHelp": "這筆紀錄會保留並以刪除線顯示，金額不再計入訂單。",
+    "voided": "已作廢",
+    "voidedReason": "已作廢：{{reason}}",
+    "derivedHint": "由結案或問題處理產生。要移除請撤銷該結案或問題處理。",
+    "source": {
+      "manual": "手動",
+      "problem": "來自問題處理",
+      "closure": "來自明細行結案"
+    },
+    "type": "類型",
+    "settlement": "付款方式",
+    "currency": "幣別",
+    "amountShort": "金額",
+    "actualBaseShort": "實際（{{currency}}）",
+    "refundMethod": "退款方式",
+    "splitTo": "分給",
+    "note": "備註",
+    "amount": "金額（{{currency}}）",
+    "actualBase": "實際金額（{{currency}}）",
+    "actualHelp": "實際換算成本位幣的金額。留空則用參考匯率（暫估）；之後補上即定案。",
+    "types": {
+      "shipping": "運費",
+      "fee": "手續費",
+      "tax": "稅",
+      "discount": "折扣",
+      "coupon_used": "使用抵用券",
+      "refund": "退款",
+      "extra_charge": "補款",
+      "other": "其他"
+    },
+    "settlements": {
+      "with_checkout": "隨貨款結帳",
+      "separate": "另外付款"
+    },
+    "settlementHelp": {
+      "with_checkout": "與貨款一起結帳，一律使用訂單幣別。",
+      "separate": "另外付款或退款，可用任何支援的幣別。"
+    },
+    "forcedSeparate": "退款與補款一律另外付款。",
+    "placedOnlyHint": "退款與補款要在訂單下單後才能新增。",
+    "currencyLocked": "隨貨款結帳的費用使用訂單幣別（{{currency}}）。",
+    "signHint": {
+      "negative": "請填負數（會降低成本）。",
+      "positive": "請填正數。",
+      "any": "費用填正數，減免填負數。"
+    },
+    "couponUsedHint": "請填抵用券的面額：使用抵用券的團隊按原價負擔，發出抵用券的退款已按面額入帳。",
+    "couponRefundHint": "抵用券退款按面額入帳。之後使用抵用券時，在使用的訂單新增一筆「使用抵用券」（正數、面額）。",
+    "noteCouponHelp": "沒有固定面額的抵用券（例如九折）不入帳，請寫在備註。",
+    "methods": {
+      "cash": "現金或刷卡退回",
+      "coupon": "抵用券（按面額）"
+    },
+    "modes": {
+      "all": "全部明細行",
+      "teams": "指定團隊",
+      "lines": "指定明細行",
+      "manual": "手動"
+    },
+    "modeHelp": {
+      "all": "依各行金額比例分給所有明細行。",
+      "teams": "依金額比例分給所選團隊的明細行。",
+      "lines": "依金額比例分給所選明細行。",
+      "manual": "逐行填金額，加總必須等於金額。"
+    },
+    "pickTeams": "團隊",
+    "pickLines": "明細行",
+    "byRequester": "選出某人申請的品項",
+    "byRequesterPlaceholder": "選擇一個人",
+    "byRequesterHelp": "加入所有品項由此人申請的明細行。",
+    "lineCount": "{{count}} 行",
+    "manualAmounts": "每行金額（{{currency}}）",
+    "remaining": "尚未分配：{{amount}} {{currency}}",
+    "editAudit": "修改會記錄在時間軸，金額也會重新計算。",
+    "allocationsReset": "費用原本分給的某些團隊或明細行已不存在，這些費用現在改為分給全部明細行。請檢查費用與調整表。",
+    "errors": {
+      "placedOnly": "退款與補款需要已下單的訂單。",
+      "pickTeams": "至少選一個團隊。",
+      "pickLines": "至少選一條明細行。",
+      "manualEmpty": "至少填一行的金額。",
+      "manualSum": "各行金額加總必須等於金額。"
+    }
   }
 }

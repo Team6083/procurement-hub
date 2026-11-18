@@ -22,8 +22,8 @@
     "line_missing_price": "Line {{line}} has no unit price.",
     "no_conversion": "Enter the amount actually charged, or set a reference rate for {{currency}}.",
     "original_total_zero": "The original total is 0, so the charged amount cannot be spread.",
-    "entry_no_conversion": "Enter the actual base-currency amount of cost entry {{entry}} ({{currency}}), or set a reference rate for {{currency}}.",
-    "allocation_invalid": "The split of cost entry {{entry}} does not match any line of this order."
+    "entry_no_conversion": "Enter the actual base-currency amount of cost entry #{{entry}} ({{currency}}), or set a reference rate for {{currency}}.",
+    "allocation_invalid": "The split of cost entry #{{entry}} does not match any line of this order."
   },
   "timeline": {
     "title": "Timeline",
@@ -114,7 +114,11 @@
     "status": "Status",
     "total": "Total ({{currency}})",
     "problemLink": "{{count}} {{type}} ({{state}}): open delivery",
-    "notSaved": "Not saved"
+    "notSaved": "Not saved",
+    "goods": "Goods ({{currency}})",
+    "checkout": "With checkout ({{currency}})",
+    "separate": "Separate ({{currency}})",
+    "totals": "Totals"
   },
   "amount": {
     "format": "Enter a number.",
@@ -228,5 +232,97 @@
     "cash": "Cash or card refund",
     "coupon": "Coupon (booked at face value)",
     "note": "Refund note"
+  },
+  "costs": {
+    "title": "Costs and adjustments",
+    "empty": "No costs or adjustments yet.",
+    "add": "Add cost or adjustment",
+    "edit": "Edit entry",
+    "delete": "Delete entry",
+    "void": "Void entry",
+    "deleteHelp": "Delete this entry? Its amounts are removed from the order.",
+    "voidHelp": "The entry stays on record, struck through, and its amounts leave the order.",
+    "voided": "Voided",
+    "voidedReason": "Voided: {{reason}}",
+    "derivedHint": "Created by a closure or problem resolution. To remove it, undo that closure or resolution.",
+    "source": {
+      "manual": "Manual",
+      "problem": "From a problem resolution",
+      "closure": "From a line closure"
+    },
+    "type": "Type",
+    "settlement": "Paid",
+    "currency": "Currency",
+    "amountShort": "Amount",
+    "actualBaseShort": "Actual ({{currency}})",
+    "refundMethod": "Refund method",
+    "splitTo": "Split to",
+    "note": "Note",
+    "amount": "Amount ({{currency}})",
+    "actualBase": "Actual amount ({{currency}})",
+    "actualHelp": "What it really came to in the base currency. Leave empty to use the reference rate (provisional); fill it in later to finalize.",
+    "types": {
+      "shipping": "Shipping",
+      "fee": "Fee",
+      "tax": "Tax",
+      "discount": "Discount",
+      "coupon_used": "Coupon used",
+      "refund": "Refund",
+      "extra_charge": "Extra charge",
+      "other": "Other"
+    },
+    "settlements": {
+      "with_checkout": "With the goods",
+      "separate": "Separately"
+    },
+    "settlementHelp": {
+      "with_checkout": "Paid in the same checkout as the goods; always in the order currency.",
+      "separate": "Paid or refunded on its own, in any supported currency."
+    },
+    "forcedSeparate": "Refunds and extra charges are always separate.",
+    "placedOnlyHint": "Refunds and extra charges can be added once the order is placed.",
+    "currencyLocked": "Costs paid with the goods use the order currency ({{currency}}).",
+    "signHint": {
+      "negative": "Enter a negative amount (it lowers the cost).",
+      "positive": "Enter a positive amount.",
+      "any": "Positive for a cost, negative for a reduction."
+    },
+    "couponUsedHint": "Enter the coupon's face value: the team using the coupon pays full price, and the coupon's issuing refund was booked at face value.",
+    "couponRefundHint": "A coupon refund is booked at face value. When the coupon is used later, add a Coupon used entry (positive, face value) on the order where it is used.",
+    "noteCouponHelp": "For a coupon without a fixed value (such as 10% off), do not book it; mention it here.",
+    "methods": {
+      "cash": "Cash or card",
+      "coupon": "Coupon (face value)"
+    },
+    "modes": {
+      "all": "All lines",
+      "teams": "Teams",
+      "lines": "Lines",
+      "manual": "Manual"
+    },
+    "modeHelp": {
+      "all": "Spread over every line by its price.",
+      "teams": "Spread over the lines of the chosen teams by price.",
+      "lines": "Spread over the chosen lines by price.",
+      "manual": "Enter the amount for each line; they must add up to the amount."
+    },
+    "pickTeams": "Teams",
+    "pickLines": "Lines",
+    "byRequester": "Pick items requested by a person",
+    "byRequesterPlaceholder": "Choose a person",
+    "byRequesterHelp": "Adds every line whose item this person requested.",
+    "lineCount_one": "{{count}} line",
+    "lineCount_other": "{{count}} lines",
+    "manualAmounts": "Amount per line ({{currency}})",
+    "remaining": "Remaining: {{amount}} {{currency}}",
+    "editAudit": "Changes are recorded in the timeline and the amounts are recalculated.",
+    "allocationsReset": "Some teams or lines that a cost entry was split to are gone, so those entries now split over all lines. Check the costs and adjustments table.",
+    "errors": {
+      "placedOnly": "Refunds and extra charges need a placed order.",
+      "pickTeams": "Choose at least one team.",
+      "pickLines": "Choose at least one line.",
+      "manualEmpty": "Enter an amount for at least one line.",
+      "manualSum": "The line amounts must add up to the amount."
+    }
   }
 }

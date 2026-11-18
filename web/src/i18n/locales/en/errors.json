@@ -55,5 +55,6 @@
     "lookup_disabled": "Product lookup is not enabled.",
     "upstream_timeout": "The product lookup took too long. Please try again."
   },
-  "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes."
+  "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes.",
+  "order_not_placed": "Refunds and extra charges can be added only to a placed order, and cost entries can be voided only on a placed order (delete them in a draft)."
 }

@@ -1,6 +1,6 @@
 import { orderLabel } from '../labels';
 import { currencyFractionDigits, formatMoney } from '../money';
-import { Button, Card, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Alert, Button, Card, CloseButton, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -17,6 +17,7 @@ import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
 import { useOwnerName } from './owners';
 import { Breakdown } from './Breakdown';
+import { CostEntriesTable } from './CostEntriesTable';
 import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
 import { LineFormModal } from './LineFormModal';
@@ -45,6 +46,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const [closing, setClosing] = useState<VendorOrderLine | null>(null);
   const [reopening, setReopening] = useState<VendorOrderLine | null>(null);
   const [removing, setRemoving] = useState<VendorOrderLine | null>(null);
+  const [resetSeen, setResetSeen] = useState<number | null>(null);
   const [undo, setUndo] = useState<Exclude<OrderAction, 'place'> | null>(null);
 
   if (q.isPending) return <PageSkeleton />;
@@ -91,6 +93,13 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         )}
         {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
         {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
+        {order.allocationsReset && resetSeen !== order.version && (
+          <Alert.Root status="warning">
+            <Alert.Indicator />
+            <Alert.Description>{t('costs.allocationsReset')}</Alert.Description>
+            <CloseButton size="sm" aria-label={t('common:actions.close')} onClick={() => setResetSeen(order.version)} />
+          </Alert.Root>
+        )}
         {!undo && <ErrorAlert error={action.error} />}
         <Card.Root size="sm">
           <Card.Body>
@@ -119,6 +128,10 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
           onEdit={setLineForm} onRemove={(l) => { del.reset(); setRemoving(l); }} onClose={setClosing} onReopen={(l) => { reopen.reset(); setReopening(l); }}
         />
       </Stack>
+
+      {!!me?.isPurchaser && !order.restricted && (
+        <CostEntriesTable order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} teamName={teamName} canWrite={canWrite && order.status !== 'cancelled'} headingAs={h} />
+      )}
 
       {/* The calculation beside the form that changes it; wide screens only, the dialog stays one column. */}
       <SimpleGrid columns={{ base: 1, lg: embedded ? 1 : 2 }} gap="6" alignItems="start">
