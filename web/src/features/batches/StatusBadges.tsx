@@ -7,7 +7,7 @@ const BATCH_TONE: Record<BatchStatus, StatusTone> = {
   purchasing: 'active', receiving: 'active', completed: 'finished', cancelled: 'neutral',
 };
 const ITEM_TONE: Partial<Record<ItemStatus, StatusTone>> = {
-  pending: 'attention', approved: 'done', returned: 'attention', rejected: 'bad', withdrawn: 'neutral',
+  pending: 'attention', approved: 'done', returned: 'returned', rejected: 'bad', withdrawn: 'neutral',
 };
 const FULFILLMENT_TONE: Record<Fulfillment, StatusTone> = {
   external: 'neutral', unpurchasable: 'neutral', not_ordered: 'attention', partially_ordered: 'active', ordered: 'active',
