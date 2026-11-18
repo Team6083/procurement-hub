@@ -61,6 +61,9 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	if o.String("status") != "draft" || len(lines) != 2 || o.JSON()["totals"].(map[string]any)["netBase"] != nil {
 		t.Fatalf("draft order: %s", o.Body)
 	}
+	if u := lines[0].(map[string]any)["productUrl"]; u != "https://shop.example.org/motor" {
+		t.Errorf("line productUrl = %v", u)
+	}
 	if got := w.item(t, batchID, items[0])["toPurchaseQuantity"]; got != float64(0) {
 		t.Errorf("planned item still to purchase: %v", got)
 	}

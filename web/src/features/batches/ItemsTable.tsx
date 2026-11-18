@@ -101,6 +101,9 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
                 <Badge variant="outline" size="sm" flexShrink={0} tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
               </Tooltip>
             </Flex>
+            {(it.purpose || it.notes) && (
+              <ClampedText text={it.purpose} extra={it.notes ? `${t('item.notes')}: ${it.notes}` : undefined} lines={2} display="block" textStyle="xs" fontWeight="normal" color="fg.muted" />
+            )}
             {it.status === 'returned' && it.review?.comment && (
               <Text textStyle="xs" fontWeight="normal" color="fg.warning">{t('item.returnedComment', { comment: it.review.comment })}</Text>
             )}

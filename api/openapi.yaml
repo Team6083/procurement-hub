@@ -2830,7 +2830,7 @@ components:
         note: { type: string, description: "Purchasers, receivers and system admins only." }
     VendorOrderLine:
       type: object
-      required: [id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, ledgerBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
+      required: [id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, ledgerBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
       properties:
         id: { type: string }
         vendorOrderId: { type: string }
@@ -2840,6 +2840,7 @@ components:
         batchId: { type: [string, "null"] }
         name: { type: string }
         sku: { type: string }
+        productUrl: { type: string, description: "The item's product URL (http/https) copied when the line was created from an item; empty otherwise. Read-only." }
         quantity: { type: integer }
         unitPrice: { type: [string, "null"], description: Decimal string in the order currency. }
         returnedQuantity: { type: integer }

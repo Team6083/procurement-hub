@@ -79,7 +79,7 @@ func replaceFirst(s, old, new string) string {
 
 func itemBody(name string) map[string]any {
 	return map[string]any{
-		"name": name, "quantity": 2, "priority": 3, "purpose": "lab work",
+		"name": name, "quantity": 2, "priority": 3, "purpose": "lab work", "productUrl": "https://shop.example.org/" + name,
 		"estimatedUnitPrice": map[string]any{"amount": "10.50", "currency": "USD"},
 	}
 }

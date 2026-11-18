@@ -1,6 +1,6 @@
 import { ClampedText } from '../../components/ClampedText';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
-import { Badge, Input, Stack, Text } from '@chakra-ui/react';
+import { Badge, Input, Link, Stack, Text } from '@chakra-ui/react';
 import { type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { usePutLine } from '../../api/vendorOrders';
 import type { VendorOrder, VendorOrderLine } from '../../api/types';
 import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { safeHttpUrl } from '../batches/itemForm';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { LineStatusBadge } from './StatusBadges';
@@ -69,7 +70,9 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
       key: 'name', header: t('line.name'), priority: 'primary',
       cell: (l) => (
         <Stack gap="0">
-          <ClampedText text={l.name} />
+          {safeHttpUrl(l.productUrl)
+            ? <Link href={safeHttpUrl(l.productUrl)} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px"><ClampedText text={l.name} /></Link>
+            : <ClampedText text={l.name} />}
           {l.sku && <Text textStyle="xs" color="fg.muted">{l.sku}</Text>}
           {l.batchId && <RouteAnchor to={paths.batch(l.batchId)} textStyle="xs" color="fg.muted">{t('line.fromBatch')}</RouteAnchor>}
         </Stack>

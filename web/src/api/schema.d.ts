@@ -1997,6 +1997,8 @@ export interface components {
             batchId: string | null;
             name: string;
             sku: string;
+            /** @description The item's product URL (http/https) copied when the line was created from an item; empty otherwise. Read-only. */
+            productUrl: string;
             quantity: number;
             /** @description Decimal string in the order currency. */
             unitPrice: string | null;

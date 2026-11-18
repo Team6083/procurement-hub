@@ -254,7 +254,7 @@ func (s *VendorOrders) addItemLine(ctx context.Context, actor authz.Actor, o *do
 	}
 	o.LineCounter++
 	l := &domain.VendorOrderLine{VendorOrderID: o.ID, LineNo: o.LineCounter, TeamID: it.TeamID, ItemID: &it.ID, BatchID: &b.ID,
-		Name: name, SKU: sku, Quantity: qty, UnitPrice: f.UnitPrice, Status: domain.LineDraft, ExpectedQty: qty}
+		Name: name, SKU: sku, ProductURL: it.ProductURL, Quantity: qty, UnitPrice: f.UnitPrice, Status: domain.LineDraft, ExpectedQty: qty}
 	if err := s.st.InsertLine(ctx, l); err != nil {
 		return nil, domain.AuditEvent{}, err
 	}
