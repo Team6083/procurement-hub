@@ -837,6 +837,10 @@ paths:
       operationId: addBatchItem
       summary: Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
       description: |
+        While the batch is `reviewing`, only a requester who currently has a `returned` item in it and team admins may add
+        (others 403); the new item starts `pending`, can only be withdrawn while the batch is `reviewing` (deletable after a return to `collecting` if never reviewed), must be
+        decided before `confirm_review`, and emits `item.added_during_review` to the batch's assigned approvers (team admins if
+        none; no channel message). `relatedItemId` (optional, create only) must be an item of the same batch (400 `invalid_request`).
         Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
         If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `invalid_request`
         (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
@@ -981,10 +985,16 @@ paths:
       operationId: resubmitItem
       summary: Send a returned item back to review (requester only)
       description: |
-        Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and that the item was edited after it was returned
-        (`item.updatedAt` after `item.review.at`, else 422 `item_not_edited`). No request body.
+        Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and either that the item was edited after
+        it was returned (`item.version` greater than `item.review.atVersion`) or a non-blank `resubmitNote` (else 422
+        `item_not_edited`). The body is optional; the note is stored on the item and shown to approvers.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ResubmitRequest" }
       responses:
         "200":
           description: Updated item
@@ -1285,6 +1295,10 @@ paths:
         - { name: status, in: query, schema: { type: string, enum: [draft, placed, cancelled] } }
         - { name: vendorId, in: query, schema: { type: string } }
         - { name: teamId, in: query, schema: { type: string } }
+        - { name: ownerId, in: query, description: "A user id, or `me` for the caller: only orders that list that user as an owner.", schema: { type: string } }
+        - { name: completed, in: query, description: "`false`: placed orders that are not completed yet; `true`: completed ones (spec 10.3). Drafts and cancelled orders match neither.", schema: { type: boolean } }
+        - { name: receivingState, in: query, schema: { $ref: "#/components/schemas/ReceivingState" } }
+        - { name: accountingState, in: query, schema: { $ref: "#/components/schemas/AccountingState" } }
         - { name: q, in: query, schema: { type: string } }
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
@@ -1334,7 +1348,7 @@ paths:
       description: |
         Regular users get only the lines they can see (404 when none); order-level money is limited to amounts allocated to those lines
         and the rest is aggregated in `otherTeams` (spec 8.2). `invariantOk` (purchasers, receivers, system admins) is the check
-        `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and ledger write.
+        `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and cost entry write.
       responses:
         "200":
           description: OK
@@ -1352,8 +1366,7 @@ paths:
       summary: "Replace the editable fields of a vendor order (purchasers)"
       description: |
         Replaces every editable field; omitted ones are cleared. `vendorId` and `currency` only change while the order is a draft (422 `order_locked`).
-        `teamCostOverrides` must cover exactly the teams that have lines and add up to the shared costs (422 `team_cost_overrides_mismatch`) and need
-        an `overrideReason`. Recomputes amounts, items and batch status in the same transaction.
+        Money other than the goods lives in cost entries, not here. Recomputes amounts, items and batch status in the same transaction.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1387,7 +1400,7 @@ paths:
       description: |
         Give exactly one of `itemId` (the line is linked to the item: team, name, SKU and quantity default from it; 422 `item_not_purchasable`,
         `item_already_on_order`) or `teamId` (a standalone line, `name` required). Only while the order is a draft (422 `order_not_draft`).
-        `If-Match` is the vendor order version. Returns the updated order; `overridesCleared` is true when the team set changed and overrides were removed.
+        `If-Match` is the vendor order version. Returns the updated order; `allocationsReset` is true when cost entries whose teams or lines disappeared went back to `all`.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1495,7 +1508,7 @@ paths:
       summary: "Close the remaining quantity of a short line (purchasers)"
       description: |
         `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
-        and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative ledger entry on the line. `If-Match` is the vendor order version.
+        and have no open problem (422 `line_not_closable`). An optional `refund` (positive `amount`) is stored as a negative `refund` cost entry (separate, source `closure`) allocated to the line. `If-Match` is the vendor order version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -1580,6 +1593,130 @@ paths:
         "422": { $ref: "#/components/responses/Unprocessable" }
         "428": { $ref: "#/components/responses/IfMatchRequired" }
         "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /vendor-orders/{id}/cost-entries:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: createCostEntry
+      summary: "Add a cost entry to a vendor order (purchasers)"
+      description: |
+        Shipping, fees, taxes, discounts, coupons used, refunds, extra charges and other adjustments. `refund` and `extra_charge` only after the order is placed
+        (422 `order_not_placed`); other types also in draft. Invalid signs, currencies or fields yield 400; an allocation that does not fit yields 422 `shared_cost_allocation_invalid`.
+        `If-Match` is the vendor order version. Returns the updated order.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CostEntryRequest" }
+      responses:
+        "201":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /cost-entries/{id}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    put:
+      operationId: putCostEntry
+      summary: "Replace a cost entry (purchasers)"
+      description: |
+        Replaces every editable field, in a draft or after placing (audited, amounts recomputed). A voided entry cannot be edited (422 `cost_entry_voided`).
+        `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CostEntryRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+    delete:
+      operationId: deleteCostEntry
+      summary: "Delete a cost entry of a draft order (purchasers)"
+      description: |
+        Only while the order is a draft (422 `order_not_draft`); after placing, void the entry instead. `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
+  /cost-entries/{id}/void:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      operationId: voidCostEntry
+      summary: "Void a cost entry of a placed order (purchasers)"
+      description: |
+        Needs a `reason`. Entries created by a problem resolution or a line closure can only be voided by undoing that action
+        (409 `blocked_by_dependency`). `If-Match` is the vendor order version.
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ReasonRequest" }
+      responses:
+        "200":
+          description: Updated order
+          headers:
+            ETag: { $ref: "#/components/headers/ETag" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/VendorOrder" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "413": { $ref: "#/components/responses/PayloadTooLarge" }
+        "422": { $ref: "#/components/responses/Unprocessable" }
+        "428": { $ref: "#/components/responses/IfMatchRequired" }
+        "503": { $ref: "#/components/responses/ServiceUnavailable" }
   /vendor-orders/{id}/unplace:
     parameters:
       - $ref: "#/components/parameters/ResourceId"
@@ -1587,7 +1724,7 @@ paths:
       operationId: unplaceVendorOrder
       summary: "Undo placing: back to draft (purchasers)"
       description: |
-        Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, ledger entries, items
+        Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, refund and extra charge cost entries, items
         marked unpurchasable) while anything depends on it.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
@@ -1653,72 +1790,6 @@ paths:
       summary: "Undo cancelling (purchasers)"
       description: |
         Needs a `reason`. Linked items must still qualify, otherwise 409 `blocked_by_dependency` lists them.
-      parameters:
-        - $ref: "#/components/parameters/IfMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ReasonRequest" }
-      responses:
-        "200":
-          description: Updated order
-          headers:
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/VendorOrder" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-        "413": { $ref: "#/components/responses/PayloadTooLarge" }
-        "422": { $ref: "#/components/responses/Unprocessable" }
-        "428": { $ref: "#/components/responses/IfMatchRequired" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /vendor-orders/{id}/ledger:
-    parameters:
-      - $ref: "#/components/parameters/ResourceId"
-    post:
-      operationId: addLedgerEntry
-      summary: "Add a ledger entry to a placed order (purchasers)"
-      description: |
-        `amountBase` is in the base currency, non-zero, negative for refunds; `vendorOrderLineId` assigns it to a line, otherwise it is spread
-        proportionally. 422 `order_not_placed` on other orders. `If-Match` is the vendor order version. Returns the updated order.
-      parameters:
-        - $ref: "#/components/parameters/IfMatch"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/LedgerRequest" }
-      responses:
-        "201":
-          description: Updated order
-          headers:
-            ETag: { $ref: "#/components/headers/ETag" }
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/VendorOrder" }
-        "400": { $ref: "#/components/responses/BadRequest" }
-        "401": { $ref: "#/components/responses/Unauthorized" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "404": { $ref: "#/components/responses/NotFound" }
-        "409": { $ref: "#/components/responses/Conflict" }
-        "413": { $ref: "#/components/responses/PayloadTooLarge" }
-        "422": { $ref: "#/components/responses/Unprocessable" }
-        "428": { $ref: "#/components/responses/IfMatchRequired" }
-        "503": { $ref: "#/components/responses/ServiceUnavailable" }
-  /ledger-entries/{id}/void:
-    parameters:
-      - $ref: "#/components/parameters/ResourceId"
-    post:
-      operationId: voidLedgerEntry
-      summary: "Void a ledger entry (purchasers)"
-      description: |
-        Needs a `reason`. Entries created by a problem resolution or a line closure are voided only by undoing that action (409 `blocked_by_dependency`).
-        `If-Match` is the vendor order version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -2019,8 +2090,8 @@ paths:
       operationId: resolveProblem
       summary: "Settle an open problem (purchasers)"
       description: |
-        `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refundBase`, entered positive, stored as a negative ledger entry on the line)
-        or `accept` (counts as received). `refundBase` with any other action yields 400. `If-Match` is the problem version.
+        `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refund` with a positive `amount`, stored as a negative `refund` cost entry on the line, source `problem`)
+        or `accept` (counts as received). `refund` with any other action yields 400. `If-Match` is the problem version.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -2218,9 +2289,9 @@ components:
         `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-        `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`,
+        `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
         `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
-        `line_missing_price`, `order_not_placed`, `line_not_closable`, `line_not_matchable`.
+        `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
         (`invalid_transition` is a business rule too but is returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
@@ -2652,7 +2723,7 @@ components:
         autoFilledFields: { type: array, items: { type: string } }
     Item:
       type: object
-      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, firstReviewedAt, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
+      required: [id, teamId, batchId, seqNo, requesterId, subgroupId, name, vendorId, vendorName, sku, quantity, estimatedUnitPrice, priority, purpose, notes, productUrl, status, review, firstReviewedAt, relatedItemId, resubmitNote, lookup, unpurchasable, fulfillment, plannedQuantity, toPurchaseQuantity, orderedQuantity, receivedQuantity, costBase, customFields, createdAt, updatedAt, version]
       properties:
         id: { type: string }
         teamId: { type: string }
@@ -2675,6 +2746,8 @@ components:
         firstReviewedAt:
           description: Time of the first review decision; never cleared, not even by undoing the decision.
           oneOf: [{ type: string, format: date-time }, { type: "null" }]
+        relatedItemId: { type: [string, "null"], description: An item of the same batch this one relates to. }
+        resubmitNote: { type: string, description: "Reply from the latest resubmission; empty when none." }
         lookup: { oneOf: [{ $ref: "#/components/schemas/LookupInfo" }, { type: "null" }] }
         unpurchasable:
           oneOf:
@@ -2713,6 +2786,7 @@ components:
         productUrl: { type: string, description: http or https URL. }
         autoFilledFields: { type: array, items: { type: string } }
         lookupProvider: { type: string }
+        relatedItemId: { type: [string, "null"], description: "Create only: an item of the same batch this one relates to." }
     ReviewRequest:
       type: object
       additionalProperties: false
@@ -2736,6 +2810,11 @@ components:
       properties:
         batch: { $ref: "#/components/schemas/Batch" }
         items: { type: array, items: { $ref: "#/components/schemas/Item" } }
+    ResubmitRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        resubmitNote: { type: string, description: Optional reply to the approver; required when the item was not edited. }
     ForceRejectRequest:
       type: object
       additionalProperties: false
@@ -2753,6 +2832,12 @@ components:
       required: [count]
       properties:
         count: { type: integer }
+    OwnedCountTask:
+      type: object
+      required: [count, mine]
+      properties:
+        count: { type: integer }
+        mine: { type: integer, description: "How many of count belong to vendor orders the caller owns." }
     VendorTask:
       type: object
       required: [vendor, count, myBatches]
@@ -2769,42 +2854,31 @@ components:
         returnedItems: { type: array, items: { $ref: "#/components/schemas/Item" } }
         reviewsToConfirm: { type: array, items: { $ref: "#/components/schemas/BatchTask" } }
         itemsToPurchase: { type: array, items: { $ref: "#/components/schemas/VendorTask" } }
-        draftVendorOrders: { $ref: "#/components/schemas/CountTask" }
-        openProblems: { $ref: "#/components/schemas/CountTask" }
-        linesToClose: { $ref: "#/components/schemas/CountTask" }
+        draftVendorOrders: { $ref: "#/components/schemas/OwnedCountTask" }
+        openProblems: { $ref: "#/components/schemas/OwnedCountTask" }
+        linesToClose: { $ref: "#/components/schemas/OwnedCountTask" }
         deliveriesToMatch: { $ref: "#/components/schemas/CountTask" }
     Incomplete:
       type: object
       required: [code]
       properties:
-        code: { type: string, enum: [no_lines, line_missing_price, no_conversion, original_total_zero] }
+        code: { type: string, enum: [no_lines, line_missing_price, no_conversion, original_total_zero, entry_no_conversion, allocation_invalid] }
         lineNo: { type: integer, description: Set for line_missing_price. }
+        entryNo: { type: integer, description: "1-based position among the non-voided cost entries; set for entry_no_conversion and allocation_invalid." }
+        currency: { type: string, description: Set for entry_no_conversion. }
     OrderTotals:
       type: object
-      required: [linesC, sharedC, originalC, factor, targetBase, ledgerBase, netBase, provisional, incomplete]
+      required: [linesC, checkoutC, originalC, factor, targetBase, separateBase, netBase, provisional, incomplete]
       properties:
         linesC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
-        sharedC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        checkoutC: { type: [string, "null"], description: "Decimal string; sum of the with_checkout cost entries (order currency)." }
         originalC: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
         factor: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
         targetBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
-        ledgerBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        separateBase: { type: [string, "null"], description: "Decimal string; base-currency sum of the separate cost entries; null when it cannot be computed." }
         netBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
-        provisional: { type: boolean, description: True when the factor is a reference rate. }
+        provisional: { type: boolean, description: True when a reference rate stands in for a real amount. }
         incomplete: { type: array, items: { $ref: "#/components/schemas/Incomplete" } }
-    SharedCost:
-      type: object
-      required: [type, amount, note]
-      properties:
-        type: { type: string, enum: [shipping, fee, tax, discount, other] }
-        amount: { type: string, description: Decimal string in the order currency; discounts are negative. }
-        note: { type: string }
-    TeamCostOverride:
-      type: object
-      required: [teamId, amount]
-      properties:
-        teamId: { type: string }
-        amount: { type: string, description: Decimal string in the order currency. }
     LineStatus:
       type: string
       enum: [cancelled, draft, short_accepted, not_obtained, received, partially_received, ordered]
@@ -2828,15 +2902,29 @@ components:
         version: { type: integer, format: int64, description: "Purchasers, receivers and system admins only; the problem version for If-Match." }
         deliveryId: { type: string, description: "Purchasers, receivers and system admins only." }
         note: { type: string, description: "Purchasers, receivers and system admins only." }
+    PersonRef:
+      type: object
+      required: [id, displayName]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+    OwnerRef:
+      type: object
+      required: [id, displayName, isPurchaser]
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        isPurchaser: { type: boolean, description: "From users.roleSnapshot; false for an owner who lost the purchaser role." }
     VendorOrderLine:
       type: object
-      required: [id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, ledgerBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
+      required: [requester, id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, separateBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
       properties:
         id: { type: string }
         vendorOrderId: { type: string }
         lineNo: { type: integer }
         teamId: { type: string, description: Cost attribution team. }
         itemId: { type: [string, "null"] }
+        requester: { oneOf: [{ $ref: "#/components/schemas/PersonRef" }, { type: "null" }], description: "The linked item's requester; null without an item. Only present on lines the caller can see." }
         batchId: { type: [string, "null"] }
         name: { type: string }
         sku: { type: string }
@@ -2851,8 +2939,8 @@ components:
         closure: { oneOf: [{ $ref: "#/components/schemas/LineClosure" }, { type: "null" }] }
         status: { $ref: "#/components/schemas/LineStatus" }
         costBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
-        sharedBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
-        ledgerBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
+        sharedBase: { type: [string, "null"], description: "Decimal string; the with_checkout cost entries allocated to this line; null when it cannot be computed." }
+        separateBase: { type: [string, "null"], description: "Decimal string; the separate payments and refunds allocated to this line; null when it cannot be computed." }
         totalBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
@@ -2864,15 +2952,36 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/VendorOrderLine" } }
-    LedgerEntry:
+    CostAllocation:
       type: object
-      required: [id, vendorOrderId, vendorOrderLineId, amountBase, reason, source, sourceId, voided, createdBy, createdAt, updatedAt]
+      required: [mode]
+      properties:
+        mode: { type: string, enum: [all, teams, lines, manual] }
+        teamIds: { type: array, items: { type: string } }
+        lineIds: { type: array, items: { type: string } }
+        amounts:
+          type: array
+          description: In the entry currency; must add up to the entry amount.
+          items:
+            type: object
+            required: [lineId, amount]
+            properties:
+              lineId: { type: string }
+              amount: { type: string }
+    CostEntry:
+      type: object
+      required: [id, vendorOrderId, type, settlement, currency, amount, actualAmountBase, refundMethod, allocation, note, source, sourceId, voided, createdBy, createdAt, updatedAt, version]
       properties:
         id: { type: string }
         vendorOrderId: { type: string }
-        vendorOrderLineId: { type: [string, "null"] }
-        amountBase: { type: string, description: Decimal string in the base currency; refunds are negative. }
-        reason: { type: string }
+        type: { type: string, enum: [shipping, fee, tax, discount, coupon_used, refund, extra_charge, other] }
+        settlement: { type: string, enum: [with_checkout, separate] }
+        currency: { type: string }
+        amount: { type: string, description: "Decimal string, non-zero; negative for discounts and refunds." }
+        actualAmountBase: { type: [string, "null"], description: "Separate entries only: the real base-currency amount, same sign as amount." }
+        refundMethod: { type: [string, "null"], enum: [cash, coupon, null] }
+        allocation: { $ref: "#/components/schemas/CostAllocation" }
+        note: { type: string }
         source: { type: string, enum: [manual, problem, closure] }
         sourceId: { type: [string, "null"] }
         voided:
@@ -2887,6 +2996,7 @@ components:
         createdBy: { type: string }
         createdAt: { type: string, format: date-time }
         updatedAt: { type: string, format: date-time }
+        version: { type: integer, format: int64 }
     OtherTeams:
       type: object
       required: [lines, totalBase]
@@ -2895,7 +3005,7 @@ components:
         totalBase: { type: [string, "null"] }
     VendorOrder:
       type: object
-      required: [id, number, vendorId, currency, status, externalOrderNo, placedAt, placedBy, sharedCosts, teamCostOverrides, overrideReason, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, ledger, restricted, otherTeams, visibleTotalBase, invariantOk]
+      required: [id, number, vendorId, currency, status, owners, externalOrderNo, placedAt, placedBy, chargedAmountBase, expectedDeliveryDate, paymentNote, teamIds, batchIds, totals, receivingState, accountingState, completed, cancellation, createdBy, createdAt, updatedAt, version, vendorName, lines, costEntries, restricted, otherTeams, visibleTotalBase, invariantOk]
       properties:
         id: { type: string }
         number: { type: integer, description: "Displayed as VO-<number>." }
@@ -2903,18 +3013,19 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
+        owners: { type: array, items: { $ref: "#/components/schemas/OwnerRef" }, description: "Owners. Only drive notifications and the tasks list; they grant no permission. isPurchaser comes from users.roleSnapshot." }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         placedBy: { type: [string, "null"] }
-        sharedCosts: { type: array, items: { $ref: "#/components/schemas/SharedCost" } }
-        teamCostOverrides: { type: [array, "null"], items: { $ref: "#/components/schemas/TeamCostOverride" } }
-        overrideReason: { type: string }
         chargedAmountBase: { type: [string, "null"], description: Decimal string in the base currency. }
         expectedDeliveryDate: { type: string, description: "YYYY-MM-DD or empty." }
         paymentNote: { type: string }
         teamIds: { type: array, items: { type: string } }
         batchIds: { type: array, items: { type: string } }
         totals: { $ref: "#/components/schemas/OrderTotals" }
+        receivingState: { oneOf: [{ $ref: "#/components/schemas/ReceivingState" }, { type: "null" }], description: "Computed; null for draft and cancelled orders." }
+        accountingState: { oneOf: [{ $ref: "#/components/schemas/AccountingState" }, { type: "null" }] }
+        completed: { type: [boolean, "null"], description: "receivingState is closed and accountingState is final. Computed, never set by hand." }
         cancellation:
           oneOf:
             - type: object
@@ -2929,15 +3040,15 @@ components:
         updatedAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
         lines: { type: array, items: { $ref: "#/components/schemas/VendorOrderLine" } }
-        ledger: { type: array, items: { $ref: "#/components/schemas/LedgerEntry" } }
+        costEntries: { type: array, items: { $ref: "#/components/schemas/CostEntry" }, description: "Purchasers, receivers and system admins; regular users get an empty list (their lines carry the allocated amounts)." }
         restricted: { type: boolean, description: True for regular users (spec 8.2); money fields then cover visible lines only. }
         otherTeams: { oneOf: [{ $ref: "#/components/schemas/OtherTeams" }, { type: "null" }] }
         visibleTotalBase: { type: [string, "null"], description: Regular users only. }
         invariantOk: { type: [boolean, "null"], description: "Purchasers, receivers and system admins: netBase equals the sum of line totals (null when not computable)." }
-        overridesCleared: { type: boolean, description: True when this write removed the team cost overrides. }
+        allocationsReset: { type: boolean, description: "True when this write reset cost entries whose teams or lines disappeared to `all`." }
     VendorOrderSummary:
       type: object
-      required: [id, number, vendorId, vendorName, currency, status, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, restricted, createdAt, version]
+      required: [id, number, vendorId, vendorName, currency, status, owners, externalOrderNo, placedAt, expectedDeliveryDate, lineCount, teamIds, netBase, provisional, incomplete, receivingState, accountingState, completed, restricted, createdAt, version]
       properties:
         id: { type: string }
         number: { type: integer }
@@ -2945,6 +3056,7 @@ components:
         vendorName: { type: string }
         currency: { type: string }
         status: { type: string, enum: [draft, placed, cancelled] }
+        owners: { type: array, items: { $ref: "#/components/schemas/OwnerRef" } }
         externalOrderNo: { type: string }
         placedAt: { type: [string, "null"], format: date-time }
         expectedDeliveryDate: { type: string }
@@ -2953,9 +3065,14 @@ components:
         netBase: { type: [string, "null"] }
         provisional: { type: boolean }
         incomplete: { type: array, items: { $ref: "#/components/schemas/Incomplete" } }
+        receivingState: { oneOf: [{ $ref: "#/components/schemas/ReceivingState" }, { type: "null" }] }
+        accountingState: { oneOf: [{ $ref: "#/components/schemas/AccountingState" }, { type: "null" }] }
+        completed: { type: [boolean, "null"] }
         restricted: { type: boolean }
         createdAt: { type: string, format: date-time }
         version: { type: integer, format: int64 }
+    ReceivingState: { type: string, enum: [none, partial, closed] }
+    AccountingState: { type: string, enum: [incomplete, provisional, final] }
     VendorOrderPage:
       type: object
       required: [items, nextCursor]
@@ -2997,17 +3114,16 @@ components:
         vendorId: { type: string }
         currency: { type: string, description: Defaults to the vendor's default currency. }
         itemIds: { type: array, items: { type: string } }
+        ownerIds: { type: array, items: { type: string }, description: "Purchasers by roleSnapshot (422 otherwise). Defaults to the creator." }
     VendorOrderRequest:
       type: object
       additionalProperties: false
-      required: [vendorId, currency]
+      required: [vendorId, currency, ownerIds]
       properties:
         vendorId: { type: string }
         currency: { type: string }
+        ownerIds: { type: array, items: { type: string }, description: "Replaces the owners (purchasers by roleSnapshot); required (400 `invalid_request` when missing), `[]` clears. Newly added owners get `assignment.added`." }
         externalOrderNo: { type: string }
-        sharedCosts: { type: [array, "null"], items: { $ref: "#/components/schemas/SharedCost" } }
-        teamCostOverrides: { type: [array, "null"], items: { $ref: "#/components/schemas/TeamCostOverride" } }
-        overrideReason: { type: string }
         chargedAmountBase: { type: [string, "null"] }
         expectedDeliveryDate: { type: string }
         paymentNote: { type: string }
@@ -3037,6 +3153,29 @@ components:
       required: [reason]
       properties:
         reason: { type: string }
+    RefundInput:
+      type: object
+      additionalProperties: false
+      required: [currency, amount, method]
+      properties:
+        currency: { type: string, description: Any supported currency. }
+        amount: { type: string, description: Positive decimal string in `currency`; stored negative. }
+        actualAmountBase: { type: [string, "null"], description: "Positive decimal string; the real base-currency amount, may be filled later by editing the entry." }
+        method: { type: string, enum: [cash, coupon] }
+        note: { type: string }
+    CostEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [type, currency, amount]
+      properties:
+        type: { type: string, enum: [shipping, fee, tax, discount, coupon_used, refund, extra_charge, other] }
+        settlement: { type: string, enum: [with_checkout, separate], description: "Required except for refund and extra_charge, which are always separate." }
+        currency: { type: string, description: "with_checkout: the order currency; separate: any supported currency." }
+        amount: { type: string, description: "Signed decimal string, non-zero: discounts and refunds negative, coupon_used and extra_charge positive." }
+        actualAmountBase: { type: [string, "null"], description: "Separate entries only: the real base-currency amount, same sign as amount." }
+        refundMethod: { type: [string, "null"], enum: [cash, coupon, null], description: "Required for refunds, forbidden otherwise." }
+        allocation: { $ref: "#/components/schemas/CostAllocation" }
+        note: { type: string, description: "Required when the allocation mode is not all, and for refund, extra_charge, coupon_used and other." }
     CloseLineRequest:
       type: object
       additionalProperties: false
@@ -3044,15 +3183,7 @@ components:
       properties:
         type: { type: string, enum: [short_accepted, not_obtained] }
         reason: { type: string }
-        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency. }
-    LedgerRequest:
-      type: object
-      additionalProperties: false
-      required: [amountBase, reason]
-      properties:
-        amountBase: { type: string, description: Non-zero decimal string; negative for a refund. }
-        vendorOrderLineId: { type: [string, "null"] }
-        reason: { type: string }
+        refund: { anyOf: [{ $ref: "#/components/schemas/RefundInput" }, { type: "null" }] }
     UnpurchasableRequest:
       type: object
       additionalProperties: false
@@ -3200,7 +3331,7 @@ components:
         - vendor_name_taken
         - items_undecided
         - line_quantity_exceeded
-        - team_cost_overrides_mismatch
+        - shared_cost_allocation_invalid
         - item_not_purchasable
         - item_already_on_order
         - order_not_draft
@@ -3210,6 +3341,7 @@ components:
         - order_has_no_lines
         - line_missing_price
         - order_not_placed
+        - cost_entry_voided
         - line_not_closable
         - line_not_matchable
         - lookup_not_found
@@ -3422,5 +3554,5 @@ components:
       required: [action]
       properties:
         action: { type: string, enum: [exchange, return_no_replace, accept] }
-        refundBase: { type: [string, "null"], description: Positive decimal string in the base currency; only with return_no_replace. }
+        refund: { anyOf: [{ $ref: "#/components/schemas/RefundInput" }, { type: "null" }], description: "Only with return_no_replace; any other action yields 400." }
         note: { type: string }

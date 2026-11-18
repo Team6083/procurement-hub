@@ -1,11 +1,6 @@
 package domain
 
-import (
-	"testing"
-
-	"github.com/shopspring/decimal"
-	"go.mongodb.org/mongo-driver/v2/bson"
-)
+import "testing"
 
 func TestDeriveLineStatus(t *testing.T) {
 	short := &Closure{Type: LineShortAccepted}
@@ -32,27 +27,6 @@ func TestDeriveLineStatus(t *testing.T) {
 	}
 }
 
-func TestOverridesMatch(t *testing.T) {
-	a, b, c := bson.NewObjectID(), bson.NewObjectID(), bson.NewObjectID()
-	d := func(s string) Decimal { x, _ := NewDecimal(s); return x }
-	ov := []TeamCostOverride{{a, d("4")}, {b, d("6")}}
-	if !OverridesMatch(ov, []bson.ObjectID{a, b, a}, decimal.NewFromInt(10)) {
-		t.Error("exact cover should match")
-	}
-	if OverridesMatch(ov, []bson.ObjectID{a, b}, decimal.NewFromInt(11)) {
-		t.Error("wrong sum must not match")
-	}
-	if OverridesMatch(ov, []bson.ObjectID{a, b, c}, decimal.NewFromInt(10)) {
-		t.Error("missing team must not match")
-	}
-	if OverridesMatch(ov, []bson.ObjectID{a}, decimal.NewFromInt(10)) {
-		t.Error("extra team must not match")
-	}
-	if SameTeams(ov, []bson.ObjectID{a, b, c}) || !SameTeams(ov, []bson.ObjectID{b, a}) {
-		t.Error("SameTeams")
-	}
-}
-
 func TestComputeQuantities(t *testing.T) {
 	ptr := func(r *Resolution) *Resolution { return r }
 	got := ComputeQuantities(
@@ -66,5 +40,39 @@ func TestComputeQuantities(t *testing.T) {
 		})
 	if got.Received != 5 || got.OpenProblem != 1 || got.Returned != 4 {
 		t.Errorf("quantities = %+v", got)
+	}
+}
+
+func TestDeriveOrderProgress(t *testing.T) {
+	final, prov := OrderTotals{}, OrderTotals{Provisional: true}
+	inc := OrderTotals{Provisional: true, Incomplete: []Incomplete{{Code: IncompleteNoConversion}}}
+	closed := []LineStatus{LineReceived, LineShortAccepted, LineNotObtained}
+	cases := []struct {
+		name  string
+		order OrderStatus
+		lines []LineStatus
+		t     OrderTotals
+		recv  string
+		acc   string
+		done  bool
+	}{
+		{"nothing yet", OrderPlaced, []LineStatus{LineOrdered, LineOrdered}, final, ReceivingNone, AccountingFinal, false},
+		{"one line partly", OrderPlaced, []LineStatus{LineOrdered, LinePartiallyReceived}, final, ReceivingPartial, AccountingFinal, false},
+		{"one line closed", OrderPlaced, []LineStatus{LineOrdered, LineReceived}, final, ReceivingPartial, AccountingFinal, false},
+		{"all closed and final", OrderPlaced, closed, final, ReceivingClosed, AccountingFinal, true},
+		{"new refund is provisional", OrderPlaced, closed, prov, ReceivingClosed, AccountingProvisional, false},
+		{"incomplete wins", OrderPlaced, closed, inc, ReceivingClosed, AccountingIncomplete, false},
+		{"reopened line", OrderPlaced, []LineStatus{LineReceived, LineOrdered}, final, ReceivingPartial, AccountingFinal, false},
+	}
+	for _, c := range cases {
+		p := DeriveOrderProgress(c.order, c.lines, c.t)
+		if *p.Receiving != c.recv || *p.Accounting != c.acc || *p.Completed != c.done {
+			t.Errorf("%s: got %s/%s/%v", c.name, *p.Receiving, *p.Accounting, *p.Completed)
+		}
+	}
+	for _, st := range []OrderStatus{OrderDraft, OrderCancelled} {
+		if p := DeriveOrderProgress(st, closed, final); p.Receiving != nil || p.Accounting != nil || p.Completed != nil {
+			t.Errorf("%s must have no progress", st)
+		}
 	}
 }

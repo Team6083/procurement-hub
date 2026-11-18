@@ -272,6 +272,16 @@ func (s *Store) CountOpenProblems(ctx context.Context) (int, error) {
 	return int(n), err
 }
 
+// CountOpenProblemsOnLines counts open problems on the given lines.
+func (s *Store) CountOpenProblemsOnLines(ctx context.Context, lineIDs []bson.ObjectID) (int, error) {
+	if len(lineIDs) == 0 {
+		return 0, nil
+	}
+	n, err := s.c("lineProblems").CountDocuments(ctx, bson.D{{Key: "voided", Value: nil}, {Key: "resolution", Value: nil},
+		{Key: "vendorOrderLineId", Value: bson.D{{Key: "$in", Value: lineIDs}}}})
+	return int(n), err
+}
+
 // VoidProblem voids a problem (versioned by its own version).
 func (s *Store) VoidProblem(ctx context.Context, id bson.ObjectID, v domain.Void) error {
 	res, err := s.c("lineProblems").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "voided", Value: nil}}, bson.D{

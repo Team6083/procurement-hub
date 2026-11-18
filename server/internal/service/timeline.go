@@ -25,7 +25,7 @@ func NewTimeline(st *store.Store, a *audit.Log, b *Batches, i *Items, o *VendorO
 
 // accountingActions are order-level money changes, summarised for regular users (spec §8.2).
 var accountingActions = map[string]bool{
-	"vendor_order.updated": true, "vendor_order.ledger_added": true, "vendor_order.ledger_voided": true,
+	"vendor_order.updated": true, "vendor_order.cost_entry_added": true, "vendor_order.cost_entry_updated": true, "vendor_order.cost_entry_deleted": true, "vendor_order.cost_entry_voided": true,
 }
 
 // visible filters a page of events to what the caller may read (spec §8.2):
@@ -85,7 +85,7 @@ func (s *Timeline) ForItem(ctx context.Context, actor authz.Actor, itemID, after
 	return s.audit.PageForObject(ctx, "item", itemID.Hex(), after, limit, newestFirst)
 }
 
-// ForVendorOrder returns an order's timeline (lines, ledger and problems
+// ForVendorOrder returns an order's timeline (lines, cost entries and problems
 // included), filtered per line for regular users.
 func (s *Timeline) ForVendorOrder(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int, newestFirst bool) (*audit.Page, error) {
 	if _, err := s.orders.Get(ctx, actor, id); err != nil {

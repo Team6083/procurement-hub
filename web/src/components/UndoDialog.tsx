@@ -31,7 +31,7 @@ export function BlockerList({ error }: { error: unknown }) {
           : undefined;
   const kind: Record<string, string> = {
     vendor_order_line: t('undo.blockedLine'), item: t('undo.blockedItem'), batch: t('undo.blockedBatch'), vendor_order: t('undo.blockedVendorOrder'),
-    delivery: t('undo.blockedDelivery'), problem: t('undo.blockedProblem'), line_closure: t('undo.blockedClosure'), ledger_entry: t('undo.blockedLedger'),
+    delivery: t('undo.blockedDelivery'), problem: t('undo.blockedProblem'), line_closure: t('undo.blockedClosure'), cost_entry: t('undo.blockedCostEntry'),
   };
   return (
     <div>

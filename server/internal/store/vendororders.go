@@ -41,8 +41,8 @@ func (s *Store) InsertVendorOrder(ctx context.Context, o *domain.VendorOrder) er
 }
 
 func ensureOrderSlices(o *domain.VendorOrder) {
-	if o.SharedCosts == nil {
-		o.SharedCosts = []domain.SharedCost{}
+	if o.OwnerIDs == nil {
+		o.OwnerIDs = []bson.ObjectID{}
 	}
 	if o.TeamIDs == nil {
 		o.TeamIDs = []bson.ObjectID{}
@@ -65,12 +65,16 @@ func (s *Store) GetVendorOrder(ctx context.Context, id bson.ObjectID) (*domain.V
 
 // OrderFilter narrows ListVendorOrders; zero values mean "any".
 type OrderFilter struct {
-	Status   domain.OrderStatus
-	VendorID bson.ObjectID
-	TeamID   bson.ObjectID
-	Number   int    // exact number, from q such as "VO-12" or "12"
-	ExtNo    string // substring of the vendor's order number
-	After    bson.ObjectID
+	Status     domain.OrderStatus
+	VendorID   bson.ObjectID
+	TeamID     bson.ObjectID
+	OwnerID    bson.ObjectID // orders that list this user as an owner
+	Completed  *bool         // placed orders by the computed completed flag
+	Receiving  string        // receivingState
+	Accounting string        // accountingState
+	Number     int           // exact number, from q such as "VO-12" or "12"
+	ExtNo      string        // substring of the vendor's order number
+	After      bson.ObjectID
 }
 
 // ListVendorOrders returns orders newest first (by _id).
@@ -84,6 +88,18 @@ func (s *Store) ListVendorOrders(ctx context.Context, f OrderFilter, limit int64
 	}
 	if !f.TeamID.IsZero() {
 		q = append(q, bson.E{Key: "teamIds", Value: f.TeamID})
+	}
+	if !f.OwnerID.IsZero() {
+		q = append(q, bson.E{Key: "ownerIds", Value: f.OwnerID})
+	}
+	if f.Completed != nil {
+		q = append(q, bson.E{Key: "completed", Value: *f.Completed})
+	}
+	if f.Receiving != "" {
+		q = append(q, bson.E{Key: "receivingState", Value: f.Receiving})
+	}
+	if f.Accounting != "" {
+		q = append(q, bson.E{Key: "accountingState", Value: f.Accounting})
 	}
 	var or bson.A
 	if f.Number > 0 {
@@ -114,12 +130,56 @@ func (s *Store) UpdateVendorOrder(ctx context.Context, id bson.ObjectID, version
 	return &out, nil
 }
 
-// OrdersToRecompute lists non-cancelled orders in a currency without a charged amount.
+// OrdersToRecompute lists non-cancelled orders a reference rate change for the
+// currency can affect (spec §11): orders in that currency without a charged
+// amount, and orders with a non-voided separate entry in that currency that
+// has no actual base amount.
 func (s *Store) OrdersToRecompute(ctx context.Context, currency string) ([]bson.ObjectID, error) {
+	var withEntry []bson.ObjectID
+	if err := s.c("costEntries").Distinct(ctx, "vendorOrderId", bson.D{
+		{Key: "currency", Value: currency}, {Key: "settlement", Value: domain.SettleSeparate},
+		{Key: "actualAmountBase", Value: nil}, {Key: "voided", Value: nil},
+	}).Decode(&withEntry); err != nil {
+		return nil, err
+	}
 	cur, err := s.c("vendorOrders").Find(ctx, bson.D{
-		{Key: "currency", Value: currency}, {Key: "status", Value: bson.D{{Key: "$ne", Value: domain.OrderCancelled}}},
-		{Key: "chargedAmountBase", Value: nil},
+		{Key: "status", Value: bson.D{{Key: "$ne", Value: domain.OrderCancelled}}},
+		{Key: "$or", Value: bson.A{
+			bson.D{{Key: "currency", Value: currency}, {Key: "chargedAmountBase", Value: nil}},
+			bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: withEntry}}}},
+		}},
 	}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ID bson.ObjectID `bson:"_id"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+	out := make([]bson.ObjectID, len(rows))
+	for i, r := range rows {
+		out[i] = r.ID
+	}
+	return out, nil
+}
+
+// CountDraftOrders counts draft vendor orders (the purchaser's task counter).
+func (s *Store) CountDraftOrders(ctx context.Context) (int, error) {
+	n, err := s.c("vendorOrders").CountDocuments(ctx, bson.D{{Key: "status", Value: domain.OrderDraft}})
+	return int(n), err
+}
+
+// CountDraftOrdersOwnedBy counts draft vendor orders that list the user as an owner.
+func (s *Store) CountDraftOrdersOwnedBy(ctx context.Context, user bson.ObjectID) (int, error) {
+	n, err := s.c("vendorOrders").CountDocuments(ctx, bson.D{{Key: "status", Value: domain.OrderDraft}, {Key: "ownerIds", Value: user}})
+	return int(n), err
+}
+
+// OrderIDsOwnedBy lists the ids of the orders that list the user as an owner.
+func (s *Store) OrderIDsOwnedBy(ctx context.Context, user bson.ObjectID) ([]bson.ObjectID, error) {
+	cur, err := s.c("vendorOrders").Find(ctx, bson.D{{Key: "ownerIds", Value: user}}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}
@@ -134,12 +194,6 @@ func (s *Store) OrdersToRecompute(ctx context.Context, currency string) ([]bson.
 		ids[i] = r.ID
 	}
 	return ids, nil
-}
-
-// CountDraftOrders counts draft vendor orders (the purchaser's task counter).
-func (s *Store) CountDraftOrders(ctx context.Context) (int, error) {
-	n, err := s.c("vendorOrders").CountDocuments(ctx, bson.D{{Key: "status", Value: domain.OrderDraft}})
-	return int(n), err
 }
 
 // ---- lines ----
@@ -174,6 +228,13 @@ func (s *Store) findLines(ctx context.Context, f bson.D, opts ...options.Lister[
 
 func (s *Store) LinesByOrder(ctx context.Context, orderID bson.ObjectID) ([]domain.VendorOrderLine, error) {
 	return s.findLines(ctx, bson.D{{Key: "vendorOrderId", Value: orderID}}, options.Find().SetSort(bson.D{{Key: "lineNo", Value: 1}}))
+}
+
+func (s *Store) LinesByOrders(ctx context.Context, orderIDs []bson.ObjectID) ([]domain.VendorOrderLine, error) {
+	if len(orderIDs) == 0 {
+		return nil, nil
+	}
+	return s.findLines(ctx, bson.D{{Key: "vendorOrderId", Value: bson.D{{Key: "$in", Value: orderIDs}}}})
 }
 
 func (s *Store) LinesByItem(ctx context.Context, itemID bson.ObjectID) ([]domain.VendorOrderLine, error) {
@@ -215,12 +276,12 @@ func (s *Store) DeleteLine(ctx context.Context, id bson.ObjectID) error {
 	return err
 }
 
-// ---- ledger ----
+// ---- cost entries ----
 
-func (s *Store) InsertLedger(ctx context.Context, e *domain.LedgerEntry) error {
+func (s *Store) InsertCostEntry(ctx context.Context, e *domain.CostEntry) error {
 	now := time.Now().UTC()
-	e.CreatedAt, e.UpdatedAt = now, now
-	res, err := s.c("ledgerEntries").InsertOne(ctx, e)
+	e.CreatedAt, e.UpdatedAt, e.Version = now, now, 1
+	res, err := s.c("costEntries").InsertOne(ctx, e)
 	if err != nil {
 		return mapErr(err)
 	}
@@ -228,28 +289,29 @@ func (s *Store) InsertLedger(ctx context.Context, e *domain.LedgerEntry) error {
 	return nil
 }
 
-func (s *Store) GetLedger(ctx context.Context, id bson.ObjectID) (*domain.LedgerEntry, error) {
-	var e domain.LedgerEntry
-	if err := s.c("ledgerEntries").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&e); err != nil {
+func (s *Store) GetCostEntry(ctx context.Context, id bson.ObjectID) (*domain.CostEntry, error) {
+	var e domain.CostEntry
+	if err := s.c("costEntries").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&e); err != nil {
 		return nil, mapErr(err)
 	}
 	return &e, nil
 }
 
-// LedgerByOrder lists an order's entries (voided ones included) oldest first.
-func (s *Store) LedgerByOrder(ctx context.Context, orderID bson.ObjectID) ([]domain.LedgerEntry, error) {
-	cur, err := s.c("ledgerEntries").Find(ctx, bson.D{{Key: "vendorOrderId", Value: orderID}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
+// CostEntriesByOrder lists an order's entries (voided ones included) oldest first.
+func (s *Store) CostEntriesByOrder(ctx context.Context, orderID bson.ObjectID) ([]domain.CostEntry, error) {
+	cur, err := s.c("costEntries").Find(ctx, bson.D{{Key: "vendorOrderId", Value: orderID}}, options.Find().SetSort(bson.D{{Key: "_id", Value: 1}}))
 	if err != nil {
 		return nil, err
 	}
-	var out []domain.LedgerEntry
+	out := []domain.CostEntry{}
 	return out, cur.All(ctx, &out)
 }
 
-// VoidLedger marks an entry voided (it stays for audit).
-func (s *Store) VoidLedger(ctx context.Context, id bson.ObjectID, v domain.Void) error {
-	res, err := s.c("ledgerEntries").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "voided", Value: nil}},
-		bson.D{{Key: "$set", Value: bson.D{{Key: "voided", Value: v}, {Key: "updatedAt", Value: time.Now().UTC()}}}})
+// UpdateCostEntry sets fields of an entry and bumps its version.
+func (s *Store) UpdateCostEntry(ctx context.Context, id bson.ObjectID, set bson.D) error {
+	set = append(set, bson.E{Key: "updatedAt", Value: time.Now().UTC()})
+	res, err := s.c("costEntries").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}},
+		bson.D{{Key: "$set", Value: set}, {Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}}})
 	if err != nil {
 		return err
 	}
@@ -257,6 +319,27 @@ func (s *Store) VoidLedger(ctx context.Context, id bson.ObjectID, v domain.Void)
 		return ErrNotFound
 	}
 	return nil
+}
+
+// VoidCostEntry marks an entry voided (it stays for audit); ErrNotFound when
+// it is missing or already voided.
+func (s *Store) VoidCostEntry(ctx context.Context, id bson.ObjectID, v domain.Void) error {
+	res, err := s.c("costEntries").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}, {Key: "voided", Value: nil}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "voided", Value: v}, {Key: "updatedAt", Value: time.Now().UTC()}}},
+			{Key: "$inc", Value: bson.D{{Key: "version", Value: 1}}}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// DeleteCostEntry removes an entry of a draft order.
+func (s *Store) DeleteCostEntry(ctx context.Context, id bson.ObjectID) error {
+	_, err := s.c("costEntries").DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
+	return err
 }
 
 // ---- matches and problems (written by deliveries, read for line quantities) ----

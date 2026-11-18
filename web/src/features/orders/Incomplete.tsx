@@ -11,7 +11,7 @@ export function IncompleteReasons({ totals, currency }: { totals: OrderTotals; c
       <Text textStyle="sm" fontWeight="medium" color="fg.warning">{t('incomplete.title')}</Text>
       <List.Root textStyle="sm" ps="4">
         {totals.incomplete.map((r, i) => (
-          <List.Item key={`${r.code}:${r.lineNo ?? ''}:${i}`}>{t(`incomplete.${r.code}`, { line: r.lineNo, currency })}</List.Item>
+          <List.Item key={`${r.code}:${r.lineNo ?? ''}:${i}`}>{t(`incomplete.${r.code}`, { line: r.lineNo, entry: r.entryNo, currency: r.currency ?? currency })}</List.Item>
         ))}
       </List.Root>
     </div>

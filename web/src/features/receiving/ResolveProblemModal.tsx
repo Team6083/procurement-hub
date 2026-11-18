@@ -1,6 +1,6 @@
-import { Button, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useBaseCurrency } from '../../api/meta';
 import { z } from 'zod';
@@ -9,27 +9,30 @@ import type { Problem, ProblemAction } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
-import { amountText, useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
+import { RefundFields, checkRefundAmount, refundBody, refundDefaults, refundShape } from '../orders/RefundFields';
 
 const ACTIONS = ['exchange', 'return_no_replace', 'accept'] as const satisfies readonly ProblemAction[];
 
 // The refund only counts (and is only checked) for a return without replacement.
-const resolveSchema = (baseDigits: number) => z.discriminatedUnion('action', [
-  z.object({ action: z.literal('return_no_replace'), refund: amountText({ digits: baseDigits, sign: 'nonNegative', nonZero: true }, true), note: z.string() }),
-  z.object({ action: z.enum(['exchange', 'accept']), refund: z.string(), note: z.string() }),
-]);
+const resolveSchema = (baseDigits: number) => z.object({
+  action: z.enum(ACTIONS),
+  note: z.string(),
+  ...refundShape(baseDigits),
+}).superRefine((v, ctx) => {
+  if (v.action === 'return_no_replace') checkRefundAmount(v, ctx);
+});
 
 function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('receiving');
   const baseCurrency = useBaseCurrency();
   const resolve = useResolveProblem();
-  const form = useForm({ resolver: zodResolver(resolveSchema(baseDigits)), defaultValues: { action: 'exchange' as ProblemAction, refund: '', note: '' } });
+  const form = useForm({ resolver: zodResolver(resolveSchema(baseDigits)), defaultValues: { action: 'exchange' as ProblemAction, note: '', ...refundDefaults(baseCurrency) } });
+  const refundCurrency = useWatch({ control: form.control, name: 'refundCurrency' });
   const action = useWatch({ control: form.control, name: 'action' });
-  const fieldError = useFieldError();
   const withRefund = action === 'return_no_replace';
   const submit = form.handleSubmit((v) =>
-    resolve.mutate({ problem, action: v.action, refundBase: v.action === 'return_no_replace' && v.refund.trim() ? v.refund.trim() : null, note: v.note.trim() }, { onSuccess: onClose }),
+    resolve.mutate({ problem, action: v.action, refund: v.action === 'return_no_replace' ? refundBody(v, baseCurrency) : null, note: v.note.trim() }, { onSuccess: onClose }),
   );
   return (
     <>
@@ -47,9 +50,9 @@ function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: 
               />
             )} />
             {withRefund && (
-              <FormField label={t('problem.refund', { currency: baseCurrency })} helperText={t('problem.refundHelp')} errorText={fieldError(form.formState.errors.refund)}>
-                <Input inputMode="decimal" {...form.register('refund')} />
-              </FormField>
+              <FormProvider {...form}>
+                <RefundFields currency={refundCurrency} baseCurrency={baseCurrency} />
+              </FormProvider>
             )}
             <FormField label={t('problem.note')}>
               <Textarea rows={2} autoresize {...form.register('note')} />

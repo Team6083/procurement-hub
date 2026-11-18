@@ -59,7 +59,7 @@
     "blockedDelivery": "Delivery",
     "blockedProblem": "Problem",
     "blockedClosure": "Line closure",
-    "blockedLedger": "Ledger entry"
+    "blockedCostEntry": "Refund or extra charge"
   },
   "notFound": {
     "body": "This page does not exist or has moved.",

@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ApiClient } from './client';
 import { useApi } from './context';
 import { AUDIT_PAGE_SIZE, keys } from './keys';
-import type { AuditEvent, Page, QueueGroup, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
+import type { AuditEvent, CostEntry, CostEntryBody, Page, QueueGroup, RefundBody, VendorOrder, VendorOrderLine, VendorOrderSummary } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
 import { ifMatchHeader, serial, useVersionedMutation } from './versioned';
 
@@ -20,6 +20,12 @@ export interface OrderFilters {
   status?: string;
   vendorId?: string;
   teamId?: string;
+  /** `me`: only orders the caller owns. */
+  ownerId?: string;
+  /** `false`: placed orders not completed yet. */
+  completed?: string;
+  receivingState?: string;
+  accountingState?: string;
   q?: string;
 }
 
@@ -32,7 +38,7 @@ export function useVendorOrderList(filters: OrderFilters, enabled = true) {
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
       api.get<Page<VendorOrderSummary>>('/vendor-orders', {
-        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
+        query: { status: filters.status || undefined, vendorId: filters.vendorId || undefined, teamId: filters.teamId || undefined, ownerId: filters.ownerId || undefined, completed: filters.completed || undefined, receivingState: filters.receivingState || undefined, accountingState: filters.accountingState || undefined, q: filters.q?.trim() || undefined, cursor: pageParam, limit: 25 },
         signal,
       }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
@@ -49,7 +55,7 @@ export function useVendorOrder(id: string | undefined) {
   });
 }
 
-/** Order timeline (lines, ledger and problems included), newest first. */
+/** Order timeline (lines, cost entries and problems included), newest first. */
 export function useOrderAudit(id: string | undefined) {
   const api = useApi();
   return useInfiniteQuery({
@@ -62,7 +68,7 @@ export function useOrderAudit(id: string | undefined) {
   });
 }
 
-/** A write on a vendor order (or one of its lines, ledger entries): If-Match is the cached order's version. */
+/** A write on a vendor order (or one of its lines or cost entries): If-Match is the cached order's version. */
 const useOrderMutation = <TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) =>
   useVersionedMutation<TVars, VendorOrder>(keys.order(orderId), (api, vars, version) => call(api, vars, ifMatchHeader(version)));
 
@@ -88,10 +94,8 @@ export const useDeleteLine = (orderId: string) =>
 export interface OrderBody {
   vendorId: string;
   currency: string;
+  ownerIds: string[];
   externalOrderNo: string;
-  sharedCosts: { type: string; amount: string; note: string }[];
-  teamCostOverrides: { teamId: string; amount: string }[] | null;
-  overrideReason: string;
   chargedAmountBase: string | null;
   expectedDeliveryDate: string;
   paymentNote: string;
@@ -106,19 +110,29 @@ export const useOrderAction = (orderId: string) =>
     api.post<VendorOrder>(`/vendor-orders/${orderId}/${action}`, action === 'place' ? undefined : { reason }, { headers }),
   );
 
-export const useAddLedger = (orderId: string) =>
-  useOrderMutation<{ amountBase: string; vendorOrderLineId: string | null; reason: string }>(orderId, (api, body, headers) =>
-    api.post<VendorOrder>(`/vendor-orders/${orderId}/ledger`, body, { headers }),
-  );
-
-export const useVoidLedger = (orderId: string) =>
-  useOrderMutation<{ entryId: string; reason: string }>(orderId, (api, { entryId, reason }, headers) =>
-    api.post<VendorOrder>(`/ledger-entries/${entryId}/void`, { reason }, { headers }),
-  );
-
 export const useCloseLine = (orderId: string) =>
-  useOrderMutation<{ line: VendorOrderLine; type: 'short_accepted' | 'not_obtained'; reason: string; refundBase: string | null }>(orderId, (api, { line, ...body }, headers) =>
+  useOrderMutation<{ line: VendorOrderLine; type: 'short_accepted' | 'not_obtained'; reason: string; refund: RefundBody | null }>(orderId, (api, { line, ...body }, headers) =>
     api.post<VendorOrder>(`/vendor-order-lines/${line.id}/close`, body, { headers }),
+  );
+
+/** POST /vendor-orders/{id}/cost-entries: refunds and extra charges need a placed order. */
+export const useCreateCostEntry = (orderId: string) =>
+  useOrderMutation<CostEntryBody>(orderId, (api, body, headers) => api.post<VendorOrder>(`/vendor-orders/${orderId}/cost-entries`, body, { headers }));
+
+/** PUT /cost-entries/{id}: replaces the entry (draft or placed). */
+export const usePutCostEntry = (orderId: string) =>
+  useOrderMutation<{ entry: CostEntry; body: CostEntryBody }>(orderId, (api, { entry, body }, headers) =>
+    api.put<VendorOrder>(`/cost-entries/${entry.id}`, body, { headers }),
+  );
+
+/** DELETE /cost-entries/{id}: draft orders only. */
+export const useDeleteCostEntry = (orderId: string) =>
+  useOrderMutation<CostEntry>(orderId, (api, entry, headers) => api.delete<VendorOrder>(`/cost-entries/${entry.id}`, { headers }));
+
+/** POST /cost-entries/{id}/void: placed orders; entries of a problem or closure are voided by undoing it (409). */
+export const useVoidCostEntry = (orderId: string) =>
+  useOrderMutation<{ entry: CostEntry; reason: string }>(orderId, (api, { entry, reason }, headers) =>
+    api.post<VendorOrder>(`/cost-entries/${entry.id}/void`, { reason }, { headers }),
   );
 
 export const useReopenLine = (orderId: string) =>
@@ -129,7 +143,7 @@ export const useReopenLine = (orderId: string) =>
 /** POST /vendor-orders: a draft for a vendor, with one line per item. */
 export function useCreateOrder() {
   const api = useApi();
-  return useGuardedMutation<{ vendorId: string; currency?: string; itemIds: string[] }, VendorOrder>({
+  return useGuardedMutation<{ vendorId: string; currency?: string; itemIds: string[]; ownerIds?: string[] }, VendorOrder>({
     mutationFn: (body) => api.post<VendorOrder>('/vendor-orders', body),
   });
 }

@@ -32,13 +32,13 @@
     "reason_required": "A reason is required.",
     "item_not_deletable": "This item can no longer be deleted. Withdraw it instead.",
     "item_not_editable": "This item can no longer be edited or withdrawn.",
-    "item_not_edited": "Edit the item before resubmitting it.",
+    "item_not_edited": "Edit the item or add a reply before resubmitting it.",
     "item_not_reviewable": "One of the items can no longer be reviewed (it may have been decided already).",
     "batch_item_limit": "This batch has reached the maximum number of items (5000).",
     "blocked_by_dependency": "Other records depend on this. Undo them first.",
     "items_undecided": "Every item must be approved or rejected before the review can be confirmed.",
     "line_quantity_exceeded": "Line #{{lineNo}} can take only {{remaining}} more. Lower the quantity; the rest can stay pending or be marked as not needing a match.",
-    "team_cost_overrides_mismatch": "The team cost overrides do not match the teams on this order.",
+    "shared_cost_allocation_invalid": "The split of a cost entry does not match the lines or teams on this order.",
     "item_not_purchasable": "This item cannot be ordered: it must be approved in a review-confirmed batch and not marked unpurchasable.",
     "item_already_on_order": "This item already has a line on this order.",
     "order_not_draft": "Lines can only be added or removed while the order is a draft.",
@@ -47,12 +47,14 @@
     "unit_price_required": "A placed line must keep its unit price.",
     "order_has_no_lines": "The order has no lines.",
     "line_missing_price": "Every line needs a unit price before the order can be placed.",
-    "order_not_placed": "Ledger entries can only be added to a placed order.",
+    "order_not_placed": "Refunds and extra charges can only be added to a placed order.",
+    "cost_entry_voided": "This entry is voided and can no longer be changed.",
     "line_not_closable": "Only lines that are short and have no open problem can be closed.",
     "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one.",
     "lookup_not_found": "No product was found for that SKU or URL. You can fill in the item by hand.",
     "lookup_disabled": "Product lookup is not enabled.",
     "upstream_timeout": "The product lookup took too long. Please try again."
   },
-  "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes."
+  "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes.",
+  "order_not_placed": "Refunds and extra charges can be added only to a placed order, and cost entries can be voided only on a placed order (delete them in a draft)."
 }

@@ -3,7 +3,7 @@ import type { Batch, Item } from '../../api/types';
 import { filterItems } from './filters';
 import { safeHttpUrl, itemFormSchema, toItemRequest, emptyItemForm } from './itemForm';
 import { auditActionKey } from '../../components/AuditTimeline';
-import { availableActions, canAddItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
+import { availableActions, canAddItem, canAddRelatedItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canUndoUnpurchasable, canModifyItem, canResubmitItem, canReview, isEditedSinceReturn, showResubmit, type Caller } from './rules';
 
 const asm = (n: number) => ({ approvers: n ? ['a1'] : [], purchasers: n ? ['p1'] : [] });
 const batch = (o: Partial<Batch> = {}): Batch =>
@@ -74,6 +74,13 @@ describe('item permissions mirror backend canModify', () => {
     expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'reviewing' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
     expect(canModifyItem(item({ requesterId: 'x', status: 'approved' }), batch({ status: 'collecting' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
   });
+  it('items added during review are withdrawable only while reviewing; deletable after the batch is back to collecting', () => {
+    const added = item({ firstReviewedAt: null, createdAt: '2026-01-03T00:00:00Z' });
+    const reviewing = batch({ status: 'reviewing', statusChangedAt: '2026-01-02T00:00:00Z' });
+    expect(canModifyItem(added, reviewing, caller())).toBe(true);
+    expect(canDeleteItem(added, reviewing, caller())).toBe(false);
+    expect(canDeleteItem(added, batch({ status: 'collecting' }), caller())).toBe(true);
+  });
   it('adding items: proposer while proposed, members while collecting', () => {
     expect(canAddItem(batch({ status: 'proposed', createdBy: 'u1' }), caller())).toBe(true);
     expect(canAddItem(batch({ status: 'proposed', createdBy: 'x' }), caller())).toBe(false);
@@ -85,9 +92,15 @@ describe('item permissions mirror backend canModify', () => {
 
 describe('copy as new item', () => {
   it('is offered to anyone who can add items, for any item', () => {
-    expect(canCopyItem(batch({ status: 'collecting' }), caller())).toBe(true);
-    expect(canCopyItem(batch({ status: 'reviewing' }), caller())).toBe(false);
-    expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }))).toBe(false);
+    expect(canCopyItem(batch({ status: 'collecting' }), caller(), [])).toBe(true);
+    expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }), [])).toBe(false);
+  });
+  it('during review: requester with a returned item, and team admins', () => {
+    const reviewing = batch({ status: 'reviewing' });
+    expect(canCopyItem(reviewing, caller(), [])).toBe(false);
+    expect(canCopyItem(reviewing, caller(), [item({ requesterId: 'u1', status: 'returned' })])).toBe(true);
+    expect(canCopyItem(reviewing, caller(), [item({ requesterId: 'x', status: 'returned' })])).toBe(false);
+    expect(canCopyItem(reviewing, caller({ teamRole: 'admin' }), [])).toBe(true);
   });
 });
 
@@ -194,5 +207,16 @@ describe('canMarkUnpurchasable', () => {
     expect(canMarkUnpurchasable(approved, batch({ status: 'reviewing' }), buyer())).toBe(false);
     expect(canMarkUnpurchasable(approved, { ...confirmed, reviewConfirmation: { by: 'a1', at: '', purchaseOutside: true } }, buyer())).toBe(false);
     expect(canMarkUnpurchasable(approved, confirmed, { ...buyer(), archived: true })).toBe(false);
+  });
+});
+
+describe('related items during review', () => {
+  it('offered for a returned item to its requester and team admins only', () => {
+    const r = { requesterId: 'u1', status: 'returned' as const };
+    expect(canAddRelatedItem(r, batch({ status: 'reviewing' }), caller())).toBe(true);
+    expect(canAddRelatedItem({ ...r, requesterId: 'x' }, batch({ status: 'reviewing' }), caller())).toBe(false);
+    expect(canAddRelatedItem({ ...r, requesterId: 'x' }, batch({ status: 'reviewing' }), caller({ teamRole: 'admin' }))).toBe(true);
+    expect(canAddRelatedItem({ ...r, status: 'pending' as never }, batch({ status: 'reviewing' }), caller())).toBe(false);
+    expect(canAddRelatedItem(r, batch({ status: 'collecting' }), caller())).toBe(false);
   });
 });

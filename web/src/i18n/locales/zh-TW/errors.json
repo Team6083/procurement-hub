@@ -32,13 +32,13 @@
     "reason_required": "必須填寫原因。",
     "item_not_deletable": "此品項已無法刪除，請改用撤回。",
     "item_not_editable": "此品項已無法編輯或撤回。",
-    "item_not_edited": "請先編輯品項才能重新送審。",
+    "item_not_edited": "請先編輯品項或填寫回覆說明才能重新送審。",
     "item_not_reviewable": "其中有品項已無法審核（可能已被決定）。",
     "batch_item_limit": "此批次的品項已達上限（5000 項）。",
     "blocked_by_dependency": "還有其他紀錄依賴這筆資料，請先撤銷它們。",
     "items_undecided": "所有品項都核准或駁回後才能審核確認。",
     "line_quantity_exceeded": "第 {{lineNo}} 行只能再收 {{remaining}} 個。請降低數量；多出的部分可以留在待對應，或標記不需對應。",
-    "team_cost_overrides_mismatch": "團隊分攤覆寫與這張訂單的團隊不符。",
+    "shared_cost_allocation_invalid": "費用的分配與這張訂單的團隊或明細行不符。",
     "item_not_purchasable": "這個品項無法下單：必須是已審核確認批次中的核准品項，且未標記無法採購。",
     "item_already_on_order": "這個品項在這張訂單中已經有一行。",
     "order_not_draft": "只有草稿訂單可以新增或移除明細行。",
@@ -47,12 +47,14 @@
     "unit_price_required": "已下單的明細行必須保留單價。",
     "order_has_no_lines": "訂單沒有明細行。",
     "line_missing_price": "每一行都要有單價才能按已下單。",
-    "order_not_placed": "只有已下單的訂單可以新增金流紀錄。",
+    "order_not_placed": "只有已下單的訂單可以新增退款或補款。",
+    "cost_entry_voided": "這筆費用已作廢，無法再修改。",
     "line_not_closable": "只有數量短少且沒有未處理問題的明細行可以結案。",
     "line_not_matchable": "這一行明細不能對應到貨：廠商訂單尚未下單或這一行已結案。請先撤銷結案或改選其他明細行。",
     "lookup_not_found": "找不到符合此 SKU 或網址的產品，請手動填寫。",
     "lookup_disabled": "未啟用產品查詢。",
     "upstream_timeout": "產品查詢逾時，請稍後再試。"
   },
-  "conflictKeptEdits": "你編輯時有人修改了此項目。你的修改已保留，未修改的欄位已更新為最新內容；請再次儲存以套用你的修改。"
+  "conflictKeptEdits": "你編輯時有人修改了此項目。你的修改已保留，未修改的欄位已更新為最新內容；請再次儲存以套用你的修改。",
+  "order_not_placed": "只有已下單的訂單可以新增退款或補款，也只有已下單的訂單可以作廢費用與調整（草稿請直接刪除）。"
 }

@@ -99,6 +99,56 @@ func (s *Store) GetUser(ctx context.Context, id bson.ObjectID) (*domain.User, er
 	return &u, nil
 }
 
+// UsersByIDs loads users in one query; missing ids are simply absent.
+func (s *Store) UsersByIDs(ctx context.Context, ids []bson.ObjectID) (map[bson.ObjectID]domain.User, error) {
+	out := map[bson.ObjectID]domain.User{}
+	if len(ids) == 0 {
+		return out, nil
+	}
+	cur, err := s.c("users").Find(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: ids}}}})
+	if err != nil {
+		return nil, err
+	}
+	var rows []domain.User
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+	for _, u := range rows {
+		out[u.ID] = u
+	}
+	return out, nil
+}
+
+// PurchaserIDs returns those of ids that still have the purchaser role in
+// users.roleSnapshot, keeping the order of ids.
+func (s *Store) PurchaserIDs(ctx context.Context, ids []bson.ObjectID) ([]bson.ObjectID, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	cur, err := s.c("users").Find(ctx, bson.D{{Key: "_id", Value: bson.D{{Key: "$in", Value: ids}}}, {Key: "roleSnapshot.purchaser", Value: true}},
+		options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	var rows []struct {
+		ID bson.ObjectID `bson:"_id"`
+	}
+	if err := cur.All(ctx, &rows); err != nil {
+		return nil, err
+	}
+	ok := map[bson.ObjectID]bool{}
+	for _, r := range rows {
+		ok[r.ID] = true
+	}
+	var out []bson.ObjectID
+	for _, id := range ids {
+		if ok[id] {
+			out = append(out, id)
+		}
+	}
+	return out, nil
+}
+
 // SearchUsers matches username, email or display name by case-insensitive prefix/substring.
 // role is "", "purchaser" or "receiver"; the latter two filter on roleSnapshot.
 func (s *Store) SearchUsers(ctx context.Context, q, role string, limit int64) ([]domain.User, error) {

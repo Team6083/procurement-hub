@@ -1,6 +1,6 @@
 import { orderLabel } from '../labels';
 import { currencyFractionDigits, formatMoney } from '../money';
-import { Button, Card, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Alert, Button, Card, CloseButton, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,17 +16,17 @@ import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
 import { Breakdown } from './Breakdown';
+import { CostEntriesTable } from './CostEntriesTable';
 import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
-import { LedgerSection } from './LedgerSection';
 import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
-import { OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
+import { OrderProgressBadges, OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
 import { OrderTimeline } from './OrderTimeline';
 import { PageSkeleton, LoadError } from '../../components/PageStates';
 
 /**
- * One vendor order: lines and unit prices, shared costs, ledger, the calculation with its invariant check and the
+ * One vendor order: lines and unit prices, the calculation with its invariant check and the
  * timeline. Used as a page and inside the purchasing page's dialog (the single-team flow stays on one screen).
  */
 export function VendorOrderView({ id, embedded = false }: { id: string; embedded?: boolean }) {
@@ -44,6 +44,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const [closing, setClosing] = useState<VendorOrderLine | null>(null);
   const [reopening, setReopening] = useState<VendorOrderLine | null>(null);
   const [removing, setRemoving] = useState<VendorOrderLine | null>(null);
+  const [resetSeen, setResetSeen] = useState<number | null>(null);
   const [undo, setUndo] = useState<Exclude<OrderAction, 'place'> | null>(null);
 
   if (q.isPending) return <PageSkeleton />;
@@ -61,6 +62,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
   const header = (
     <>
       <OrderStatusBadge status={order.status} />
+      <OrderProgressBadges order={order} />
       {order.totals.provisional && <ProvisionalBadge />}
     </>
   );
@@ -89,8 +91,14 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
           <PageHeader mb="0" title={`${orderLabel(order.number)} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
         )}
         {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
-        {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}
         {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
+        {order.allocationsReset && resetSeen !== order.version && (
+          <Alert.Root status="warning">
+            <Alert.Indicator />
+            <Alert.Description>{t('costs.allocationsReset')}</Alert.Description>
+            <CloseButton size="sm" aria-label={t('common:actions.close')} onClick={() => setResetSeen(order.version)} />
+          </Alert.Root>
+        )}
         {!undo && <ErrorAlert error={action.error} />}
         <Card.Root size="sm">
           <Card.Body>
@@ -98,6 +106,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
               minChildWidth={{ base: '9rem', md: '10rem' }}
               items={[
                 { label: t('details.currency'), value: order.currency },
+                { label: t('details.owners'), value: order.owners.map((o) => o.displayName).join(', ') || '—' },
                 { label: t('details.externalNo'), value: order.externalOrderNo || '—' },
                 { label: t('details.placedAt'), value: shortDate(order.placedAt) },
                 { label: t('details.delivery'), value: shortDay(order.expectedDeliveryDate) },
@@ -119,16 +128,19 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         />
       </Stack>
 
+      {!!me?.isPurchaser && !order.restricted && (
+        <CostEntriesTable order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} teamName={teamName} canWrite={canWrite && order.status !== 'cancelled'} headingAs={h} />
+      )}
+
       {/* The calculation beside the form that changes it; wide screens only, the dialog stays one column. */}
       <SimpleGrid columns={{ base: 1, lg: embedded ? 1 : 2 }} gap="6" alignItems="start">
         <Breakdown order={order} baseCurrency={baseCurrency} headingAs={h} />
         {canWrite && order.status !== 'cancelled' && (
           <DetailsForm
-            order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} teamName={teamName} baseDigits={baseDigits} headingAs={h}
+            order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} baseDigits={baseDigits} headingAs={h}
           />
         )}
       </SimpleGrid>
-      <LedgerSection order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} canWrite={canWrite} headingAs={h} />
 
       <Stack gap="2">
         <SectionHeader as={h} mb="0" title={t('timeline.title')} />

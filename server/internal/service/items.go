@@ -41,6 +41,7 @@ type ItemInput struct {
 	ProductURL         string
 	AutoFilledFields   []string
 	LookupProvider     string
+	RelatedItemID      *bson.ObjectID // create only: an item of the same batch
 }
 
 func (in ItemInput) fields() domain.ItemFields {
@@ -175,13 +176,15 @@ func (s *Items) List(ctx context.Context, actor authz.Actor, batchID bson.Object
 }
 
 // Add creates an item: team members, while the batch is `proposed` (proposer
-// only) or `collecting` (spec §8.3).
+// only) or `collecting`; while it is `reviewing`, requesters who currently have
+// a returned item in it and team admins (spec §8.3, §10.2).
 func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectID, in ItemInput) (*domain.Item, error) {
 	b, t, err := s.batches.load(ctx, actor, batchID)
 	if err != nil {
 		return nil, err
 	}
-	if !actor.IsMember(t.ID) {
+	duringReview := b.Status == domain.BatchReviewing
+	if !duringReview && !actor.IsMember(t.ID) {
 		return nil, ErrForbidden
 	}
 	if t.Archived {
@@ -193,8 +196,34 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 			return nil, ErrForbidden
 		}
 	case domain.BatchCollecting:
+	case domain.BatchReviewing:
+		if !actor.CanAdminTeam(t.ID) {
+			if !actor.IsMember(t.ID) {
+				return nil, ErrForbidden
+			}
+			existing, err := s.st.ListItems(ctx, b.ID)
+			if err != nil {
+				return nil, err
+			}
+			hasReturned := false
+			for i := range existing {
+				if existing[i].RequesterID == actor.UserID && existing[i].Status == domain.ItemReturned {
+					hasReturned = true
+					break
+				}
+			}
+			if !hasReturned {
+				return nil, ErrForbidden
+			}
+		}
 	default:
 		return nil, Rule("batch_not_collecting", "Batch is not accepting items.")
+	}
+	if in.RelatedItemID != nil {
+		rel, err := s.st.GetItem(ctx, *in.RelatedItemID)
+		if err != nil || rel.BatchID != b.ID {
+			return nil, Invalid("relatedItemId", "must be an item of this batch")
+		}
 	}
 	in.Name, in.Purpose = strings.TrimSpace(in.Name), strings.TrimSpace(in.Purpose)
 	if in.SubgroupID == "" {
@@ -216,6 +245,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		TeamID: t.ID, BatchID: b.ID, RequesterID: actor.UserID, Status: domain.ItemPending,
 		SubgroupID: in.SubgroupID, Name: in.Name, VendorID: in.VendorID, VendorName: in.VendorName, SKU: in.SKU, Quantity: in.Quantity,
 		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose, Notes: in.Notes, ProductURL: in.ProductURL,
+		RelatedItemID: in.RelatedItemID,
 	}
 	if len(in.AutoFilledFields) > 0 {
 		it.Lookup = &domain.LookupInfo{Provider: in.LookupProvider, FetchedAt: s.batches.now(), AutoFilledFields: in.AutoFilledFields}
@@ -240,6 +270,17 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		if err := s.st.InsertItem(ctx, it); err != nil {
 			return err
 		}
+		if duringReview {
+			if err := s.requireReviewing(ctx, b.ID); err != nil {
+				return err
+			}
+			if err := s.notifyAddedDuringReview(ctx, actor, b, t, it); err != nil {
+				return err
+			}
+			if err := s.st.BumpBatch(ctx, b.ID); err != nil {
+				return err
+			}
+		}
 		return s.audit.Record(ctx, s.event(actor.UserID.Hex(), b, it, "item.created", "",
 			domain.AuditChange{Field: "status", From: "", To: string(it.Status)}))
 	})
@@ -247,6 +288,34 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		return nil, err
 	}
 	return it, nil
+}
+
+// notifyAddedDuringReview emits item.added_during_review to the batch's
+// explicitly assigned approvers, or to the team's admins when there are none
+// (spec §12.2). No channel message.
+func (s *Items) notifyAddedDuringReview(ctx context.Context, actor authz.Actor, b *domain.Batch, t *domain.Team, it *domain.Item) error {
+	recipients := b.Assignments.Approvers
+	if len(recipients) == 0 {
+		ms, err := s.st.MembershipsByTeam(ctx, t.ID)
+		if err != nil {
+			return err
+		}
+		for _, m := range ms {
+			if m.Effective() == domain.RoleAdmin {
+				recipients = append(recipients, m.UserID)
+			}
+		}
+	}
+	for _, uid := range recipients {
+		if uid == actor.UserID {
+			continue
+		}
+		if err := s.st.Emit(ctx, store.EventRecord{Type: "item.added_during_review", Actor: actor.UserID.Hex(), TeamID: b.TeamID,
+			BatchID: b.ID, ObjectID: it.ID.Hex(), Recipient: uid.Hex()}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // loadItem fetches an item together with its batch/team and checks read access.
@@ -262,6 +331,14 @@ func (s *Items) loadItem(ctx context.Context, actor authz.Actor, id bson.ObjectI
 	return it, b, t, nil
 }
 
+// addedDuringReview derives "added while the batch is reviewing" (spec §10.2)
+// instead of storing it: a never-reviewed pending item created after the batch
+// entered its current `reviewing` status. Such items can only be withdrawn.
+func addedDuringReview(it *domain.Item, b *domain.Batch) bool {
+	return b.Status == domain.BatchReviewing && it.Status == domain.ItemPending && it.FirstReviewedAt == nil &&
+		it.CreatedAt.After(b.StatusChangedAt)
+}
+
 // canModify implements "edit/withdraw own item" and the team-admin override
 // (spec §8.3). System admins hold every Team-admin permission (§8.1).
 func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
@@ -271,7 +348,13 @@ func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
 			return true
 		case it.Status == domain.ItemReturned && b.Status == domain.BatchReviewing:
 			return true
+		case addedDuringReview(it, b):
+			// Added during review: withdraw only (spec §10.2).
+			return true
 		}
+	}
+	if addedDuringReview(it, b) && actor.CanAdminTeam(b.TeamID) {
+		return true
 	}
 	return actor.CanAdminTeam(b.TeamID) && b.Status == domain.BatchCollecting &&
 		(it.Status == domain.ItemPending || it.Status == domain.ItemReturned)
@@ -437,8 +520,8 @@ func (s *Items) Delete(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 }
 
 // Resubmit sends a returned item back to review. The requester must have
-// edited it since it was returned (spec §10.2).
-func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64) (*domain.Item, error) {
+// edited it since it was returned or give a non-blank reply note (spec §10.2).
+func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, note string) (*domain.Item, error) {
 	it, b, t, err := s.loadItem(ctx, actor, id)
 	if err != nil {
 		return nil, err
@@ -452,10 +535,12 @@ func (s *Items) Resubmit(ctx context.Context, actor authz.Actor, id bson.ObjectI
 	if b.Status != domain.BatchReviewing || it.Status != domain.ItemReturned {
 		return nil, Rule("invalid_transition", "Only returned items in a batch under review can be resubmitted.")
 	}
-	if it.Review != nil && it.Version <= it.Review.AtVersion {
-		return nil, Rule("item_not_edited", "Edit the item before resubmitting it.")
+	note = strings.TrimSpace(note)
+	if it.Review != nil && it.Version <= it.Review.AtVersion && note == "" {
+		return nil, Rule("item_not_edited", "Edit the item or add a reply note before resubmitting it.")
 	}
-	return s.transitionItem(ctx, actor.UserID.Hex(), b, it, version, domain.EvResubmit, "item.resubmitted", "", nil)
+	return s.transitionItemSet(ctx, actor.UserID.Hex(), b, it, version, domain.EvResubmit, "item.resubmitted", note, nil,
+		bson.D{{Key: "resubmitNote", Value: note}})
 }
 
 // transitionItem applies a single event with audit and batch re-evaluation.

@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "採購中心"
+    "name": "Procurement Hub"
   },
   "nav": {
     "batches": "採購批次",
@@ -59,7 +59,7 @@
     "blockedDelivery": "到貨紀錄",
     "blockedProblem": "到貨問題",
     "blockedClosure": "明細行結案",
-    "blockedLedger": "金流紀錄"
+    "blockedCostEntry": "退款或補款"
   },
   "notFound": {
     "body": "這個頁面不存在，或已經移走。",

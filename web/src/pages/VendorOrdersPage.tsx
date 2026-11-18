@@ -17,7 +17,7 @@ import { SelectField } from '../components/ui/select';
 import { useBaseCurrency } from '../api/meta';
 import { shortDate } from '../features/dates';
 import { formatMoney } from '../features/money';
-import { OrderStatusBadge, ProvisionalBadge } from '../features/orders/StatusBadges';
+import { OrderProgressBadges, OrderStatusBadge, ProvisionalBadge } from '../features/orders/StatusBadges';
 import { paths } from '../paths';
 
 /** Vendor orders the caller can see; regular users only reach the ones holding their team's lines. */
@@ -25,19 +25,21 @@ export function VendorOrdersPage() {
   const { t, i18n } = useTranslation('purchasing');
   const baseCurrency = useBaseCurrency();
   const [params] = useSearchParams();
-  const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined }));
+  const [filters, setFilters] = useState<OrderFilters>(() => ({ status: params.get('status') || undefined, ownerId: params.get('ownerId') || undefined }));
   const [search, setSearch] = useState('');
   const list = useVendorOrderList({ ...filters, q: search });
   const vendors = useVendors(true).data ?? [];
   const teams = useTeams().data ?? [];
   const rows = list.data?.pages.flatMap((p) => p.items) ?? [];
   const set = (k: keyof OrderFilters) => (v: string) => setFilters({ ...filters, [k]: v || undefined });
-  const activeCount = [filters.status, filters.vendorId, filters.teamId].filter(Boolean).length;
+  const activeCount = [filters.status, filters.vendorId, filters.teamId, filters.ownerId, filters.completed, filters.receivingState, filters.accountingState].filter(Boolean).length;
 
   const columns: DataColumn<VendorOrderSummary>[] = [
     { key: 'no', header: t('list.number'), priority: 'primary', cell: (o) => <RouteAnchor to={paths.vendorOrder(o.id)}>{orderLabel(o.number)}</RouteAnchor> },
     { key: 'vendor', header: t('list.vendor'), cell: (o) => o.vendorName },
     { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalBadge />}</HStack> },
+    { key: 'progress', header: t('progress.title'), cell: (o) => <HStack gap="2" wrap="wrap"><OrderProgressBadges order={o} /></HStack> },
+    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => o.owners.map((x) => x.displayName).join(', ') || '—' },
     { key: 'ext', header: t('details.externalNo'), priority: 'secondary', cell: (o) => o.externalOrderNo || '—' },
     { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? t('common:unknownTeam')).join(', ') },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (o) => (o.restricted ? <Badge variant="outline">{t('list.visibleLines', { count: o.lineCount })}</Badge> : o.lineCount) },
@@ -52,8 +54,15 @@ export function VendorOrdersPage() {
       >
         <SelectField size="sm" label={t('line.status')} placeholder={t('list.all')} value={filters.status} onChange={set('status')}
           options={['draft', 'placed', 'cancelled'].map((s) => ({ value: s, label: t(`orderStatus.${s}`) }))} />
+        <SelectField size="sm" label={t('progress.title')} placeholder={t('list.all')} value={filters.completed} onChange={set('completed')}
+          options={[{ value: 'false', label: t('progress.notCompleted') }, { value: 'true', label: t('progress.completed') }]} />
+        <SelectField size="sm" label={t('progress.receiving')} placeholder={t('list.all')} value={filters.receivingState} onChange={set('receivingState')}
+          options={['none', 'partial', 'closed'].map((s) => ({ value: s, label: t(`progress.receivingState.${s}`) }))} />
+        <SelectField size="sm" label={t('progress.accounting')} placeholder={t('list.all')} value={filters.accountingState} onChange={set('accountingState')}
+          options={['incomplete', 'provisional', 'final'].map((s) => ({ value: s, label: t(`progress.accountingState.${s}`) }))} />
         <SelectField size="sm" label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
         <SelectField size="sm" label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
+        <SelectField size="sm" label={t('list.owner')} placeholder={t('list.all')} value={filters.ownerId} onChange={set('ownerId')} options={[{ value: 'me', label: t('list.ownerMine') }]} />
       </FilterBar>
       {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}

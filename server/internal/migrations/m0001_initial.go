@@ -53,7 +53,7 @@ var indexes0001 = []indexSpec{
 	{coll: "vendorOrderLines", keys: asc("vendorOrderId")},
 	{coll: "vendorOrderLines", keys: asc("itemId")},
 	{coll: "vendorOrderLines", keys: asc("teamId", "status")},
-	{coll: "ledgerEntries", keys: asc("vendorOrderId")},
+	{coll: "costEntries", keys: asc("vendorOrderId")},
 	{coll: "deliveries", keys: asc("number"), unique: true},
 	{coll: "deliveries", keys: asc("receivedAt")},
 	{coll: "deliveryLines", keys: asc("deliveryId")},

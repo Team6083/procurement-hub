@@ -102,7 +102,7 @@ export function item(seqNo: number, over: Partial<Item> = {}): Item {
   return {
     id: `i${seqNo}`, teamId: 't1', batchId: 'b1', seqNo, requesterId: 'u1', subgroupId: 'g1', name: `Item ${seqNo}`, vendorId: null, vendorName: 'Acme', sku: '',
     quantity: 1, estimatedUnitPrice: { amount: '10', currency: 'USD' }, priority: 3, purpose: '', notes: '', productUrl: '',
-    status: 'pending', review: null, firstReviewedAt: null, lookup: null, unpurchasable: null, fulfillment: null, plannedQuantity: 0, toPurchaseQuantity: 0,
+    status: 'pending', review: null, firstReviewedAt: null, relatedItemId: null, resubmitNote: '', lookup: null, unpurchasable: null, fulfillment: null, plannedQuantity: 0, toPurchaseQuantity: 0,
     orderedQuantity: 0, receivedQuantity: 0, costBase: null, customFields: null, createdAt: at, updatedAt: at, version: 1, ...over,
   };
 }

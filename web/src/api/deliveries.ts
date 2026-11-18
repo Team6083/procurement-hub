@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import type { ApiClient } from './client';
 import { useApi } from './context';
 import { keys } from './keys';
-import type { Candidate, Delivery, DeliveryLine, DeliveryLineRequest, DeliverySummary, MatchRequest, Page, Problem, ProblemAction, VendorOrderLine } from './types';
+import type { Candidate, Delivery, DeliveryLine, DeliveryLineRequest, DeliverySummary, MatchRequest, Page, Problem, ProblemAction, RefundBody, VendorOrderLine } from './types';
 import { useGuardedMutation } from './useGuardedMutation';
 import { ifMatchHeader, useVersionedMutation } from './versioned';
 
@@ -138,7 +138,7 @@ export const useVoidDelivery = (deliveryId: string) =>
 /** POST /problems/{id}/resolve with the problem's own version in If-Match. */
 export function useResolveProblem() {
   const api = useApi();
-  return useGuardedMutation<{ problem: Problem; action: ProblemAction; refundBase: string | null; note: string }, Problem>({
+  return useGuardedMutation<{ problem: Problem; action: ProblemAction; refund: RefundBody | null; note: string }, Problem>({
     mutationFn: ({ problem, ...body }) => api.post<Problem>(`/problems/${problem.id}/resolve`, body, { headers: ifMatchHeader(problem.version) }),
   });
 }

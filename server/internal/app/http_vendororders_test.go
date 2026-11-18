@@ -81,8 +81,8 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	w.do(t, call{token: buyer, method: "PUT", path: w.path("/vendor-order-lines/{}", lines[0].(map[string]any)["id"].(string)), ifMatch: `"1"`, body: map[string]any{
 		"teamId": lines[0].(map[string]any)["teamId"], "name": "x", "quantity": 2}}).expect(409, "version_conflict")
 	o = w.do(t, call{token: buyer, method: "PUT", path: op, ifMatch: o.ETag(), body: map[string]any{
-		"vendorId": vendor.String("id"), "currency": "USD", "sharedCosts": []map[string]any{{"type": "shipping", "amount": "10.00", "note": ""}}}}).expect(200)
-	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "35" || o.JSON()["invariantOk"] != true {
+		"vendorId": vendor.String("id"), "currency": "USD", "ownerIds": []string{}, "paymentNote": "card"}}).expect(200)
+	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "25" || o.JSON()["invariantOk"] != true {
 		t.Fatalf("netBase = %v: %s", net, o.Body)
 	}
 
@@ -123,18 +123,6 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 		t.Errorf("member lists %d orders", n)
 	}
 
-	// Blocker: a ledger entry stops unplace until it is voided.
-	o = w.do(t, call{token: buyer, method: "POST", path: op + "/ledger", ifMatch: o.ETag(), body: map[string]any{"amountBase": "-2.00", "reason": "price match"}}).expect(201)
-	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "33" || o.JSON()["invariantOk"] != true {
-		t.Fatalf("net with ledger = %v", net)
-	}
-	b := w.do(t, call{token: buyer, method: "POST", path: op + "/unplace", ifMatch: o.ETag(), body: map[string]any{"reason": "oops"}}).expect(409, "blocked_by_dependency")
-	bl := b.JSON()["error"].(map[string]any)["details"].(map[string]any)["blockers"].([]any)
-	if len(bl) != 1 || bl[0].(map[string]any)["type"] != "ledger_entry" {
-		t.Fatalf("blockers = %v", bl)
-	}
-	o = w.do(t, call{token: buyer, method: "POST", path: w.path("/ledger-entries/{}/void", o.JSON()["ledger"].([]any)[0].(map[string]any)["id"].(string)), ifMatch: o.ETag(),
-		body: map[string]any{"reason": "mistake"}}).expect(200)
 	o = w.do(t, call{token: buyer, method: "POST", path: op + "/unplace", ifMatch: o.ETag(), body: map[string]any{"reason": "oops"}}).expect(200)
 	if o.String("status") != "draft" || w.item(t, batchID, items[0])["fulfillment"] != "not_ordered" {
 		t.Errorf("after unplace: %s / %v", o.String("status"), w.item(t, batchID, items[0])["fulfillment"])
@@ -167,6 +155,25 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	if len(seen["lines"].([]any)) != 1 || seen["restricted"] != true || seen["otherTeams"].(map[string]any)["lines"] != float64(1) || seen["totals"].(map[string]any)["netBase"] != nil {
 		t.Errorf("restricted view: %v", seen)
 	}
+	// The visible line carries its item's requester; the merged other-team row carries nothing.
+	if rq, _ := seen["lines"].([]any)[0].(map[string]any)["requester"].(map[string]any); rq == nil || rq["id"] == "" || rq["displayName"] == "" {
+		t.Errorf("visible line requester: %v", seen["lines"])
+	}
+	if _, has := seen["otherTeams"].(map[string]any)["requester"]; has {
+		t.Errorf("otherTeams leaks requester: %v", seen["otherTeams"])
+	}
+	if ow, _ := seen["owners"].([]any); len(ow) != 1 || ow[0].(map[string]any)["displayName"] == "" || ow[0].(map[string]any)["isPurchaser"] != true {
+		t.Errorf("owners = %v", seen["owners"])
+	}
+	if _, has := seen["ownerIds"]; has {
+		t.Errorf("ownerIds still in response")
+	}
+	// A purchaser sees every line; the standalone line has no requester.
+	for _, l := range w.do(t, call{token: buyer, method: "GET", path: p3}).expect(200).JSON()["lines"].([]any) {
+		if m := l.(map[string]any); m["itemId"] == nil && m["requester"] != nil {
+			t.Errorf("standalone line requester: %v", m["requester"])
+		}
+	}
 }
 
 // Undoing the review confirmation removes the draft lines of the batch's items.
@@ -186,5 +193,45 @@ func TestHTTPUnconfirmRemovesDraftLines(t *testing.T) {
 	}
 	if it := w.item(t, batchID, items[0]); it["fulfillment"] != nil || it["toPurchaseQuantity"] != float64(0) {
 		t.Errorf("item computed fields: %v", it)
+	}
+}
+
+// The order progress is computed and filterable: it follows deliveries,
+// closure, reopening and a refund without a rate.
+func TestHTTPVendorOrderProgress(t *testing.T) {
+	w := setup(t)
+	f := w.placedOrder(t)
+	ids := func(q string) int {
+		return len(w.do(t, call{token: f.buyer, method: "GET", path: "/api/v1/vendor-orders?" + q}).expect(200).Items())
+	}
+	state := func() (string, string, any) {
+		o := w.order(t, f)
+		return o["receivingState"].(string), o["accountingState"].(string), o["completed"]
+	}
+	if r, a, c := state(); r != "none" || a != "final" || c != false || ids("completed=false") != 1 || ids("completed=true") != 0 {
+		t.Fatalf("placed: %s %s %v", r, a, c)
+	}
+	d := w.do(t, call{token: f.recv, method: "POST", path: "/api/v1/deliveries", body: map[string]any{
+		"lines": []map[string]any{{"name": "motor", "goodQuantity": 1}}}}).expect(201)
+	dl := d.JSON()["lines"].([]any)[0].(map[string]any)
+	w.do(t, call{token: f.recv, method: "PUT", path: w.path("/delivery-lines/{}/matches", dl["id"].(string)), ifMatch: d.ETag(),
+		body: map[string]any{"matches": []map[string]any{{"vendorOrderLineId": f.lineID, "goodQuantity": 1, "problemQuantity": 0}}}}).expect(200)
+	if r, _, _ := state(); r != "partial" {
+		t.Fatalf("after delivery: %s", r)
+	}
+	lp := w.path("/vendor-order-lines/{}", f.lineID)
+	o := w.do(t, call{token: f.buyer, method: "GET", path: f.orderPath}).expect(200)
+	o = w.do(t, call{token: f.buyer, method: "POST", path: lp + "/close", ifMatch: o.ETag(), body: map[string]any{"type": "short_accepted", "reason": "short"}}).expect(200)
+	if r, a, c := state(); r != "closed" || a != "final" || c != true || ids("completed=true") != 1 || ids("completed=false") != 0 || ids("receivingState=closed") != 1 {
+		t.Fatalf("closed: %s %s %v", r, a, c)
+	}
+	o = w.do(t, call{token: f.buyer, method: "POST", path: lp + "/reopen", ifMatch: o.ETag(), body: map[string]any{"reason": "more coming"}}).expect(200)
+	if r, _, c := state(); r != "partial" || c != false {
+		t.Fatalf("reopened: %s %v", r, c)
+	}
+	w.do(t, call{token: f.buyer, method: "POST", path: lp + "/close", ifMatch: o.ETag(), body: map[string]any{
+		"type": "short_accepted", "reason": "short", "refund": map[string]any{"currency": "TWD", "amount": "100", "method": "cash"}}}).expect(200)
+	if r, a, c := state(); r != "closed" || a == "final" || c != false || ids("completed=false") != 1 {
+		t.Fatalf("refund without rate: %s %s %v", r, a, c)
 	}
 }

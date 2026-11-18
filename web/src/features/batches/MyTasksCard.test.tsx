@@ -36,4 +36,11 @@ describe('MyTasksCard', () => {
     expect(screen.queryByText('Lines to close')).toBeNull();
     expect(screen.queryByText('Nothing needs your attention.')).toBeNull();
   });
+  it('marks how many of a purchaser\'s counts are in orders they own', async () => {
+    renderWithApi(<MemoryRouter><MyTasksCard /></MemoryRouter>, {
+      'GET /me/tasks': { ...empty, draftVendorOrders: { count: 2, mine: 1 }, openProblems: { count: 1, mine: 0 }, linesToClose: { count: 0, mine: 0 } },
+    });
+    expect(await screen.findByText('1 yours')).toBeTruthy();
+    expect(screen.queryByText('0 yours')).toBeNull();
+  });
 });

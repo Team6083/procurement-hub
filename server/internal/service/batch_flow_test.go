@@ -144,7 +144,7 @@ func TestReviewFlowToOrdering(t *testing.T) {
 
 	// Resubmitting without editing is refused; after editing it works.
 	returned, _ := e.st.GetItem(ctx, its[2].ID)
-	if _, err := e.items.Resubmit(ctx, e.member, returned.ID, returned.Version); err == nil {
+	if _, err := e.items.Resubmit(ctx, e.member, returned.ID, returned.Version, " "); err == nil {
 		t.Fatal("resubmit before editing must fail")
 	}
 	p, _ := domain.NewDecimal("5")
@@ -154,7 +154,7 @@ func TestReviewFlowToOrdering(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resub, err := e.items.Resubmit(ctx, e.member, edited.ID, edited.Version)
+	resub, err := e.items.Resubmit(ctx, e.member, edited.ID, edited.Version, "")
 	if err != nil || resub.Status != domain.ItemPending {
 		t.Fatalf("resubmit: %v %+v", err, resub)
 	}
@@ -493,5 +493,120 @@ func TestSystemAdminConfirmsReview(t *testing.T) {
 	b, err := e.batches.Transition(ctx, sysadmin, b.ID, b.Version, TransitionInput{Action: domain.ActConfirmReview})
 	if err != nil || b.ReviewConfirmation == nil {
 		t.Fatalf("confirm: %v %+v", err, b)
+	}
+}
+
+// Spec §10.2: related items during review and resubmitting with a reply note.
+func TestAddDuringReviewAndResubmitNote(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b := e.openBatch(t)
+	a, c := e.item(t, e.member, b.ID, "a"), e.item(t, e.member, b.ID, "c")
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActClose})
+	if err != nil {
+		t.Fatal(err)
+	}
+	add := func(who authz.Actor, rel *bson.ObjectID) (*domain.Item, error) {
+		p, _ := domain.NewDecimal("2")
+		return e.items.Add(ctx, who, b.ID, ItemInput{Name: "screws", Quantity: 1, Priority: 3, Purpose: "t",
+			EstimatedUnitPrice: domain.Money{Amount: p, Currency: "USD"}, RelatedItemID: rel})
+	}
+	// Nothing returned yet: a member cannot add; a team admin can.
+	if _, err := add(e.member, nil); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("member without returned item: %v", err)
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{
+		{ItemID: a.ID, Decision: "approve"}, {ItemID: c.ID, Decision: "return", Comment: "add screws"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := add(e.approver, nil); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("other member: %v", err)
+	}
+	if _, err := add(e.member, &bson.ObjectID{1}); err == nil {
+		t.Fatal("unknown related item must fail")
+	}
+	n, err := add(e.member, &c.ID)
+	if err != nil || n.Status != domain.ItemPending || n.RelatedItemID == nil || *n.RelatedItemID != c.ID {
+		t.Fatalf("add during review: %v %+v", err, n)
+	}
+	// It cannot be deleted, only withdrawn.
+	if err := e.items.Delete(ctx, e.member, n.ID, n.Version); err == nil {
+		t.Fatal("delete must be refused")
+	}
+	// Resubmit needs an edit or a note; the note is stored.
+	c, _ = e.st.GetItem(ctx, c.ID)
+	if _, err := e.items.Resubmit(ctx, e.member, c.ID, c.Version, "  "); err == nil {
+		t.Fatal("blank note without edit must fail")
+	}
+	r, err := e.items.Resubmit(ctx, e.member, c.ID, c.Version, "added screws as #3")
+	if err != nil || r.Status != domain.ItemPending || r.ResubmitNote != "added screws as #3" {
+		t.Fatalf("resubmit with note: %v %+v", err, r)
+	}
+	// The new item must be decided before confirming the review.
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: r.ID, Decision: "approve"}}); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = e.st.GetBatch(ctx, b.ID)
+	if _, err := e.batches.Transition(ctx, e.approver, b.ID, b.Version, TransitionInput{Action: domain.ActConfirmReview}); err == nil {
+		t.Fatal("confirm with an undecided item must fail")
+	}
+	w, err := e.items.Withdraw(ctx, e.member, n.ID, n.Version)
+	if err != nil || w.Status != domain.ItemWithdrawn {
+		t.Fatalf("withdraw: %v %+v", err, w)
+	}
+}
+
+func TestAddedDuringReviewItemIsDeletableAfterReopen(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b := e.openBatch(t)
+	c := e.item(t, e.member, b.ID, "c")
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActClose})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: c.ID, Decision: "return", Comment: "more"}}); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := domain.NewDecimal("2")
+	n, err := e.items.Add(ctx, e.member, b.ID, ItemInput{Name: "screws", Quantity: 1, Priority: 3, Purpose: "t",
+		EstimatedUnitPrice: domain.Money{Amount: p, Currency: "USD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.items.Delete(ctx, e.member, n.ID, n.Version); err == nil {
+		t.Fatal("delete while reviewing must be refused")
+	}
+	// Copy as new item: a withdrawn item can be copied by the requester who still has a returned item.
+	w, err := e.items.Withdraw(ctx, e.member, n.ID, n.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp, err := e.items.Copy(ctx, e.member, w.ID, w.Version); err != nil || cp.Status != domain.ItemPending {
+		t.Fatalf("copy during review: %v %+v", err, cp)
+	}
+	// A requester without a returned item cannot copy (admins always can).
+	if _, err := e.items.Copy(ctx, e.approver, w.ID, w.Version); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("copy by someone else: %v", err)
+	}
+	if cp, err := e.items.Copy(ctx, e.admin, w.ID, w.Version); err != nil || cp.Status != domain.ItemPending {
+		t.Fatalf("admin copy during review: %v", err)
+	}
+	// Back to collecting: the never-reviewed added item deletes like any other.
+	n2, _ := e.st.GetItem(ctx, n.ID)
+	_ = n2
+	live, err := e.items.Add(ctx, e.member, b.ID, ItemInput{Name: "nuts", Quantity: 1, Priority: 3, Purpose: "t",
+		EstimatedUnitPrice: domain.Money{Amount: p, Currency: "USD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := e.st.GetBatch(ctx, b.ID)
+	dl := time.Now().Add(96 * time.Hour)
+	if _, err := e.batches.Transition(ctx, e.admin, b.ID, got.Version, TransitionInput{Action: domain.ActReopen, Deadline: &dl}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.items.Delete(ctx, e.member, live.ID, live.Version); err != nil {
+		t.Fatalf("delete after reopen: %v", err)
 	}
 }

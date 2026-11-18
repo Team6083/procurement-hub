@@ -15,7 +15,7 @@ Licensed under the [Apache License 2.0](LICENSE).
 | Batches and items with the review flow (approve, send back, reject, withdraw, resubmit, copy) | Works (API and web UI) |
 | Vendors and reference exchange rates | Works (API and web UI) |
 | Purchasing queue: approved items waiting to be ordered, marking items unpurchasable | Works (API and web UI) |
-| Vendor orders: draft, place, cancel, lines that can mix items of several teams, ledger of manual entries and refunds, cost calculation in the base currency with allocation of shared costs and exact rounding | Works (API and web UI) |
+| Vendor orders: draft, place, cancel, lines that can mix items of several teams, cost entries (shipping, fees, discounts, refunds) allocated per team or line, cost calculation in the base currency with exact rounding | Works (API and web UI) |
 | Receiving: deliveries and boxes, matching delivery lines to order lines, problems (damaged, wrong or missing goods) and their resolution, automatic batch completion, `GET /me/tasks` | Works (API and web UI) |
 | Undo of review decisions, order placement, deliveries, matches, problem resolutions and closed lines, each with a reason | Works (API and web UI) |
 | Audit log; timelines of batches and vendor orders | Works (API and web UI) |

@@ -46,16 +46,16 @@ func sortedIDs(set map[bson.ObjectID]bool) []bson.ObjectID {
 }
 
 // recomputeOrder is the single write path of an order: given the order as the
-// caller changed it in memory (and the line/ledger documents already written),
-// it recomputes line quantities and statuses (§10.3), clears stale team
-// overrides, runs the §11 calculation, persists the order with a version bump,
-// then refreshes the linked items and re-derives their batches. It must run
-// inside the caller's transaction. The second result reports whether team
-// cost overrides were cleared.
-func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opts recomputeOpts) (*domain.VendorOrder, bool, error) {
+// caller changed it in memory (and the line/cost entry documents already
+// written), it recomputes line quantities and statuses (§10.3), resets the
+// allocation of draft cost entries whose teams or lines are gone, runs the §11
+// calculation, persists the order with a version bump, then refreshes the
+// linked items and re-derives their batches. It must run inside the caller's
+// transaction. The second result lists the cost entries reset to "all".
+func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opts recomputeOpts) (*domain.VendorOrder, []bson.ObjectID, error) {
 	lines, err := s.st.LinesByOrder(ctx, o.ID)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 	ids := make([]bson.ObjectID, len(lines))
 	for i, l := range lines {
@@ -63,15 +63,15 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 	}
 	matches, err := s.st.ActiveMatchesByLines(ctx, ids)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 	problems, err := s.st.ActiveProblemsByLines(ctx, ids)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
-	ledger, err := s.st.LedgerByOrder(ctx, o.ID)
+	entries, err := s.st.CostEntriesByOrder(ctx, o.ID)
 	if err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 
 	teams, batches, items := map[bson.ObjectID]bool{}, map[bson.ObjectID]bool{}, map[bson.ObjectID]bool{}
@@ -88,12 +88,24 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		items[id] = true
 	}
 	o.TeamIDs, o.BatchIDs = sortedIDs(teams), sortedIDs(batches)
-	cleared := false
-	if o.Status == domain.OrderDraft && o.TeamCostOverrides != nil && !domain.SameTeams(o.TeamCostOverrides, o.TeamIDs) {
-		o.TeamCostOverrides, o.OverrideReason, cleared = nil, "", true
-	}
-	if o.SharedCosts == nil {
-		o.SharedCosts = []domain.SharedCost{}
+	// In a draft, lines come and go: an entry whose teams or lines are gone goes back to "all".
+	var reset []bson.ObjectID
+	if o.Status == domain.OrderDraft {
+		al := make([]domain.AllocLine, len(lines))
+		for i, l := range lines {
+			al[i] = domain.AllocLine{ID: l.ID, TeamID: l.TeamID}
+		}
+		for i := range entries {
+			e := &entries[i]
+			if e.Voided != nil || e.Allocation.Mode == domain.AllocAll || domain.CheckAllocationScope(e.Allocation, al) == nil {
+				continue
+			}
+			if err := s.st.UpdateCostEntry(ctx, e.ID, bson.D{{Key: "allocation", Value: domain.Allocation{Mode: domain.AllocAll}}}); err != nil {
+				return nil, nil, err
+			}
+			e.Allocation = domain.Allocation{Mode: domain.AllocAll}
+			reset = append(reset, e.ID)
+		}
 	}
 
 	// Line quantities and statuses.
@@ -118,51 +130,63 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 
 	// Money (spec §11). Cancelled orders have no amounts.
 	cost := domain.OrderCost{}
-	lineNoOf := map[bson.ObjectID]int{}
-	for _, l := range lines {
-		lineNoOf[l.ID] = l.LineNo
-	}
-	ledgerSum := decimal.Zero
 	if o.Status != domain.OrderCancelled {
 		in := domain.OrderCostInput{
-			Currency: o.Currency, Base: s.cur.Base, BaseDigits: s.cur.Digits(s.cur.Base),
+			Currency: o.Currency, Base: s.cur.Base, BaseDigits: s.cur.Digits(s.cur.Base), Rates: map[string]decimal.Decimal{},
 		}
 		if o.ChargedAmountBase != nil {
 			c := o.ChargedAmountBase.Decimal
 			in.ChargedBase = &c
 		}
-		if o.Currency != s.cur.Base {
-			if r, err := s.st.GetRate(ctx, o.Currency); err == nil {
-				d := r.RateToBase.Decimal
-				in.Rate = &d
-			} else if !errors.Is(err, store.ErrNotFound) {
-				return nil, false, err
+		rateOf := func(cur string) error {
+			if _, done := in.Rates[cur]; done || cur == s.cur.Base {
+				return nil
 			}
+			r, err := s.st.GetRate(ctx, cur)
+			if errors.Is(err, store.ErrNotFound) {
+				return nil
+			}
+			if err != nil {
+				return err
+			}
+			in.Rates[cur] = r.RateToBase.Decimal
+			return nil
+		}
+		if err := rateOf(o.Currency); err != nil {
+			return nil, nil, err
 		}
 		for _, l := range lines {
-			cl := domain.CostLine{LineNo: l.LineNo, TeamID: l.TeamID.Hex(), Quantity: l.Quantity}
+			cl := domain.CostLine{LineNo: l.LineNo, LineID: l.ID.Hex(), TeamID: l.TeamID.Hex(), Quantity: l.Quantity}
 			if l.UnitPrice != nil {
 				p := l.UnitPrice.Decimal
 				cl.UnitPrice = &p
 			}
 			in.Lines = append(in.Lines, cl)
 		}
-		for _, sc := range o.SharedCosts {
-			in.SharedCosts = append(in.SharedCosts, sc.Amount.Decimal)
-		}
-		for _, to := range o.TeamCostOverrides {
-			in.TeamOverrides = append(in.TeamOverrides, domain.TeamOverride{TeamID: to.TeamID.Hex(), Amount: to.Amount.Decimal})
-		}
-		for _, e := range ledger {
+		for _, e := range entries {
 			if e.Voided != nil {
 				continue
 			}
-			ledgerSum = ledgerSum.Add(e.AmountBase.Decimal)
-			la := domain.LedgerAmount{AmountBase: e.AmountBase.Decimal}
-			if e.LineID != nil {
-				la.LineNo = lineNoOf[*e.LineID]
+			ci := domain.CostEntryInput{Settlement: e.Settlement, Currency: e.Currency, Amount: e.Amount.Decimal, Mode: e.Allocation.Mode}
+			if e.ActualAmountBase != nil {
+				a := e.ActualAmountBase.Decimal
+				ci.ActualBase = &a
 			}
-			in.Ledger = append(in.Ledger, la)
+			for _, t := range e.Allocation.TeamIDs {
+				ci.TeamIDs = append(ci.TeamIDs, t.Hex())
+			}
+			for _, id := range e.Allocation.LineIDs {
+				ci.LineIDs = append(ci.LineIDs, id.Hex())
+			}
+			for _, m := range e.Allocation.Amounts {
+				ci.Manual = append(ci.Manual, domain.ManualShare{LineID: m.LineID.Hex(), Amount: m.Amount.Decimal})
+			}
+			if e.Settlement == domain.SettleSeparate && e.ActualAmountBase == nil {
+				if err := rateOf(e.Currency); err != nil {
+					return nil, nil, err
+				}
+			}
+			in.Entries = append(in.Entries, ci)
 		}
 		cost = domain.CalcOrderCost(in)
 	}
@@ -179,22 +203,22 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		if i < len(cost.Lines) {
 			c = cost.Lines[i]
 		}
-		cb, sb, lb, tb := decPtr(c.CostBase), decPtr(c.SharedBase), decPtr(c.LedgerBase), decPtr(c.TotalBase)
+		cb, sb, gb, tb := decPtr(c.CostBase), decPtr(c.SharedBase), decPtr(c.SeparateBase), decPtr(c.TotalBase)
 		stored, err := s.st.GetLine(ctx, l.ID)
 		if err != nil {
-			return nil, false, mapStore(err)
+			return nil, nil, mapStore(err)
 		}
 		if stored.Status == l.Status && stored.ReturnedQty == l.ReturnedQty && stored.ExpectedQty == l.ExpectedQty &&
 			stored.ReceivedQty == l.ReceivedQty && stored.OpenProblemQty == l.OpenProblemQty &&
-			eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.LedgerBase, lb) && eqDec(stored.TotalBase, tb) {
+			eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.SeparateBase, gb) && eqDec(stored.TotalBase, tb) {
 			continue
 		}
 		if err := s.st.UpdateLine(ctx, l.ID, bson.D{
 			{Key: "status", Value: l.Status}, {Key: "returnedQuantity", Value: l.ReturnedQty}, {Key: "expectedQuantity", Value: l.ExpectedQty},
 			{Key: "receivedQuantity", Value: l.ReceivedQty}, {Key: "openProblemQuantity", Value: l.OpenProblemQty},
-			{Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "ledgerBase", Value: lb}, {Key: "totalBase", Value: tb},
+			{Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "separateBase", Value: gb}, {Key: "totalBase", Value: tb},
 		}); err != nil {
-			return nil, false, err
+			return nil, nil, err
 		}
 		inPlay := func(st domain.LineStatus) bool {
 			return st != domain.LineDraft && st != domain.LineCancelled && st != ""
@@ -211,7 +235,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		if l.Closure == nil && stored.Status != l.Status && (l.Status == domain.LineReceived || l.Status == domain.LineNotObtained) {
 			if err := s.st.Emit(ctx, store.EventRecord{Type: "line.closed", Actor: audit.SystemActor("derive"), TeamID: l.TeamID,
 				BatchID: derefID(l.BatchID), ObjectID: o.ID.Hex()}); err != nil {
-				return nil, false, err
+				return nil, nil, err
 			}
 		}
 	}
@@ -222,40 +246,38 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		t.Incomplete = []domain.Incomplete{}
 	}
 	if o.Status != domain.OrderCancelled {
-		sc := domain.Decimal{Decimal: cost.SharedC}
-		t.SharedC = &sc
-		t.OriginalC, t.Factor, t.TargetBase, t.NetBase = decPtr(cost.OriginalC), decPtr(cost.F), decPtr(cost.TargetBase), decPtr(cost.NetBase)
-		if cost.OriginalC != nil {
-			sum := decimal.Zero
-			for _, lc := range cost.Lines {
-				sum = sum.Add(*lc.LineC)
-			}
-			t.LinesC = &domain.Decimal{Decimal: sum}
-		}
-		if cost.NetBase != nil {
-			t.LedgerBase = &domain.Decimal{Decimal: ledgerSum}
-		}
+		co := domain.Decimal{Decimal: cost.CheckoutC}
+		t.CheckoutC = &co
+		t.LinesC, t.OriginalC, t.Factor = decPtr(cost.LinesC), decPtr(cost.OriginalC), decPtr(cost.F)
+		t.TargetBase, t.SeparateBase, t.NetBase = decPtr(cost.TargetBase), decPtr(cost.SeparateBase), decPtr(cost.NetBase)
 	}
+	sts := make([]domain.LineStatus, len(lines))
+	for i := range lines {
+		sts[i] = lines[i].Status
+	}
+	pr := domain.DeriveOrderProgress(o.Status, sts, t)
+	o.ReceivingState, o.AccountingState, o.Completed = pr.Receiving, pr.Accounting, pr.Completed
 	set := bson.D{
+		{Key: "receivingState", Value: pr.Receiving}, {Key: "accountingState", Value: pr.Accounting}, {Key: "completed", Value: pr.Completed},
 		{Key: "vendorId", Value: o.VendorID}, {Key: "currency", Value: o.Currency}, {Key: "status", Value: o.Status},
+		{Key: "ownerIds", Value: o.OwnerIDs},
 		{Key: "externalOrderNo", Value: o.ExternalOrderNo}, {Key: "placedAt", Value: o.PlacedAt}, {Key: "placedBy", Value: o.PlacedBy},
-		{Key: "sharedCosts", Value: o.SharedCosts}, {Key: "teamCostOverrides", Value: o.TeamCostOverrides},
-		{Key: "overrideReason", Value: o.OverrideReason}, {Key: "chargedAmountBase", Value: o.ChargedAmountBase},
+		{Key: "chargedAmountBase", Value: o.ChargedAmountBase},
 		{Key: "expectedDeliveryDate", Value: o.ExpectedDelivery}, {Key: "paymentNote", Value: o.PaymentNote},
 		{Key: "cancellation", Value: o.Cancellation}, {Key: "lineCounter", Value: o.LineCounter},
 		{Key: "teamIds", Value: o.TeamIDs}, {Key: "batchIds", Value: o.BatchIDs}, {Key: "totals", Value: t},
 	}
 	out, err := s.st.UpdateVendorOrder(ctx, o.ID, o.Version, set)
 	if err != nil {
-		return nil, false, mapStore(err)
+		return nil, nil, mapStore(err)
 	}
 	if err := s.audit.Record(ctx, evs...); err != nil {
-		return nil, false, err
+		return nil, nil, err
 	}
 	if opts.skipItems {
-		return out, cleared, nil
+		return out, reset, nil
 	}
-	return out, cleared, s.refreshLinked(ctx, sortedIDs(items))
+	return out, reset, s.refreshLinked(ctx, sortedIDs(items))
 }
 
 func derefID(id *bson.ObjectID) bson.ObjectID {

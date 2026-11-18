@@ -1,8 +1,8 @@
 import { ClampedText } from '../../components/ClampedText';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
-import { Badge, Input, Link, Stack, Text } from '@chakra-ui/react';
+import { Badge, HStack, Input, Link, Stack, Text } from '@chakra-ui/react';
 import { type DataColumn, type RowAction } from '@team6083/ui';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPencil, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
 import { usePutLine } from '../../api/vendorOrders';
@@ -12,8 +12,11 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { safeHttpUrl } from '../batches/itemForm';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
-import { LineStatusBadge } from './StatusBadges';
+import { add, parseDecSafe, toFixed, ZERO } from '../batches/decimal';
+import { LineStatusBadge, ProvisionalBadge } from './StatusBadges';
 
+const TOTALS = Symbol('totals');
+type Row = VendorOrderLine | typeof TOTALS;
 type PutLine = ReturnType<typeof usePutLine>;
 
 /**
@@ -66,6 +69,11 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
   const put = usePutLine(order.id);
   const editable = canWrite && order.status !== 'cancelled';
   const placed = order.status === 'placed';
+  const money = (v: string | null, provisionalMark = false) => (
+    <span title={provisionalMark && order.totals.provisional && v ? t('provisional') : undefined}>
+      {provisionalMark && order.totals.provisional && v ? '≈ ' : ''}{formatMoney(v, baseCurrency, i18n.language)}
+    </span>
+  );
   const columns: DataColumn<VendorOrderLine>[] = [
     { key: 'no', header: '#', numeric: true, cell: (l) => l.lineNo },
     {
@@ -104,7 +112,10 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
         }]
       : []),
     { key: 'status', header: t('line.status'), cell: (l) => <LineStatusBadge status={l.status} /> },
-    { key: 'total', header: t('line.total', { currency: baseCurrency }), numeric: true, cell: (l) => formatMoney(l.totalBase, baseCurrency, i18n.language) },
+    { key: 'goods', header: t('line.goods', { currency: baseCurrency }), numeric: true, cell: (l) => money(l.costBase) },
+    { key: 'checkout', header: t('line.checkout', { currency: baseCurrency }), numeric: true, cell: (l) => money(l.sharedBase) },
+    { key: 'separate', header: t('line.separate', { currency: baseCurrency }), numeric: true, cell: (l) => money(l.separateBase, true) },
+    { key: 'total', header: t('line.total', { currency: baseCurrency }), numeric: true, cell: (l) => money(l.totalBase, true) },
   ];
   const rowActions = (l: VendorOrderLine): RowAction[] => {
     const out: RowAction[] = [];
@@ -117,12 +128,32 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
     }
     return out;
   };
+  // The totals row: goods and with-checkout sums of the lines shown, separate payments and the net total from the order's totals.
+  const showTotals = !order.restricted && order.lines.length > 0;
+  const sum = (pick: (l: VendorOrderLine) => string | null) => {
+    let acc = ZERO;
+    for (const l of order.lines) {
+      const v = pick(l);
+      if (v === null) return null;
+      acc = add(acc, parseDecSafe(v));
+    }
+    return toFixed(acc, acc.s);
+  };
+  const totalsCell: Record<string, ReactNode> = {
+    name: <b>{t('line.totals')}</b>,
+    goods: money(sum((l) => l.costBase)),
+    checkout: money(sum((l) => l.sharedBase)),
+    separate: money(order.totals.separateBase, true),
+    total: <HStack gap="2" justify="flex-end">{order.totals.provisional && <ProvisionalBadge />}<b>{money(order.totals.netBase, true)}</b></HStack>,
+  };
+  const rows: Row[] = showTotals ? [...order.lines, TOTALS] : order.lines;
+  const cols: DataColumn<Row>[] = columns.map((c) => ({ ...c, cell: (r: Row) => (r === TOTALS ? (totalsCell[c.key] ?? null) : c.cell(r)) }));
   return (
     <Stack gap="2">
       <ErrorAlert error={put.error} />
       <DataTable
-        aria-label={t('line.title')} rows={order.lines} columns={columns} getRowId={(l) => l.id}
-        rowActions={editable ? rowActions : undefined}
+        aria-label={t('line.title')} rows={rows} columns={cols} getRowId={(l) => (l === TOTALS ? 'totals' : l.id)}
+        rowActions={editable ? (r) => (r === TOTALS ? [] : rowActions(r)) : undefined}
       />
     </Stack>
   );

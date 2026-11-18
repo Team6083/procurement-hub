@@ -531,7 +531,11 @@ export interface paths {
         put?: never;
         /**
          * Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
-         * @description Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
+         * @description While the batch is `reviewing`, only a requester who currently has a `returned` item in it and team admins may add
+         *     (others 403); the new item starts `pending`, can only be withdrawn while the batch is `reviewing` (deletable after a return to `collecting` if never reviewed), must be
+         *     decided before `confirm_review`, and emits `item.added_during_review` to the batch's assigned approvers (team admins if
+         *     none; no channel message). `relatedItemId` (optional, create only) must be an item of the same batch (400 `invalid_request`).
+         *     Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
          *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `invalid_request`
          *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
          *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
@@ -638,8 +642,9 @@ export interface paths {
         put?: never;
         /**
          * Send a returned item back to review (requester only)
-         * @description Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and that the item was edited after it was returned
-         *     (`item.updatedAt` after `item.review.at`, else 422 `item_not_edited`). No request body.
+         * @description Requires a `returned` item in a `reviewing` batch (else 409 `invalid_transition`), and either that the item was edited after
+         *     it was returned (`item.version` greater than `item.review.atVersion`) or a non-blank `resubmitNote` (else 422
+         *     `item_not_edited`). The body is optional; the note is stored on the item and shown to approvers.
          */
         post: operations["resubmitItem"];
         delete?: never;
@@ -891,14 +896,13 @@ export interface paths {
          * Get a vendor order as the caller may see it
          * @description Regular users get only the lines they can see (404 when none); order-level money is limited to amounts allocated to those lines
          *     and the rest is aggregated in `otherTeams` (spec 8.2). `invariantOk` (purchasers, receivers, system admins) is the check
-         *     `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and ledger write.
+         *     `netBase == sum of line totalBase`. The `ETag` is the vendor order version used by every order, line and cost entry write.
          */
         get: operations["getVendorOrder"];
         /**
          * Replace the editable fields of a vendor order (purchasers)
          * @description Replaces every editable field; omitted ones are cleared. `vendorId` and `currency` only change while the order is a draft (422 `order_locked`).
-         *     `teamCostOverrides` must cover exactly the teams that have lines and add up to the shared costs (422 `team_cost_overrides_mismatch`) and need
-         *     an `overrideReason`. Recomputes amounts, items and batch status in the same transaction.
+         *     Money other than the goods lives in cost entries, not here. Recomputes amounts, items and batch status in the same transaction.
          */
         put: operations["putVendorOrder"];
         post?: never;
@@ -924,7 +928,7 @@ export interface paths {
          * Add a line to a draft order (purchasers)
          * @description Give exactly one of `itemId` (the line is linked to the item: team, name, SKU and quantity default from it; 422 `item_not_purchasable`,
          *     `item_already_on_order`) or `teamId` (a standalone line, `name` required). Only while the order is a draft (422 `order_not_draft`).
-         *     `If-Match` is the vendor order version. Returns the updated order; `overridesCleared` is true when the team set changed and overrides were removed.
+         *     `If-Match` is the vendor order version. Returns the updated order; `allocationsReset` is true when cost entries whose teams or lines disappeared went back to `all`.
          */
         post: operations["addVendorOrderLine"];
         delete?: never;
@@ -997,7 +1001,7 @@ export interface paths {
         /**
          * Close the remaining quantity of a short line (purchasers)
          * @description `short_accepted` (the vendor shipped less, stop chasing) or `not_obtained` (cancel the rest). Only lines that received less than expected
-         *     and have no open problem (422 `line_not_closable`). `refundBase` is entered positive and stored as a negative ledger entry on the line. `If-Match` is the vendor order version.
+         *     and have no open problem (422 `line_not_closable`). An optional `refund` (positive `amount`) is stored as a negative `refund` cost entry (separate, source `closure`) allocated to the line. `If-Match` is the vendor order version.
          */
         post: operations["closeVendorOrderLine"];
         delete?: never;
@@ -1053,6 +1057,83 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/vendor-orders/{id}/cost-entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a cost entry to a vendor order (purchasers)
+         * @description Shipping, fees, taxes, discounts, coupons used, refunds, extra charges and other adjustments. `refund` and `extra_charge` only after the order is placed
+         *     (422 `order_not_placed`); other types also in draft. Invalid signs, currencies or fields yield 400; an allocation that does not fit yields 422 `shared_cost_allocation_invalid`.
+         *     `If-Match` is the vendor order version. Returns the updated order.
+         */
+        post: operations["createCostEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cost-entries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a cost entry (purchasers)
+         * @description Replaces every editable field, in a draft or after placing (audited, amounts recomputed). A voided entry cannot be edited (422 `cost_entry_voided`).
+         *     `If-Match` is the vendor order version.
+         */
+        put: operations["putCostEntry"];
+        post?: never;
+        /**
+         * Delete a cost entry of a draft order (purchasers)
+         * @description Only while the order is a draft (422 `order_not_draft`); after placing, void the entry instead. `If-Match` is the vendor order version.
+         */
+        delete: operations["deleteCostEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/cost-entries/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Void a cost entry of a placed order (purchasers)
+         * @description Needs a `reason`. Entries created by a problem resolution or a line closure can only be voided by undoing that action
+         *     (409 `blocked_by_dependency`). `If-Match` is the vendor order version.
+         */
+        post: operations["voidCostEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/vendor-orders/{id}/unplace": {
         parameters: {
             query?: never;
@@ -1067,7 +1148,7 @@ export interface paths {
         put?: never;
         /**
          * Undo placing: back to draft (purchasers)
-         * @description Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, ledger entries, items
+         * @description Needs a `reason`. Refused with 409 `blocked_by_dependency` (`details.blockers`: deliveries, problems, line closures, refund and extra charge cost entries, items
          *     marked unpurchasable) while anything depends on it.
          */
         post: operations["unplaceVendorOrder"];
@@ -1117,54 +1198,6 @@ export interface paths {
          * @description Needs a `reason`. Linked items must still qualify, otherwise 409 `blocked_by_dependency` lists them.
          */
         post: operations["uncancelVendorOrder"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/vendor-orders/{id}/ledger": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Add a ledger entry to a placed order (purchasers)
-         * @description `amountBase` is in the base currency, non-zero, negative for refunds; `vendorOrderLineId` assigns it to a line, otherwise it is spread
-         *     proportionally. 422 `order_not_placed` on other orders. `If-Match` is the vendor order version. Returns the updated order.
-         */
-        post: operations["addLedgerEntry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/ledger-entries/{id}/void": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Void a ledger entry (purchasers)
-         * @description Needs a `reason`. Entries created by a problem resolution or a line closure are voided only by undoing that action (409 `blocked_by_dependency`).
-         *     `If-Match` is the vendor order version.
-         */
-        post: operations["voidLedgerEntry"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1408,8 +1441,8 @@ export interface paths {
         put?: never;
         /**
          * Settle an open problem (purchasers)
-         * @description `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refundBase`, entered positive, stored as a negative ledger entry on the line)
-         *     or `accept` (counts as received). `refundBase` with any other action yields 400. `If-Match` is the problem version.
+         * @description `exchange` (wait for a replacement; counts in no quantity), `return_no_replace` (counts as returned; optional `refund` with a positive `amount`, stored as a negative `refund` cost entry on the line, source `problem`)
+         *     or `accept` (counts as received). `refund` with any other action yields 400. `If-Match` is the problem version.
          */
         post: operations["resolveProblem"];
         delete?: never;
@@ -1839,6 +1872,10 @@ export interface components {
             review: components["schemas"]["Review"] | null;
             /** @description Time of the first review decision; never cleared, not even by undoing the decision. */
             firstReviewedAt: string | null;
+            /** @description An item of the same batch this one relates to. */
+            relatedItemId: string | null;
+            /** @description Reply from the latest resubmission; empty when none. */
+            resubmitNote: string;
             lookup: components["schemas"]["LookupInfo"] | null;
             unpurchasable: {
                 by: string;
@@ -1881,6 +1918,8 @@ export interface components {
             productUrl?: string;
             autoFilledFields?: string[];
             lookupProvider?: string;
+            /** @description Create only: an item of the same batch this one relates to. */
+            relatedItemId?: string | null;
         };
         ReviewRequest: {
             decisions: {
@@ -1895,6 +1934,10 @@ export interface components {
             batch: components["schemas"]["Batch"];
             items: components["schemas"]["Item"][];
         };
+        ResubmitRequest: {
+            /** @description Optional reply to the approver; required when the item was not edited. */
+            resubmitNote?: string;
+        };
         ForceRejectRequest: {
             reason: string;
         };
@@ -1905,6 +1948,11 @@ export interface components {
         };
         CountTask: {
             count: number;
+        };
+        OwnedCountTask: {
+            count: number;
+            /** @description How many of count belong to vendor orders the caller owns. */
+            mine: number;
         };
         VendorTask: {
             vendor: string | null;
@@ -1917,47 +1965,39 @@ export interface components {
             returnedItems: components["schemas"]["Item"][];
             reviewsToConfirm: components["schemas"]["BatchTask"][];
             itemsToPurchase?: components["schemas"]["VendorTask"][];
-            draftVendorOrders?: components["schemas"]["CountTask"];
-            openProblems?: components["schemas"]["CountTask"];
-            linesToClose?: components["schemas"]["CountTask"];
+            draftVendorOrders?: components["schemas"]["OwnedCountTask"];
+            openProblems?: components["schemas"]["OwnedCountTask"];
+            linesToClose?: components["schemas"]["OwnedCountTask"];
             deliveriesToMatch?: components["schemas"]["CountTask"];
         };
         Incomplete: {
             /** @enum {string} */
-            code: "no_lines" | "line_missing_price" | "no_conversion" | "original_total_zero";
+            code: "no_lines" | "line_missing_price" | "no_conversion" | "original_total_zero" | "entry_no_conversion" | "allocation_invalid";
             /** @description Set for line_missing_price. */
             lineNo?: number;
+            /** @description 1-based position among the non-voided cost entries; set for entry_no_conversion and allocation_invalid. */
+            entryNo?: number;
+            /** @description Set for entry_no_conversion. */
+            currency?: string;
         };
         OrderTotals: {
             /** @description Decimal string; null when it cannot be computed. */
             linesC: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
-            sharedC: string | null;
+            /** @description Decimal string; sum of the with_checkout cost entries (order currency). */
+            checkoutC: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             originalC: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             factor: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             targetBase: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
-            ledgerBase: string | null;
+            /** @description Decimal string; base-currency sum of the separate cost entries; null when it cannot be computed. */
+            separateBase: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             netBase: string | null;
-            /** @description True when the factor is a reference rate. */
+            /** @description True when a reference rate stands in for a real amount. */
             provisional: boolean;
             incomplete: components["schemas"]["Incomplete"][];
-        };
-        SharedCost: {
-            /** @enum {string} */
-            type: "shipping" | "fee" | "tax" | "discount" | "other";
-            /** @description Decimal string in the order currency; discounts are negative. */
-            amount: string;
-            note: string;
-        };
-        TeamCostOverride: {
-            teamId: string;
-            /** @description Decimal string in the order currency. */
-            amount: string;
         };
         /** @enum {string} */
         LineStatus: "cancelled" | "draft" | "short_accepted" | "not_obtained" | "received" | "partially_received" | "ordered";
@@ -1987,6 +2027,16 @@ export interface components {
             /** @description Purchasers, receivers and system admins only. */
             note?: string;
         };
+        PersonRef: {
+            id: string;
+            displayName: string;
+        };
+        OwnerRef: {
+            id: string;
+            displayName: string;
+            /** @description From users.roleSnapshot; false for an owner who lost the purchaser role. */
+            isPurchaser: boolean;
+        };
         VendorOrderLine: {
             id: string;
             vendorOrderId: string;
@@ -1994,6 +2044,8 @@ export interface components {
             /** @description Cost attribution team. */
             teamId: string;
             itemId: string | null;
+            /** @description The linked item's requester; null without an item. Only present on lines the caller can see. */
+            requester: components["schemas"]["PersonRef"] | null;
             batchId: string | null;
             name: string;
             sku: string;
@@ -2012,10 +2064,10 @@ export interface components {
             status: components["schemas"]["LineStatus"];
             /** @description Decimal string; null when it cannot be computed. */
             costBase: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string; the with_checkout cost entries allocated to this line; null when it cannot be computed. */
             sharedBase: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
-            ledgerBase: string | null;
+            /** @description Decimal string; the separate payments and refunds allocated to this line; null when it cannot be computed. */
+            separateBase: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             totalBase: string | null;
             /** Format: date-time */
@@ -2033,13 +2085,33 @@ export interface components {
         VendorOrderLineList: {
             items: components["schemas"]["VendorOrderLine"][];
         };
-        LedgerEntry: {
+        CostAllocation: {
+            /** @enum {string} */
+            mode: "all" | "teams" | "lines" | "manual";
+            teamIds?: string[];
+            lineIds?: string[];
+            /** @description In the entry currency; must add up to the entry amount. */
+            amounts?: {
+                lineId: string;
+                amount: string;
+            }[];
+        };
+        CostEntry: {
             id: string;
             vendorOrderId: string;
-            vendorOrderLineId: string | null;
-            /** @description Decimal string in the base currency; refunds are negative. */
-            amountBase: string;
-            reason: string;
+            /** @enum {string} */
+            type: "shipping" | "fee" | "tax" | "discount" | "coupon_used" | "refund" | "extra_charge" | "other";
+            /** @enum {string} */
+            settlement: "with_checkout" | "separate";
+            currency: string;
+            /** @description Decimal string, non-zero; negative for discounts and refunds. */
+            amount: string;
+            /** @description Separate entries only: the real base-currency amount, same sign as amount. */
+            actualAmountBase: string | null;
+            /** @enum {string|null} */
+            refundMethod: "cash" | "coupon" | null;
+            allocation: components["schemas"]["CostAllocation"];
+            note: string;
             /** @enum {string} */
             source: "manual" | "problem" | "closure";
             sourceId: string | null;
@@ -2054,6 +2126,8 @@ export interface components {
             createdAt: string;
             /** Format: date-time */
             updatedAt: string;
+            /** Format: int64 */
+            version: number;
         };
         OtherTeams: {
             lines: number;
@@ -2068,13 +2142,12 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
+            /** @description Owners. Only drive notifications and the tasks list; they grant no permission. isPurchaser comes from users.roleSnapshot. */
+            owners: components["schemas"]["OwnerRef"][];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;
             placedBy: string | null;
-            sharedCosts: components["schemas"]["SharedCost"][];
-            teamCostOverrides: components["schemas"]["TeamCostOverride"][] | null;
-            overrideReason: string;
             /** @description Decimal string in the base currency. */
             chargedAmountBase: string | null;
             /** @description YYYY-MM-DD or empty. */
@@ -2083,6 +2156,11 @@ export interface components {
             teamIds: string[];
             batchIds: string[];
             totals: components["schemas"]["OrderTotals"];
+            /** @description Computed; null for draft and cancelled orders. */
+            receivingState: components["schemas"]["ReceivingState"] | null;
+            accountingState: components["schemas"]["AccountingState"] | null;
+            /** @description receivingState is closed and accountingState is final. Computed, never set by hand. */
+            completed: boolean | null;
             cancellation: {
                 reason: string;
                 by: string;
@@ -2097,7 +2175,8 @@ export interface components {
             /** Format: int64 */
             version: number;
             lines: components["schemas"]["VendorOrderLine"][];
-            ledger: components["schemas"]["LedgerEntry"][];
+            /** @description Purchasers, receivers and system admins; regular users get an empty list (their lines carry the allocated amounts). */
+            costEntries: components["schemas"]["CostEntry"][];
             /** @description True for regular users (spec 8.2); money fields then cover visible lines only. */
             restricted: boolean;
             otherTeams: components["schemas"]["OtherTeams"] | null;
@@ -2105,8 +2184,8 @@ export interface components {
             visibleTotalBase: string | null;
             /** @description Purchasers, receivers and system admins: netBase equals the sum of line totals (null when not computable). */
             invariantOk: boolean | null;
-            /** @description True when this write removed the team cost overrides. */
-            overridesCleared?: boolean;
+            /** @description True when this write reset cost entries whose teams or lines disappeared to `all`. */
+            allocationsReset?: boolean;
         };
         VendorOrderSummary: {
             id: string;
@@ -2116,6 +2195,7 @@ export interface components {
             currency: string;
             /** @enum {string} */
             status: "draft" | "placed" | "cancelled";
+            owners: components["schemas"]["OwnerRef"][];
             externalOrderNo: string;
             /** Format: date-time */
             placedAt: string | null;
@@ -2125,12 +2205,19 @@ export interface components {
             netBase: string | null;
             provisional: boolean;
             incomplete: components["schemas"]["Incomplete"][];
+            receivingState: components["schemas"]["ReceivingState"] | null;
+            accountingState: components["schemas"]["AccountingState"] | null;
+            completed: boolean | null;
             restricted: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: int64 */
             version: number;
         };
+        /** @enum {string} */
+        ReceivingState: "none" | "partial" | "closed";
+        /** @enum {string} */
+        AccountingState: "incomplete" | "provisional" | "final";
         VendorOrderPage: {
             items: components["schemas"]["VendorOrderSummary"][];
             nextCursor: string | null;
@@ -2162,14 +2249,15 @@ export interface components {
             /** @description Defaults to the vendor's default currency. */
             currency?: string;
             itemIds?: string[];
+            /** @description Purchasers by roleSnapshot (422 otherwise). Defaults to the creator. */
+            ownerIds?: string[];
         };
         VendorOrderRequest: {
             vendorId: string;
             currency: string;
+            /** @description Replaces the owners (purchasers by roleSnapshot); required (400 `invalid_request` when missing), `[]` clears. Newly added owners get `assignment.added`. */
+            ownerIds: string[];
             externalOrderNo?: string;
-            sharedCosts?: components["schemas"]["SharedCost"][] | null;
-            teamCostOverrides?: components["schemas"]["TeamCostOverride"][] | null;
-            overrideReason?: string;
             chargedAmountBase?: string | null;
             expectedDeliveryDate?: string;
             paymentNote?: string;
@@ -2192,18 +2280,45 @@ export interface components {
         ReasonRequest: {
             reason: string;
         };
+        RefundInput: {
+            /** @description Any supported currency. */
+            currency: string;
+            /** @description Positive decimal string in `currency`; stored negative. */
+            amount: string;
+            /** @description Positive decimal string; the real base-currency amount, may be filled later by editing the entry. */
+            actualAmountBase?: string | null;
+            /** @enum {string} */
+            method: "cash" | "coupon";
+            note?: string;
+        };
+        CostEntryRequest: {
+            /** @enum {string} */
+            type: "shipping" | "fee" | "tax" | "discount" | "coupon_used" | "refund" | "extra_charge" | "other";
+            /**
+             * @description Required except for refund and extra_charge, which are always separate.
+             * @enum {string}
+             */
+            settlement?: "with_checkout" | "separate";
+            /** @description with_checkout: the order currency; separate: any supported currency. */
+            currency: string;
+            /** @description Signed decimal string, non-zero: discounts and refunds negative, coupon_used and extra_charge positive. */
+            amount: string;
+            /** @description Separate entries only: the real base-currency amount, same sign as amount. */
+            actualAmountBase?: string | null;
+            /**
+             * @description Required for refunds, forbidden otherwise.
+             * @enum {string|null}
+             */
+            refundMethod?: "cash" | "coupon" | null;
+            allocation?: components["schemas"]["CostAllocation"];
+            /** @description Required when the allocation mode is not all, and for refund, extra_charge, coupon_used and other. */
+            note?: string;
+        };
         CloseLineRequest: {
             /** @enum {string} */
             type: "short_accepted" | "not_obtained";
             reason: string;
-            /** @description Positive decimal string in the base currency. */
-            refundBase?: string | null;
-        };
-        LedgerRequest: {
-            /** @description Non-zero decimal string; negative for a refund. */
-            amountBase: string;
-            vendorOrderLineId?: string | null;
-            reason: string;
+            refund?: components["schemas"]["RefundInput"] | null;
         };
         UnpurchasableRequest: {
             reason: string;
@@ -2295,7 +2410,7 @@ export interface components {
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "team_cost_overrides_mismatch" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
         VoidInfo: {
             reason: string;
             by: string;
@@ -2485,8 +2600,8 @@ export interface components {
         ResolveProblemRequest: {
             /** @enum {string} */
             action: "exchange" | "return_no_replace" | "accept";
-            /** @description Positive decimal string in the base currency; only with return_no_replace. */
-            refundBase?: string | null;
+            /** @description Only with return_no_replace; any other action yields 400. */
+            refund?: components["schemas"]["RefundInput"] | null;
             note?: string;
         };
     };
@@ -2598,9 +2713,9 @@ export interface components {
          *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
-         *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `team_cost_overrides_mismatch`,
+         *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
          *     `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
-         *     `line_missing_price`, `order_not_placed`, `line_not_closable`, `line_not_matchable`.
+         *     `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
          *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
          */
         Unprocessable: {
@@ -3969,7 +4084,11 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ResubmitRequest"];
+            };
+        };
         responses: {
             /** @description Updated item */
             200: {
@@ -4378,6 +4497,12 @@ export interface operations {
                 status?: "draft" | "placed" | "cancelled";
                 vendorId?: string;
                 teamId?: string;
+                /** @description A user id, or `me` for the caller: only orders that list that user as an owner. */
+                ownerId?: string;
+                /** @description `false`: placed orders that are not completed yet; `true`: completed ones (spec 10.3). Drafts and cancelled orders match neither. */
+                completed?: boolean;
+                receivingState?: components["schemas"]["ReceivingState"];
+                accountingState?: components["schemas"]["AccountingState"];
                 q?: string;
                 /** @description Page size, default 50; values above 100 clamp to 100. Non-numeric or < 1 yields 400 `invalid_request`. */
                 limit?: components["parameters"]["Limit"];
@@ -4790,6 +4915,178 @@ export interface operations {
             503: components["responses"]["ServiceUnavailable"];
         };
     };
+    createCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            201: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    putCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CostEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    deleteCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
+    voidCostEntry: {
+        parameters: {
+            query?: never;
+            header: {
+                /**
+                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
+                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
+                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
+                 */
+                "If-Match": components["parameters"]["IfMatch"];
+            };
+            path: {
+                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
+                id: components["parameters"]["ResourceId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReasonRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated order */
+            200: {
+                headers: {
+                    ETag: components["headers"]["ETag"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VendorOrder"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            413: components["responses"]["PayloadTooLarge"];
+            422: components["responses"]["Unprocessable"];
+            428: components["responses"]["IfMatchRequired"];
+            503: components["responses"]["ServiceUnavailable"];
+        };
+    };
     unplaceVendorOrder: {
         parameters: {
             query?: never;
@@ -4879,94 +5176,6 @@ export interface operations {
         };
     };
     uncancelVendorOrder: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ReasonRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated order */
-            200: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorOrder"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    addLedgerEntry: {
-        parameters: {
-            query?: never;
-            header: {
-                /**
-                 * @description Current resource version, as received in `ETag` (`"3"`, `W/"3"` or `3` are accepted).
-                 *     Missing header yields 428 `if_match_required`; a non-numeric or < 1 value yields 400 `invalid_if_match`;
-                 *     a stale version yields 409 `version_conflict`. (The handlers never return 412.)
-                 */
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                /** @description Resource id (24-hex). A malformed id yields 404 `not_found`. */
-                id: components["parameters"]["ResourceId"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LedgerRequest"];
-            };
-        };
-        responses: {
-            /** @description Updated order */
-            201: {
-                headers: {
-                    ETag: components["headers"]["ETag"];
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["VendorOrder"];
-                };
-            };
-            400: components["responses"]["BadRequest"];
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["Conflict"];
-            413: components["responses"]["PayloadTooLarge"];
-            422: components["responses"]["Unprocessable"];
-            428: components["responses"]["IfMatchRequired"];
-            503: components["responses"]["ServiceUnavailable"];
-        };
-    };
-    voidLedgerEntry: {
         parameters: {
             query?: never;
             header: {
