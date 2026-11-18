@@ -25,7 +25,7 @@ test('a backend with another commit shows the update banner and blocks writes', 
   await expect(page.getByText('No batches found.')).toBeVisible();
 
   // Writes are refused in the client and never reach the API.
-  await page.getByRole('link', { name: 'My tasks' }).click();
+  await page.getByRole('link', { name: 'Procurement Hub' }).click();
   await page.getByRole('button', { name: 'Create team' }).click();
   const dialog = page.getByRole('dialog', { name: 'Create team' });
   await dialog.getByLabel('Slug').fill(`e2e-${runId()}`);
@@ -40,7 +40,7 @@ test('a backend with another commit shows the update banner and blocks writes', 
   // Reloading loads the app again; with the matching backend the banner is gone.
   await page.unroute(`${API_URL}/api/**`);
   await banner.getByRole('button', { name: 'Reload' }).click();
-  await expect(page.getByRole('heading', { name: 'My tasks' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible();
   await expect(page.getByTestId('app-outdated-banner')).toHaveCount(0);
   await context.close();
 });
