@@ -153,7 +153,7 @@ describe('ItemsTab review workspace', () => {
     expect((await openRowMenu(rowWith('Gear'))).some((l) => l.startsWith('Force reject'))).toBe(false);
     await closeMenu();
     cleanup();
-    const { calls } = showReview(caller('admin'), { 'POST /items/i3/force-reject': item(3, { status: 'rejected' }), 'POST /batches/b1/reviews': { batch: reviewing } });
+    const { calls } = showReview(caller('admin'), { 'POST /items/i3/force-reject': item(3, { status: 'rejected' }) });
     await showAllStatuses();
     for (const name of ['Servo', 'Cable']) {
       const labels = await openRowMenu(rowWith(name));
@@ -164,14 +164,19 @@ describe('ItemsTab review workspace', () => {
       await closeMenu();
     }
     expect(within(rowWith('Wheel')).queryByRole('button', { name: 'More actions' })).toBeNull();
-    await openRowMenu(rowWith('Servo'));
-    await chooseMenuItem(/^Approve/);
-    await waitFor(() => expect(calls.find((c) => c.path === '/batches/b1/reviews')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'approve' }] }));
     expect((await openRowMenu(rowWith('Gear'))).some((l) => l.startsWith('Force reject'))).toBe(true);
     await chooseMenuItem(/^Force reject/);
     const dialog = await screen.findByRole('dialog');
     fireEvent.change(within(dialog).getByLabelText(/^Reason/), { target: { value: 'Duplicate' } });
     await act(async () => { fireEvent.click(within(dialog).getByRole('button', { name: 'Force reject' })); });
     await waitFor(() => expect(calls.find((c) => c.path === '/items/i3/force-reject')?.body).toEqual({ reason: 'Duplicate' }));
+  });
+
+  it('approves a pending item straight from its row menu', async () => {
+    const { calls } = showReview(caller('admin'), { 'POST /batches/b1/reviews': { batch: reviewing } });
+    await showAllStatuses();
+    await openRowMenu(rowWith('Servo'));
+    await chooseMenuItem(/^Approve/);
+    await waitFor(() => expect(calls.find((c) => c.path === '/batches/b1/reviews')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'approve' }] }));
   });
 });
