@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import i18n from '../../i18n';
-import { apiError, batch, renderWithApi, team } from '../../test/fakeApi';
+import { apiError, batch, item, renderWithApi, team } from '../../test/fakeApi';
 import { ItemFormModal } from './ItemFormModal';
 
 beforeAll(() => void i18n.changeLanguage('en'));
@@ -76,5 +76,17 @@ describe('ItemFormModal product lookup', () => {
     expect(field('Quantity')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Look up' })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Fill in manually' })).toBeNull();
+  });
+});
+
+describe('ItemFormModal save and resubmit', () => {
+  it('is disabled with a hint until a returned item is edited', async () => {
+    const returned = item(1, { status: 'returned', version: 3, review: { decision: 'returned', by: 'a', at: '2026-01-02T00:00:00Z', comment: 'fix', forced: false, atVersion: 3 } });
+    renderWithApi(<ItemFormModal open onClose={() => undefined} batch={batch()} team={team()} defaultSubgroupId="g1" item={returned} resubmittable />, { 'GET /vendors': { items: [] }, 'GET /meta': meta(false) });
+    const main = await screen.findByRole('button', { name: 'Save and resubmit' });
+    expect((main as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('Edit the item before resubmitting it.')).toBeTruthy();
+    fireEvent.change(field('Purpose'), { target: { value: 'changed' } });
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Save and resubmit' }) as HTMLButtonElement).disabled).toBe(false));
   });
 });

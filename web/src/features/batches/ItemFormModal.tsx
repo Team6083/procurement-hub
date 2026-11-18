@@ -16,6 +16,7 @@ import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
+import { isEditedSinceReturn } from './rules';
 import { emptyItemForm, itemFormSchema, itemToForm, safeHttpUrl, toItemRequest, type ItemForm } from './itemForm';
 import { FORM_TO_LOOKUP_FIELD, LOOKUP_PROVIDER, planLookupFill, type LookupField, type LookupPatch, type LookupResult } from './productLookup';
 
@@ -52,6 +53,8 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
   const fieldError = useFieldError();
   const mutation = item ? patch : add;
   const busy = mutation.isPending || resubmit.isPending;
+  // A returned item can only be resubmitted once it was edited after the return (the server refuses otherwise).
+  const needsEdit = !!(item && resubmittable && !isEditedSinceReturn(item) && !form.formState.isDirty);
   const label = (k: string) => priorityLabel(team?.priorityLabels, k as '1', (x) => t(`teams:priority.default.${x}`));
   // Product lookup (spec 14.3): fills empty fields, asks before overwriting, marks what it filled until edited.
   const api = useApi();
@@ -258,8 +261,9 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
       <DialogFooter>
         {item && resubmittable ? (
           <Menu.Root positioning={{ placement: 'top-end' }}>
+            {needsEdit && <Text textStyle="xs" color="fg.muted" alignSelf="center" me="3">{t('item.resubmitNeedsEdit')}</Text>}
             <Group attached>
-              <Button size="sm" type="submit" form="item-form" loading={busy}>{t('item.saveAndResubmit')}</Button>
+              <Button size="sm" type="submit" form="item-form" loading={busy} disabled={needsEdit}>{t('item.saveAndResubmit')}</Button>
               <Menu.Trigger asChild>
                 <IconButton size="sm" aria-label={t('item.saveOptions')} disabled={busy}><LuChevronDown /></IconButton>
               </Menu.Trigger>
