@@ -408,10 +408,27 @@ func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilt
 	if err != nil {
 		return nil, err
 	}
+	vendors, err := s.st.ListVendors(ctx, false)
+	if err != nil {
+		return nil, err
+	}
 	teams, batches := map[bson.ObjectID]string{}, map[bson.ObjectID]*domain.Batch{}
 	groups := map[string]*QueueGroup{}
 	var keys []string
 	for _, it := range items {
+		// An item with only a vendor name (the "other" vendor) joins the vendor
+		// whose name or alias it matches.
+		if it.VendorID == nil {
+			if key := domain.VendorKey(it.VendorName); key != "" {
+				for _, v := range vendors {
+					if v.NameKey == key || containsKey(v.AliasKeys, key) {
+						id := v.ID
+						it.VendorID = &id
+						break
+					}
+				}
+			}
+		}
 		if !f.VendorID.IsZero() && (it.VendorID == nil || *it.VendorID != f.VendorID) {
 			continue
 		}
