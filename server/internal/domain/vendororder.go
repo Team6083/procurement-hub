@@ -3,7 +3,6 @@ package domain
 import (
 	"time"
 
-	"github.com/shopspring/decimal"
 	"go.mongodb.org/mongo-driver/v2/bson"
 )
 
@@ -16,22 +15,6 @@ const (
 	OrderCancelled OrderStatus = "cancelled"
 )
 
-// SharedCost is one shared cost of an order (order currency; discounts are negative).
-type SharedCost struct {
-	Type   string  `bson:"type" json:"type"` // shipping | fee | tax | discount | other
-	Amount Decimal `bson:"amount" json:"amount"`
-	Note   string  `bson:"note" json:"note"`
-}
-
-// SharedCostTypes are the allowed SharedCost.Type values.
-var SharedCostTypes = map[string]bool{"shipping": true, "fee": true, "tax": true, "discount": true, "other": true}
-
-// TeamCostOverride fixes a team's share of the shared costs (order currency).
-type TeamCostOverride struct {
-	TeamID bson.ObjectID `bson:"teamId" json:"teamId"`
-	Amount Decimal       `bson:"amount" json:"amount"`
-}
-
 // Cancellation records why a draft order was cancelled.
 type Cancellation struct {
 	Reason string        `bson:"reason" json:"reason"`
@@ -41,43 +24,40 @@ type Cancellation struct {
 
 // OrderTotals is the computed money summary of an order (spec §11).
 type OrderTotals struct {
-	LinesC      *Decimal     `bson:"linesC" json:"linesC"`
-	SharedC     *Decimal     `bson:"sharedC" json:"sharedC"`
-	OriginalC   *Decimal     `bson:"originalC" json:"originalC"`
-	Factor      *Decimal     `bson:"factor" json:"factor"`
-	TargetBase  *Decimal     `bson:"targetBase" json:"targetBase"`
-	LedgerBase  *Decimal     `bson:"ledgerBase" json:"ledgerBase"`
-	NetBase     *Decimal     `bson:"netBase" json:"netBase"`
-	Provisional bool         `bson:"provisional" json:"provisional"`
-	Incomplete  []Incomplete `bson:"incomplete" json:"incomplete"`
+	LinesC       *Decimal     `bson:"linesC" json:"linesC"`
+	CheckoutC    *Decimal     `bson:"checkoutC" json:"checkoutC"`
+	OriginalC    *Decimal     `bson:"originalC" json:"originalC"`
+	Factor       *Decimal     `bson:"factor" json:"factor"`
+	TargetBase   *Decimal     `bson:"targetBase" json:"targetBase"`
+	SeparateBase *Decimal     `bson:"separateBase" json:"separateBase"`
+	NetBase      *Decimal     `bson:"netBase" json:"netBase"`
+	Provisional  bool         `bson:"provisional" json:"provisional"`
+	Incomplete   []Incomplete `bson:"incomplete" json:"incomplete"`
 }
 
 // VendorOrder is a purchase at one vendor (spec §9.1).
 type VendorOrder struct {
-	ID                bson.ObjectID      `bson:"_id,omitempty" json:"id"`
-	Number            int                `bson:"number" json:"number"`
-	VendorID          bson.ObjectID      `bson:"vendorId" json:"vendorId"`
-	Currency          string             `bson:"currency" json:"currency"`
-	Status            OrderStatus        `bson:"status" json:"status"`
-	OwnerIDs          []bson.ObjectID    `bson:"ownerIds" json:"ownerIds"`
-	ExternalOrderNo   string             `bson:"externalOrderNo" json:"externalOrderNo"`
-	PlacedAt          *time.Time         `bson:"placedAt" json:"placedAt"`
-	PlacedBy          *bson.ObjectID     `bson:"placedBy" json:"placedBy"`
-	SharedCosts       []SharedCost       `bson:"sharedCosts" json:"sharedCosts"`
-	TeamCostOverrides []TeamCostOverride `bson:"teamCostOverrides" json:"teamCostOverrides"`
-	OverrideReason    string             `bson:"overrideReason" json:"overrideReason"`
-	ChargedAmountBase *Decimal           `bson:"chargedAmountBase" json:"chargedAmountBase"`
-	ExpectedDelivery  string             `bson:"expectedDeliveryDate" json:"expectedDeliveryDate"` // YYYY-MM-DD or empty
-	PaymentNote       string             `bson:"paymentNote" json:"paymentNote"`
-	TeamIDs           []bson.ObjectID    `bson:"teamIds" json:"teamIds"`
-	BatchIDs          []bson.ObjectID    `bson:"batchIds" json:"batchIds"`
-	Totals            OrderTotals        `bson:"totals" json:"totals"`
-	Cancellation      *Cancellation      `bson:"cancellation" json:"cancellation"`
-	LineCounter       int                `bson:"lineCounter" json:"-"`
-	CreatedBy         bson.ObjectID      `bson:"createdBy" json:"createdBy"`
-	CreatedAt         time.Time          `bson:"createdAt" json:"createdAt"`
-	UpdatedAt         time.Time          `bson:"updatedAt" json:"updatedAt"`
-	Version           int64              `bson:"version" json:"version"`
+	ID                bson.ObjectID   `bson:"_id,omitempty" json:"id"`
+	Number            int             `bson:"number" json:"number"`
+	VendorID          bson.ObjectID   `bson:"vendorId" json:"vendorId"`
+	Currency          string          `bson:"currency" json:"currency"`
+	Status            OrderStatus     `bson:"status" json:"status"`
+	OwnerIDs          []bson.ObjectID `bson:"ownerIds" json:"ownerIds"`
+	ExternalOrderNo   string          `bson:"externalOrderNo" json:"externalOrderNo"`
+	PlacedAt          *time.Time      `bson:"placedAt" json:"placedAt"`
+	PlacedBy          *bson.ObjectID  `bson:"placedBy" json:"placedBy"`
+	ChargedAmountBase *Decimal        `bson:"chargedAmountBase" json:"chargedAmountBase"`
+	ExpectedDelivery  string          `bson:"expectedDeliveryDate" json:"expectedDeliveryDate"` // YYYY-MM-DD or empty
+	PaymentNote       string          `bson:"paymentNote" json:"paymentNote"`
+	TeamIDs           []bson.ObjectID `bson:"teamIds" json:"teamIds"`
+	BatchIDs          []bson.ObjectID `bson:"batchIds" json:"batchIds"`
+	Totals            OrderTotals     `bson:"totals" json:"totals"`
+	Cancellation      *Cancellation   `bson:"cancellation" json:"cancellation"`
+	LineCounter       int             `bson:"lineCounter" json:"-"`
+	CreatedBy         bson.ObjectID   `bson:"createdBy" json:"createdBy"`
+	CreatedAt         time.Time       `bson:"createdAt" json:"createdAt"`
+	UpdatedAt         time.Time       `bson:"updatedAt" json:"updatedAt"`
+	Version           int64           `bson:"version" json:"version"`
 }
 
 // Closure is a purchaser's manual closing of a line's remaining quantity.
@@ -109,7 +89,7 @@ type VendorOrderLine struct {
 	Status          LineStatus     `bson:"status" json:"status"`
 	CostBase        *Decimal       `bson:"costBase" json:"costBase"`
 	SharedBase      *Decimal       `bson:"sharedBase" json:"sharedBase"`
-	LedgerBase      *Decimal       `bson:"ledgerBase" json:"ledgerBase"`
+	SeparateBase    *Decimal       `bson:"separateBase" json:"separateBase"`
 	TotalBase       *Decimal       `bson:"totalBase" json:"totalBase"`
 	InternalVersion int64          `bson:"version" json:"-"`
 	CreatedAt       time.Time      `bson:"createdAt" json:"createdAt"`
@@ -121,28 +101,6 @@ type Void struct {
 	Reason string        `bson:"reason" json:"reason"`
 	By     bson.ObjectID `bson:"by" json:"by"`
 	At     time.Time     `bson:"at" json:"at"`
-}
-
-// Ledger entry sources.
-const (
-	LedgerManual  = "manual"
-	LedgerProblem = "problem"
-	LedgerClosure = "closure"
-)
-
-// LedgerEntry is a base-currency adjustment of a placed order (refunds negative).
-type LedgerEntry struct {
-	ID            bson.ObjectID  `bson:"_id,omitempty" json:"id"`
-	VendorOrderID bson.ObjectID  `bson:"vendorOrderId" json:"vendorOrderId"`
-	LineID        *bson.ObjectID `bson:"vendorOrderLineId" json:"vendorOrderLineId"`
-	AmountBase    Decimal        `bson:"amountBase" json:"amountBase"`
-	Reason        string         `bson:"reason" json:"reason"`
-	Source        string         `bson:"source" json:"source"`
-	SourceID      *bson.ObjectID `bson:"sourceId" json:"sourceId"`
-	Voided        *Void          `bson:"voided" json:"voided"`
-	CreatedBy     bson.ObjectID  `bson:"createdBy" json:"createdBy"`
-	CreatedAt     time.Time      `bson:"createdAt" json:"createdAt"`
-	UpdatedAt     time.Time      `bson:"updatedAt" json:"updatedAt"`
 }
 
 // LineStatusInput is what the §10.3 line status table needs.
@@ -173,46 +131,6 @@ func DeriveLineStatus(in LineStatusInput) LineStatus {
 		return LinePartiallyReceived
 	}
 	return LineOrdered
-}
-
-// OverridesMatch reports whether team overrides cover exactly the teams that
-// have lines, once each, and sum to the shared cost total (spec §9.1).
-func OverridesMatch(overrides []TeamCostOverride, lineTeams []bson.ObjectID, sharedTotal decimal.Decimal) bool {
-	want := map[bson.ObjectID]bool{}
-	for _, t := range lineTeams {
-		want[t] = true
-	}
-	seen := map[bson.ObjectID]bool{}
-	sum := decimal.Zero
-	for _, o := range overrides {
-		if !want[o.TeamID] || seen[o.TeamID] {
-			return false
-		}
-		seen[o.TeamID] = true
-		sum = sum.Add(o.Amount.Decimal)
-	}
-	return len(seen) == len(want) && sum.Equal(sharedTotal)
-}
-
-// SameTeams reports whether the override teams are exactly the line teams.
-func SameTeams(overrides []TeamCostOverride, lineTeams []bson.ObjectID) bool {
-	a := map[bson.ObjectID]bool{}
-	for _, o := range overrides {
-		a[o.TeamID] = true
-	}
-	b := map[bson.ObjectID]bool{}
-	for _, t := range lineTeams {
-		b[t] = true
-	}
-	if len(a) != len(b) {
-		return false
-	}
-	for k := range a {
-		if !b[k] {
-			return false
-		}
-	}
-	return true
 }
 
 // ---- delivery records the line quantities are derived from (spec §9.1) ----

@@ -21,7 +21,9 @@
     "no_lines": "The order has no lines.",
     "line_missing_price": "Line {{line}} has no unit price.",
     "no_conversion": "Enter the amount actually charged, or set a reference rate for {{currency}}.",
-    "original_total_zero": "The original total is 0, so the charged amount cannot be spread."
+    "original_total_zero": "The original total is 0, so the charged amount cannot be spread.",
+    "entry_no_conversion": "Enter the actual base-currency amount of cost entry {{entry}} ({{currency}}), or set a reference rate for {{currency}}.",
+    "allocation_invalid": "The split of cost entry {{entry}} does not match any line of this order."
   },
   "timeline": {
     "title": "Timeline",
@@ -42,13 +44,15 @@
       "vendor_order_line_closed": "Line closed",
       "vendor_order_line_reopened": "Line closure undone",
       "vendor_order_line_status_derived": "Line status changed automatically",
-      "vendor_order_ledger_added": "Ledger entry added",
-      "vendor_order_ledger_voided": "Ledger entry voided",
       "vendor_order_problem_reported": "Problem reported",
       "vendor_order_problem_resolved": "Problem resolved",
       "vendor_order_problem_resolved_undone": "Problem resolution undone",
       "vendor_order_delivery_matched": "Delivery matched",
-      "vendor_order_delivery_match_voided": "Delivery match undone"
+      "vendor_order_delivery_match_voided": "Delivery match undone",
+      "vendor_order_cost_entry_added": "Cost entry added",
+      "vendor_order_cost_entry_updated": "Cost entry updated",
+      "vendor_order_cost_entry_deleted": "Cost entry deleted",
+      "vendor_order_cost_entry_voided": "Cost entry voided"
     },
     "fields": {
       "externalOrderNo": "Vendor order number",
@@ -57,8 +61,6 @@
       "currency": "Currency",
       "vendor": "Vendor",
       "vendorId": "Vendor",
-      "sharedCosts": "Shared costs",
-      "teamCostOverrides": "Team cost split",
       "expectedDeliveryDate": "Expected delivery",
       "status": "Status",
       "quantity": "Quantity",
@@ -67,10 +69,10 @@
       "sku": "SKU",
       "teamId": "Team",
       "line": "Line",
-      "ledger": "Ledger entry",
       "problem": "Problem",
       "closure": "Closure",
-      "accounting": "Accounting"
+      "accounting": "Accounting",
+      "costEntries": "Cost entries"
     }
   },
   "breakdown": {
@@ -80,16 +82,16 @@
     "otherTeams_one": "Other teams: {{count}} line",
     "otherTeams_other": "Other teams: {{count}} lines",
     "lines": "Lines (order currency)",
-    "shared": "Shared costs",
+    "shared": "Costs paid with the goods",
     "original": "Original total",
     "factor": "Conversion factor",
     "factorHint": "{{from}} to {{to}}",
     "target": "Target total ({{currency}})",
-    "ledger": "Ledger entries",
     "net": "Net total",
     "invariantOk": "Check passed: net total equals the sum of the line totals",
     "invariantBroken": "Check failed: net total differs from the sum of the line totals",
-    "invariantUnknown": "Check unavailable until the amounts can be computed"
+    "invariantUnknown": "Check unavailable until the amounts can be computed",
+    "separate": "Separate payments and refunds"
   },
   "line": {
     "title": "Lines",
@@ -131,29 +133,10 @@
     "short_accepted": "Accept the shortage (the vendor sent less)",
     "not_obtained": "Not obtained (cancel the rest)",
     "refund": "Refund ({{currency}})",
-    "refundHelp": "Optional, entered as a positive amount; it becomes a ledger entry on this line.",
+    "refundHelp": "Optional, entered as a positive amount; it becomes a refund cost entry on this line.",
     "confirm": "Close line",
     "reopen": "Reopen line",
     "reopenHelp": "The line is open again and its refund entry is voided."
-  },
-  "ledger": {
-    "title": "Ledger",
-    "amount": "Amount ({{currency}})",
-    "amountHelp": "Negative for a refund, positive for an extra charge.",
-    "line": "Line",
-    "spread": "Spread over all lines",
-    "add": "Add entry",
-    "status": "Status",
-    "voided": "Voided",
-    "source": {
-      "manual": "Manual",
-      "problem": "From a problem",
-      "closure": "From a closure"
-    },
-    "void": "Void entry",
-    "voidHelp": "The entry no longer counts and the amounts are recomputed.",
-    "empty": "No ledger entries.",
-    "voidedHint": "Voided entries stay for the record and do not count."
   },
   "details": {
     "title": "Order details",
@@ -162,30 +145,10 @@
     "externalNo": "Vendor order number",
     "delivery": "Expected delivery",
     "placedAt": "Placed",
-    "sharedCosts": "Shared costs ({{currency}})",
-    "noSharedCosts": "No shared costs.",
-    "costType": "Cost type",
-    "costTypes": {
-      "shipping": "Shipping",
-      "fee": "Fee",
-      "tax": "Tax",
-      "discount": "Discount",
-      "other": "Other"
-    },
-    "costAmount": "Amount (discounts negative)",
-    "costAmountPlaceholder": "Amount",
-    "costsHelp": "Enter a discount as a negative amount.",
-    "costNote": "Note",
-    "removeCost": "Remove cost",
-    "addCost": "Add cost",
-    "byTeam": "Allocate shared costs per team",
-    "overrideMismatch": "Allocated {{allocated}} but shared costs are {{total}}.",
-    "overrideReason": "Reason for the allocation",
     "charged": "Amount charged ({{currency}})",
     "chargedHelp": "What the card or bank actually charged. Add it later when known; until then amounts use the reference rate.",
     "paymentNote": "Payment note",
     "saved": "Saved.",
-    "overridesCleared": "The teams on this order changed, so the per-team allocation was cleared. Set it again if needed.",
     "owners": "Owners",
     "noOwners": "No purchasers to choose from."
   },
@@ -194,7 +157,7 @@
     "cancel": "Cancel order",
     "cancelHelp": "Cancel this draft order? Its items return to the purchasing queue.",
     "unplace": "Undo placing",
-    "unplaceHelp": "The order goes back to draft. Deliveries, problems, closures and ledger entries must be undone first.",
+    "unplaceHelp": "The order goes back to draft. Deliveries, problems, closures, refunds and extra charges must be undone first.",
     "uncancel": "Undo cancel",
     "uncancelHelp": "The order goes back to draft if its items can still be ordered."
   },

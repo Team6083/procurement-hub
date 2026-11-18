@@ -8,7 +8,7 @@ import { formatFactor, formatMoney } from '../money';
 import { ProvisionalBadge } from './StatusBadges';
 
 /**
- * The calculation, step by step (spec section 17.2): original total, conversion factor, target, ledger and net,
+ * The calculation, step by step (spec section 17.2): original total, conversion factor, target, separate payments and net,
  * with the invariant check (net equals the sum of the line totals) and the reasons an amount is missing.
  */
 export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: VendorOrder; baseCurrency: string; headingAs?: 'h2' | 'h3' }) {
@@ -44,7 +44,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
             maxW="none"
             lines={[
               { label: t('breakdown.lines'), value: c(tt.linesC) },
-              { label: t('breakdown.shared'), value: c(tt.sharedC) },
+              { label: t('breakdown.shared'), value: c(tt.checkoutC) },
               { label: t('breakdown.original'), value: c(tt.originalC) },
               {
                 label: t('breakdown.factor'),
@@ -52,7 +52,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
                 hint: order.currency === baseCurrency ? undefined : t('breakdown.factorHint', { from: order.currency, to: baseCurrency }),
               },
               { label: t('breakdown.target', { currency: baseCurrency }), value: b(tt.targetBase) },
-              { label: t('breakdown.ledger'), value: b(tt.ledgerBase) },
+              { label: t('breakdown.separate'), value: b(tt.separateBase) },
               { label: t('breakdown.net'), value: b(tt.netBase), emphasis: true },
             ]}
           />

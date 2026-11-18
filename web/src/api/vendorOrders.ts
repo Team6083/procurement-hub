@@ -51,7 +51,7 @@ export function useVendorOrder(id: string | undefined) {
   });
 }
 
-/** Order timeline (lines, ledger and problems included), newest first. */
+/** Order timeline (lines, cost entries and problems included), newest first. */
 export function useOrderAudit(id: string | undefined) {
   const api = useApi();
   return useInfiniteQuery({
@@ -64,7 +64,7 @@ export function useOrderAudit(id: string | undefined) {
   });
 }
 
-/** A write on a vendor order (or one of its lines, ledger entries): If-Match is the cached order's version. */
+/** A write on a vendor order (or one of its lines or cost entries): If-Match is the cached order's version. */
 const useOrderMutation = <TVars>(orderId: string, call: (api: ApiClient, vars: TVars, headers: Record<string, string>) => Promise<VendorOrder>) =>
   useVersionedMutation<TVars, VendorOrder>(keys.order(orderId), (api, vars, version) => call(api, vars, ifMatchHeader(version)));
 
@@ -92,9 +92,6 @@ export interface OrderBody {
   currency: string;
   ownerIds: string[];
   externalOrderNo: string;
-  sharedCosts: { type: string; amount: string; note: string }[];
-  teamCostOverrides: { teamId: string; amount: string }[] | null;
-  overrideReason: string;
   chargedAmountBase: string | null;
   expectedDeliveryDate: string;
   paymentNote: string;
@@ -107,16 +104,6 @@ export type OrderAction = 'place' | 'unplace' | 'cancel' | 'uncancel';
 export const useOrderAction = (orderId: string) =>
   useOrderMutation<{ action: OrderAction; reason?: string }>(orderId, (api, { action, reason }, headers) =>
     api.post<VendorOrder>(`/vendor-orders/${orderId}/${action}`, action === 'place' ? undefined : { reason }, { headers }),
-  );
-
-export const useAddLedger = (orderId: string) =>
-  useOrderMutation<{ amountBase: string; vendorOrderLineId: string | null; reason: string }>(orderId, (api, body, headers) =>
-    api.post<VendorOrder>(`/vendor-orders/${orderId}/ledger`, body, { headers }),
-  );
-
-export const useVoidLedger = (orderId: string) =>
-  useOrderMutation<{ entryId: string; reason: string }>(orderId, (api, { entryId, reason }, headers) =>
-    api.post<VendorOrder>(`/ledger-entries/${entryId}/void`, { reason }, { headers }),
   );
 
 export const useCloseLine = (orderId: string) =>

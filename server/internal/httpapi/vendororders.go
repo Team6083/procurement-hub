@@ -12,7 +12,7 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/service"
 )
 
-// VendorOrdersAPI serves purchasing: the queue, vendor orders, lines, the ledger.
+// VendorOrdersAPI serves purchasing: the queue, vendor orders and lines.
 type VendorOrdersAPI struct{ Orders *service.VendorOrders }
 
 func (a *VendorOrdersAPI) Mount(r chi.Router) {
@@ -31,8 +31,6 @@ func (a *VendorOrdersAPI) Mount(r chi.Router) {
 	r.Post("/vendor-orders/{id}/unplace", a.unplace)
 	r.Post("/vendor-orders/{id}/cancel", a.cancel)
 	r.Post("/vendor-orders/{id}/uncancel", a.uncancel)
-	r.Post("/vendor-orders/{id}/ledger", a.addLedger)
-	r.Post("/ledger-entries/{id}/void", a.voidLedger)
 }
 
 func respondOrder(w http.ResponseWriter, r *http.Request, status int, d *service.OrderDetail, err error) {
@@ -189,17 +187,6 @@ func (a *VendorOrdersAPI) get(w http.ResponseWriter, r *http.Request) {
 	respondOrder(w, r, http.StatusOK, d, err)
 }
 
-type sharedCostReq struct {
-	Type   string `json:"type"`
-	Amount string `json:"amount"`
-	Note   string `json:"note"`
-}
-
-type overrideReq struct {
-	TeamID string `json:"teamId"`
-	Amount string `json:"amount"`
-}
-
 func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 	id, ok := idParam(w, r, "id")
 	if !ok {
@@ -211,22 +198,19 @@ func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		VendorID          string          `json:"vendorId"`
-		Currency          string          `json:"currency"`
-		OwnerIDs          []string        `json:"ownerIds"`
-		ExternalOrderNo   string          `json:"externalOrderNo"`
-		SharedCosts       []sharedCostReq `json:"sharedCosts"`
-		TeamCostOverrides []overrideReq   `json:"teamCostOverrides"`
-		OverrideReason    string          `json:"overrideReason"`
-		ChargedAmountBase *string         `json:"chargedAmountBase"`
-		ExpectedDelivery  string          `json:"expectedDeliveryDate"`
-		PaymentNote       string          `json:"paymentNote"`
+		VendorID          string   `json:"vendorId"`
+		Currency          string   `json:"currency"`
+		OwnerIDs          []string `json:"ownerIds"`
+		ExternalOrderNo   string   `json:"externalOrderNo"`
+		ChargedAmountBase *string  `json:"chargedAmountBase"`
+		ExpectedDelivery  string   `json:"expectedDeliveryDate"`
+		PaymentNote       string   `json:"paymentNote"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	f := service.OrderFields{Currency: req.Currency, ExternalOrderNo: req.ExternalOrderNo, OverrideReason: req.OverrideReason,
+	f := service.OrderFields{Currency: req.Currency, ExternalOrderNo: req.ExternalOrderNo,
 		ExpectedDelivery: req.ExpectedDelivery, PaymentNote: req.PaymentNote}
 	var err error
 	if f.VendorID, err = bson.ObjectIDFromHex(req.VendorID); err != nil {
@@ -242,26 +226,6 @@ func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			f.OwnerIDs = append(f.OwnerIDs, id)
-		}
-	}
-	for _, sc := range req.SharedCosts {
-		amt, err := optDecimal("sharedCosts", &sc.Amount)
-		if err != nil || amt == nil {
-			fail(w, r, service.Invalid("sharedCosts", "amount must be a decimal string"))
-			return
-		}
-		f.SharedCosts = append(f.SharedCosts, domain.SharedCost{Type: sc.Type, Amount: *amt, Note: sc.Note})
-	}
-	if req.TeamCostOverrides != nil {
-		f.TeamCostOverrides = []domain.TeamCostOverride{}
-		for _, o := range req.TeamCostOverrides {
-			tid, terr := bson.ObjectIDFromHex(o.TeamID)
-			amt, aerr := optDecimal("teamCostOverrides", &o.Amount)
-			if terr != nil || aerr != nil || amt == nil {
-				fail(w, r, service.Invalid("teamCostOverrides", "needs a team id and a decimal amount"))
-				return
-			}
-			f.TeamCostOverrides = append(f.TeamCostOverrides, domain.TeamCostOverride{TeamID: tid, Amount: *amt})
 		}
 	}
 	if f.ChargedAmountBase, err = optDecimal("chargedAmountBase", req.ChargedAmountBase); err != nil {
@@ -432,12 +396,6 @@ func (a *VendorOrdersAPI) reopenLine(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (a *VendorOrdersAPI) voidLedger(w http.ResponseWriter, r *http.Request) {
-	a.reasonAction(w, r, func(r *http.Request, id bson.ObjectID, ver int64, reason string) (*service.OrderDetail, error) {
-		return a.Orders.VoidLedger(r.Context(), CallerFrom(r.Context()).Actor, id, ver, reason)
-	})
-}
-
 func (a *VendorOrdersAPI) closeLine(w http.ResponseWriter, r *http.Request) {
 	id, ok := idParam(w, r, "id")
 	if !ok {
@@ -459,36 +417,9 @@ func (a *VendorOrdersAPI) closeLine(w http.ResponseWriter, r *http.Request) {
 	}
 	in := service.CloseInput{Type: req.Type, Reason: req.Reason}
 	if req.RefundBase != nil {
-		in.RefundBase = *req.RefundBase
+		// D1 stub: the old base-currency body, booked as a cash refund in the base currency.
+		in.Refund = &service.RefundInput{Amount: *req.RefundBase, Method: domain.RefundCash}
 	}
 	d, err := a.Orders.CloseLine(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
 	respondOrder(w, r, http.StatusOK, d, err)
-}
-
-func (a *VendorOrdersAPI) addLedger(w http.ResponseWriter, r *http.Request) {
-	id, ok := idParam(w, r, "id")
-	if !ok {
-		return
-	}
-	ver, e := ifMatch(r)
-	if e != nil {
-		WriteError(w, e)
-		return
-	}
-	var req struct {
-		AmountBase string  `json:"amountBase"`
-		LineID     *string `json:"vendorOrderLineId"`
-		Reason     string  `json:"reason"`
-	}
-	if e := decode(r, &req); e != nil {
-		WriteError(w, e)
-		return
-	}
-	lid, err := optID("vendorOrderLineId", req.LineID)
-	if err != nil {
-		fail(w, r, err)
-		return
-	}
-	d, err := a.Orders.AddLedger(r.Context(), CallerFrom(r.Context()).Actor, id, ver, service.LedgerInput{AmountBase: req.AmountBase, LineID: lid, Reason: req.Reason})
-	respondOrder(w, r, http.StatusCreated, d, err)
 }

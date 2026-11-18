@@ -21,7 +21,9 @@
     "no_lines": "訂單沒有明細行。",
     "line_missing_price": "第 {{line}} 行缺單價。",
     "no_conversion": "請填實際扣款，或設定 {{currency}} 的參考匯率。",
-    "original_total_zero": "原幣合計為 0，無法分攤實際扣款。"
+    "original_total_zero": "原幣合計為 0，無法分攤實際扣款。",
+    "entry_no_conversion": "請填第 {{entry}} 筆費用（{{currency}}）的實際台幣金額，或設定 {{currency}} 的參考匯率。",
+    "allocation_invalid": "第 {{entry}} 筆費用的分配對不到這張訂單的任何明細行。"
   },
   "timeline": {
     "title": "時間軸",
@@ -42,13 +44,15 @@
       "vendor_order_line_closed": "明細行結案",
       "vendor_order_line_reopened": "撤銷結案",
       "vendor_order_line_status_derived": "明細行狀態自動變更",
-      "vendor_order_ledger_added": "新增金流紀錄",
-      "vendor_order_ledger_voided": "作廢金流紀錄",
       "vendor_order_problem_reported": "回報問題",
       "vendor_order_problem_resolved": "問題已處理",
       "vendor_order_problem_resolved_undone": "復原問題處理",
       "vendor_order_delivery_matched": "已對應到貨",
-      "vendor_order_delivery_match_voided": "已復原到貨對應"
+      "vendor_order_delivery_match_voided": "已復原到貨對應",
+      "vendor_order_cost_entry_added": "新增費用與調整",
+      "vendor_order_cost_entry_updated": "修改費用與調整",
+      "vendor_order_cost_entry_deleted": "刪除費用與調整",
+      "vendor_order_cost_entry_voided": "作廢費用與調整"
     },
     "fields": {
       "externalOrderNo": "廠商訂單編號",
@@ -57,8 +61,6 @@
       "currency": "幣別",
       "vendor": "廠商",
       "vendorId": "廠商",
-      "sharedCosts": "共同費用",
-      "teamCostOverrides": "各團隊費用分攤",
       "expectedDeliveryDate": "預計到貨日",
       "status": "狀態",
       "quantity": "數量",
@@ -67,10 +69,10 @@
       "sku": "型號",
       "teamId": "團隊",
       "line": "品項行",
-      "ledger": "帳務紀錄",
       "problem": "問題",
       "closure": "結案",
-      "accounting": "帳務"
+      "accounting": "帳務",
+      "costEntries": "費用與調整"
     }
   },
   "breakdown": {
@@ -79,16 +81,16 @@
     "visibleTotal": "你的明細行合計",
     "otherTeams": "其他團隊：{{count}} 行",
     "lines": "明細行合計（訂單幣別）",
-    "shared": "共同費用",
+    "shared": "隨貨款結帳的費用",
     "original": "原幣合計",
     "factor": "換算係數",
     "factorHint": "{{from}} 換算為 {{to}}",
     "target": "目標總額（{{currency}}）",
-    "ledger": "金流紀錄",
     "net": "淨額",
     "invariantOk": "檢查通過：淨額等於各行合計",
     "invariantBroken": "檢查失敗：淨額與各行合計不一致",
-    "invariantUnknown": "算出金額後才能檢查"
+    "invariantUnknown": "算出金額後才能檢查",
+    "separate": "另外付款與退款"
   },
   "line": {
     "title": "明細行",
@@ -130,29 +132,10 @@
     "short_accepted": "接受短少（廠商少給，不追了）",
     "not_obtained": "未取得（取消剩餘數量）",
     "refund": "退款（{{currency}}）",
-    "refundHelp": "選填，以正數輸入；會在這一行建立一筆金流紀錄。",
+    "refundHelp": "選填，以正數輸入；會在這一行建立一筆退款。",
     "confirm": "結案",
     "reopen": "撤銷結案",
     "reopenHelp": "明細行重新打開，它的退款紀錄會作廢。"
-  },
-  "ledger": {
-    "title": "金流紀錄",
-    "amount": "金額（{{currency}}）",
-    "amountHelp": "退款為負數，補款為正數。",
-    "line": "明細行",
-    "spread": "依比例分攤到所有行",
-    "add": "新增紀錄",
-    "status": "狀態",
-    "voided": "已作廢",
-    "source": {
-      "manual": "手動",
-      "problem": "來自問題處理",
-      "closure": "來自結案"
-    },
-    "void": "作廢紀錄",
-    "voidHelp": "這筆紀錄不再計入，金額會重新計算。",
-    "empty": "沒有金流紀錄。",
-    "voidedHint": "作廢的紀錄會保留供查核，不參與計算。"
   },
   "details": {
     "title": "訂單資料",
@@ -161,30 +144,10 @@
     "externalNo": "廠商訂單編號",
     "delivery": "預計到貨日",
     "placedAt": "下單時間",
-    "sharedCosts": "共同費用（{{currency}}）",
-    "noSharedCosts": "沒有共同費用。",
-    "costType": "費用類型",
-    "costTypes": {
-      "shipping": "運費",
-      "fee": "手續費",
-      "tax": "稅",
-      "discount": "折扣",
-      "other": "其他"
-    },
-    "costAmount": "金額（折扣為負數）",
-    "costAmountPlaceholder": "金額",
-    "costsHelp": "折扣請輸入負數。",
-    "costNote": "備註",
-    "removeCost": "移除費用",
-    "addCost": "新增費用",
-    "byTeam": "共同費用改依團隊分攤",
-    "overrideMismatch": "分攤合計 {{allocated}}，但共同費用為 {{total}}。",
-    "overrideReason": "分攤原因",
     "charged": "實際扣款（{{currency}}）",
     "chargedHelp": "信用卡或銀行實際扣的金額，可以之後再補；補上之前以參考匯率估算。",
     "paymentNote": "付款備註",
     "saved": "已儲存。",
-    "overridesCleared": "訂單的團隊組合改變，團隊分攤已清除，需要的話請重新設定。",
     "owners": "負責人",
     "noOwners": "沒有可選的採購人員。"
   },
@@ -193,7 +156,7 @@
     "cancel": "取消訂單",
     "cancelHelp": "要取消這張草稿訂單嗎？品項會回到待採購總覽。",
     "unplace": "撤銷已下單",
-    "unplaceHelp": "訂單會回到草稿。要先撤銷到貨、問題、結案與金流紀錄。",
+    "unplaceHelp": "訂單會回到草稿。要先撤銷到貨、問題、結案、退款與補款。",
     "uncancel": "撤銷取消",
     "uncancelHelp": "品項仍可下單時，訂單會回到草稿。"
   },

@@ -8,7 +8,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/shopspring/decimal"
 	"go.mongodb.org/mongo-driver/v2/bson"
 
 	"github.com/team6083/procurement-hub/server/internal/authz"
@@ -25,7 +24,7 @@ type orderMutation struct {
 
 // mutate runs one write on an order in a transaction: it loads the order,
 // checks the client's If-Match against the order version, lets fn change the
-// order (in memory) and its lines or ledger, then recomputes and persists
+// order (in memory) and its lines or cost entries, then recomputes and persists
 // everything with a single version bump (spec §10 intro). Internal write
 // conflicts are retried by the driver; only a stale If-Match fails.
 func (s *VendorOrders) mutate(ctx context.Context, actor authz.Actor, id bson.ObjectID, ifMatch *int64,
@@ -46,7 +45,7 @@ func (s *VendorOrders) mutate(ctx context.Context, actor authz.Actor, id bson.Ob
 		if err != nil {
 			return err
 		}
-		out, cleared, err := s.batches.recomputeOrder(ctx, o, recomputeOpts{alsoItems: m.also})
+		out, reset, err := s.batches.recomputeOrder(ctx, o, recomputeOpts{alsoItems: m.also})
 		if err != nil {
 			return err
 		}
@@ -55,8 +54,8 @@ func (s *VendorOrders) mutate(ctx context.Context, actor authz.Actor, id bson.Ob
 				m.events[i].Scope = "order"
 				m.events[i].TeamIDs = out.TeamIDs
 			}
-			if cleared && i == 0 {
-				m.events[i].Changes = append(m.events[i].Changes, domain.AuditChange{Field: "teamCostOverrides", From: "set", To: "cleared (team set changed)"})
+			if len(reset) > 0 && i == 0 {
+				m.events[i].Changes = append(m.events[i].Changes, domain.AuditChange{Field: "costEntries.allocation", From: idHexes(reset), To: "all (teams or lines changed)"})
 			}
 		}
 		if err := s.audit.Record(ctx, m.events...); err != nil {
@@ -70,7 +69,7 @@ func (s *VendorOrders) mutate(ctx context.Context, actor authz.Actor, id bson.Ob
 		if detail, err = s.detail(ctx, actor, out); err != nil {
 			return err
 		}
-		detail.OverridesCleared = cleared
+		detail.AllocationsReset = len(reset) > 0
 		return nil
 	})
 	return detail, err
@@ -504,9 +503,6 @@ type OrderFields struct {
 	Currency          string
 	OwnerIDs          []bson.ObjectID // nil: unchanged
 	ExternalOrderNo   string
-	SharedCosts       []domain.SharedCost
-	TeamCostOverrides []domain.TeamCostOverride // nil: none
-	OverrideReason    string
 	ChargedAmountBase *domain.Decimal
 	ExpectedDelivery  string
 	PaymentNote       string
@@ -540,19 +536,6 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 				return nil, Invalid("expectedDeliveryDate", "must be YYYY-MM-DD")
 			}
 		}
-		digits := s.batches.cur.Digits(cur)
-		shared := decimal.Zero
-		costs := make([]domain.SharedCost, 0, len(f.SharedCosts))
-		for _, sc := range f.SharedCosts {
-			if !domain.SharedCostTypes[sc.Type] {
-				return nil, Invalid("sharedCosts", "type must be shipping, fee, tax, discount or other")
-			}
-			if !domain.FitsDigits(sc.Amount.Decimal, digits) {
-				return nil, Invalid("sharedCosts", "at most "+itoa(digits)+" fractional digits for "+cur)
-			}
-			shared = shared.Add(sc.Amount.Decimal)
-			costs = append(costs, sc)
-		}
 		if f.ChargedAmountBase != nil {
 			if f.ChargedAmountBase.IsNegative() {
 				return nil, Invalid("chargedAmountBase", "must not be negative")
@@ -560,34 +543,6 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 			if !domain.FitsDigits(f.ChargedAmountBase.Decimal, s.batches.cur.Digits(s.batches.cur.Base)) {
 				return nil, Invalid("chargedAmountBase", "too many fractional digits for the base currency")
 			}
-		}
-		overrides := f.TeamCostOverrides
-		if len(overrides) == 0 {
-			overrides = nil
-		}
-		reason := strings.TrimSpace(f.OverrideReason)
-		if overrides != nil {
-			if reason == "" {
-				return nil, Invalid("overrideReason", "required when team cost overrides are set")
-			}
-			for _, to := range overrides {
-				if !domain.FitsDigits(to.Amount.Decimal, digits) {
-					return nil, Invalid("teamCostOverrides", "at most "+itoa(digits)+" fractional digits for "+cur)
-				}
-			}
-			lines, err := s.st.LinesByOrder(ctx, o.ID)
-			if err != nil {
-				return nil, err
-			}
-			teams := make([]bson.ObjectID, len(lines))
-			for i, l := range lines {
-				teams[i] = l.TeamID
-			}
-			if !domain.OverridesMatch(overrides, teams, shared) {
-				return nil, Rule("team_cost_overrides_mismatch", "Team cost overrides must cover exactly the teams that have lines and add up to the shared costs.")
-			}
-		} else {
-			reason = ""
 		}
 		var newOwners []bson.ObjectID
 		if f.OwnerIDs != nil {
@@ -621,29 +576,10 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		if f.PaymentNote != o.PaymentNote {
 			changes = append(changes, ch("paymentNote", o.PaymentNote, f.PaymentNote))
 		}
-		if !sameSharedCosts(o.SharedCosts, costs) {
-			changes = append(changes, ch("sharedCosts", len(o.SharedCosts), len(costs)))
-		}
-		if (o.TeamCostOverrides == nil) != (overrides == nil) || len(o.TeamCostOverrides) != len(overrides) {
-			changes = append(changes, ch("teamCostOverrides", len(o.TeamCostOverrides), len(overrides)))
-		}
 		o.VendorID, o.Currency, o.ExternalOrderNo = f.VendorID, cur, f.ExternalOrderNo
-		o.SharedCosts, o.TeamCostOverrides, o.OverrideReason = costs, overrides, reason
 		o.ChargedAmountBase, o.ExpectedDelivery, o.PaymentNote = f.ChargedAmountBase, f.ExpectedDelivery, f.PaymentNote
 		return &orderMutation{events: []domain.AuditEvent{s.event(actor, o, "vendor_order.updated", "", changes...)}, emit: emit}, nil
 	})
-}
-
-func sameSharedCosts(a, b []domain.SharedCost) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].Type != b[i].Type || a[i].Note != b[i].Note || !a[i].Amount.Equal(b[i].Amount.Decimal) {
-			return false
-		}
-	}
-	return true
 }
 
 // ---- lifecycle ----
@@ -703,19 +639,6 @@ func (s *VendorOrders) Place(ctx context.Context, actor authz.Actor, id bson.Obj
 			}
 			m.emit = append(m.emit, itemEvent(it, batches[i], "item.ordered", actor, false))
 		}
-		if o.TeamCostOverrides != nil {
-			teams := make([]bson.ObjectID, len(lines))
-			sum := decimal.Zero
-			for i, l := range lines {
-				teams[i] = l.TeamID
-			}
-			for _, sc := range o.SharedCosts {
-				sum = sum.Add(sc.Amount.Decimal)
-			}
-			if !domain.OverridesMatch(o.TeamCostOverrides, teams, sum) {
-				return nil, Rule("team_cost_overrides_mismatch", "Team cost overrides must cover exactly the teams that have lines and add up to the shared costs.")
-			}
-		}
 		now := s.batches.now()
 		o.Status, o.PlacedAt, o.PlacedBy = domain.OrderPlaced, &now, &actor.UserID
 		m.events = []domain.AuditEvent{s.event(actor, o, "vendor_order.placed", "", ch("status", "draft", "placed"))}
@@ -724,7 +647,7 @@ func (s *VendorOrders) Place(ctx context.Context, actor authz.Actor, id bson.Obj
 }
 
 // Unplace puts a placed order back to draft; refused while deliveries,
-// problems, closures, ledger entries or unpurchasable marks depend on it.
+// problems, closures, refunds, extra charges or unpurchasable marks depend on it.
 func (s *VendorOrders) Unplace(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, reason string) (*OrderDetail, error) {
 	reason, err := reasonOf(reason)
 	if err != nil {
@@ -792,13 +715,13 @@ func (s *VendorOrders) unplaceBlockers(ctx context.Context, o *domain.VendorOrde
 			out = append(out, Blocker{Type: "line_closure", ID: l.ID.Hex(), Label: "#" + itoa(l.LineNo) + " " + string(l.Closure.Type), ParentID: o.ID.Hex()})
 		}
 	}
-	ledger, err := s.st.LedgerByOrder(ctx, o.ID)
+	entries, err := s.st.CostEntriesByOrder(ctx, o.ID)
 	if err != nil {
 		return nil, err
 	}
-	for _, e := range ledger {
-		if e.Voided == nil {
-			out = append(out, Blocker{Type: "ledger_entry", ID: e.ID.Hex(), Label: e.AmountBase.String() + " " + e.Reason, ParentID: o.ID.Hex()})
+	for _, e := range entries {
+		if e.Voided == nil && domain.NeedsPlacedOrder(e.Type) {
+			out = append(out, Blocker{Type: "cost_entry", ID: e.ID.Hex(), Label: e.Type + " " + e.Amount.String() + " " + e.Currency, ParentID: o.ID.Hex()})
 		}
 	}
 	for _, it := range items {
@@ -853,116 +776,12 @@ func (s *VendorOrders) Uncancel(ctx context.Context, actor authz.Actor, id bson.
 	})
 }
 
-// ---- ledger ----
-
-type LedgerInput struct {
-	AmountBase string
-	LineID     *bson.ObjectID
-	Reason     string
-}
-
-// AddLedger adds a manual ledger entry to a placed order (refunds negative).
-func (s *VendorOrders) AddLedger(ctx context.Context, actor authz.Actor, id bson.ObjectID, version int64, in LedgerInput) (*OrderDetail, error) {
-	amt, err := decimal.NewFromString(strings.TrimSpace(in.AmountBase))
-	if err != nil || amt.IsZero() {
-		return nil, Invalid("amountBase", "must be a non-zero decimal string")
-	}
-	if !domain.FitsDigits(amt, s.batches.cur.Digits(s.batches.cur.Base)) {
-		return nil, Invalid("amountBase", "too many fractional digits for the base currency")
-	}
-	reason, err := reasonOf(in.Reason)
-	if err != nil {
-		return nil, err
-	}
-	return s.mutate(ctx, actor, id, &version, func(ctx context.Context, o *domain.VendorOrder) (*orderMutation, error) {
-		if o.Status != domain.OrderPlaced {
-			return nil, Rule("order_not_placed", "Ledger entries can only be added to a placed order.")
-		}
-		e := &domain.LedgerEntry{VendorOrderID: o.ID, AmountBase: domain.Decimal{Decimal: amt}, Reason: reason, Source: domain.LedgerManual, CreatedBy: actor.UserID}
-		var ev domain.AuditEvent
-		if in.LineID != nil {
-			l, err := s.st.GetLine(ctx, *in.LineID)
-			if err != nil || l.VendorOrderID != o.ID {
-				return nil, Invalid("vendorOrderLineId", "not a line of this order")
-			}
-			e.LineID = in.LineID
-			ev = s.lineEvent(actor, o, l, "vendor_order.ledger_added", reason, ch("ledger", nil, amt.String()))
-		} else {
-			ev = s.event(actor, o, "vendor_order.ledger_added", reason, ch("ledger", nil, amt.String()))
-		}
-		if err := s.st.InsertLedger(ctx, e); err != nil {
-			return nil, err
-		}
-		return &orderMutation{events: []domain.AuditEvent{ev}}, nil
-	})
-}
-
-// VoidLedger voids a manual ledger entry; entries created by a problem
-// resolution or a closure are voided only by undoing that action.
-func (s *VendorOrders) VoidLedger(ctx context.Context, actor authz.Actor, entryID bson.ObjectID, version int64, reason string) (*OrderDetail, error) {
-	reason, err := reasonOf(reason)
-	if err != nil {
-		return nil, err
-	}
-	if !actor.IsPurchaser {
-		return nil, ErrForbidden
-	}
-	e0, err := s.st.GetLedger(ctx, entryID)
-	if err != nil {
-		return nil, mapStore(err)
-	}
-	return s.mutate(ctx, actor, e0.VendorOrderID, &version, func(ctx context.Context, o *domain.VendorOrder) (*orderMutation, error) {
-		e, err := s.st.GetLedger(ctx, entryID)
-		if err != nil {
-			return nil, mapStore(err)
-		}
-		if e.Voided != nil {
-			return nil, Rule("invalid_transition", "The entry is already voided.")
-		}
-		if e.Source != domain.LedgerManual {
-			b := Blocker{Type: "problem", ID: derefID(e.SourceID).Hex(), Label: "refund of a problem resolution", ParentID: o.ID.Hex()}
-			if e.Source == domain.LedgerClosure {
-				b = Blocker{Type: "line_closure", ID: derefID(e.SourceID).Hex(), Label: "refund of a line closure", ParentID: o.ID.Hex()}
-			}
-			return nil, &BlockedError{Blockers: []Blocker{b}}
-		}
-		if err := s.st.VoidLedger(ctx, e.ID, domain.Void{Reason: reason, By: actor.UserID, At: s.batches.now()}); err != nil {
-			return nil, mapStore(err)
-		}
-		ev := s.event(actor, o, "vendor_order.ledger_voided", reason, ch("ledger", e.AmountBase.String(), nil))
-		if e.LineID != nil {
-			if l, err := s.st.GetLine(ctx, *e.LineID); err == nil {
-				ev = s.lineEvent(actor, o, l, "vendor_order.ledger_voided", reason, ch("ledger", e.AmountBase.String(), nil))
-			}
-		}
-		return &orderMutation{events: []domain.AuditEvent{ev}}, nil
-	})
-}
-
 // ---- closure ----
 
 type CloseInput struct {
-	Type       domain.LineStatus // short_accepted | not_obtained
-	Reason     string
-	RefundBase string // positive; empty for none
-}
-
-// ParseRefund validates a positive refund amount in the base currency and
-// returns the negative ledger amount (spec §10.3).
-func (s *Batches) ParseRefund(refund string) (*decimal.Decimal, error) {
-	refund = strings.TrimSpace(refund)
-	if refund == "" {
-		return nil, nil
-	}
-	d, err := decimal.NewFromString(refund)
-	if err != nil || !d.IsPositive() {
-		return nil, Invalid("refundBase", "must be a positive decimal string")
-	}
-	if !domain.FitsDigits(d, s.cur.Digits(s.cur.Base)) {
-		return nil, Invalid("refundBase", "too many fractional digits for the base currency")
-	}
-	neg := d.Neg()
-	return &neg, nil
+	Type   domain.LineStatus // short_accepted | not_obtained
+	Reason string
+	Refund *RefundInput // optional
 }
 
 // CloseLine closes the remaining quantity of a partially received line.
@@ -971,10 +790,6 @@ func (s *VendorOrders) CloseLine(ctx context.Context, actor authz.Actor, lineID 
 		return nil, Invalid("type", "must be short_accepted or not_obtained")
 	}
 	reason, err := reasonOf(in.Reason)
-	if err != nil {
-		return nil, err
-	}
-	refund, err := s.batches.ParseRefund(in.RefundBase)
 	if err != nil {
 		return nil, err
 	}
@@ -997,10 +812,12 @@ func (s *VendorOrders) CloseLine(ctx context.Context, actor authz.Actor, lineID 
 			return nil, Rule("line_not_closable", "Only lines that are short and have no open problem can be closed.")
 		}
 		cl := &domain.Closure{Type: in.Type, Reason: reason, By: actor.UserID, At: s.batches.now()}
-		if refund != nil {
-			e := &domain.LedgerEntry{VendorOrderID: o.ID, LineID: &l.ID, AmountBase: domain.Decimal{Decimal: *refund}, Reason: reason,
-				Source: domain.LedgerClosure, SourceID: &l.ID, CreatedBy: actor.UserID}
-			if err := s.st.InsertLedger(ctx, e); err != nil {
+		if in.Refund != nil {
+			e, err := s.batches.refundEntry(o, l.ID, in.Refund, domain.CostSourceClosure, l.ID, reason, actor.UserID)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.st.InsertCostEntry(ctx, e); err != nil {
 				return nil, err
 			}
 			cl.RefundEntryID = &e.ID
@@ -1039,7 +856,7 @@ func (s *VendorOrders) ReopenLine(ctx context.Context, actor authz.Actor, lineID
 			return nil, Rule("invalid_transition", "The line is not closed.")
 		}
 		if l.Closure.RefundEntryID != nil {
-			if err := s.st.VoidLedger(ctx, *l.Closure.RefundEntryID, domain.Void{Reason: "line reopened: " + reason, By: actor.UserID, At: s.batches.now()}); err != nil && !errors.Is(err, store.ErrNotFound) {
+			if err := s.st.VoidCostEntry(ctx, *l.Closure.RefundEntryID, domain.Void{Reason: "line reopened: " + reason, By: actor.UserID, At: s.batches.now()}); err != nil && !errors.Is(err, store.ErrNotFound) {
 				return nil, err
 			}
 		}
@@ -1055,8 +872,8 @@ func (s *VendorOrders) ReopenLine(ctx context.Context, actor authz.Actor, lineID
 
 // ---- recompute job ----
 
-// RecomputeCurrency recomputes every non-cancelled order in a currency that
-// has no charged amount (the vendor_orders.recompute job, spec §11, §13.1).
+// RecomputeCurrency recomputes every non-cancelled order a reference rate of
+// the currency can affect (the vendor_orders.recompute job, spec §11, §13.1).
 func (s *VendorOrders) RecomputeCurrency(ctx context.Context, currency string) error {
 	ids, err := s.st.OrdersToRecompute(ctx, currency)
 	if err != nil {

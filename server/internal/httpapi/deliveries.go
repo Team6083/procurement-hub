@@ -292,7 +292,8 @@ func (a *DeliveriesAPI) resolve(w http.ResponseWriter, r *http.Request) {
 	}
 	in := service.ResolveInput{Action: req.Action, Note: req.Note}
 	if req.RefundBase != nil {
-		in.RefundBase = *req.RefundBase
+		// D1 stub: the old base-currency body, booked as a cash refund in the base currency.
+		in.Refund = &service.RefundInput{Amount: *req.RefundBase, Method: domain.RefundCash}
 	}
 	p, err := a.Deliveries.Resolve(r.Context(), CallerFrom(r.Context()).Actor, id, ver, in)
 	respondProblem(w, r, p, err)

@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuCheck, LuFilePlus, LuPackageCheck, LuPencil, LuPlus, LuReceipt, LuRotateCcw, LuSend, LuTriangleAlert, LuUndo2, LuX } from 'react-icons/lu';
+import { LuBan, LuCheck, LuFilePlus, LuPackageCheck, LuPencil, LuPlus, LuReceipt, LuRotateCcw, LuSend, LuTrash2, LuTriangleAlert, LuUndo2, LuX } from 'react-icons/lu';
 import { useMe } from '../../api/me';
 import { useBaseCurrency } from '../../api/meta';
 import { useOrderAudit } from '../../api/vendorOrders';
@@ -13,12 +13,12 @@ const actionIcons: Record<string, ReactNode> = {
   'vendor_order.cancelled': <LuBan />, 'vendor_order.uncancelled': <LuRotateCcw />,
   'vendor_order.line_added': <LuPlus />, 'vendor_order.line_updated': <LuPencil />, 'vendor_order.line_removed': <LuX />,
   'vendor_order.line_closed': <LuCheck />, 'vendor_order.line_reopened': <LuRotateCcw />, 'vendor_order.line_status_derived': <LuPencil />,
-  'vendor_order.ledger_added': <LuReceipt />, 'vendor_order.ledger_voided': <LuX />,
+  'vendor_order.cost_entry_added': <LuReceipt />, 'vendor_order.cost_entry_updated': <LuPencil />, 'vendor_order.cost_entry_deleted': <LuTrash2 />, 'vendor_order.cost_entry_voided': <LuX />,
   'vendor_order.problem_reported': <LuTriangleAlert />, 'vendor_order.problem_resolved': <LuCheck />, 'vendor_order.problem_resolved_undone': <LuUndo2 />,
   'vendor_order.delivery_matched': <LuPackageCheck />, 'vendor_order.delivery_match_voided': <LuUndo2 />,
 };
 
-/** The order's timeline: its own, its lines', ledger and problem events (filtered by the server per caller). */
+/** The order's timeline: its own, its lines', cost entry and problem events (filtered by the server per caller). */
 export function OrderTimeline({ orderId }: { orderId: string }) {
   const { t, i18n } = useTranslation('purchasing');
   const { me } = useMe();

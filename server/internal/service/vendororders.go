@@ -16,7 +16,7 @@ import (
 	"github.com/team6083/procurement-hub/server/internal/store"
 )
 
-// VendorOrders serves vendor orders, their lines and ledger (spec §10.3, §11).
+// VendorOrders serves vendor orders, their lines and cost entries (spec §10.3, §11).
 type VendorOrders struct {
 	st        *store.Store
 	audit     *audit.Log
@@ -140,14 +140,14 @@ type OtherTeams struct {
 // OrderDetail is the full order as one caller may see it.
 type OrderDetail struct {
 	domain.VendorOrder
-	VendorName       string               `json:"vendorName"`
-	Lines            []LineView           `json:"lines"`
-	Ledger           []domain.LedgerEntry `json:"ledger"`
-	Restricted       bool                 `json:"restricted"`
-	OtherTeams       *OtherTeams          `json:"otherTeams"`
-	VisibleTotalBase *domain.Decimal      `json:"visibleTotalBase"`
-	InvariantOK      *bool                `json:"invariantOk"`
-	OverridesCleared bool                 `json:"overridesCleared,omitempty"`
+	VendorName       string             `json:"vendorName"`
+	Lines            []LineView         `json:"lines"`
+	CostEntries      []domain.CostEntry `json:"costEntries"`
+	Restricted       bool               `json:"restricted"`
+	OtherTeams       *OtherTeams        `json:"otherTeams"`
+	VisibleTotalBase *domain.Decimal    `json:"visibleTotalBase"`
+	InvariantOK      *bool              `json:"invariantOk"`
+	AllocationsReset bool               `json:"allocationsReset,omitempty"`
 }
 
 // OrderSummary is one row of the order list.
@@ -191,7 +191,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 	if err != nil {
 		return nil, err
 	}
-	ledger, err := s.st.LedgerByOrder(ctx, o.ID)
+	entries, err := s.st.CostEntriesByOrder(ctx, o.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -205,7 +205,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 	}
 	acc := s.access(ctx, actor)
 	priv := privileged(actor)
-	d := &OrderDetail{VendorOrder: *o, VendorName: s.vendorName(ctx, o.VendorID), Lines: []LineView{}, Ledger: []domain.LedgerEntry{}}
+	d := &OrderDetail{VendorOrder: *o, VendorName: s.vendorName(ctx, o.VendorID), Lines: []LineView{}, CostEntries: []domain.CostEntry{}}
 	urls := s.productURLs(ctx, lines)
 	visible := map[bson.ObjectID]bool{}
 	hidden := 0
@@ -256,7 +256,7 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 		}
 		d.Restricted = true
 		// Order-level money is limited to what is allocated to visible lines.
-		d.SharedCosts, d.TeamCostOverrides, d.OverrideReason, d.ChargedAmountBase = []domain.SharedCost{}, nil, "", nil
+		d.ChargedAmountBase = nil
 		d.PaymentNote = ""
 		d.Totals = domain.OrderTotals{Provisional: o.Totals.Provisional, Incomplete: o.Totals.Incomplete}
 		d.TeamIDs, d.BatchIDs = []bson.ObjectID{}, []bson.ObjectID{}
@@ -278,14 +278,10 @@ func (s *VendorOrders) detail(ctx context.Context, actor authz.Actor, o *domain.
 			}
 			d.OtherTeams = ot
 		}
-		for _, e := range ledger {
-			if e.LineID != nil && visible[*e.LineID] {
-				d.Ledger = append(d.Ledger, e)
-			}
-		}
+		// Restricted users see no cost entries; their lines carry the allocated amounts.
 		return d, nil
 	}
-	d.Ledger = append(d.Ledger, ledger...)
+	d.CostEntries = append(d.CostEntries, entries...)
 	if o.Totals.NetBase != nil {
 		sum := decimal.Zero
 		ok := true

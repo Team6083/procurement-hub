@@ -81,8 +81,8 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	w.do(t, call{token: buyer, method: "PUT", path: w.path("/vendor-order-lines/{}", lines[0].(map[string]any)["id"].(string)), ifMatch: `"1"`, body: map[string]any{
 		"teamId": lines[0].(map[string]any)["teamId"], "name": "x", "quantity": 2}}).expect(409, "version_conflict")
 	o = w.do(t, call{token: buyer, method: "PUT", path: op, ifMatch: o.ETag(), body: map[string]any{
-		"vendorId": vendor.String("id"), "currency": "USD", "sharedCosts": []map[string]any{{"type": "shipping", "amount": "10.00", "note": ""}}}}).expect(200)
-	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "35" || o.JSON()["invariantOk"] != true {
+		"vendorId": vendor.String("id"), "currency": "USD", "paymentNote": "card"}}).expect(200)
+	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "25" || o.JSON()["invariantOk"] != true {
 		t.Fatalf("netBase = %v: %s", net, o.Body)
 	}
 
@@ -123,18 +123,6 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 		t.Errorf("member lists %d orders", n)
 	}
 
-	// Blocker: a ledger entry stops unplace until it is voided.
-	o = w.do(t, call{token: buyer, method: "POST", path: op + "/ledger", ifMatch: o.ETag(), body: map[string]any{"amountBase": "-2.00", "reason": "price match"}}).expect(201)
-	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "33" || o.JSON()["invariantOk"] != true {
-		t.Fatalf("net with ledger = %v", net)
-	}
-	b := w.do(t, call{token: buyer, method: "POST", path: op + "/unplace", ifMatch: o.ETag(), body: map[string]any{"reason": "oops"}}).expect(409, "blocked_by_dependency")
-	bl := b.JSON()["error"].(map[string]any)["details"].(map[string]any)["blockers"].([]any)
-	if len(bl) != 1 || bl[0].(map[string]any)["type"] != "ledger_entry" {
-		t.Fatalf("blockers = %v", bl)
-	}
-	o = w.do(t, call{token: buyer, method: "POST", path: w.path("/ledger-entries/{}/void", o.JSON()["ledger"].([]any)[0].(map[string]any)["id"].(string)), ifMatch: o.ETag(),
-		body: map[string]any{"reason": "mistake"}}).expect(200)
 	o = w.do(t, call{token: buyer, method: "POST", path: op + "/unplace", ifMatch: o.ETag(), body: map[string]any{"reason": "oops"}}).expect(200)
 	if o.String("status") != "draft" || w.item(t, batchID, items[0])["fulfillment"] != "not_ordered" {
 		t.Errorf("after unplace: %s / %v", o.String("status"), w.item(t, batchID, items[0])["fulfillment"])

@@ -75,9 +75,9 @@ func (s *Deliveries) Problems(ctx context.Context, actor authz.Actor, status str
 
 // ResolveInput is the body of POST /problems/{id}/resolve.
 type ResolveInput struct {
-	Action     string
-	RefundBase string // positive; only with return_no_replace
-	Note       string
+	Action string
+	Refund *RefundInput // only with return_no_replace
+	Note   string
 }
 
 // checkInequality verifies the §10.3 quantity inequality for a line as it
@@ -118,15 +118,11 @@ func (s *Deliveries) Resolve(ctx context.Context, actor authz.Actor, id bson.Obj
 	default:
 		return nil, Invalid("action", "must be exchange, return_no_replace or accept")
 	}
-	if in.RefundBase != "" && in.Action != domain.ResolveReturnNoReplace {
-		return nil, Invalid("refundBase", "only allowed with return_no_replace")
-	}
-	refund, err := s.batches.ParseRefund(in.RefundBase)
-	if err != nil {
-		return nil, err
+	if in.Refund != nil && in.Action != domain.ResolveReturnNoReplace {
+		return nil, Invalid("refund", "only allowed with return_no_replace")
 	}
 	var out *ProblemView
-	err = s.tx(ctx, func(ctx context.Context) error {
+	err := s.tx(ctx, func(ctx context.Context) error {
 		p, err := s.st.GetProblem(ctx, id)
 		if err != nil {
 			return mapStore(err)
@@ -154,10 +150,12 @@ func (s *Deliveries) Resolve(ctx context.Context, actor authz.Actor, id bson.Obj
 		if err := s.checkInequality(ctx, l, &next); err != nil {
 			return err
 		}
-		if refund != nil {
-			e := &domain.LedgerEntry{VendorOrderID: o.ID, LineID: &l.ID, AmountBase: domain.Decimal{Decimal: *refund},
-				Reason: "problem refund: " + p.Type, Source: domain.LedgerProblem, SourceID: &p.ID, CreatedBy: actor.UserID}
-			if err := s.st.InsertLedger(ctx, e); err != nil {
+		if in.Refund != nil {
+			e, err := s.batches.refundEntry(o, l.ID, in.Refund, domain.CostSourceProblem, p.ID, "problem refund: "+p.Type, actor.UserID)
+			if err != nil {
+				return err
+			}
+			if err := s.st.InsertCostEntry(ctx, e); err != nil {
 				return err
 			}
 			res.RefundEntryID = &e.ID
@@ -220,7 +218,7 @@ func (s *Deliveries) Unresolve(ctx context.Context, actor authz.Actor, id bson.O
 			return err
 		}
 		if e := p.Resolution.RefundEntryID; e != nil {
-			if err := s.st.VoidLedger(ctx, *e, domain.Void{Reason: "resolution undone: " + reason, By: actor.UserID, At: st.now}); err != nil && !errors.Is(err, store.ErrNotFound) {
+			if err := s.st.VoidCostEntry(ctx, *e, domain.Void{Reason: "resolution undone: " + reason, By: actor.UserID, At: st.now}); err != nil && !errors.Is(err, store.ErrNotFound) {
 				return err
 			}
 		}

@@ -12,7 +12,7 @@ const at = '2026-01-01T00:00:00Z';
 const line = (n: number, over: Partial<VendorOrderLine>): VendorOrderLine => ({
   id: `l${n}`, vendorOrderId: 'vo1', lineNo: n, teamId: 't1', itemId: null, batchId: null, name: `Part ${n}`, sku: '', productUrl: '', quantity: 1, unitPrice: null,
   returnedQuantity: 0, expectedQuantity: 1, receivedQuantity: 0, openProblemQuantity: 0, closure: null, status: 'draft', costBase: null, sharedBase: null,
-  ledgerBase: null, totalBase: null, createdAt: at, updatedAt: at, vendorOrderVersion: 1, vendorOrderNumber: 1, problems: [], ...over,
+  separateBase: null, totalBase: null, createdAt: at, updatedAt: at, vendorOrderVersion: 1, vendorOrderNumber: 1, problems: [], ...over,
 });
 
 describe('LinesTable', () => {

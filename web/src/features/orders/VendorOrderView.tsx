@@ -19,7 +19,6 @@ import { useOwnerName } from './owners';
 import { Breakdown } from './Breakdown';
 import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
-import { LedgerSection } from './LedgerSection';
 import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
 import { OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
@@ -27,7 +26,7 @@ import { OrderTimeline } from './OrderTimeline';
 import { PageSkeleton, LoadError } from '../../components/PageStates';
 
 /**
- * One vendor order: lines and unit prices, shared costs, ledger, the calculation with its invariant check and the
+ * One vendor order: lines and unit prices, the calculation with its invariant check and the
  * timeline. Used as a page and inside the purchasing page's dialog (the single-team flow stays on one screen).
  */
 export function VendorOrderView({ id, embedded = false }: { id: string; embedded?: boolean }) {
@@ -91,7 +90,6 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
           <PageHeader mb="0" title={`${orderLabel(order.number)} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
         )}
         {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
-        {order.overridesCleared && <Notice status="warning">{t('details.overridesCleared')}</Notice>}
         {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
         {!undo && <ErrorAlert error={action.error} />}
         <Card.Root size="sm">
@@ -127,11 +125,10 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         <Breakdown order={order} baseCurrency={baseCurrency} headingAs={h} />
         {canWrite && order.status !== 'cancelled' && (
           <DetailsForm
-            order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} teamName={teamName} baseDigits={baseDigits} headingAs={h}
+            order={order} vendors={vendors} supported={meta?.supportedCurrencies ?? [order.currency]} baseDigits={baseDigits} headingAs={h}
           />
         )}
       </SimpleGrid>
-      <LedgerSection order={order} baseCurrency={baseCurrency} baseDigits={baseDigits} canWrite={canWrite} headingAs={h} />
 
       <Stack gap="2">
         <SectionHeader as={h} mb="0" title={t('timeline.title')} />

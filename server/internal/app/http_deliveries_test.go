@@ -118,14 +118,15 @@ func TestHTTPDeliveryFlow(t *testing.T) {
 	}
 	r = w.do(t, call{token: f.buyer, method: "POST", path: pp + "/resolve", ifMatch: r.ETag(), body: map[string]any{"action": "return_no_replace", "refundBase": "5"}}).expect(200)
 	o := w.order(t, f)
-	if n := len(o["ledger"].([]any)); n != 1 || o["ledger"].([]any)[0].(map[string]any)["amountBase"] != "-5" || o["invariantOk"] != true {
-		t.Fatalf("ledger after refund: %v", o["ledger"])
+	if es := o["costEntries"].([]any); len(es) != 1 || es[0].(map[string]any)["amount"] != "-5" || es[0].(map[string]any)["type"] != "refund" ||
+		es[0].(map[string]any)["source"] != "problem" || o["invariantOk"] != true {
+		t.Fatalf("cost entries after refund: %v", o["costEntries"])
 	}
 	if ol := w.orderLine(t, f); ol["status"] != "received" || ol["expectedQuantity"] != float64(1) {
 		t.Fatalf("line after return: %v", ol)
 	}
 	w.do(t, call{token: f.buyer, method: "POST", path: pp + "/unresolve", ifMatch: r.ETag(), body: map[string]any{"reason": "undo"}}).expect(200)
-	if e := w.order(t, f)["ledger"].([]any)[0].(map[string]any); e["voided"] == nil {
+	if e := w.order(t, f)["costEntries"].([]any)[0].(map[string]any); e["voided"] == nil {
 		t.Errorf("refund entry should be voided: %v", e)
 	}
 
