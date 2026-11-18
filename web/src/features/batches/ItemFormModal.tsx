@@ -1,5 +1,5 @@
 import { Alert, Button, Dialog, Group, IconButton, Input, GridItem, Menu, NativeSelect, Portal, Separator, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
-import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
+import { ComponentProps, useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -65,6 +65,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
   const [lookupBusy, setLookupBusy] = useState(false);
   const [lookupError, setLookupError] = useState<unknown>(null);
   const [lookupNote, setLookupNote] = useState('');
+  const [lookupNoteColor, setLookupNoteColor] = useState<ComponentProps<typeof Text>['color']>('fg.muted');
   const [pending, setPending] = useState<LookupPatch[]>([]);
   const [autoFilled, setAutoFilled] = useState<LookupField[]>([]);
   const applyPatches = (patches: LookupPatch[]) => {
@@ -100,6 +101,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
     setLookupBusy(true);
     setLookupError(null);
     setLookupNote('');
+    setLookupNoteColor('fg.muted');
     setPending([]);
     try {
       const r = await api.get<LookupResult>('/lookup', { query: { q } });
@@ -108,7 +110,14 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
       applyPatches(fills);
       setPending(conflicts);
       setExpanded(true);
-      setLookupNote(r.inStock === true ? t('lookup.inStock') : r.inStock === false ? t('lookup.outOfStock') : '');
+
+      if (r.inStock === true) {
+        setLookupNote(t('lookup.inStock'));
+        setLookupNoteColor('fg.success');
+      } else if (r.inStock === false) {
+        setLookupNote(t('lookup.outOfStock'));
+        setLookupNoteColor('fg.warning');
+      }
     } catch (e) {
       if (seq === lookupSeq.current) {
         setLookupError(e);
@@ -238,7 +247,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
                 </Alert.Content>
               </Alert.Root>
             )}
-            {lookupEnabled && lookupNote && <Text fontSize="sm" color="fg.muted">{lookupNote}</Text>}
+            {lookupEnabled && lookupNote && <Text fontSize="sm" color={lookupNoteColor}>{lookupNote}</Text>}
             <SimpleGrid templateColumns={{ base: '1fr', sm: '7rem 1fr 1fr' }} gap="3">
               <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
                 <Input inputMode="numeric" {...form.register('quantity')} />
