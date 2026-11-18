@@ -26,22 +26,40 @@ type Partfinder struct {
 }
 
 // partfinderResponse is the ONLY place that knows part-finder's response
-// shape. ASSUMPTION (unconfirmed, spec §14.2 "待確認"): a single camelCase
-// object; "price" is a JSON number or a numeric string; "currency" is an
-// optional ISO 4217 code. Adjust this struct and toResult if part-finder's
-// api/openapi.yaml differs. Unknown fields are ignored.
+// shape. part-finder answers with an array of results (the first one is used),
+// snake_case fields and a per-result "status" ("ok" when found); a single
+// object with camelCase fields is accepted too. "price" is a JSON number or a
+// numeric string; "currency" is an optional ISO 4217 code. Unknown fields are
+// ignored.
 type partfinderResponse struct {
-	Name     string          `json:"name"`
-	Store    string          `json:"store"`
-	SKU      string          `json:"sku"`
-	URL      string          `json:"url"`
-	InStock  *bool           `json:"inStock"`
-	Price    json.RawMessage `json:"price"`
-	Currency string          `json:"currency"`
+	Status    string          `json:"status"`
+	Name      string          `json:"name"`
+	Store     string          `json:"store"`
+	SKU       string          `json:"sku"`
+	URL       string          `json:"url"`
+	InStock   *bool           `json:"in_stock"`
+	InStockCC *bool           `json:"inStock"`
+	Price     json.RawMessage `json:"price"`
+	Currency  string          `json:"currency"`
+}
+
+// vendor is the store name, or else the host of the product URL.
+func (p partfinderResponse) vendor() string {
+	if p.Store != "" {
+		return p.Store
+	}
+	if u, err := url.Parse(p.URL); err == nil {
+		return strings.TrimPrefix(u.Hostname(), "www.")
+	}
+	return ""
 }
 
 func (p partfinderResponse) toResult(defaultCurrency string) (*LookupResult, error) {
-	res := &LookupResult{Name: p.Name, Vendor: p.Store, SKU: p.SKU, URL: p.URL, InStock: p.InStock}
+	inStock := p.InStock
+	if inStock == nil {
+		inStock = p.InStockCC
+	}
+	res := &LookupResult{Name: p.Name, Vendor: p.vendor(), SKU: p.SKU, URL: p.URL, InStock: inStock}
 	raw := strings.Trim(strings.TrimSpace(string(p.Price)), `"`)
 	if raw == "" || raw == "null" {
 		return res, nil
@@ -94,12 +112,23 @@ func (p *Partfinder) Lookup(ctx context.Context, query string) (*LookupResult, e
 		slog.WarnContext(ctx, "part-finder lookup failed", "status", resp.StatusCode, "body", truncate(string(body), 500))
 		return nil, fmt.Errorf("%w: status %d", ErrUpstream, resp.StatusCode)
 	}
-	var pr partfinderResponse
-	if err := json.Unmarshal(body, &pr); err != nil {
+	var results []partfinderResponse
+	if t := strings.TrimSpace(string(body)); strings.HasPrefix(t, "[") {
+		err = json.Unmarshal(body, &results)
+	} else {
+		var one partfinderResponse
+		if err = json.Unmarshal(body, &one); err == nil {
+			results = []partfinderResponse{one}
+		}
+	}
+	if err != nil {
 		slog.WarnContext(ctx, "part-finder lookup: bad response", "error", err, "body", truncate(string(body), 500))
 		return nil, fmt.Errorf("%w: invalid JSON", ErrUpstream)
 	}
-	return pr.toResult(p.DefaultCurrency)
+	if len(results) == 0 || (results[0].Status != "" && results[0].Status != "ok") {
+		return nil, ErrNotFound
+	}
+	return results[0].toResult(p.DefaultCurrency)
 }
 
 func truncate(s string, n int) string {

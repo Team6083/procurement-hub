@@ -39,6 +39,14 @@ func TestPartfinder(t *testing.T) {
 		t.Errorf("price string + currency: %+v %v", r, err)
 	}
 
+	r, err = serve(t, 200, `[{"status":"ok","name":"AM Mag Encoder","sku":"am-3749","price":"47.00","in_stock":true,"url":"https://www.andymark.com/products/am-mag-encoder","error":""}]`, 0).Lookup(ctx, "ABC 1")
+	if err != nil || r.Name != "AM Mag Encoder" || r.Vendor != "andymark.com" || r.InStock == nil || !*r.InStock || r.UnitPrice.Amount.String() != "47" {
+		t.Errorf("array response: %+v %v", r, err)
+	}
+	if _, err := serve(t, 200, `[{"status":"not_found","error":"x"}]`, 0).Lookup(ctx, "ABC 1"); !errors.Is(err, ErrNotFound) {
+		t.Errorf("status not ok: %v", err)
+	}
+
 	if _, err := serve(t, 404, `{}`, 0).Lookup(ctx, "ABC 1"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("404: %v", err)
 	}
