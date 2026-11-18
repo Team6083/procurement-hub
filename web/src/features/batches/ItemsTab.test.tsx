@@ -179,4 +179,10 @@ describe('ItemsTab review workspace', () => {
     await chooseMenuItem(/^Approve/);
     await waitFor(() => expect(calls.find((c) => c.path === '/batches/b1/reviews')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'approve' }] }));
   });
+
+  it('shows the review status as an icon once purchasing has a fulfillment status', () => {
+    renderWithApi(<ItemsTab batch={ordering} team={team()} caller={caller()} items={[item(1, { name: 'Wheel', status: 'approved', fulfillment: 'ordered', toPurchaseQuantity: 1 })]} nameOf={() => 'Alice'} defaultSubgroupId="g1" />, {});
+    expect(screen.getByLabelText('Approved')).toBeTruthy();
+    expect(screen.queryAllByText('Approved').filter((e) => e.closest('[data-scope="badge"]'))).toHaveLength(0);
+  });
 });

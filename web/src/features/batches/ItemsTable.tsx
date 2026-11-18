@@ -12,7 +12,7 @@ import { format } from './decimal';
 import { formatMoney } from '../money';
 import { lineTotal } from './estimates';
 import { safeHttpUrl } from './itemForm';
-import { FulfillmentBadge, ItemStatusBadge } from './StatusBadges';
+import { FulfillmentBadge, ItemStatusBadge, ItemStatusIcon } from './StatusBadges';
 
 type SortKey = 'name' | 'requester' | 'subgroup' | 'priority' | 'quantity' | 'unitPrice' | 'lineTotal' | 'vendor' | 'status';
 interface Sort { key: SortKey; desc: boolean }
@@ -27,6 +27,8 @@ interface Props {
   rowActions?: (item: Item) => RowAction[];
   selection?: DataTableSelection<Item>;
   empty?: ReactNode;
+  /** While purchasing runs, the review status is an icon before the name and the status column keeps only the fulfillment. */
+  reviewAsIcon?: boolean;
 }
 
 const total = (i: Item) => {
@@ -35,7 +37,7 @@ const total = (i: Item) => {
 };
 
 /** The batch's items: name first, numbers right-aligned, detail columns dropped on narrow screens; sortable by any column. */
-export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty }: Props) {
+export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty, reviewAsIcon = false }: Props) {
   const { t } = useTranslation('batches');
   const [sort, setSort] = useState<Sort | null>(null);
   const subgroupName = (id: string) => team?.subgroups.find((g) => g.id === id)?.name ?? '';
@@ -88,6 +90,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         return (
           <Box as="span" display="block" textAlign="start" overflowWrap="anywhere">
             <Flex as="span" align="flex-start" gap="1.5">
+              {reviewAsIcon && <Box as="span" pt="1"><ItemStatusIcon status={it.status} /></Box>}
               <ClampedText text={`#${it.seqNo} ${it.name}`} flex="0 1 auto" minW="0">
                 <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
                 {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : it.name}
@@ -122,10 +125,14 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
       ),
     }),
     col('status', t('item.status'), { cell: (it) => (
-      <HStack gap="1" wrap="nowrap">
-        <ItemStatusBadge status={it.status} />
-        {it.fulfillment && <FulfillmentBadge value={it.fulfillment} />}
-      </HStack>
+      reviewAsIcon
+        ? (it.fulfillment ? <FulfillmentBadge value={it.fulfillment} /> : '—')
+        : (
+          <HStack gap="1" wrap="nowrap">
+            <ItemStatusBadge status={it.status} />
+            {it.fulfillment && <FulfillmentBadge value={it.fulfillment} />}
+          </HStack>
+        )
     ) }),
   ];
 

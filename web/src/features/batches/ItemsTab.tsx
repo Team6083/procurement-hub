@@ -177,6 +177,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       <ErrorAlert error={!deciding && review.variables?.decisions[0]?.decision === 'approve' ? review.error : null} />
       <ItemsTable
         items={visible}
+        reviewAsIcon={inPurchasing(batch)}
         team={team}
         nameOf={nameOf}
         showRequester={internal}

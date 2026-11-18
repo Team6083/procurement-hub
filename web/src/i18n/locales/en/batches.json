@@ -258,7 +258,7 @@
   "fulfillment": {
     "external": "Bought outside",
     "unpurchasable": "Unpurchasable",
-    "not_ordered": "Not ordered",
+    "not_ordered": "Not yet ordered",
     "partially_ordered": "Partially ordered",
     "ordered": "Ordered",
     "partially_received": "Partially received",
