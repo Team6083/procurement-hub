@@ -265,7 +265,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
             <Group attached>
               <Button size="sm" type="submit" form="item-form" loading={busy} disabled={needsEdit}>{t('item.saveAndResubmit')}</Button>
               <Menu.Trigger asChild>
-                <IconButton size="sm" aria-label={t('item.saveOptions')} disabled={busy}><LuChevronDown /></IconButton>
+                <IconButton size="sm" aria-label={t('item.saveOptions')} disabled={busy || needsEdit}><LuChevronDown /></IconButton>
               </Menu.Trigger>
             </Group>
             <Portal>

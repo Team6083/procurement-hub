@@ -85,6 +85,7 @@ describe('ItemFormModal save and resubmit', () => {
     renderWithApi(<ItemFormModal open onClose={() => undefined} batch={batch()} team={team()} defaultSubgroupId="g1" item={returned} resubmittable />, { 'GET /vendors': { items: [] }, 'GET /meta': meta(false) });
     const main = await screen.findByRole('button', { name: 'Save and resubmit' });
     expect((main as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: 'Save options' }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText('Edit the item before resubmitting it.')).toBeTruthy();
     fireEvent.change(field('Purpose'), { target: { value: 'changed' } });
     await waitFor(() => expect((screen.getByRole('button', { name: 'Save and resubmit' }) as HTMLButtonElement).disabled).toBe(false));
