@@ -162,6 +162,8 @@
   "review": {
     "readOnly": "只有審核者與團隊管理員可以審核品項。",
     "approve": "核准所選 ({{count}})",
+    "approveItem": "核准",
+    "approveHint": "進入採購",
     "return": "退回",
     "reject": "駁回",
         "returnHint": "請申請人修改後重新送審",

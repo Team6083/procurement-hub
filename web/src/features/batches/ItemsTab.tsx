@@ -2,12 +2,13 @@ import { Button, Card, Stack, Text } from '@chakra-ui/react';
 import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
+import { LuBan, LuCheck, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
 import { useDeleteItem, useItemAction, useReview } from '../../api/batches';
 import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
+import { Checklist } from '../../components/ui/checklist';
 import { SelectField } from '../../components/ui/select';
 import { UndoDialog } from '../../components/UndoDialog';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
@@ -36,9 +37,9 @@ const withChosen = (values: string[], chosen: string | undefined) => (chosen && 
 
 export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId }: Props) {
   const { t } = useTranslation('batches');
-  // The status filter starts where this caller works (pending for approvers, approved-and-still-to-purchase for purchasers); once
+  // The status filter starts where this caller works (pending for approvers (with items returned to them), approved-and-still-to-purchase for purchasers); once
   // chosen it sticks until the batch changes status, then the default for the new status applies again.
-  const defaultStatus = canReview(batch, caller) ? 'pending' : caller.isPurchaser && inPurchasing(batch) ? TO_PURCHASE : undefined;
+  const defaultStatus = canReview(batch, caller) ? ['pending', 'returned'] : caller.isPurchaser && inPurchasing(batch) ? [TO_PURCHASE] : [];
   const statusLabel = (s: string) => (s === TO_PURCHASE ? t('filters.toPurchase') : t(`itemStatus.${s}`, { defaultValue: s }));
   const availableStatuses = [
     ...(items.some((i) => i.status === 'approved' && i.toPurchaseQuantity > 0) ? [TO_PURCHASE] : []),
@@ -46,11 +47,11 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   ];
   const [others, setOthers] = useState<Omit<ItemFilters, 'status'>>({});
   const [search, setSearch] = useState('');
-  const [chosen, setChosen] = useState<{ key: string; value: string | undefined } | null>(null);
+  const [chosen, setChosen] = useState<{ key: string; value: string[] } | null>(null);
   // The default applies only when some item has that status; otherwise the list would be empty while the select shows "All".
-  const status = chosen && chosen.key === `${batch.status}:${defaultStatus ?? ''}`
+  const status = chosen && chosen.key === `${batch.status}:${defaultStatus.join(',')}`
     ? chosen.value
-    : defaultStatus && availableStatuses.includes(defaultStatus) ? defaultStatus : undefined;
+    : defaultStatus.filter((s) => availableStatuses.includes(s));
   const [picked, setPicked] = useState<string[]>([]);
   const [editing, setEditing] = useState<Item | 'new' | null>(null);
   const [withdrawing, setWithdrawing] = useState<Item | null>(null);
@@ -74,13 +75,13 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const rates = useReferenceRates().data ?? [];
   const selectedEstimate = useEstimateText(selected, rates);
   const set = (k: keyof Omit<ItemFilters, 'status'>) => (v: string) => setOthers((f) => ({ ...f, [k]: v || undefined }));
-  const setStatus = (v: string) => setChosen({ key: `${batch.status}:${defaultStatus ?? ''}`, value: v || undefined });
+  const setStatus = (v: string[]) => setChosen({ key: `${batch.status}:${defaultStatus.join(',')}`, value: v });
   const decidable = selected.filter((i) => i.status === 'pending');
   const clearSelection = () => setPicked([]);
-  const activeCount = [...Object.values(others), status].filter(Boolean).length;
-  const clearFilters = () => { setOthers({}); setStatus(''); };
-  // A chosen status stays listed after its last item moves on, so the select always shows the filter actually applied.
-  const statusOptions = withChosen(availableStatuses, status).map((s) => ({ value: s, label: statusLabel(s) }));
+  const activeCount = [...Object.values(others), status.length > 0].filter(Boolean).length;
+  const clearFilters = () => { setOthers({}); setStatus([]); };
+  // A chosen status stays listed after its last item moves on, so the list always shows the filter actually applied.
+  const statusOptions = [...availableStatuses, ...status.filter((c) => !availableStatuses.includes(c))].map((s) => ({ value: s, label: statusLabel(s) }));
 
   const hinted = (label: string, hint: string) => (
     <Stack gap="0">
@@ -127,6 +128,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
     }
     if (canReview(batch, caller) && it.status === 'pending') {
+      out.push({ value: 'approve', icon: <LuCheck />, label: hinted(t('review.approveItem'), t('review.approveHint')), onSelect: () => { review.reset(); review.mutate({ decisions: [{ itemId: it.id, decision: 'approve' }] }); } });
       out.push({ value: 'return', icon: <LuUndo2 />, label: hinted(t('review.return'), t('review.returnHint')), onSelect: () => { review.reset(); setDeciding({ item: it, decision: 'return' }); } });
       out.push({ value: 'reject', icon: <LuX />, label: hinted(t('review.reject'), t('review.rejectHint')), danger: true, onSelect: () => { review.reset(); setDeciding({ item: it, decision: 'reject' }); } });
     }
@@ -153,7 +155,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
           </Button>
         )}
       >
-        <SelectField size="sm" label={t('item.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={statusOptions} />
+        <Checklist label={t('item.status')} value={status} onChange={setStatus} options={statusOptions} />
         <SelectField size="sm" label={t('item.subgroup')} placeholder={t('filters.all')} value={others.subgroup} onChange={set('subgroup')}
           options={withChosen(distinct(items.map((i) => i.subgroupId)), others.subgroup).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? '—' }))} />
         {internal && (
@@ -169,6 +171,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}
 
       <ErrorAlert error={action.variables?.action === 'resubmit' ? action.error : null} />
+      <ErrorAlert error={!deciding && review.variables?.decisions[0]?.decision === 'approve' ? review.error : null} />
       <ItemsTable
         items={visible}
         team={team}

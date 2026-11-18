@@ -162,6 +162,8 @@
   "review": {
     "readOnly": "Only approvers and team admins can review items.",
     "approve": "Approve selected ({{count}})",
+    "approveItem": "Approve",
+    "approveHint": "Goes on to purchasing",
     "return": "Return",
     "reject": "Reject",
         "returnHint": "The requester edits it and resubmits",
