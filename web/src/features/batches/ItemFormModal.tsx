@@ -223,7 +223,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
               </Alert.Root>
             )}
             {lookupEnabled && lookupNote && <Text fontSize="sm" color="fg.muted">{lookupNote}</Text>}
-            <SimpleGrid columns={{ base: 1, sm: 3 }} gap="3">
+            <SimpleGrid templateColumns={{ base: '1fr', sm: '7rem 1fr 1fr' }} gap="3">
               <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
