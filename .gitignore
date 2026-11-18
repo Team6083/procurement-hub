@@ -15,3 +15,6 @@ web/test-results/
 
 # Local-only compose override (builds the image from ../server)
 examples/docker-compose.override.yml
+
+# TypeScript incremental build cache
+*.tsbuildinfo
