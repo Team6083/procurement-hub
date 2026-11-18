@@ -47,14 +47,22 @@ type Page struct {
 	NextCursor *bson.ObjectID
 }
 
-// PageForObject returns an object's timeline, oldest first.
-func (l *Log) PageForObject(ctx context.Context, objectType, objectID string, after bson.ObjectID, limit int) (*Page, error) {
-	return l.page(ctx, bson.D{{Key: "objectType", Value: objectType}, {Key: "objectId", Value: objectID}}, after, limit, 1)
+// order is the sort direction of the timelines: oldest first, or newest first.
+func order(newestFirst bool) int {
+	if newestFirst {
+		return -1
+	}
+	return 1
 }
 
-// PageForBatch returns a batch's timeline including its items' events, oldest first.
-func (l *Log) PageForBatch(ctx context.Context, batchID bson.ObjectID, after bson.ObjectID, limit int) (*Page, error) {
-	return l.page(ctx, bson.D{{Key: "batchId", Value: batchID}}, after, limit, 1)
+// PageForObject returns an object's timeline, oldest first (or newest first).
+func (l *Log) PageForObject(ctx context.Context, objectType, objectID string, after bson.ObjectID, limit int, newestFirst bool) (*Page, error) {
+	return l.page(ctx, bson.D{{Key: "objectType", Value: objectType}, {Key: "objectId", Value: objectID}}, after, limit, order(newestFirst))
+}
+
+// PageForBatch returns a batch's timeline including its items' events, oldest first (or newest first).
+func (l *Log) PageForBatch(ctx context.Context, batchID bson.ObjectID, after bson.ObjectID, limit int, newestFirst bool) (*Page, error) {
+	return l.page(ctx, bson.D{{Key: "batchId", Value: batchID}}, after, limit, order(newestFirst))
 }
 
 // PageForTeam returns the team-wide log, newest first.

@@ -352,7 +352,7 @@ func TestRemovedMemberLosesAssignments(t *testing.T) {
 			t.Fatal("departed member is still an assigned approver")
 		}
 	}
-	pg, _ := audit.New(e.st.DB).PageForBatch(ctx, b.ID, bson.ObjectID{}, 100)
+	pg, _ := audit.New(e.st.DB).PageForBatch(ctx, b.ID, bson.ObjectID{}, 100, false)
 	var audited bool
 	for _, ev := range pg.Events {
 		if ev.Action == "batch.assignee_removed" {

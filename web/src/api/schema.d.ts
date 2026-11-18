@@ -787,7 +787,7 @@ export interface paths {
         };
         /**
          * Timeline of a batch (including its items' events), an item, a vendor order or a delivery (purchasers, receivers and system admins; 404 for others)
-         * @description Cursor-paginated, oldest event first. Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
+         * @description Cursor-paginated, oldest event first by default; `order=desc` returns the newest first (the cursor then continues toward older events). Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` or `order` 400 `invalid_request`.
          */
         get: operations["getAudit"];
         put?: never;
@@ -4238,6 +4238,7 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description Opaque cursor from a previous response's `nextCursor`; malformed values yield 400 `invalid_request`. */
                 cursor?: components["parameters"]["Cursor"];
+                order?: "asc" | "desc";
                 objectType: "batch" | "item" | "vendor_order" | "delivery";
                 objectId: string;
             };

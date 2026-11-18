@@ -66,11 +66,11 @@ func (s *Timeline) visible(ctx context.Context, actor authz.Actor, pg *audit.Pag
 
 // ForBatch returns a page of the batch timeline, including its items' events,
 // to anyone who can read the batch (spec §8.3).
-func (s *Timeline) ForBatch(ctx context.Context, actor authz.Actor, batchID, after bson.ObjectID, limit int) (*audit.Page, error) {
+func (s *Timeline) ForBatch(ctx context.Context, actor authz.Actor, batchID, after bson.ObjectID, limit int, newestFirst bool) (*audit.Page, error) {
 	if _, _, err := s.batches.load(ctx, actor, batchID); err != nil {
 		return nil, err
 	}
-	pg, err := s.audit.PageForBatch(ctx, batchID, after, limit)
+	pg, err := s.audit.PageForBatch(ctx, batchID, after, limit, newestFirst)
 	if err != nil {
 		return nil, err
 	}
@@ -78,20 +78,20 @@ func (s *Timeline) ForBatch(ctx context.Context, actor authz.Actor, batchID, aft
 }
 
 // ForItem returns a page of an item's timeline.
-func (s *Timeline) ForItem(ctx context.Context, actor authz.Actor, itemID, after bson.ObjectID, limit int) (*audit.Page, error) {
+func (s *Timeline) ForItem(ctx context.Context, actor authz.Actor, itemID, after bson.ObjectID, limit int, newestFirst bool) (*audit.Page, error) {
 	if _, _, _, err := s.items.loadItem(ctx, actor, itemID); err != nil {
 		return nil, err
 	}
-	return s.audit.PageForObject(ctx, "item", itemID.Hex(), after, limit)
+	return s.audit.PageForObject(ctx, "item", itemID.Hex(), after, limit, newestFirst)
 }
 
 // ForVendorOrder returns an order's timeline (lines, ledger and problems
 // included), filtered per line for regular users.
-func (s *Timeline) ForVendorOrder(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int) (*audit.Page, error) {
+func (s *Timeline) ForVendorOrder(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int, newestFirst bool) (*audit.Page, error) {
 	if _, err := s.orders.Get(ctx, actor, id); err != nil {
 		return nil, err
 	}
-	pg, err := s.audit.PageForObject(ctx, "vendor_order", id.Hex(), after, limit)
+	pg, err := s.audit.PageForObject(ctx, "vendor_order", id.Hex(), after, limit, newestFirst)
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +111,12 @@ func (s *Timeline) ForTeam(ctx context.Context, actor authz.Actor, teamID, after
 }
 
 // ForDelivery returns a delivery's timeline (purchasers, receivers and system admins only).
-func (s *Timeline) ForDelivery(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int) (*audit.Page, error) {
+func (s *Timeline) ForDelivery(ctx context.Context, actor authz.Actor, id, after bson.ObjectID, limit int, newestFirst bool) (*audit.Page, error) {
 	if !privileged(actor) {
 		return nil, ErrNotFound
 	}
 	if _, err := s.st.GetDelivery(ctx, id); err != nil {
 		return nil, mapStore(err)
 	}
-	return s.audit.PageForObject(ctx, "delivery", id.Hex(), after, limit)
+	return s.audit.PageForObject(ctx, "delivery", id.Hex(), after, limit, newestFirst)
 }

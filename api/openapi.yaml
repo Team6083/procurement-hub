@@ -1194,10 +1194,11 @@ paths:
     get:
       operationId: getAudit
       summary: Timeline of a batch (including its items' events), an item, a vendor order or a delivery (purchasers, receivers and system admins; 404 for others)
-      description: Cursor-paginated, oldest event first. Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` 400 `invalid_request`.
+      description: Cursor-paginated, oldest event first by default; `order=desc` returns the newest first (the cursor then continues toward older events). Anyone who can read the object may read it; vendor order events are filtered per line and order-level money changes summarised for regular users (spec 8.2). A malformed `objectId` yields 404; any other `objectType` yields 400; a bad `limit` or `order` 400 `invalid_request`.
       parameters:
         - { $ref: "#/components/parameters/Limit" }
         - { $ref: "#/components/parameters/Cursor" }
+        - { name: order, in: query, required: false, schema: { type: string, enum: [asc, desc], default: asc } }
         - { name: objectType, in: query, required: true, schema: { type: string, enum: [batch, item, vendor_order, delivery] } }
         - { name: objectId, in: query, required: true, schema: { type: string } }
       responses:

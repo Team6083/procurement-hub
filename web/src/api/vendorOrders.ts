@@ -49,7 +49,7 @@ export function useVendorOrder(id: string | undefined) {
   });
 }
 
-/** Order timeline (lines, ledger and problems included), oldest first. */
+/** Order timeline (lines, ledger and problems included), newest first. */
 export function useOrderAudit(id: string | undefined) {
   const api = useApi();
   return useInfiniteQuery({
@@ -57,7 +57,7 @@ export function useOrderAudit(id: string | undefined) {
     enabled: !!id,
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam, signal }) =>
-      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'vendor_order', objectId: id, limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
+      api.get<Page<AuditEvent>>('/audit', { query: { objectType: 'vendor_order', objectId: id, order: 'desc', limit: AUDIT_PAGE_SIZE, cursor: pageParam }, signal }),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
 }

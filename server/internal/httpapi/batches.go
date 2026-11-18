@@ -508,16 +508,25 @@ func (a *BatchesAPI) audit(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, err)
 		return
 	}
+	newestFirst := false
+	switch q.Get("order") {
+	case "", "asc":
+	case "desc":
+		newestFirst = true
+	default:
+		fail(w, r, service.Invalid("order", "must be asc or desc"))
+		return
+	}
 	var pg *audit.Page
 	switch q.Get("objectType") {
 	case "batch":
-		pg, err = a.Timeline.ForBatch(r.Context(), a.actor(r).Actor, id, cursor, limit)
+		pg, err = a.Timeline.ForBatch(r.Context(), a.actor(r).Actor, id, cursor, limit, newestFirst)
 	case "item":
-		pg, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id, cursor, limit)
+		pg, err = a.Timeline.ForItem(r.Context(), a.actor(r).Actor, id, cursor, limit, newestFirst)
 	case "vendor_order":
-		pg, err = a.Timeline.ForVendorOrder(r.Context(), a.actor(r).Actor, id, cursor, limit)
+		pg, err = a.Timeline.ForVendorOrder(r.Context(), a.actor(r).Actor, id, cursor, limit, newestFirst)
 	case "delivery":
-		pg, err = a.Timeline.ForDelivery(r.Context(), a.actor(r).Actor, id, cursor, limit)
+		pg, err = a.Timeline.ForDelivery(r.Context(), a.actor(r).Actor, id, cursor, limit, newestFirst)
 	default:
 		fail(w, r, service.Invalid("objectType", "must be batch, item, vendor_order or delivery"))
 		return

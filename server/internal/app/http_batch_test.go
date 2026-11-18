@@ -300,6 +300,18 @@ func TestHTTPAuditPagination(t *testing.T) {
 		t.Errorf("batch timeline should be oldest first, got %v", e0["action"])
 	}
 
+	// order=desc pages through the same events, newest first.
+	desc := collect("/api/v1/audit?order=desc&objectType=batch&objectId=" + id)
+	if len(desc) != len(evs) {
+		t.Fatalf("desc timeline has %d events, want %d", len(desc), len(evs))
+	}
+	for i := range evs {
+		if desc[i]["id"] != evs[len(evs)-1-i]["id"] {
+			t.Fatalf("desc event %d is not the reverse of asc", i)
+		}
+	}
+	w.do(t, call{token: w.mem, method: "GET", path: "/api/v1/audit?order=sideways&objectType=batch&objectId=" + id, skipRequestValidation: true}).expect(400, "invalid_request")
+
 	w.do(t, call{token: w.mem, method: "GET", path: w.path("/teams/{}/audit", w.teamID)}).expect(403, "forbidden")
 	w.do(t, call{token: w.adm, method: "GET", path: w.path("/teams/{}/audit", w.teamID) + "?limit=2"}).expect(200)
 	w.do(t, call{token: w.adm, method: "GET", path: w.path("/teams/{}/audit", w.teamID) + "?limit=x", skipRequestValidation: true}).expect(400, "invalid_request")
