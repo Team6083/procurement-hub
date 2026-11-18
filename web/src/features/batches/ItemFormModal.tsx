@@ -1,4 +1,4 @@
-import { Alert, Button, Dialog, Group, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Dialog, Group, Input, GridItem, NativeSelect, Separator, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { useEffect, useRef, useState, type ClipboardEvent } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -124,7 +124,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
         <form id="item-form" onSubmit={submit} noValidate>
           <Stack gap="3">
             {lookupFirst && !expanded && (
-              <Stack gap="2">
+              <Stack gap="1">
                 <FormField label={t('lookup.queryLabel')} helperText={t('lookup.queryHelp')}>
                   <Group attached w="full">
                     <Input flex="1" value={query} placeholder={t('lookup.queryPlaceholder')} onChange={(e) => setQuery(e.currentTarget.value)}
@@ -132,55 +132,14 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                     <Button type="button" variant="outline" loading={lookupBusy} onClick={() => void runLookup(query)}>{t('lookup.action')}</Button>
                   </Group>
                 </FormField>
-                <Button type="button" size="xs" variant="ghost" alignSelf="start" onClick={() => setExpanded(true)}>{t('lookup.manual')}</Button>
+                <Button type="button" size="xs" variant="ghost" alignSelf="start" ms="-2" onClick={() => setExpanded(true)}>{t('lookup.manual')}</Button>
+                <Separator mt="2" />
               </Stack>
             )}
             {showProduct && (
               <>
                 <FormField label={t('item.name')} required helperText={mark('name')} errorText={fieldError(err.name)}>
                   <Input {...form.register('name')} />
-                </FormField>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-                  <Controller control={form.control} name="vendorId" render={({ field }) => (
-                    <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
-                      // Choosing a listed vendor fills in its default currency (still changeable afterwards).
-                      onChange={(id) => {
-                        field.onChange(id);
-                        const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
-                        if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
-                      }}
-                      options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
-                  )} />
-                  {vendorChoice === 'other' && (
-                    <FormField label={t('item.vendorOtherName')}>
-                      <Input {...form.register('vendorName')} />
-                    </FormField>
-                  )}
-                  <FormField label={t('item.sku')} helperText={mark('sku')}>
-                    <Input {...form.register('sku')} />
-                  </FormField>
-                </SimpleGrid>
-                {/* Price and currency read as one input: the currency is the price's end addon. */}
-                <FormField label={t('item.unitPrice')} required helperText={mark('estimatedUnitPrice')} errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
-                  <Group attached w="full">
-                    <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
-                    <Controller control={form.control} name="currency" render={({ field }) => (
-                      <NativeSelect.Root width="auto" invalid={!!err.currency}>
-                        <NativeSelect.Field
-                          aria-label={t('item.currency')}
-                          borderLeftRadius="0"
-                          name={field.name}
-                          value={field.value}
-                          onChange={(e) => field.onChange(e.currentTarget.value)}
-                          onBlur={field.onBlur}
-                        >
-                          {!field.value && <option value="" />}
-                          {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                    )} />
-                  </Group>
                 </FormField>
                 <FormField label={t('item.productUrl')} helperText={mark('productUrl') ?? (lookupEnabled ? t('lookup.help') : undefined)} errorText={fieldError(err.productUrl)}>
                   {lookupEnabled ? (
@@ -195,6 +154,52 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
                     <Input type="url" placeholder="https://" {...form.register('productUrl')} />
                   )}
                 </FormField>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  <GridItem colSpan={{ base: 1, sm: vendorChoice === 'other' ? 1 : 2 }}>
+                  <Controller control={form.control} name="vendorId" render={({ field }) => (
+                    <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                      // Choosing a listed vendor fills in its default currency (still changeable afterwards).
+                      onChange={(id) => {
+                        field.onChange(id);
+                        const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
+                        if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
+                      }}
+                      options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
+                  )} />
+                  </GridItem>
+                  {vendorChoice === 'other' && (
+                    <FormField label={t('item.vendorOtherName')}>
+                      <Input {...form.register('vendorName')} />
+                    </FormField>
+                  )}
+                </SimpleGrid>
+                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+                  <FormField label={t('item.sku')} helperText={mark('sku')}>
+                    <Input {...form.register('sku')} />
+                  </FormField>
+                  {/* Price and currency read as one input: the currency is the price's end addon. */}
+                  <FormField label={t('item.unitPrice')} required helperText={mark('estimatedUnitPrice')} errorText={fieldError(err.unitPrice) ?? fieldError(err.currency)}>
+                    <Group attached w="full">
+                      <Input flex="1" inputMode="decimal" {...form.register('unitPrice')} />
+                      <Controller control={form.control} name="currency" render={({ field }) => (
+                        <NativeSelect.Root width="auto" invalid={!!err.currency}>
+                          <NativeSelect.Field
+                            aria-label={t('item.currency')}
+                            borderLeftRadius="0"
+                            name={field.name}
+                            value={field.value}
+                            onChange={(e) => field.onChange(e.currentTarget.value)}
+                            onBlur={field.onBlur}
+                          >
+                            {!field.value && <option value="" />}
+                            {currencies.map((c) => <option key={c} value={c}>{c}</option>)}
+                          </NativeSelect.Field>
+                          <NativeSelect.Indicator />
+                        </NativeSelect.Root>
+                      )} />
+                    </Group>
+                  </FormField>
+                </SimpleGrid>
               </>
             )}
             {lookupEnabled && lookupError != null && (
@@ -218,7 +223,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill }: Omit<
               </Alert.Root>
             )}
             {lookupEnabled && lookupNote && <Text fontSize="sm" color="fg.muted">{lookupNote}</Text>}
-            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
+            <SimpleGrid columns={{ base: 1, sm: 3 }} gap="3">
               <FormField label={t('item.quantity')} required errorText={fieldError(err.quantity)}>
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
