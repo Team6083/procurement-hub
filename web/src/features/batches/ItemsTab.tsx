@@ -127,7 +127,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     if (canForceReject(it, batch, caller) && it.status === 'returned') {
       out.push({ value: 'force-reject', icon: <LuX />, label: hinted(t('review.forceReject'), t('review.forceRejectHint')), danger: true, onSelect: () => { action.reset(); setForcing(it); } });
     }
-    if (canCopyItem(batch, caller, items)) {
+    if (canCopyItem(batch, caller, items) && (batch.status !== 'reviewing' || it.status === 'withdrawn')) {
       out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
     }
     return out;
