@@ -90,7 +90,8 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         return (
           <Box as="span" display="block" textAlign="start" overflowWrap="anywhere">
             <Flex as="span" align="flex-start" gap="1.5">
-              {reviewAsIcon && <Box as="span" pt="1"><ItemStatusIcon status={it.status} /></Box>}
+              {/* One line tall, whatever the font size, so the icon centres on the first line of the name. */}
+              {reviewAsIcon && <Box as="span" display="inline-flex" alignItems="center" h="1lh" flexShrink={0}><ItemStatusIcon status={it.status} /></Box>}
               <ClampedText text={`#${it.seqNo} ${it.name}`} flex="0 1 auto" minW="0">
                 <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
                 {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : it.name}
