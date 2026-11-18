@@ -249,5 +249,22 @@
     "partially_received": "Partially received",
     "received": "Received",
     "closed": "Closed"
+  },
+  "lookup": {
+    "action": "Look up",
+    "help": "Paste a product URL, or type a SKU and click Look up, to fill in the empty fields.",
+    "autoFilled": "Auto-filled by lookup",
+    "inStock": "The store lists this product as in stock.",
+    "outOfStock": "The store lists this product as out of stock.",
+    "overwritePrompt": "The lookup found different values for fields you already filled in: {{fields}}. Overwrite them?",
+    "overwrite": "Overwrite",
+    "keep": "Keep mine",
+    "fields": {
+      "name": "Name",
+      "vendorId": "Vendor",
+      "sku": "SKU",
+      "estimatedUnitPrice": "Unit price",
+      "productUrl": "Product URL"
+    }
   }
 }

@@ -247,5 +247,22 @@
     "partially_received": "部分到貨",
     "received": "已到貨",
     "closed": "已結案"
+  },
+  "lookup": {
+    "action": "查詢",
+    "help": "貼上產品網址，或輸入 SKU 後按「查詢」，自動填入空白欄位。",
+    "autoFilled": "由查詢自動帶入",
+    "inStock": "商店標示此產品有庫存。",
+    "outOfStock": "商店標示此產品無庫存。",
+    "overwritePrompt": "查詢結果與你已填寫的欄位不同：{{fields}}。要覆寫嗎？",
+    "overwrite": "覆寫",
+    "keep": "保留我的內容",
+    "fields": {
+      "name": "名稱",
+      "vendorId": "廠商",
+      "sku": "SKU",
+      "estimatedUnitPrice": "單價",
+      "productUrl": "產品網址"
+    }
   }
 }
