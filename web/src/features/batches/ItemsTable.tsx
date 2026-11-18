@@ -122,7 +122,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
       ),
     }),
     col('status', t('item.status'), { cell: (it) => (
-      <HStack gap="1" wrap="wrap">
+      <HStack gap="1" wrap="nowrap">
         <ItemStatusBadge status={it.status} />
         {it.fulfillment && <FulfillmentBadge value={it.fulfillment} />}
       </HStack>

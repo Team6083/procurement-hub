@@ -19,5 +19,5 @@ const TONES: Record<StatusTone, { colorPalette: string; variant: 'subtle' | 'out
 };
 
 export function StatusBadge({ tone, children }: { tone: StatusTone; children: ReactNode }) {
-  return <Badge {...TONES[tone]}>{children}</Badge>;
+  return <Badge {...TONES[tone]} whiteSpace="nowrap">{children}</Badge>;
 }
