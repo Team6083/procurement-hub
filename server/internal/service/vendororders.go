@@ -73,7 +73,7 @@ func (a *lineAccess) canReadBatch(id bson.ObjectID) bool {
 type LineView struct {
 	domain.VendorOrderLine
 	// ProductURL is the item's current product URL, read at request time; empty without an item or URL.
-	ProductURL         string           `json:"productUrl"`
+	ProductURL string `json:"productUrl"`
 	// EstimatedUnitPrice is the item's current estimate; null without an item.
 	EstimatedUnitPrice *domain.Money    `json:"estimatedUnitPrice"`
 	VendorOrderVersion int64            `json:"vendorOrderVersion"`
