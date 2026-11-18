@@ -30,7 +30,7 @@ describe('GeneralSettings priority labels', () => {
     expect(field(5).value).toBe('Critical');
     expect(field(1).value).toBe('Nice');
     expect(field(3).value).toBe('');
-    expect(field(3).placeholder).toBe('Good to have as a spare');
+    expect(field(3).placeholder).toBe('Better to buy, as a spare');
 
     fireEvent.change(field(1), { target: { value: '' } });
     fireEvent.change(field(4), { target: { value: 'Likely used' } });

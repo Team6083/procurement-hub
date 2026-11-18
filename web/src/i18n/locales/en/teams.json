@@ -70,11 +70,11 @@
   "priority": {
     "level": "Priority {{n}}",
     "default": {
-      "5": "Must buy; something breaks without it",
-      "4": "Should buy; very likely to be used",
-      "3": "Good to have as a spare",
-      "2": "Probably unused, but acceptable to buy",
-      "1": "Looks cool; maybe buy"
+      "5": "Must buy; we will have a problem without it",
+      "4": "Should buy; very likely to be needed",
+      "3": "Better to buy, as a spare",
+      "2": "Probably not needed, but fine to buy",
+      "1": "Looks cool; buy it if you are interested"
     }
   },
   "subgroups": {
