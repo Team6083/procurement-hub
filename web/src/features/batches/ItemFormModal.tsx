@@ -169,8 +169,8 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
                     <Input type="url" placeholder="https://" {...form.register('productUrl')} />
                   )}
                 </FormField>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
-                  <GridItem colSpan={{ base: 1, sm: vendorChoice === 'other' ? 1 : 2 }}>
+                {/* Vendor, SKU and price share a row (the price keeps a little more room for its currency). */}
+                <SimpleGrid templateColumns={{ base: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr)' }} gap="3">
                   <Controller control={form.control} name="vendorId" render={({ field }) => (
                     <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
                       // Choosing a listed vendor fills in its default currency (still changeable afterwards).
@@ -181,14 +181,6 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
                       }}
                       options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
                   )} />
-                  </GridItem>
-                  {vendorChoice === 'other' && (
-                    <FormField label={t('item.vendorOtherName')}>
-                      <Input {...form.register('vendorName')} />
-                    </FormField>
-                  )}
-                </SimpleGrid>
-                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                   <FormField label={t('item.sku')} helperText={mark('sku')}>
                     <Input {...form.register('sku')} />
                   </FormField>
@@ -214,6 +206,13 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, resubmi
                       )} />
                     </Group>
                   </FormField>
+                  {vendorChoice === 'other' && (
+                    <GridItem colSpan={{ base: 1, sm: 3 }}>
+                      <FormField label={t('item.vendorOtherName')}>
+                        <Input {...form.register('vendorName')} />
+                      </FormField>
+                    </GridItem>
+                  )}
                 </SimpleGrid>
               </>
             )}
