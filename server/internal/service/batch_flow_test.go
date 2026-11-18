@@ -257,6 +257,36 @@ func TestCloseDueJob(t *testing.T) {
 	}
 }
 
+// A batch reopened for collection that holds only approved items goes back to
+// review at the deadline; it is not cancelled as empty.
+func TestCloseDueWithOnlyApprovedItemsReviews(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b := e.openBatch(t)
+	it := e.item(t, e.member, b.ID, "x")
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActClose})
+	if err != nil || b.Status != domain.BatchReviewing {
+		t.Fatalf("close: %v %+v", err, b)
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: it.ID, Decision: "approve"}}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := e.st.GetBatch(ctx, b.ID)
+	dl := time.Now().Add(96 * time.Hour)
+	b, err = e.batches.Transition(ctx, e.admin, b.ID, got.Version, TransitionInput{Action: domain.ActReopen, Deadline: &dl})
+	if err != nil || b.Status != domain.BatchCollecting {
+		t.Fatalf("reopen: %v %+v", err, b)
+	}
+
+	e.batches.now = func() time.Time { return time.Now().Add(120 * time.Hour) }
+	if err := e.batches.CloseDue(ctx, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := e.st.GetBatch(ctx, b.ID); got.Status != domain.BatchReviewing {
+		t.Fatalf("only approved items at the deadline: want reviewing, got %s (%s)", got.Status, got.StatusReason)
+	}
+}
+
 func TestEmptyBatchAutoCancelsOnClose(t *testing.T) {
 	e := newFlowEnv(t)
 	ctx := context.Background()
