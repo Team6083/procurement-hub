@@ -527,7 +527,7 @@ func TestAddDuringReviewAndResubmitNote(t *testing.T) {
 		t.Fatal("unknown related item must fail")
 	}
 	n, err := add(e.member, &c.ID)
-	if err != nil || n.Status != domain.ItemPending || !n.AddedDuringReview || n.RelatedItemID == nil || *n.RelatedItemID != c.ID {
+	if err != nil || n.Status != domain.ItemPending || n.RelatedItemID == nil || *n.RelatedItemID != c.ID {
 		t.Fatalf("add during review: %v %+v", err, n)
 	}
 	// It cannot be deleted, only withdrawn.
@@ -554,5 +554,59 @@ func TestAddDuringReviewAndResubmitNote(t *testing.T) {
 	w, err := e.items.Withdraw(ctx, e.member, n.ID, n.Version)
 	if err != nil || w.Status != domain.ItemWithdrawn {
 		t.Fatalf("withdraw: %v %+v", err, w)
+	}
+}
+
+func TestAddedDuringReviewItemIsDeletableAfterReopen(t *testing.T) {
+	e := newFlowEnv(t)
+	ctx := context.Background()
+	b := e.openBatch(t)
+	c := e.item(t, e.member, b.ID, "c")
+	b, err := e.batches.Transition(ctx, e.admin, b.ID, b.Version, TransitionInput{Action: domain.ActClose})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := e.items.Review(ctx, e.approver, b.ID, []Decision{{ItemID: c.ID, Decision: "return", Comment: "more"}}); err != nil {
+		t.Fatal(err)
+	}
+	p, _ := domain.NewDecimal("2")
+	n, err := e.items.Add(ctx, e.member, b.ID, ItemInput{Name: "screws", Quantity: 1, Priority: 3, Purpose: "t",
+		EstimatedUnitPrice: domain.Money{Amount: p, Currency: "USD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := e.items.Delete(ctx, e.member, n.ID, n.Version); err == nil {
+		t.Fatal("delete while reviewing must be refused")
+	}
+	// Copy as new item: a withdrawn item can be copied by the requester who still has a returned item.
+	w, err := e.items.Withdraw(ctx, e.member, n.ID, n.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cp, err := e.items.Copy(ctx, e.member, w.ID, w.Version); err != nil || cp.Status != domain.ItemPending {
+		t.Fatalf("copy during review: %v %+v", err, cp)
+	}
+	// A requester without a returned item cannot copy (admins always can).
+	if _, err := e.items.Copy(ctx, e.approver, w.ID, w.Version); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("copy by someone else: %v", err)
+	}
+	if cp, err := e.items.Copy(ctx, e.admin, w.ID, w.Version); err != nil || cp.Status != domain.ItemPending {
+		t.Fatalf("admin copy during review: %v", err)
+	}
+	// Back to collecting: the never-reviewed added item deletes like any other.
+	n2, _ := e.st.GetItem(ctx, n.ID)
+	_ = n2
+	live, err := e.items.Add(ctx, e.member, b.ID, ItemInput{Name: "nuts", Quantity: 1, Priority: 3, Purpose: "t",
+		EstimatedUnitPrice: domain.Money{Amount: p, Currency: "USD"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, _ := e.st.GetBatch(ctx, b.ID)
+	dl := time.Now().Add(96 * time.Hour)
+	if _, err := e.batches.Transition(ctx, e.admin, b.ID, got.Version, TransitionInput{Action: domain.ActReopen, Deadline: &dl}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.items.Delete(ctx, e.member, live.ID, live.Version); err != nil {
+		t.Fatalf("delete after reopen: %v", err)
 	}
 }

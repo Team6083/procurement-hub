@@ -532,7 +532,7 @@ export interface paths {
         /**
          * Add an item (team members; proposer only while `proposed`, anyone while `collecting`)
          * @description While the batch is `reviewing`, only a requester who currently has a `returned` item in it and team admins may add
-         *     (others 403); the new item starts `pending`, is marked `addedDuringReview` (withdraw only, never deletable), must be
+         *     (others 403); the new item starts `pending`, can only be withdrawn while the batch is `reviewing` (deletable after a return to `collecting` if never reviewed), must be
          *     decided before `confirm_review`, and emits `item.added_during_review` to the batch's assigned approvers (team admins if
          *     none; no channel message). `relatedItemId` (optional, create only) must be an item of the same batch (400 `invalid_request`).
          *     Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
@@ -1876,8 +1876,6 @@ export interface components {
             relatedItemId: string | null;
             /** @description Reply from the latest resubmission; empty when none. */
             resubmitNote: string;
-            /** @description Created while the batch was reviewing; can be withdrawn but not deleted. */
-            addedDuringReview: boolean;
             lookup: components["schemas"]["LookupInfo"] | null;
             unpurchasable: {
                 by: string;
@@ -2245,8 +2243,8 @@ export interface components {
         VendorOrderRequest: {
             vendorId: string;
             currency: string;
-            /** @description Replaces the owners (purchasers by roleSnapshot); omit to keep them. Newly added owners get `assignment.added`. */
-            ownerIds?: string[];
+            /** @description Replaces the owners (purchasers by roleSnapshot); required (400 `invalid_request` when missing), `[]` clears. Newly added owners get `assignment.added`. */
+            ownerIds: string[];
             externalOrderNo?: string;
             chargedAmountBase?: string | null;
             expectedDeliveryDate?: string;

@@ -245,7 +245,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 		TeamID: t.ID, BatchID: b.ID, RequesterID: actor.UserID, Status: domain.ItemPending,
 		SubgroupID: in.SubgroupID, Name: in.Name, VendorID: in.VendorID, VendorName: in.VendorName, SKU: in.SKU, Quantity: in.Quantity,
 		EstimatedUnitPrice: in.EstimatedUnitPrice, Priority: in.Priority, Purpose: in.Purpose, Notes: in.Notes, ProductURL: in.ProductURL,
-		RelatedItemID: in.RelatedItemID, AddedDuringReview: duringReview,
+		RelatedItemID: in.RelatedItemID,
 	}
 	if len(in.AutoFilledFields) > 0 {
 		it.Lookup = &domain.LookupInfo{Provider: in.LookupProvider, FetchedAt: s.batches.now(), AutoFilledFields: in.AutoFilledFields}
@@ -331,6 +331,14 @@ func (s *Items) loadItem(ctx context.Context, actor authz.Actor, id bson.ObjectI
 	return it, b, t, nil
 }
 
+// addedDuringReview derives "added while the batch is reviewing" (spec §10.2)
+// instead of storing it: a never-reviewed pending item created after the batch
+// entered its current `reviewing` status. Such items can only be withdrawn.
+func addedDuringReview(it *domain.Item, b *domain.Batch) bool {
+	return b.Status == domain.BatchReviewing && it.Status == domain.ItemPending && it.FirstReviewedAt == nil &&
+		it.CreatedAt.After(b.StatusChangedAt)
+}
+
 // canModify implements "edit/withdraw own item" and the team-admin override
 // (spec §8.3). System admins hold every Team-admin permission (§8.1).
 func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
@@ -340,11 +348,12 @@ func canModify(actor authz.Actor, it *domain.Item, b *domain.Batch) bool {
 			return true
 		case it.Status == domain.ItemReturned && b.Status == domain.BatchReviewing:
 			return true
-		case it.Status == domain.ItemPending && it.AddedDuringReview && b.Status == domain.BatchReviewing:
+		case addedDuringReview(it, b):
+			// Added during review: withdraw only (spec §10.2).
 			return true
 		}
 	}
-	if it.Status == domain.ItemPending && it.AddedDuringReview && b.Status == domain.BatchReviewing && actor.CanAdminTeam(b.TeamID) {
+	if addedDuringReview(it, b) && actor.CanAdminTeam(b.TeamID) {
 		return true
 	}
 	return actor.CanAdminTeam(b.TeamID) && b.Status == domain.BatchCollecting &&
@@ -467,7 +476,7 @@ func itemDeletable(it *domain.Item, b *domain.Batch) bool {
 	default:
 		return false
 	}
-	return it.Status == domain.ItemPending && it.FirstReviewedAt == nil && !it.AddedDuringReview
+	return it.Status == domain.ItemPending && it.FirstReviewedAt == nil
 }
 
 // Delete removes an item that was never reviewed (hard delete, no undo). The

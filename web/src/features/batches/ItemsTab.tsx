@@ -118,9 +118,6 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     if (canUndoReview(it, batch, caller)) {
       out.push({ value: 'review-undo', icon: <LuUndo2 />, label: t('item.undoReview'), onSelect: () => { action.reset(); setUndoing({ item: it, what: 'review' }); } });
     }
-    if (canCopyItem(batch, caller)) {
-      out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
-    }
     if (canReview(batch, caller) && it.status === 'pending') {
       out.push({ value: 'approve', icon: <LuCheck />, label: hinted(t('review.approveItem'), t('review.approveHint')), onSelect: () => { review.reset(); review.mutate({ decisions: [{ itemId: it.id, decision: 'approve' }] }); } });
       out.push({ value: 'return', icon: <LuUndo2 />, label: hinted(t('review.return'), t('review.returnHint')), onSelect: () => { review.reset(); setDeciding({ item: it, decision: 'return' }); } });
@@ -129,6 +126,9 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
     // Pending items are rejected with the review decision above; force-reject is for returned items that wait for the requester.
     if (canForceReject(it, batch, caller) && it.status === 'returned') {
       out.push({ value: 'force-reject', icon: <LuX />, label: hinted(t('review.forceReject'), t('review.forceRejectHint')), danger: true, onSelect: () => { action.reset(); setForcing(it); } });
+    }
+    if (canCopyItem(batch, caller, items)) {
+      out.push({ value: 'copy', icon: <LuCopy />, label: t('item.copy'), onSelect: () => { setCopyFrom(it); setEditing('new'); } });
     }
     return out;
   };

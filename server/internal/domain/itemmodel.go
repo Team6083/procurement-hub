@@ -63,11 +63,8 @@ type Item struct {
 	RelatedItemID *bson.ObjectID `bson:"relatedItemId,omitempty" json:"relatedItemId"`
 	// ResubmitNote is the requester's reply from the latest resubmission
 	// (spec §10.2); history is in the audit log.
-	ResubmitNote string `bson:"resubmitNote,omitempty" json:"resubmitNote"`
-	// AddedDuringReview marks an item created while the batch was `reviewing`
-	// (spec §10.2): it can be withdrawn but never deleted.
-	AddedDuringReview bool        `bson:"addedDuringReview,omitempty" json:"addedDuringReview"`
-	Lookup            *LookupInfo `bson:"lookup" json:"lookup"`
+	ResubmitNote string      `bson:"resubmitNote,omitempty" json:"resubmitNote"`
+	Lookup       *LookupInfo `bson:"lookup" json:"lookup"`
 	// Unpurchasable is set while the purchaser has marked the item (spec §10.2).
 	Unpurchasable *UnpurchasableMark `bson:"unpurchasable,omitempty" json:"unpurchasable"`
 	// Computed fields (spec §9.1); null/0 until the batch is review-confirmed.

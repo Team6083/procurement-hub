@@ -74,6 +74,13 @@ describe('item permissions mirror backend canModify', () => {
     expect(canModifyItem(item({ requesterId: 'x' }), batch({ status: 'reviewing' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
     expect(canModifyItem(item({ requesterId: 'x', status: 'approved' }), batch({ status: 'collecting' }), caller({ teamRole: undefined, isSystemAdmin: true }))).toBe(false);
   });
+  it('items added during review are withdrawable only while reviewing; deletable after the batch is back to collecting', () => {
+    const added = item({ firstReviewedAt: null, createdAt: '2026-01-03T00:00:00Z' });
+    const reviewing = batch({ status: 'reviewing', statusChangedAt: '2026-01-02T00:00:00Z' });
+    expect(canModifyItem(added, reviewing, caller())).toBe(true);
+    expect(canDeleteItem(added, reviewing, caller())).toBe(false);
+    expect(canDeleteItem(added, batch({ status: 'collecting' }), caller())).toBe(true);
+  });
   it('adding items: proposer while proposed, members while collecting', () => {
     expect(canAddItem(batch({ status: 'proposed', createdBy: 'u1' }), caller())).toBe(true);
     expect(canAddItem(batch({ status: 'proposed', createdBy: 'x' }), caller())).toBe(false);
@@ -85,9 +92,15 @@ describe('item permissions mirror backend canModify', () => {
 
 describe('copy as new item', () => {
   it('is offered to anyone who can add items, for any item', () => {
-    expect(canCopyItem(batch({ status: 'collecting' }), caller())).toBe(true);
-    expect(canCopyItem(batch({ status: 'reviewing' }), caller())).toBe(false);
-    expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }))).toBe(false);
+    expect(canCopyItem(batch({ status: 'collecting' }), caller(), [])).toBe(true);
+    expect(canCopyItem(batch({ status: 'collecting' }), caller({ teamRole: undefined }), [])).toBe(false);
+  });
+  it('during review: requester with a returned item, and team admins', () => {
+    const reviewing = batch({ status: 'reviewing' });
+    expect(canCopyItem(reviewing, caller(), [])).toBe(false);
+    expect(canCopyItem(reviewing, caller(), [item({ requesterId: 'u1', status: 'returned' })])).toBe(true);
+    expect(canCopyItem(reviewing, caller(), [item({ requesterId: 'x', status: 'returned' })])).toBe(false);
+    expect(canCopyItem(reviewing, caller({ teamRole: 'admin' }), [])).toBe(true);
   });
 });
 

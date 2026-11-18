@@ -84,21 +84,38 @@ export function canAddItem(b: Batch, c: Caller): boolean {
   return b.status === 'collecting';
 }
 
+/**
+ * Mirrors backend Items.Add: who can add an item right now. Beyond canAddItem, a reviewing batch also accepts a requester
+ * who has a returned item in it (spec §8.3, §10.2).
+ */
+export function canAddItemNow(b: Batch, c: Caller, items: Pick<Item, 'requesterId' | 'status'>[]): boolean {
+  if (b.status === 'reviewing') {
+    if (c.archived) return false;
+    return isTeamAdmin(c) || (isMember(c) && items.some((i) => i.requesterId === c.userId && i.status === 'returned'));
+  }
+  return canAddItem(b, c);
+}
+
 /** "Add related item" next to a returned item during review: its requester, or a team admin (backend Items.Add). */
 export function canAddRelatedItem(it: Pick<Item, 'requesterId' | 'status'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
   if (c.archived || b.status !== 'reviewing' || it.status !== 'returned') return false;
   return isTeamAdmin(c) || (isMember(c) && it.requesterId === c.userId);
 }
 
+/** Mirrors backend addedDuringReview: never reviewed and created after the batch entered `reviewing`; only withdrawable (spec §10.2). */
+function addedDuringReview(it: Pick<Item, 'status' | 'firstReviewedAt' | 'createdAt'>, b: Pick<Batch, 'status' | 'statusChangedAt'>): boolean {
+  return b.status === 'reviewing' && it.status === 'pending' && !it.firstReviewedAt && Date.parse(it.createdAt) > Date.parse(b.statusChangedAt);
+}
+
 /** Mirrors backend canModify: requester rules, plus the admin override (team or system admin) while collecting. */
-export function canModifyItem(it: Pick<Item, 'requesterId' | 'status' | 'addedDuringReview'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+export function canModifyItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt' | 'createdAt'>, b: Pick<Batch, 'status' | 'statusChangedAt'>, c: Caller): boolean {
   if (c.archived) return false;
   if (it.requesterId === c.userId) {
     if (it.status === 'pending' && (b.status === 'proposed' || b.status === 'collecting')) return true;
     if (it.status === 'returned' && b.status === 'reviewing') return true;
-    if (it.status === 'pending' && it.addedDuringReview && b.status === 'reviewing') return true;
+    if (it.status === 'pending' && addedDuringReview(it, b)) return true;
   }
-  if (it.status === 'pending' && it.addedDuringReview && b.status === 'reviewing' && isTeamAdmin(c)) return true;
+  if (it.status === 'pending' && addedDuringReview(it, b) && isTeamAdmin(c)) return true;
   // Team admins and system admins (backend CanAdminTeam); system admins still have no implicit membership.
   return canAdmin(c) && b.status === 'collecting' && (it.status === 'pending' || it.status === 'returned');
 }
@@ -107,8 +124,8 @@ export function canModifyItem(it: Pick<Item, 'requesterId' | 'status' | 'addedDu
  * Mirrors backend itemDeletable/canDelete (spec §10.2): a never-reviewed pending item in a draft, proposed or collecting batch,
  * deleted by its requester or a team/system admin. Items that do not qualify keep the withdraw flow.
  */
-export function canDeleteItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt' | 'addedDuringReview'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
-  if (c.archived || it.addedDuringReview) return false;
+export function canDeleteItem(it: Pick<Item, 'requesterId' | 'status' | 'firstReviewedAt'>, b: Pick<Batch, 'status'>, c: Caller): boolean {
+  if (c.archived) return false;
   if (!['draft', 'proposed', 'collecting'].includes(b.status)) return false;
   if (it.status !== 'pending' || it.firstReviewedAt) return false;
   return it.requesterId === c.userId || canAdmin(c);
@@ -164,6 +181,6 @@ export function canUndoReview(it: Pick<Item, 'status' | 'review'>, b: Pick<Batch
 }
 
 /** Copy any item (whatever its status or requester) into a new one, by anyone who can add items to the batch. */
-export function canCopyItem(b: Batch, c: Caller): boolean {
-  return b.status !== 'reviewing' && canAddItem(b, c);
+export function canCopyItem(b: Batch, c: Caller, items: Pick<Item, 'requesterId' | 'status'>[]): boolean {
+  return canAddItemNow(b, c, items);
 }

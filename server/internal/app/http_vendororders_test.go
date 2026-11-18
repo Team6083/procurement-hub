@@ -81,7 +81,7 @@ func TestHTTPVendorOrderFlow(t *testing.T) {
 	w.do(t, call{token: buyer, method: "PUT", path: w.path("/vendor-order-lines/{}", lines[0].(map[string]any)["id"].(string)), ifMatch: `"1"`, body: map[string]any{
 		"teamId": lines[0].(map[string]any)["teamId"], "name": "x", "quantity": 2}}).expect(409, "version_conflict")
 	o = w.do(t, call{token: buyer, method: "PUT", path: op, ifMatch: o.ETag(), body: map[string]any{
-		"vendorId": vendor.String("id"), "currency": "USD", "paymentNote": "card"}}).expect(200)
+		"vendorId": vendor.String("id"), "currency": "USD", "ownerIds": []string{}, "paymentNote": "card"}}).expect(200)
 	if net := o.JSON()["totals"].(map[string]any)["netBase"]; net != "25" || o.JSON()["invariantOk"] != true {
 		t.Fatalf("netBase = %v: %s", net, o.Body)
 	}

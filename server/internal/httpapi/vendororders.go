@@ -238,16 +238,18 @@ func (a *VendorOrdersAPI) put(w http.ResponseWriter, r *http.Request) {
 		fail(w, r, service.Invalid("vendorId", "must be a vendor id"))
 		return
 	}
-	if req.OwnerIDs != nil {
-		f.OwnerIDs = []bson.ObjectID{}
-		for _, s := range req.OwnerIDs {
-			id, err := bson.ObjectIDFromHex(s)
-			if err != nil {
-				fail(w, r, service.Invalid("ownerIds", "must be user ids"))
-				return
-			}
-			f.OwnerIDs = append(f.OwnerIDs, id)
+	if req.OwnerIDs == nil {
+		fail(w, r, service.Invalid("ownerIds", "required; send [] to clear"))
+		return
+	}
+	f.OwnerIDs = []bson.ObjectID{}
+	for _, s := range req.OwnerIDs {
+		id, err := bson.ObjectIDFromHex(s)
+		if err != nil {
+			fail(w, r, service.Invalid("ownerIds", "must be user ids"))
+			return
 		}
+		f.OwnerIDs = append(f.OwnerIDs, id)
 	}
 	if f.ChargedAmountBase, err = optDecimal("chargedAmountBase", req.ChargedAmountBase); err != nil {
 		fail(w, r, err)
