@@ -51,7 +51,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
                 value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalBadge />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
                 hint: order.currency === baseCurrency ? undefined : t('breakdown.factorHint', { from: order.currency, to: baseCurrency }),
               },
-              { label: t('breakdown.target'), value: b(tt.targetBase) },
+              { label: t('breakdown.target', { currency: baseCurrency }), value: b(tt.targetBase) },
               { label: t('breakdown.ledger'), value: b(tt.ledgerBase) },
               { label: t('breakdown.net'), value: b(tt.netBase), emphasis: true },
             ]}

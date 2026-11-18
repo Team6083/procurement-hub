@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useBaseCurrency } from '../../api/meta';
 import { z } from 'zod';
 import { LuPlus, LuReceipt, LuUndo2 } from 'react-icons/lu';
 import { useAddLedger, useVoidLedger } from '../../api/vendorOrders';
@@ -25,6 +26,7 @@ const addSchema = (baseDigits: number) => z.object({
 
 function AddForm({ order, baseDigits, onClose }: { order: VendorOrder; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('purchasing');
+  const baseCurrency = useBaseCurrency();
   const add = useAddLedger(order.id);
   const form = useForm({ resolver: zodResolver(addSchema(baseDigits)), defaultValues: { amount: '', lineId: '', reason: '' } });
   const fieldError = useFieldError();
@@ -35,7 +37,7 @@ function AddForm({ order, baseDigits, onClose }: { order: VendorOrder; baseDigit
       <Dialog.Body>
         <form id="ledger-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('ledger.amount')} required helperText={t('ledger.amountHelp')} errorText={fieldError(err.amount)}>
+            <FormField label={t('ledger.amount', { currency: baseCurrency })} required helperText={t('ledger.amountHelp')} errorText={fieldError(err.amount)}>
               <Input inputMode="decimal" {...form.register('amount')} />
             </FormField>
             <Controller control={form.control} name="lineId" render={({ field }) => (
@@ -70,7 +72,7 @@ export function LedgerSection({ order, baseCurrency, baseDigits, canWrite, headi
     return l ? `#${l.lineNo} ${l.name}` : t('ledger.spread');
   };
   const columns: DataColumn<LedgerEntry>[] = [
-    { key: 'amount', header: t('ledger.amount'), numeric: true, priority: 'primary', cell: (e) => formatMoney(e.amountBase, baseCurrency, i18n.language) },
+    { key: 'amount', header: t('ledger.amount', { currency: baseCurrency }), numeric: true, priority: 'primary', cell: (e) => formatMoney(e.amountBase, baseCurrency, i18n.language) },
     { key: 'reason', header: t('undo.reason'), cell: (e) => e.reason },
     { key: 'line', header: t('ledger.line'), priority: 'secondary', cell: (e) => lineLabel(e.vendorOrderLineId) },
     {

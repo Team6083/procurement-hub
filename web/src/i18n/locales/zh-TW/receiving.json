@@ -139,7 +139,7 @@
       "return_no_replace": "退回且不再等這些數量，可以記錄退款。",
       "accept": "這些數量計入已到。"
     },
-    "refund": "退款（本位幣）",
+    "refund": "退款（{{currency}}）",
     "refundHelp": "選填，以正數輸入，會在這一行建立一筆金流紀錄。"
   },
   "toClose": {

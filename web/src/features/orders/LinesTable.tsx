@@ -104,7 +104,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
         }]
       : []),
     { key: 'status', header: t('line.status'), cell: (l) => <LineStatusBadge status={l.status} /> },
-    { key: 'total', header: t('line.total'), numeric: true, cell: (l) => formatMoney(l.totalBase, baseCurrency, i18n.language) },
+    { key: 'total', header: t('line.total', { currency: baseCurrency }), numeric: true, cell: (l) => formatMoney(l.totalBase, baseCurrency, i18n.language) },
   ];
   const rowActions = (l: VendorOrderLine): RowAction[] => {
     const out: RowAction[] = [];

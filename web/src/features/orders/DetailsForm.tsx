@@ -3,6 +3,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { SectionHeader, toaster } from '@team6083/ui';
 import { Controller, useFieldArray, useForm, useWatch, type Control, type FieldErrors, type UseFormRegister } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useBaseCurrency } from '../../api/meta';
 import { LuPlus, LuTrash2 } from 'react-icons/lu';
 import { z } from 'zod';
 import { usePutOrder, type OrderBody } from '../../api/vendorOrders';
@@ -159,6 +160,7 @@ interface Props {
  */
 export function DetailsForm({ order, vendors, supported, teamName, baseDigits, headingAs = 'h2' }: Props) {
   const { t } = useTranslation('purchasing');
+  const baseCurrency = useBaseCurrency();
   const put = usePutOrder(order.id);
   const draft = order.status === 'draft';
   const form = useForm({ resolver: zodResolver(detailsSchema(baseDigits)), values: toForm(order), resetOptions: { keepDirtyValues: true } });
@@ -207,7 +209,7 @@ export function DetailsForm({ order, vendors, supported, teamName, baseDigits, h
               </SimpleGrid>
               <SharedCosts {...part} currency={currency} />
               {order.teamIds.length > 1 && <TeamAllocation {...part} currency={currency} teamName={teamName} />}
-              <FormField label={t('details.charged')} helperText={t('details.chargedHelp')} errorText={fieldError(err.charged)}>
+              <FormField label={t('details.charged', { currency: baseCurrency })} helperText={t('details.chargedHelp')} errorText={fieldError(err.charged)}>
                 <Input inputMode="decimal" {...form.register('charged')} />
               </FormField>
               <FormField label={t('details.paymentNote')}><Textarea autoresize rows={2} {...form.register('note')} /></FormField>

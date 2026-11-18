@@ -2,6 +2,7 @@ import { Button, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useBaseCurrency } from '../../api/meta';
 import { z } from 'zod';
 import { useResolveProblem } from '../../api/deliveries';
 import type { Problem, ProblemAction } from '../../api/types';
@@ -21,6 +22,7 @@ const resolveSchema = (baseDigits: number) => z.discriminatedUnion('action', [
 
 function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('receiving');
+  const baseCurrency = useBaseCurrency();
   const resolve = useResolveProblem();
   const form = useForm({ resolver: zodResolver(resolveSchema(baseDigits)), defaultValues: { action: 'exchange' as ProblemAction, refund: '', note: '' } });
   const action = useWatch({ control: form.control, name: 'action' });
@@ -45,7 +47,7 @@ function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: 
               />
             )} />
             {withRefund && (
-              <FormField label={t('problem.refund')} helperText={t('problem.refundHelp')} errorText={fieldError(form.formState.errors.refund)}>
+              <FormField label={t('problem.refund', { currency: baseCurrency })} helperText={t('problem.refundHelp')} errorText={fieldError(form.formState.errors.refund)}>
                 <Input inputMode="decimal" {...form.register('refund')} />
               </FormField>
             )}

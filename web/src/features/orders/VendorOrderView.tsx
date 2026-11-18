@@ -101,7 +101,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
                 { label: t('details.externalNo'), value: order.externalOrderNo || '—' },
                 { label: t('details.placedAt'), value: shortDate(order.placedAt) },
                 { label: t('details.delivery'), value: shortDay(order.expectedDeliveryDate) },
-                ...(order.restricted ? [] : [{ label: t('details.charged'), value: formatMoney(order.chargedAmountBase, baseCurrency, i18n.language) }]),
+                ...(order.restricted ? [] : [{ label: t('details.charged', { currency: baseCurrency }), value: formatMoney(order.chargedAmountBase, baseCurrency, i18n.language) }]),
               ]}
             />
           </Card.Body>

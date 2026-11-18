@@ -139,7 +139,7 @@
       "return_no_replace": "The units are returned and no longer expected; you can record a refund.",
       "accept": "The units count as received."
     },
-    "refund": "Refund (base currency)",
+    "refund": "Refund ({{currency}})",
     "refundHelp": "Optional, entered as a positive amount; it becomes a ledger entry on the line."
   },
   "toClose": {

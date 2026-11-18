@@ -2,6 +2,7 @@ import { Button, Dialog, Input, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
+import { useBaseCurrency } from '../../api/meta';
 import { z } from 'zod';
 import { useCloseLine } from '../../api/vendorOrders';
 import type { VendorOrderLine } from '../../api/types';
@@ -19,6 +20,7 @@ const closeSchema = (baseDigits: number) => z.object({
 
 function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: VendorOrderLine; baseDigits: number; onClose: () => void }) {
   const { t } = useTranslation('purchasing');
+  const baseCurrency = useBaseCurrency();
   const close = useCloseLine(orderId);
   const form = useForm({ resolver: zodResolver(closeSchema(baseDigits)), defaultValues: { type: 'short_accepted' as const, reason: '', refund: '' } });
   const fieldError = useFieldError();
@@ -38,7 +40,7 @@ function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: V
             <FormField label={t('undo.reason')} required errorText={fieldError(err.reason)}>
               <Textarea autoresize rows={2} {...form.register('reason')} />
             </FormField>
-            <FormField label={t('close.refund')} helperText={t('close.refundHelp')} errorText={fieldError(err.refund)}>
+            <FormField label={t('close.refund', { currency: baseCurrency })} helperText={t('close.refundHelp')} errorText={fieldError(err.refund)}>
               <Input inputMode="decimal" {...form.register('refund')} />
             </FormField>
             <ErrorAlert error={close.error} />
