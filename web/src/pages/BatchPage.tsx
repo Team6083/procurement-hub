@@ -61,7 +61,8 @@ export function BatchPage() {
           }
           description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
           actions={
-            <HStack gap="2" wrap="wrap">
+            // Top-aligned: BatchActions can grow a "why disabled" line under its buttons, and the edit button must stay on the button row.
+            <HStack gap="2" wrap="wrap" align="flex-start" justify="flex-end">
               {canEditBatch(batch, caller) && (
                 <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                   <LuPencil />
