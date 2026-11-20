@@ -1,12 +1,11 @@
 import { deliveryLabel } from '../labels';
-import { Button, Card, Stack } from '@chakra-ui/react';
+import { Alert, Button, Card, Stack } from '@chakra-ui/react';
 import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan } from 'react-icons/lu';
 import { useDelivery, useNoMatch, useVoidDelivery } from '../../api/deliveries';
 import type { DeliveryLine } from '../../api/types';
-import { Notice } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
@@ -42,7 +41,12 @@ export function DeliveryView({ id }: { id: string }) {
           mb="0" title={deliveryLabel(d.number)} badge={d.voided ? <VoidedBadge /> : undefined}
           actions={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuBan />{t('void.action')}</Button>}
         />
-        {d.voided && <Notice status="warning">{t('void.done', { reason: d.voided.reason })}</Notice>}
+        {d.voided && (
+          <Alert.Root status="warning">
+            <Alert.Indicator />
+            <Alert.Description>{t('void.done', { reason: d.voided.reason })}</Alert.Description>
+          </Alert.Root>
+        )}
         <Card.Root size="sm">
           <Card.Body>
             <FactList

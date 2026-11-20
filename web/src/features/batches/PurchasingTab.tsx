@@ -1,13 +1,12 @@
 import { ClampedText } from '../../components/ClampedText';
 import { safeHttpUrl } from './itemForm';
 import { orderLabel } from '../labels';
-import { Card, Link, Stack, Text } from '@chakra-ui/react';
+import { Alert, Card, Link, Stack, Text } from '@chakra-ui/react';
 import { DataTable, EmptyState, type DataColumn } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuShoppingCart } from 'react-icons/lu';
 import type { Batch, ItemWithLines } from '../../api/types';
 import { useBaseCurrency } from '../../api/meta';
-import { Notice } from '../../components/ErrorAlert';
 import { formatMoney } from '../money';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
@@ -48,7 +47,12 @@ export function PurchasingTab({ batch, items }: { batch: Batch; items: ItemWithL
     { key: 'cost', header: t('purchasingTab.cost'), numeric: true, cell: (i) => formatMoney(i.costBase, baseCurrency, i18n.language) },
   ];
   const approved = items.filter((i) => i.status === 'approved');
-  if (!batch.reviewConfirmation) return <Notice>{t('purchasingTab.notConfirmed')}</Notice>;
+  if (!batch.reviewConfirmation) return (
+    <Alert.Root status="neutral">
+      <Alert.Indicator />
+      <Alert.Description>{t('purchasingTab.notConfirmed')}</Alert.Description>
+    </Alert.Root>
+  );
   if (approved.length === 0) {
     return (
       <Card.Root size="sm">

@@ -11,7 +11,7 @@ import { useTeams } from '../../api/teams';
 import type { VendorOrderLine } from '../../api/types';
 import { useDeleteLine, useOrderAction, useReopenLine, useVendorOrder, type OrderAction } from '../../api/vendorOrders';
 import { useVendors } from '../../api/vendors';
-import { ErrorAlert, Notice } from '../../components/ErrorAlert';
+import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
@@ -90,8 +90,18 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         ) : (
           <PageHeader mb="0" title={`${orderLabel(order.number)} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
         )}
-        {order.restricted && <Notice status="info">{t('restricted')}</Notice>}
-        {order.status === 'cancelled' && order.cancellation && <Notice>{t('cancelledReason', { reason: order.cancellation.reason })}</Notice>}
+        {order.restricted && (
+          <Alert.Root status="info">
+            <Alert.Indicator />
+            <Alert.Description>{t('restricted')}</Alert.Description>
+          </Alert.Root>
+        )}
+        {order.status === 'cancelled' && order.cancellation && (
+          <Alert.Root status="neutral">
+            <Alert.Indicator />
+            <Alert.Description>{t('cancelledReason', { reason: order.cancellation.reason })}</Alert.Description>
+          </Alert.Root>
+        )}
         {order.allocationsReset && resetSeen !== order.version && (
           <Alert.Root status="warning">
             <Alert.Indicator />

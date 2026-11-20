@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Input, SimpleGrid, Stack, Textarea } from '@chakra-ui/react';
+import { Box, Button, Card, Checkbox, CheckboxGroup, Fieldset, HStack, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SectionHeader, toaster } from '@team6083/ui';
 import { Controller, useForm } from 'react-hook-form';
@@ -10,8 +10,6 @@ import type { Vendor, VendorOrder } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
-import { Checklist } from '../../components/ui/checklist';
-import { SelectField } from '../../components/ui/select';
 import { useRoleHolders } from '../../api/members';
 import { validateAmount } from '../money';
 
@@ -95,18 +93,61 @@ export function DetailsForm({ order, vendors, supported, baseDigits, headingAs =
               {draft && (
                 <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                   <Controller control={form.control} name="vendorId" render={({ field }) => (
-                    <SelectField
-                      label={t('details.vendor')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
-                      options={vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => ({ value: v.id, label: v.name }))}
-                    />
+                    <FormField label={t('details.vendor')}>
+                      <NativeSelect.Root size="md">
+                        <NativeSelect.Field
+                          name={field.name}
+                          value={field.value ?? ''}
+                          onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
+                          onBlur={field.onBlur}
+                        >
+                          {!field.value && <option value="" />}
+                          {vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => (
+                            <option key={v.id} value={v.id}>{v.name}</option>
+                          ))}
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </FormField>
                   )} />
                   <Controller control={form.control} name="currency" render={({ field }) => (
-                    <SelectField label={t('details.currency')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur} options={supported} />
+                    <FormField label={t('details.currency')}>
+                      <NativeSelect.Root size="md">
+                        <NativeSelect.Field
+                          name={field.name}
+                          value={field.value ?? ''}
+                          onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
+                          onBlur={field.onBlur}
+                        >
+                          {!field.value && <option value="" />}
+                          {supported.map((o) => (
+                            <option key={o} value={o}>{o}</option>
+                          ))}
+                        </NativeSelect.Field>
+                        <NativeSelect.Indicator />
+                      </NativeSelect.Root>
+                    </FormField>
                   )} />
                 </SimpleGrid>
               )}
               <Controller control={form.control} name="owners" render={({ field }) => (
-                <Checklist label={t('details.owners')} options={ownerOptions} value={field.value} onChange={field.onChange} emptyText={t('details.noOwners')} />
+                <Fieldset.Root>
+                  <Fieldset.Legend textStyle="sm" fontWeight="medium">{t('details.owners')}</Fieldset.Legend>
+                  <CheckboxGroup value={field.value} onValueChange={field.onChange}>
+                    <Box maxH="40" overflowY="auto" borderWidth="1px" rounded="md" px="3" py="2">
+                      {ownerOptions.length === 0 && <Text textStyle="sm" color="fg.muted">{t('details.noOwners')}</Text>}
+                      <Stack gap="1.5">
+                        {ownerOptions.map((o) => (
+                          <Checkbox.Root key={o.value} value={o.value} size="sm">
+                            <Checkbox.HiddenInput />
+                            <Checkbox.Control />
+                            <Checkbox.Label>{o.label}</Checkbox.Label>
+                          </Checkbox.Root>
+                        ))}
+                      </Stack>
+                    </Box>
+                  </CheckboxGroup>
+                </Fieldset.Root>
               )} />
               <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                 <FormField label={t('details.externalNo')}><Input {...form.register('externalNo')} /></FormField>

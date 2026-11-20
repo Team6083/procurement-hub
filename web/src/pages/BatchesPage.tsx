@@ -1,4 +1,5 @@
-import { Button, Card, HStack, Stack } from '@chakra-ui/react';
+import { Button, Card, HStack, NativeSelect, Stack } from '@chakra-ui/react';
+import { FormField } from '../components/ui/field';
 import { EmptyState, FilterBar, PageHeader } from '@team6083/ui';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
@@ -8,7 +9,6 @@ import { useMe } from '../api/me';
 import { useTeams } from '../api/teams';
 import type { BatchStatus } from '../api/types';
 import { ErrorAlert } from '../components/ErrorAlert';
-import { SelectField } from '../components/ui/select';
 import { useDebouncedValue } from '../hooks/useDebouncedValue';
 import { CreateBatchModal } from '../features/batches/CreateBatchModal';
 import { BatchTable } from '../features/batches/BatchTable';
@@ -52,8 +52,34 @@ export function BatchesPage() {
         activeCount={[teamId, status].filter(Boolean).length}
         onClear={() => { setTeamId(''); setStatus(''); }}
       >
-        <SelectField size="sm" label={t('filters.team')} placeholder={t('filters.all')} value={teamId} onChange={setTeamId} options={(teams.data ?? []).map((x) => ({ value: x.id, label: x.name }))} />
-        <SelectField size="sm" label={t('filters.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={BATCH_STATUSES.map((s) => ({ value: s, label: t(`status.${s}`) }))} />
+        <FormField label={t('filters.team')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={teamId ?? ''}
+              onChange={(e) => setTeamId(e.currentTarget.value)}
+            >
+              <option value="">{t('filters.all')}</option>
+              {(teams.data ?? []).map((x) => (
+                <option key={x.id} value={x.id}>{x.name}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('filters.status')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={status ?? ''}
+              onChange={(e) => setStatus(e.currentTarget.value)}
+            >
+              <option value="">{t('filters.all')}</option>
+              {BATCH_STATUSES.map((s) => (
+                <option key={s} value={s}>{t(`status.${s}`)}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
       </FilterBar>
       {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}

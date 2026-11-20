@@ -1,4 +1,4 @@
-import { Badge, Button, Card, HStack, Stack, Tabs, Text } from '@chakra-ui/react';
+import { Alert, Badge, Button, Card, HStack, Stack, Tabs, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { FactList, PageHeader } from '@team6083/ui';
 import { LuPencil } from 'react-icons/lu';
@@ -8,7 +8,7 @@ import { useBatch, useItems } from '../api/batches';
 import { useMe } from '../api/me';
 import { useTeam } from '../api/teams';
 import { isFullTeam } from '../api/types';
-import { ErrorAlert, Notice } from '../components/ErrorAlert';
+import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { paths } from '../paths';
 import { BatchActions } from '../features/batches/BatchActions';
@@ -74,7 +74,12 @@ export function BatchPage() {
           }
         />
         {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
-        {batch.statusReason && <Notice>{t('header.reason', { reason: batch.statusReason })}</Notice>}
+        {batch.statusReason && (
+          <Alert.Root status="neutral">
+            <Alert.Indicator />
+            <Alert.Description>{t('header.reason', { reason: batch.statusReason })}</Alert.Description>
+          </Alert.Root>
+        )}
         <Card.Root size="sm">
           <Card.Body>
             <FactList

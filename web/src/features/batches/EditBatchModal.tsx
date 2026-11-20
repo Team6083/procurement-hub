@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, NativeSelect, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -7,11 +7,9 @@ import { usePatchBatch, useSetAssignments } from '../../api/batches';
 import { useRoleHolders } from '../../api/members';
 import type { Batch, PatchBatchRequest, TeamMember } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
-import { Checklist } from '../../components/ui/checklist';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
-import { SelectField } from '../../components/ui/select';
 import { deadlineChange, fromLocalInput, toLocalInput } from './datetime';
 
 const editSchema = z.object({
@@ -96,16 +94,59 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
               <Input type="datetime-local" {...form.register('deadline')} />
             </FormField>
             <Controller control={form.control} name="visibility" render={({ field }) => (
-              <SelectField
-                label={t('header.visibility')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
-                options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
-              />
+              <FormField label={t('header.visibility')}>
+                <NativeSelect.Root size="md">
+                  <NativeSelect.Field
+                    name={field.name}
+                    value={field.value ?? ''}
+                    onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
+                    onBlur={field.onBlur}
+                  >
+                    {!field.value && <option value="" />}
+                    <option value="inherit">{t('visibility.inherit')}</option>
+                    <option value="public">{t('visibility.public')}</option>
+                    <option value="members">{t('visibility.members')}</option>
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </FormField>
             )} />
             <Controller control={form.control} name="approvers" render={({ field }) => (
-              <Checklist label={t('assignments.approvers')} options={options} value={field.value} onChange={field.onChange} />
+              <Fieldset.Root>
+                <Fieldset.Legend textStyle="sm" fontWeight="medium">{t('assignments.approvers')}</Fieldset.Legend>
+                <CheckboxGroup value={field.value} onValueChange={field.onChange}>
+                  <Box maxH="40" overflowY="auto" borderWidth="1px" rounded="md" px="3" py="2">
+                    <Stack gap="1.5">
+                      {options.map((o) => (
+                        <Checkbox.Root key={o.value} value={o.value} size="sm">
+                          <Checkbox.HiddenInput />
+                          <Checkbox.Control />
+                          <Checkbox.Label>{o.label}</Checkbox.Label>
+                        </Checkbox.Root>
+                      ))}
+                    </Stack>
+                  </Box>
+                </CheckboxGroup>
+              </Fieldset.Root>
             )} />
             <Controller control={form.control} name="purchasers" render={({ field }) => (
-              <Checklist label={t('assignments.purchasers')} options={purchaserOptions} value={field.value} onChange={field.onChange} emptyText={t('assignments.none')} />
+              <Fieldset.Root>
+                <Fieldset.Legend textStyle="sm" fontWeight="medium">{t('assignments.purchasers')}</Fieldset.Legend>
+                <CheckboxGroup value={field.value} onValueChange={field.onChange}>
+                  <Box maxH="40" overflowY="auto" borderWidth="1px" rounded="md" px="3" py="2">
+                    {purchaserOptions.length === 0 && <Text textStyle="sm" color="fg.muted">{t('assignments.none')}</Text>}
+                    <Stack gap="1.5">
+                      {purchaserOptions.map((o) => (
+                        <Checkbox.Root key={o.value} value={o.value} size="sm">
+                          <Checkbox.HiddenInput />
+                          <Checkbox.Control />
+                          <Checkbox.Label>{o.label}</Checkbox.Label>
+                        </Checkbox.Root>
+                      ))}
+                    </Stack>
+                  </Box>
+                </CheckboxGroup>
+              </Fieldset.Root>
             )} />
             <Text color="fg.muted">{t('assignments.purchasersHelp')}</Text>
             <ErrorAlert error={error} onDiscard={discard} />

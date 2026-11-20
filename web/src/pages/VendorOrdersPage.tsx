@@ -1,5 +1,6 @@
 import { orderLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Stack } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, NativeSelect, Stack } from '@chakra-ui/react';
+import { FormField } from '../components/ui/field';
 import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -12,7 +13,6 @@ import { useVendors } from '../api/vendors';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { RouteAnchor } from '../components/RouteLinks';
-import { SelectField } from '../components/ui/select';
 import { useBaseCurrency } from '../api/meta';
 import { shortDate } from '../features/dates';
 import { formatMoney } from '../features/money';
@@ -51,17 +51,101 @@ export function VendorOrdersPage() {
       <FilterBar
         mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters({})}
       >
-        <SelectField size="sm" label={t('line.status')} placeholder={t('list.all')} value={filters.status} onChange={set('status')}
-          options={['draft', 'placed', 'cancelled'].map((s) => ({ value: s, label: t(`orderStatus.${s}`) }))} />
-        <SelectField size="sm" label={t('progress.title')} placeholder={t('list.all')} value={filters.completed} onChange={set('completed')}
-          options={[{ value: 'false', label: t('progress.notCompleted') }, { value: 'true', label: t('progress.completed') }]} />
-        <SelectField size="sm" label={t('progress.receiving')} placeholder={t('list.all')} value={filters.receivingState} onChange={set('receivingState')}
-          options={['none', 'partial', 'closed'].map((s) => ({ value: s, label: t(`progress.receivingState.${s}`) }))} />
-        <SelectField size="sm" label={t('progress.accounting')} placeholder={t('list.all')} value={filters.accountingState} onChange={set('accountingState')}
-          options={['incomplete', 'provisional', 'final'].map((s) => ({ value: s, label: t(`progress.accountingState.${s}`) }))} />
-        <SelectField size="sm" label={t('list.vendor')} placeholder={t('list.all')} value={filters.vendorId} onChange={set('vendorId')} options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
-        <SelectField size="sm" label={t('line.team')} placeholder={t('list.all')} value={filters.teamId} onChange={set('teamId')} options={teams.map((x) => ({ value: x.id, label: x.name }))} />
-        <SelectField size="sm" label={t('list.owner')} placeholder={t('list.all')} value={filters.ownerId} onChange={set('ownerId')} options={[{ value: 'me', label: t('list.ownerMine') }]} />
+        <FormField label={t('line.status')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.status ?? ''}
+              onChange={(e) => set('status')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              {['draft', 'placed', 'cancelled'].map((s) => (
+                <option key={s} value={s}>{t(`orderStatus.${s}`)}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('progress.title')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.completed ?? ''}
+              onChange={(e) => set('completed')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              <option value="false">{t('progress.notCompleted')}</option>
+              <option value="true">{t('progress.completed')}</option>
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('progress.receiving')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.receivingState ?? ''}
+              onChange={(e) => set('receivingState')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              {['none', 'partial', 'closed'].map((s) => (
+                <option key={s} value={s}>{t(`progress.receivingState.${s}`)}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('progress.accounting')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.accountingState ?? ''}
+              onChange={(e) => set('accountingState')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              {['incomplete', 'provisional', 'final'].map((s) => (
+                <option key={s} value={s}>{t(`progress.accountingState.${s}`)}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('list.vendor')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.vendorId ?? ''}
+              onChange={(e) => set('vendorId')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              {vendors.map((v) => (
+                <option key={v.id} value={v.id}>{v.name}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('line.team')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.teamId ?? ''}
+              onChange={(e) => set('teamId')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              {teams.map((x) => (
+                <option key={x.id} value={x.id}>{x.name}</option>
+              ))}
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
+        <FormField label={t('list.owner')}>
+          <NativeSelect.Root size="sm">
+            <NativeSelect.Field
+              value={filters.ownerId ?? ''}
+              onChange={(e) => set('ownerId')(e.currentTarget.value)}
+            >
+              <option value="">{t('list.all')}</option>
+              <option value="me">{t('list.ownerMine')}</option>
+            </NativeSelect.Field>
+            <NativeSelect.Indicator />
+          </NativeSelect.Root>
+        </FormField>
       </FilterBar>
       {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}

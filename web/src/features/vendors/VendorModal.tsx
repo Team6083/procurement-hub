@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, Stack, Switch, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Input, NativeSelect, Stack, Switch, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,6 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
-import { SelectField } from '../../components/ui/select';
 import { safeHttpUrl } from '../batches/itemForm';
 
 const vendorSchema = z.object({
@@ -57,7 +56,22 @@ function Inner({ vendor, onClose }: { vendor: Vendor | null; onClose: () => void
               <Textarea autoresize rows={2} {...form.register('aliases')} />
             </FormField>
             <Controller control={form.control} name="currency" render={({ field }) => (
-              <SelectField label={t('vendors.currency')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={currencies.length ? currencies : [base]} />
+              <FormField label={t('vendors.currency')}>
+                <NativeSelect.Root size="md">
+                  <NativeSelect.Field
+                    name={field.name}
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(e.currentTarget.value)}
+                    onBlur={field.onBlur}
+                  >
+                    {!field.value && <option value="" />}
+                    {currencies.length ? currencies : [base].map((o) => (
+                      <option key={o} value={o}>{o}</option>
+                    ))}
+                  </NativeSelect.Field>
+                  <NativeSelect.Indicator />
+                </NativeSelect.Root>
+              </FormField>
             )} />
             <FormField label={t('vendors.website')} errorText={fieldError(err.website)}>
               <Input inputMode="url" {...form.register('website')} />
