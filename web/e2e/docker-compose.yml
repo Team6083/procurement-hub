@@ -120,7 +120,7 @@ services:
       context: ../../server
       args:
         VERSION: e2e-next
-        COMMIT: ${E2E_COMMIT:?}-next
+        COMMIT: 0123456789abcdef0123456789abcdef01234567
     command: ["serve"]
     ports:
       - "127.0.0.1:18081:8080"

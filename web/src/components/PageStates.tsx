@@ -3,7 +3,7 @@ import { StatusPage } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuSearchX, LuShieldX } from 'react-icons/lu';
-import { ApiError } from '../api/errors';
+import { ApiError } from '@team6083/ui';
 import { useAccess, type Access } from '../auth/useAccess';
 import { ErrorAlert } from './ErrorAlert';
 import { RouteButton } from './RouteLinks';

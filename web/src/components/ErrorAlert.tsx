@@ -1,7 +1,8 @@
 import { Alert, Button, List } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { ApiError, errorMessage } from '../api/errors';
+import { ApiError } from '@team6083/ui';
+import { errorMessage } from '../api/errors';
 import { isVersionConflict } from '../api/versioned';
 
 interface Props {

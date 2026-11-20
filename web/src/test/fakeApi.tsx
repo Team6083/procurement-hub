@@ -4,7 +4,6 @@ import type { ReactElement, ReactNode } from 'react';
 import { vi } from 'vitest';
 import { createApiClient } from '../api/client';
 import { ApiContext } from '../api/context';
-import { createVersionStore } from '../api/versionGuard';
 import type { Batch, Item, Me, Team, TeamMember } from '../api/types';
 import { TestProviders } from './render';
 
@@ -46,8 +45,6 @@ export function fakeApi(routes: Routes, opts: { onMissingRole?: () => void } = {
     getToken: () => 'token',
     renew: async () => undefined,
     onAuthFailure: () => undefined,
-    appCommit: 'unknown',
-    store: createVersionStore(),
     fetchImpl: fetchImpl as unknown as typeof fetch,
     onMissingRole: opts.onMissingRole,
   });

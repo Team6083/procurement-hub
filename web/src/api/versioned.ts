@@ -1,7 +1,7 @@
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import type { ApiClient } from './client';
 import { useApi } from './context';
-import { ApiError } from './errors';
+import { ApiError } from '@team6083/ui';
 import { useGuardedMutation } from './useGuardedMutation';
 
 /*

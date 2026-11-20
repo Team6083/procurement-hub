@@ -1,3 +1,4 @@
+import { ConfigError, createRuntimeConfig } from '@team6083/ui';
 import { z } from 'zod';
 import { configSchema, type AppConfig } from './configSchema';
 
@@ -11,44 +12,14 @@ export function withBase(p: string, base = BASE_PATH): string {
   return `${base.replace(/\/+$/, '')}${p.startsWith('/') ? p : `/${p}`}`;
 }
 
-export type ConfigErrorKind = 'missing' | 'invalid';
-
-export class ConfigError extends Error {
-  readonly kind: ConfigErrorKind;
-  constructor(kind: ConfigErrorKind, message: string) {
-    super(message);
-    this.name = 'ConfigError';
-    this.kind = kind;
-  }
-}
-
-/** Validates an already-parsed JSON value. Throws ConfigError('invalid'). */
+/** Validates an already-parsed JSON value. Throws ConfigError listing every problem. */
 export function parseConfig(raw: unknown): AppConfig {
   const result = configSchema.safeParse(raw);
   if (!result.success) {
-    throw new ConfigError('invalid', z.prettifyError(result.error));
+    throw new ConfigError(z.prettifyError(result.error).split('\n'));
   }
   return result.data;
 }
 
-/** Fetches config.json (relative to the base path) and validates it. Spec section 6.2. */
-export async function loadConfig(fetchImpl: typeof fetch = fetch, base = BASE_PATH): Promise<AppConfig> {
-  let res: Response;
-  try {
-    res = await fetchImpl(withBase('/config.json', base), { cache: 'no-cache' });
-  } catch (e) {
-    throw new ConfigError('missing', e instanceof Error ? e.message : String(e));
-  }
-  if (!res.ok) throw new ConfigError('missing', `HTTP ${res.status}`);
-  // An SPA fallback answers a missing config.json with index.html.
-  if (/text\/html/i.test(res.headers.get('Content-Type') ?? '')) {
-    throw new ConfigError('missing', 'config.json was answered with an HTML page (file not deployed?)');
-  }
-  let json: unknown;
-  try {
-    json = await res.json();
-  } catch {
-    throw new ConfigError('invalid', 'Response is not valid JSON');
-  }
-  return parseConfig(json);
-}
+/** Loads config.json (relative to the base path) before the app starts and shows the config error page if it fails. Spec section 6.2. */
+export const { RuntimeConfigProvider, useRuntimeConfig } = createRuntimeConfig<AppConfig>({ parse: parseConfig, basePath: BASE_PATH });

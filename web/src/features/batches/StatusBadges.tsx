@@ -4,7 +4,7 @@ import { LuCircleCheck, LuCircleDashed, LuCircleX, LuUndo2, LuBan } from 'react-
 import type { IconType } from 'react-icons';
 import type { BatchStatus, Fulfillment, ItemStatus } from '../../api/types';
 import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
-import { Tooltip } from '../../components/ui/tooltip';
+import { Tooltip } from '@team6083/ui';
 
 const BATCH_TONE: Record<BatchStatus, StatusTone> = {
   proposed: 'attention', proposal_rejected: 'bad', draft: 'neutral', collecting: 'collecting', reviewing: 'attention',

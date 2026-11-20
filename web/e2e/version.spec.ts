@@ -17,7 +17,7 @@ test('a backend with another commit shows the update banner and blocks writes', 
   await page.route(`${API_URL}/api/**`, (route) => route.continue({ url: route.request().url().replace(API_URL, API_NEXT_URL) }));
 
   // Any read answered by the new backend raises the banner; reads keep working.
-  const read = page.waitForResponse((r) => r.url().includes('/api/v1/batches?') && r.headers()['x-app-commit']?.endsWith('-next') === true);
+  const read = page.waitForResponse((r) => r.url().includes('/api/v1/batches?') && r.headers()['x-app-commit'] === '0123456789abcdef0123456789abcdef01234567');
   await page.getByLabel('Search').fill(`nothing-${runId()}`);
   expect((await read).ok()).toBe(true);
   const banner = page.getByTestId('app-outdated-banner');

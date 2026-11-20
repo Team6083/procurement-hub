@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError } from './errors';
+import { ApiError } from '@team6083/ui';
 import { ifMatchHeader, isVersionConflict } from './versioned';
 
 describe('ifMatchHeader', () => {

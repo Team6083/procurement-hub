@@ -1,5 +1,4 @@
-import { ApiError, VersionMismatchError, parseApiError } from './errors';
-import { checkCommit, createVersionStore, versionStore } from './versionGuard';
+import { readApiError } from '@team6083/ui';
 
 export interface ApiClientOptions {
   /** Base URL of the API origin, e.g. https://api.example.org (no /api/v1 suffix). */
@@ -12,8 +11,7 @@ export interface ApiClientOptions {
   onAuthFailure: () => void | Promise<void>;
   /** Called when the API answers 403 missing_role: the user lacks ALLOWED_ROLES (spec section 7.1). */
   onMissingRole?: () => void;
-  appCommit?: string;
-  store?: ReturnType<typeof createVersionStore>;
+  /** The fetch to use; the app passes useCommitCheckedFetch(), which flags a newer server build and refuses writes then. */
   fetchImpl?: typeof fetch;
 }
 
@@ -29,8 +27,6 @@ export interface RequestOptions {
 export type ApiClient = ReturnType<typeof createApiClient>;
 
 export function createApiClient(opts: ApiClientOptions) {
-  const store = opts.store ?? versionStore;
-  const appCommit = opts.appCommit ?? __APP_COMMIT__;
   const doFetch = opts.fetchImpl ?? ((...a: Parameters<typeof fetch>) => fetch(...a));
 
   function buildUrl(path: string, query: RequestOptions['query']): string {
@@ -51,12 +47,10 @@ export function createApiClient(opts: ApiClientOptions) {
       body: o.body === undefined ? undefined : JSON.stringify(o.body),
       signal: o.signal,
     });
-    checkCommit(res.headers.get('X-App-Commit'), appCommit, store);
     return res;
   }
 
   async function request<T>(method: string, path: string, o: RequestOptions = {}): Promise<T> {
-    if (method !== 'GET' && store.isMismatch()) throw new VersionMismatchError();
     const useAuth = o.auth !== false;
     let res = await send(method, path, o, useAuth ? await opts.getToken() : undefined);
     if (res.status === 401 && useAuth) {
@@ -64,11 +58,11 @@ export function createApiClient(opts: ApiClientOptions) {
       if (renewed) res = await send(method, path, o, renewed);
       if (!renewed || res.status === 401) {
         await opts.onAuthFailure();
-        throw await parseApiError(res);
+        throw await readApiError(res);
       }
     }
     if (!res.ok) {
-      const err = await parseApiError(res);
+      const err = await readApiError(res);
       if (err.status === 403 && err.code === 'missing_role') opts.onMissingRole?.();
       throw err;
     }
@@ -86,4 +80,4 @@ export function createApiClient(opts: ApiClientOptions) {
   };
 }
 
-export { ApiError };
+

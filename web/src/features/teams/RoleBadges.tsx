@@ -2,7 +2,7 @@ import { Badge, HStack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { LuLock } from 'react-icons/lu';
 import type { RoleOrNone } from '../../api/types';
-import { Tooltip } from '../../components/ui/tooltip';
+import { Tooltip } from '@team6083/ui';
 import { showSsoLock, type RoleSources } from './roles';
 
 export function RoleBadge({ role }: { role: RoleOrNone | null | undefined }) {

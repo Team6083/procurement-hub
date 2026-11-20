@@ -1,4 +1,5 @@
 import { QueryClientProvider } from '@tanstack/react-query';
+import { useCommitCheckedFetch } from '@team6083/ui';
 import { createQueryClient } from './api/queryClient';
 import { useMemo } from 'react';
 import { useAuth } from 'react-oidc-context';
@@ -11,8 +12,7 @@ import { createAccessStore, type AccessStore } from './auth/access';
 import { AppAuthProvider } from './auth/AuthGate';
 import { createUserManager } from './auth/oidc';
 import { createSession } from './auth/session';
-import { Provider } from './components/ui/provider';
-import type { AppConfig } from './config';
+import { useRuntimeConfig } from './config';
 import { createAppRouter } from './router';
 
 // Triggers the one-time unauthenticated GET /meta on startup.
@@ -41,7 +41,10 @@ function GatedApp({ access }: { access: AccessStore }) {
   );
 }
 
-export function App({ config }: { config: AppConfig }) {
+/** The API client; once the server runs another build its writes are refused (app_outdated) and reads still go through. */
+export function App() {
+  const config = useRuntimeConfig();
+  const fetchImpl = useCommitCheckedFetch();
   const manager = useMemo(() => createUserManager(config), [config]);
   const session = useMemo(() => createSession(manager), [manager]);
   const access = useMemo(() => createAccessStore(), []);
@@ -57,18 +60,17 @@ export function App({ config }: { config: AppConfig }) {
         renew: session.renew,
         onAuthFailure: session.onAuthFailure,
         onMissingRole: access.deny,
+        fetchImpl,
       }),
-    [config, session, access],
+    [config, session, access, fetchImpl],
   );
   return (
-    <Provider>
-      <QueryClientProvider client={queryClient}>
-        <ApiContext.Provider value={api}>
-          <AppAuthProvider manager={manager} session={session}>
-            <GatedApp access={access} />
-          </AppAuthProvider>
-        </ApiContext.Provider>
-      </QueryClientProvider>
-    </Provider>
+    <QueryClientProvider client={queryClient}>
+      <ApiContext.Provider value={api}>
+        <AppAuthProvider manager={manager} session={session}>
+          <GatedApp access={access} />
+        </AppAuthProvider>
+      </ApiContext.Provider>
+    </QueryClientProvider>
   );
 }

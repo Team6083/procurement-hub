@@ -1,6 +1,6 @@
 import { List, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
-import { ApiError } from '../api/errors';
+import { ApiError } from '@team6083/ui';
 import { paths } from '../paths';
 import { RouteAnchor } from './RouteLinks';
 import { ReasonModal } from './ReasonModal';

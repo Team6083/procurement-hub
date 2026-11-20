@@ -6,7 +6,7 @@ import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuArrowDown, LuArrowUp, LuStickyNote } from 'react-icons/lu';
 import type { Item, Team } from '../../api/types';
-import { Tooltip } from '../../components/ui/tooltip';
+import { Tooltip } from '@team6083/ui';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
 import { format } from './decimal';
 import { formatMoney } from '../money';

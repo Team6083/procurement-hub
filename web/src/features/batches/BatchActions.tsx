@@ -7,7 +7,7 @@ import type { Batch, BatchAction, Item } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
-import { Tooltip } from '../../components/ui/tooltip';
+import { Tooltip } from '@team6083/ui';
 import { UndoDialog } from '../../components/UndoDialog';
 import { availableActions, type Caller } from './rules';
 import { DeadlineModal } from './DeadlineModal';

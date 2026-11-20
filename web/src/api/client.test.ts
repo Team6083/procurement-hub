@@ -1,13 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createApiClient } from './client';
-import { ApiError, VersionMismatchError } from './errors';
-import { checkCommit, createVersionStore } from './versionGuard';
+import { ApiError } from '@team6083/ui';
 
 const json = (status: number, body: unknown, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...headers } });
 
-function setup(responses: Response[], commit = 'abc') {
-  const store = createVersionStore();
+function setup(responses: Response[]) {
   const fetchImpl = vi.fn(async (_u: RequestInfo | URL, _i?: RequestInit) => {
     const r = responses.shift();
     if (!r) throw new Error('no more responses');
@@ -22,25 +20,10 @@ function setup(responses: Response[], commit = 'abc') {
     renew,
     onAuthFailure,
     onMissingRole,
-    appCommit: commit,
-    store,
     fetchImpl,
   });
-  return { client, store, fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>, renew, onAuthFailure, onMissingRole };
+  return { client, fetchImpl: fetchImpl as unknown as ReturnType<typeof vi.fn>, renew, onAuthFailure, onMissingRole };
 }
-
-describe('checkCommit', () => {
-  it('flags only a real mismatch', () => {
-    const store = createVersionStore();
-    expect(checkCommit(null, 'abc', store)).toBe(false);
-    expect(checkCommit('abc', 'abc', store)).toBe(false);
-    expect(checkCommit('unknown', 'abc', store)).toBe(false);
-    expect(checkCommit('abc', 'unknown', store)).toBe(false);
-    expect(store.isMismatch()).toBe(false);
-    expect(checkCommit('def', 'abc', store)).toBe(true);
-    expect(store.isMismatch()).toBe(true);
-  });
-});
 
 describe('api client', () => {
   it('adds bearer token and prefixes /api/v1', async () => {
@@ -86,21 +69,6 @@ describe('api client', () => {
     await expect(client.get('/x')).rejects.toBeInstanceOf(ApiError);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(onAuthFailure).toHaveBeenCalledTimes(1);
-  });
-
-  it('flags mismatch from any response and then blocks non-GET only', async () => {
-    const { client, store, fetchImpl } = setup([json(200, {}, { 'X-App-Commit': 'other' }), json(200, { r: 1 })]);
-    await client.get('/meta', { auth: false });
-    expect(store.isMismatch()).toBe(true);
-    await expect(client.post('/x', {})).rejects.toBeInstanceOf(VersionMismatchError);
-    await expect(client.delete('/x')).rejects.toBeInstanceOf(VersionMismatchError);
-    expect(fetchImpl).toHaveBeenCalledTimes(1); // blocked before hitting the network
-    await expect(client.get('/x')).resolves.toEqual({ r: 1 });
-  });
-
-  it('allows mutations when commits match', async () => {
-    const { client } = setup([json(200, { ok: 1 }, { 'X-App-Commit': 'abc' })]);
-    await expect(client.post('/x', {})).resolves.toEqual({ ok: 1 });
   });
 
   it('passes If-Match through and handles 204', async () => {

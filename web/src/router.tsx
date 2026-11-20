@@ -2,8 +2,6 @@ import { Spinner, Stack } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
-import { AppCommitProvider } from '@team6083/ui';
-import { useVersionMismatch } from './api/versionGuard';
 import { AppFrame } from './components/AppFrame';
 import { LocaleSync } from './components/LocaleSync';
 import { BASE_PATH } from './config';
@@ -45,12 +43,12 @@ function PurchasingVendorsGuard() {
 
 function Layout() {
   return (
-    <AppCommitProvider buildCommit={__APP_COMMIT__} outdated={useVersionMismatch()}>
+    <>
       <LocaleSync />
       <AppFrame>
         <Outlet />
       </AppFrame>
-    </AppCommitProvider>
+    </>
   );
 }
 

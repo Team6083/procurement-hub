@@ -3,7 +3,7 @@ import { SectionHeader, Totals } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import type { VendorOrder } from '../../api/types';
 import { IncompleteReasons } from './Incomplete';
-import { Tooltip } from '../../components/ui/tooltip';
+import { Tooltip } from '@team6083/ui';
 import { formatFactor, formatMoney } from '../money';
 import { ProvisionalBadge } from './StatusBadges';
 

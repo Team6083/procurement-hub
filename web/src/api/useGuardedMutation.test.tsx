@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
-import { ApiError } from './errors';
+import { ApiError } from '@team6083/ui';
 import { useGuardedMutation } from './useGuardedMutation';
 
 function setup(mutationFn: () => Promise<string>) {

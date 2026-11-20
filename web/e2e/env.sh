@@ -7,7 +7,7 @@
 #
 # The SPA and both backend images are built from the working tree; E2E_COMMIT
 # (default: git HEAD) is the commit embedded in the SPA and in `serve`, and
-# `serve-next` gets "$E2E_COMMIT-next".
+# `serve-next` gets a fixed other SHA (the package compares SHAs only).
 set -eu
 
 cd "$(dirname "$0")/.."
