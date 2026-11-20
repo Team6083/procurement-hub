@@ -29,12 +29,32 @@ export function localInputInDays(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** The Items tab's status filter, behind the 篩選 (Filter) button; opens the popover when it is closed. */
-export async function statusFilter(page: Page): Promise<Locator> {
-  const select = page.getByRole('combobox', { name: 'Status' });
-  if (!(await select.isVisible())) await page.getByRole('button', { name: /^Filter/ }).click();
-  await expect(select).toBeVisible();
-  return select;
+/** The Items tab's status checkboxes, behind the Filter button; opens the popover when it is closed. */
+async function statusGroup(page: Page): Promise<Locator> {
+  const group = page.getByRole('group', { name: 'Status' });
+  if (!(await group.isVisible())) await page.getByRole('button', { name: /^Filter/ }).click();
+  await expect(group).toBeVisible();
+  return group;
+}
+
+/** The labels of the ticked statuses. */
+export async function checkedStatuses(page: Page): Promise<string[]> {
+  const boxes = (await statusGroup(page)).getByRole('checkbox');
+  const out: string[] = [];
+  for (const box of await boxes.all()) {
+    if (await box.isChecked()) out.push(((await box.locator('xpath=ancestor::label').textContent()) ?? '').trim());
+  }
+  return out;
+}
+
+/** Ticks exactly the given statuses (none = show all) and closes the popover. */
+export async function showStatuses(page: Page, labels: string[]): Promise<void> {
+  const group = await statusGroup(page);
+  for (const box of await group.getByRole('checkbox').all()) {
+    const label = ((await box.locator('xpath=ancestor::label').textContent()) ?? '').trim();
+    if ((await box.isChecked()) !== labels.includes(label)) await box.setChecked(labels.includes(label), { force: true });
+  }
+  await page.keyboard.press('Escape');
 }
 
 /** Opens the ⋯ menu of the item's row. */

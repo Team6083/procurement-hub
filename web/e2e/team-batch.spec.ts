@@ -1,6 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { openAs, reloadSignedIn, type Session } from './support/app';
-import { addItem, expectBatchStatus, itemRow, localInputInDays, openRowMenu, selectionBar, statusFilter } from './support/batch';
+import { addItem, expectBatchStatus, itemRow, localInputInDays, openRowMenu, selectionBar, checkedStatuses, showStatuses } from './support/batch';
 import { runId, users, type UserKey } from './support/env';
 import { addToGroup, ensureTeamGroup, removeFromGroup } from './support/keycloak';
 
@@ -172,7 +172,7 @@ test('the reviewer approves, returns and rejects; the batch stays in review (21.
   const page = await as(browser, 'carol', batchPath);
   // A reviewer's Items table opens on the pending filter.
   await expect(page.getByRole('button', { name: /^Filter\s*1$/ })).toBeVisible();
-  await expect(await statusFilter(page)).toHaveValue('pending');
+  expect(await checkedStatuses(page)).toEqual(['Pending']);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('row').filter({ hasText: 'Pending' })).toHaveCount(3);
 
@@ -180,8 +180,7 @@ test('the reviewer approves, returns and rejects; the batch stays in review (21.
   await decide(page, items.servo.name, 'return', 1, 'Which model? Add the SKU.');
   await decide(page, items.cable.name, 'reject', 0, 'We have plenty of these.');
 
-  await (await statusFilter(page)).selectOption({ label: 'Returned' });
-  await page.keyboard.press('Escape');
+  await showStatuses(page, ['Returned']);
   await expect(itemRow(page, items.servo.name)).toContainText('Returned');
   await expectBatchStatus(page, 'Reviewing');
 });
@@ -199,11 +198,9 @@ test('the requester edits and resubmits the returned item; its approval and the 
   await page.getByRole('menuitem', { name: 'Edit', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Edit item' });
   await dialog.getByLabel('SKU').fill('MG996R');
-  await dialog.getByRole('button', { name: 'Save' }).click();
+  // Editing a returned item resubmits it in the same step.
+  await dialog.getByRole('button', { name: 'Save and resubmit' }).click();
   await expect(dialog).toBeHidden();
-  await openRowMenu(page, items.servo.name);
-  await page.getByRole('menuitem', { name: 'Resubmit', exact: true }).click();
-  await page.getByRole('dialog', { name: 'Resubmit' }).getByRole('button', { name: 'Resubmit' }).click();
   await expect(row).toContainText('Pending');
   await expectBatchStatus(page, 'Reviewing');
 
@@ -213,10 +210,9 @@ test('the requester edits and resubmits the returned item; its approval and the 
   await carol.getByRole('button', { name: 'Confirm review' }).click();
   await carol.getByRole('dialog', { name: 'Confirm review' }).getByRole('button', { name: 'Confirm review' }).click();
   await expectBatchStatus(carol, 'Purchasing');
-  await (await statusFilter(carol)).selectOption({ label: 'All' });
-  await carol.keyboard.press('Escape');
-  await expect(itemRow(carol, items.kit.name)).toContainText('Approved');
-  await expect(itemRow(carol, items.servo.name)).toContainText('Approved');
+  await showStatuses(carol, []);
+  await expect(itemRow(carol, items.kit.name)).toContainText('Not yet ordered');
+  await expect(itemRow(carol, items.servo.name)).toContainText('Not yet ordered');
   await expect(itemRow(carol, items.cable.name)).toContainText('Rejected');
 });
 

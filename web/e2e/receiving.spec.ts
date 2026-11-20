@@ -104,7 +104,7 @@ test('a purchaser settles the problem as returned with a refund', async ({ brows
   await page.getByRole('menuitem', { name: 'Settle problem' }).click();
   const dialog = page.getByRole('dialog', { name: 'Settle problem' });
   await dialog.getByLabel('How to settle').selectOption({ label: 'Return, no replacement' });
-  await dialog.getByLabel('Refund (base currency)').fill('5');
+  await dialog.getByLabel(/^Refund amount/).fill('5');
   await dialog.getByRole('button', { name: 'Settle problem' }).click();
   await expect(dialog).toBeHidden();
   await expect(row).toHaveCount(0);
