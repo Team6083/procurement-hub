@@ -1,4 +1,3 @@
-spec.md
 node_modules/
 dist/
 # Per-environment runtime config for local dev (copy from web/config.example.json)

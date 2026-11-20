@@ -54,6 +54,8 @@ npm run e2e:ci                    # start the environment, run the tests, tear i
 
 `npm run e2e` runs the tests against an environment already started with `npm run e2e:up` (stop it with `npm run e2e:down`). [`web/README.md`](web/README.md#end-to-end-tests) describes the environment and the test users. CI runs the suite in the `e2e` job on `main` only (it is slow, so pull requests skip it) and uploads the HTML report, traces and service logs when it fails. Add a flow to `web/e2e/` when a change affects sign-in, permissions or a multi-user workflow; keep tests independent of run order across files, use unique names per run, and wait with Playwright assertions instead of sleeps.
 
+**Keep the e2e tests in step with the UI.** Selectors use visible labels, button names and status text, so renaming a label, changing a button or reworking a filter breaks them; update `web/e2e` in the same pull request. The tests inside one file run serially and build on each other, so one failure makes the rest report "did not run": fix the first failure and rerun to see the next. Selector conventions: the page title is the `h1` (`PageHeader`); match text with `exact: true`, because an `EmptyState` title is also a heading (for example "No batches found." matches `name: 'Batches'`); the update banner has the test id `app-outdated-banner`; the account menu button is named after the user.
+
 `npm run build:cloudflare` additionally needs `APP_CONFIG` (see [`web/README.md`](web/README.md)). Lint is ESLint with typescript-eslint and the full `eslint-plugin-react-hooks` recommended set; `react-hooks/exhaustive-deps` is an error.
 
 A production build (`NODE_ENV=production` or `CI=true`) fails when no commit SHA can be found; it uses the first of `APP_COMMIT`, `CF_PAGES_COMMIT_SHA`, `WORKERS_CI_COMMIT_SHA` and `git rev-parse HEAD`.
@@ -72,6 +74,23 @@ CI also builds the image from [`server/Dockerfile`](server/Dockerfile) without p
 4. **Regenerate frontend types.** Run `npm run gen:api` in `web/` and commit `web/src/api`.
 5. **OpenAPI 3.1 nullability.** Write nullable fields as `type: [string, "null"]` or with `oneOf: [..., {type: "null"}]`; an empty schema `{}` is not treated as nullable.
 6. **Error codes** are lowercase `snake_case` and listed in the `ErrorCode` enum; add frontend translations for new codes in both `en` and `zh-TW`.
+
+## Web UI package
+
+The web app's frame, theme and standard pages come from the private package `@team6083/ui` (installation: [`web/README.md`](web/README.md)). Its design rules are in `DESIGN.md` inside the package (`node_modules/@team6083/ui/DESIGN.md`):
+
+- One `PageHeader` per page, with the status as its badge; sections use `SectionHeader` with the count as a badge and actions on the right.
+- An empty list is an `EmptyState`, never a line of grey text; the first load shows skeletons, not a spinner.
+- Grey by default; `brand` only for emphasis. Use semantic tokens (`fg.muted`, `brand.solid`), never hard-coded colours.
+- One solid button per card or dialog.
+
+Do not edit shared components inside this repository or in `node_modules`, and do not point the dependency at a local tarball (CI cannot install it). Change the package in its own repository, publish a prerelease, and update the exact version here. Needs specific to this app go in `web/src`.
+
+## Gotchas
+
+- **Amounts are strings without fixed decimals** (`"12.5"`, `"100"`). Never compare them as strings; only CSV export uses a fixed number of decimals.
+- **"Edited since it was returned"** is `item.version > review.atVersion`. Do not compare timestamps: the review write itself is a few microseconds later than `review.at`, so the comparison is always true.
+- **`omitempty` has no effect on `bson.ObjectID`**: an unset id is written as `"000000000000000000000000"`.
 
 ## Repository rules
 
