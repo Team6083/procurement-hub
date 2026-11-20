@@ -27,6 +27,9 @@ x-backend: &backend
     PURCHASER_ROLES: procurement-hub-api:purchaser
     RECEIVER_ROLES: procurement-hub-api:receiver
     ALLOWED_ROLES: procurement-hub-api:user
+    # The purchasing tests buy in USD and pay some costs in the base currency (spec section 21.5).
+    BASE_CURRENCY: TWD
+    SUPPORTED_CURRENCIES: TWD,USD
     # Test-only key; never reuse it anywhere else.
     WEBHOOK_ENCRYPTION_KEY: ZTJlLW9ubHktd2ViaG9vay1rZXktbm90LWEtc2VjcmV0IQ==
 
