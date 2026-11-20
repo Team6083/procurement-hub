@@ -1,12 +1,11 @@
 import { deliveryLabel } from '../features/labels';
 import { Badge, Button, Card, HStack, Input, Stack } from '@chakra-ui/react';
-import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
+import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPackageOpen } from 'react-icons/lu';
 import { useDeliveryList, type DeliveryFilters } from '../api/deliveries';
 import type { DeliverySummary } from '../api/types';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { FormField } from '../components/ui/field';

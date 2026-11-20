@@ -127,8 +127,8 @@ describe('ItemsTab review workspace', () => {
     const boxes = screen.getAllByRole('checkbox', { name: 'Select row' });
     await act(async () => { fireEvent.click(boxes[0]!); });
     await act(async () => { fireEvent.click(boxes[2]!); }); // returned: not decidable
-    expect(screen.getByRole('button', { name: 'Approve selected (1)' })).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Approve selected (1)' })); });
+    expect(screen.getByRole('button', { name: 'Approve selected' })).toBeTruthy();
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Approve selected' })); });
     await waitFor(() => expect(calls.find((c) => c.method === 'POST')?.body).toEqual({ decisions: [{ itemId: 'i1', decision: 'approve' }] }));
   });
 

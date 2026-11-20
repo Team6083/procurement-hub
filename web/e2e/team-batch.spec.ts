@@ -153,7 +153,7 @@ async function decide(page: Page, itemName: string, decision: 'approve' | 'retur
   await box.dispatchEvent('click');
   await expect(box).toBeChecked();
   if (decision === 'approve') {
-    await selectionBar(page).getByRole('button', { name: 'Approve selected (1)' }).click();
+    await selectionBar(page).getByRole('button', { name: 'Approve selected' }).click();
   } else {
     const label = decision === 'return' ? 'Return' : 'Reject';
     await selectionBar(page).getByRole('button', { name: label, exact: true }).click();

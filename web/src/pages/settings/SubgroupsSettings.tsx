@@ -1,6 +1,6 @@
 import { Badge, Button, Card, Dialog, Input, Stack } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,6 @@ import { LuBan, LuCircleCheck, LuFolderTree, LuPencil, LuPlus } from 'react-icon
 import { z } from 'zod';
 import { useTeamMutation } from '../../api/teams';
 import type { Subgroup, Team } from '../../api/types';
-import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { Forbidden } from '../../components/PageStates';
 import { ReasonModal } from '../../components/ReasonModal';

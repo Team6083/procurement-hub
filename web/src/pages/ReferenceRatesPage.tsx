@@ -1,6 +1,6 @@
 import { Button, Card, Dialog, Input, Stack } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,7 +10,6 @@ import { useMeta } from '../api/meta';
 import { useDeleteRate, usePutRate, useReferenceRates } from '../api/vendors';
 import type { ReferenceRate } from '../api/types';
 import { useAccess } from '../auth/useAccess';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';

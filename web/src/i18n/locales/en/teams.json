@@ -5,7 +5,7 @@
     },
     "teams": {
       "title": "Teams",
-      "empty": "There are no teams yet.",
+      "empty": "There are no teams yet",
       "archived": "Archived",
       "emptyBody": "Teams you join will appear here."
     },
@@ -84,7 +84,7 @@
     "deactivate": "Deactivate",
     "activate": "Activate",
     "inactive": "Inactive",
-    "empty": "No subgroups yet.",
+    "empty": "No subgroups yet",
     "deactivateTitle": "Deactivate {{name}}?",
     "deactivateBody": "It can no longer be chosen for new items.",
     "status": "Status",
@@ -106,6 +106,7 @@
     "removeConfirm": "Remove the manual role of {{name}}?",
     "removeNote": "The member is removed from the team unless an SSO role still applies.",
     "setManual": "Set manual role",
-    "setDefault": "Set default subgroup"
+    "setDefault": "Set default subgroup",
+    "empty": "No members yet"
   }
 }

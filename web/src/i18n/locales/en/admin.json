@@ -3,7 +3,7 @@
   "intro": "Rules map identity-provider claim values to team roles. Rules loaded from the rules file are managed and read-only.",
   "create": "Create rule",
   "edit": "Edit rule",
-  "empty": "No rules yet.",
+  "empty": "No rules yet",
   "managed": "Managed",
   "on": "On",
   "off": "Off",
@@ -39,7 +39,7 @@
     "inactive": "Inactive",
     "status": "Status",
     "showInactive": "Show inactive vendors",
-    "empty": "No vendors yet."
+    "empty": "No vendors yet"
   },
   "rates": {
     "title": "Reference rates",
@@ -48,7 +48,7 @@
     "invalid": "A positive number with at most 6 decimals.",
     "none": "No rate set",
     "updated": "Updated {{date}}",
-    "noCurrencies": "No other currencies are supported.",
+    "noCurrencies": "No other currencies are supported",
     "deleteTitle": "Delete the {{currency}} rate?",
     "deleteBody": "Estimates in {{currency}} are not converted into the base currency until a new rate is set.",
     "currency": "Currency",

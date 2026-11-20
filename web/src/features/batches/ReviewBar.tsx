@@ -39,7 +39,7 @@ export function ReviewBar({ batch, caller, selected, onDone }: Props) {
       <Button size="sm" variant="outline" colorPalette="red" onClick={() => { review.reset(); setDialog('reject'); }}>{t('review.reject')}</Button>
       <Button size="sm" variant="outline" onClick={() => { review.reset(); setDialog('return'); }}>{t('review.return')}</Button>
       <Button size="sm" loading={review.isPending && review.variables?.decisions[0]?.decision === 'approve'} onClick={() => decide('approve')}>
-        {t('review.approve', { count: selected.length })}
+        {t('review.approve')}
       </Button>
       <ReasonModal
         open={dialog !== null}

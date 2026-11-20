@@ -1,6 +1,6 @@
 import { orderLabel } from '../features/labels';
 import { Badge, Button, Card, HStack, Stack } from '@chakra-ui/react';
-import { EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
+import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,6 @@ import { useTeams } from '../api/teams';
 import type { VendorOrderSummary } from '../api/types';
 import { useVendorOrderList, type OrderFilters } from '../api/vendorOrders';
 import { useVendors } from '../api/vendors';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { RouteAnchor } from '../components/RouteLinks';

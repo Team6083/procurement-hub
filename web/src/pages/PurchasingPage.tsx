@@ -1,12 +1,11 @@
 import { Badge, Button, Card, Dialog, HStack, Link, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuShoppingCart } from 'react-icons/lu';
 import type { QueueGroup, QueueItem } from '../api/types';
 import { useItemAction } from '../api/batches';
 import { useQueue } from '../api/vendorOrders';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';

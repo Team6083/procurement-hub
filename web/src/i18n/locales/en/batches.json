@@ -36,7 +36,7 @@
     "title": "Batches",
     "new": "New batch",
     "propose": "Propose batch",
-    "empty": "No batches found.",
+    "empty": "No batches found",
     "number": "No.",
     "batchTitle": "Title",
     "loadMore": "Load more"
@@ -141,7 +141,7 @@
     "resubmitNeedsEdit": "Edit the item before resubmitting it.",
     "returnedComment": "Returned: {{comment}}",
     "rejectedComment": "Rejected: {{comment}}",
-    "empty": "No items yet.",
+    "empty": "No items yet",
     "undoReview": "Undo decision",
     "undoReviewHelp": "Return {{name}} to pending? A reason is required.",
     "copy": "Copy as new item",
@@ -171,7 +171,7 @@
   },
   "review": {
     "readOnly": "Only approvers and team admins can review items.",
-    "approve": "Approve selected ({{count}})",
+    "approve": "Approve selected",
     "approveItem": "Approve",
     "approveHint": "Goes on to purchasing",
     "return": "Return",
@@ -189,7 +189,7 @@
     "forceHelp": "Force-reject {{name}}? A reason is required."
   },
   "timeline": {
-    "empty": "No events yet.",
+    "empty": "No events yet",
     "system": "System",
     "generic": "Event: {{action}}",
     "actions": {
@@ -256,7 +256,7 @@
     "hint": "Read-only. Purchasers create vendor orders from the Purchasing page.",
     "notConfirmed": "Purchasing starts once the review is confirmed.",
     "outside": "This batch is bought outside the system.",
-    "empty": "No approved items.",
+    "empty": "No approved items",
     "ordered": "Ordered",
     "received": "Received",
     "toPurchase": "To purchase",

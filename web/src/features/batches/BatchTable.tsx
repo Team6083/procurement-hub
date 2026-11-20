@@ -1,7 +1,7 @@
+import { DataTable } from '@team6083/ui';
 import { Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import type { Batch } from '../../api/types';
-import { DataTable } from '../../components/DataTable';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { shortDate } from '../dates';

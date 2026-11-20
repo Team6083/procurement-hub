@@ -1,12 +1,11 @@
 import { Badge, Stack, Text } from '@chakra-ui/react';
-import { SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
 import { Button } from '@chakra-ui/react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuBan, LuPencil, LuPlus, LuTrash2 } from 'react-icons/lu';
+import { LuBan, LuPencil, LuPlus, LuReceipt, LuTrash2 } from 'react-icons/lu';
 import type { CostEntry, VendorOrder } from '../../api/types';
 import { useDeleteCostEntry, useVoidCostEntry } from '../../api/vendorOrders';
-import { DataTable } from '../../components/DataTable';
 import { ReasonModal } from '../../components/ReasonModal';
 import { formatMoney } from '../money';
 import { CostEntryModal } from './CostEntryModal';
@@ -100,11 +99,10 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
         as={headingAs} mb="0" title={t('costs.title')} count={order.costEntries.length}
         actions={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>}
       />
-      {order.costEntries.length === 0 ? (
-        <Text color="fg.muted" textStyle="sm">{t('costs.empty')}</Text>
-      ) : (
-        <DataTable aria-label={t('costs.title')} rows={order.costEntries} columns={columns} getRowId={(e) => e.id} rowActions={editable ? rowActions : undefined} />
-      )}
+      <DataTable
+        aria-label={t('costs.title')} rows={order.costEntries} columns={columns} getRowId={(e) => e.id} rowActions={editable ? rowActions : undefined}
+        empty={<EmptyState icon={<LuReceipt />} title={t('costs.empty')} />}
+      />
       <CostEntryModal
         order={order} teamName={teamName} baseDigits={baseDigits} entry={form && form !== 'new' ? form : null} open={form !== null} onClose={() => setForm(null)}
       />

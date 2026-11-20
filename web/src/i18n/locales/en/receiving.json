@@ -29,7 +29,7 @@
     "active": "Not voided",
     "from": "Received from",
     "to": "Received to",
-    "empty": "No deliveries yet.",
+    "empty": "No deliveries yet",
     "loadMore": "Load more"
   },
   "box": {
@@ -112,14 +112,14 @@
     "delivery": "Delivery",
     "quantity": "Quantity",
     "matched": "Matched",
-    "empty": "Every delivery line is matched."
+    "empty": "Every delivery line is matched"
   },
   "problem": {
     "title": "Problems",
     "openTitle": "Open",
     "resolvedTitle": "Resolved",
-    "openEmpty": "No open problems.",
-    "resolvedEmpty": "No resolved problems.",
+    "openEmpty": "No open problems",
+    "resolvedEmpty": "No resolved problems",
     "line": "Order line",
     "type": "Problem",
     "note": "Note",
@@ -144,7 +144,7 @@
     "title": "Short lines to decide on",
     "received": "Received / expected",
     "missing": "Missing",
-    "empty": "No short lines waiting."
+    "empty": "No short lines waiting"
   },
   "tabs": {
     "workbench": "Workbench",

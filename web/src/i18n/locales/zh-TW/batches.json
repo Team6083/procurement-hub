@@ -36,7 +36,7 @@
     "title": "批次",
     "new": "新增批次",
     "propose": "提議批次",
-    "empty": "找不到批次。",
+    "empty": "找不到批次",
     "number": "編號",
     "batchTitle": "標題",
     "loadMore": "載入更多"
@@ -141,7 +141,7 @@
     "resubmitNeedsEdit": "請先編輯品項才能重新送審。",
     "returnedComment": "已退回：{{comment}}",
     "rejectedComment": "已駁回：{{comment}}",
-    "empty": "尚無品項。",
+    "empty": "尚無品項",
     "undoReview": "撤銷決定",
     "undoReviewHelp": "要讓 {{name}} 回到待審核嗎？必須填寫原因。",
     "copy": "複製成新品項",
@@ -171,7 +171,7 @@
   },
   "review": {
     "readOnly": "只有審核者與團隊管理員可以審核品項。",
-    "approve": "核准所選 ({{count}})",
+    "approve": "核准所選",
     "approveItem": "核准",
     "approveHint": "進入採購",
     "return": "退回",
@@ -188,7 +188,7 @@
     "forceHelp": "要強制駁回 {{name}} 嗎？必須填寫原因。"
   },
   "timeline": {
-    "empty": "尚無事件。",
+    "empty": "尚無事件",
     "system": "系統",
     "generic": "事件：{{action}}",
     "actions": {
@@ -254,7 +254,7 @@
     "hint": "唯讀。採購人員在「採購」頁建立廠商訂單。",
     "notConfirmed": "審核確認後才會開始採購。",
     "outside": "此批次在系統外採購。",
-    "empty": "沒有核准的品項。",
+    "empty": "沒有核准的品項",
     "ordered": "已下單",
     "received": "已到",
     "toPurchase": "待採購",

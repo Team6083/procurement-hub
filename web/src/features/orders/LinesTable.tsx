@@ -1,13 +1,12 @@
 import { ClampedText } from '../../components/ClampedText';
 import { currencyFractionDigits, formatMoney, validateAmount } from '../money';
 import { Badge, HStack, Input, Link, Stack, Text } from '@chakra-ui/react';
-import { type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPencil, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
 import { usePutLine } from '../../api/vendorOrders';
 import type { VendorOrder, VendorOrderLine } from '../../api/types';
-import { DataTable } from '../../components/DataTable';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { safeHttpUrl } from '../batches/itemForm';
 import { RouteAnchor } from '../../components/RouteLinks';

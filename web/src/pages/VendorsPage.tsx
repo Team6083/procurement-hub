@@ -1,12 +1,11 @@
 import { Badge, Button, Card, Stack, Switch } from '@chakra-ui/react';
-import { EmptyState, type DataColumn } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPencil, LuPlus, LuStore } from 'react-icons/lu';
 import { useVendors } from '../api/vendors';
 import type { Vendor } from '../api/types';
 import { useAccess } from '../auth/useAccess';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { SectionActions } from '../components/SectionLayout';

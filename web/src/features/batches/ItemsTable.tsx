@@ -1,7 +1,6 @@
 import { Badge, Box, Button, Flex, HStack, Icon, Link, Text } from '@chakra-ui/react';
-import { type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
+import { DataTable, type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { ClampedText } from '../../components/ClampedText';
-import { DataTable } from '../../components/DataTable';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuArrowDown, LuArrowUp, LuStickyNote } from 'react-icons/lu';

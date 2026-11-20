@@ -1,11 +1,10 @@
 import { Badge, Button, Card, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPencil, LuPlus, LuShieldCheck, LuTrash2 } from 'react-icons/lu';
 import { useDeleteRoleMapping, useRoleMappings } from '../api/roleMappings';
 import type { RoleMapping } from '../api/types';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';

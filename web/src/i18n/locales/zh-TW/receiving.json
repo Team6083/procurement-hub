@@ -29,7 +29,7 @@
     "active": "未作廢",
     "from": "到貨日起",
     "to": "到貨日迄",
-    "empty": "還沒有到貨紀錄。",
+    "empty": "還沒有到貨紀錄",
     "loadMore": "載入更多"
   },
   "box": {
@@ -112,14 +112,14 @@
     "delivery": "到貨紀錄",
     "quantity": "數量",
     "matched": "已對應",
-    "empty": "所有到貨行都已對應。"
+    "empty": "所有到貨行都已對應"
   },
   "problem": {
     "title": "到貨問題",
     "openTitle": "未處理",
     "resolvedTitle": "已處理",
-    "openEmpty": "沒有未處理的問題。",
-    "resolvedEmpty": "沒有已處理的問題。",
+    "openEmpty": "沒有未處理的問題",
+    "resolvedEmpty": "沒有已處理的問題",
     "line": "明細行",
     "type": "問題",
     "note": "備註",
@@ -144,7 +144,7 @@
     "title": "待決定的短少明細行",
     "received": "已到 / 應到",
     "missing": "短少",
-    "empty": "沒有待決定的短少明細行。"
+    "empty": "沒有待決定的短少明細行"
   },
   "tabs": {
     "workbench": "工作台",

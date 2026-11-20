@@ -5,7 +5,7 @@
     },
     "teams": {
       "title": "團隊",
-      "empty": "目前沒有任何團隊。",
+      "empty": "目前沒有任何團隊",
       "archived": "已封存",
       "emptyBody": "加入的團隊會顯示在這裡。"
     },
@@ -84,7 +84,7 @@
     "deactivate": "停用",
     "activate": "啟用",
     "inactive": "已停用",
-    "empty": "尚無子群組。",
+    "empty": "尚無子群組",
     "deactivateTitle": "停用 {{name}}？",
     "deactivateBody": "之後新品項無法再選擇這個子組。",
     "status": "狀態",
@@ -106,6 +106,7 @@
     "removeConfirm": "要移除 {{name}} 的手動角色嗎？",
     "removeNote": "除非仍有 SSO 角色，否則該成員會被移出團隊。",
     "setManual": "設定手動角色",
-    "setDefault": "設定預設子群組"
+    "setDefault": "設定預設子群組",
+    "empty": "還沒有成員"
   }
 }

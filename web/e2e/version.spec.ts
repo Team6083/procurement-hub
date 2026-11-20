@@ -22,7 +22,7 @@ test('a backend with another commit shows the update banner and blocks writes', 
   expect((await read).ok()).toBe(true);
   const banner = page.getByTestId('app-outdated-banner');
   await expect(banner).toContainText('The system has been updated');
-  await expect(page.getByText('No batches found.')).toBeVisible();
+  await expect(page.getByText('No batches found', { exact: true })).toBeVisible();
 
   // Writes are refused in the client and never reach the API.
   await page.getByRole('link', { name: 'Procurement Hub' }).click();

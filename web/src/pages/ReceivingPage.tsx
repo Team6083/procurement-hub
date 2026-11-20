@@ -1,6 +1,6 @@
 import { deliveryLabel, orderLabel } from '../features/labels';
-import { Badge, Card, Stack, Tabs, Text } from '@chakra-ui/react';
-import { EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
+import { Badge, Stack, Tabs, Text } from '@chakra-ui/react';
+import { DataTable, EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheck, LuInbox, LuUndo2, LuX } from 'react-icons/lu';
@@ -8,7 +8,6 @@ import { useLinesToClose, usePendingLines, useProblems, useUnresolveProblem } fr
 import { useBaseCurrency } from '../api/meta';
 import type { DeliveryLine, Problem, VendorOrderLine } from '../api/types';
 import { useVendorOrder } from '../api/vendorOrders';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { UndoDialog } from '../components/UndoDialog';
@@ -22,7 +21,7 @@ import { paths } from '../paths';
 import { ListSkeleton } from '../components/PageStates';
 
 /** A compact empty state: these lists are usually empty, so they should not dominate the page. */
-const emptyCard = (title: string) => <Card.Root size="sm"><Card.Body py="2"><EmptyState size="sm" py="2" icon={<LuInbox />} title={title} /></Card.Body></Card.Root>;
+const emptyState = (title: string) => <EmptyState icon={<LuInbox />} title={title} />;
 /** A section's count, left out when there is nothing to count. */
 const countOf = (n: number | undefined) => (n ? n : undefined);
 
@@ -46,7 +45,7 @@ function PendingLines() {
       <SectionHeader as="h2" mb="0" title={t('pending.title')} count={countOf(q.data?.length)} />
       {q.isPending && <ListSkeleton rows={2} />}
       <ErrorAlert error={q.error} />
-      {q.data && <DataTable aria-label={t('pending.title')} rows={q.data} columns={columns} getRowId={(l) => l.id} empty={emptyCard(t('pending.empty'))} />}
+      {q.data && <DataTable aria-label={t('pending.title')} rows={q.data} columns={columns} getRowId={(l) => l.id} empty={emptyState(t('pending.empty'))} />}
     </Stack>
   );
 }
@@ -75,7 +74,7 @@ function ProblemTable({ status, canPurchase, onResolve, onUnresolve }: { status:
   return (
     <DataTable
       aria-label={`${t('problem.title')}: ${t(`problem.${status}Title`)}`} rows={q.data} columns={columns} getRowId={(p) => p.id}
-      rowActions={canPurchase ? rowActions : undefined} empty={emptyCard(t(`problem.${status}Empty`))}
+      rowActions={canPurchase ? rowActions : undefined} empty={emptyState(t(`problem.${status}Empty`))}
     />
   );
 }
@@ -139,7 +138,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
       {q.data && (
         <DataTable
           aria-label={t('toClose.title')} rows={q.data} columns={columns} getRowId={(l) => l.id}
-          rowActions={canPurchase ? rowActions : undefined} empty={emptyCard(t('toClose.empty'))}
+          rowActions={canPurchase ? rowActions : undefined} empty={emptyState(t('toClose.empty'))}
         />
       )}
       <CloseFromList line={closing} baseDigits={baseDigits} onClose={() => setClosing(null)} />

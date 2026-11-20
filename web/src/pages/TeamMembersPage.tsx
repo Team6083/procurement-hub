@@ -1,6 +1,6 @@
 import { Button, Card, Dialog, Stack, Text } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,6 @@ import { z } from 'zod';
 import { useMe } from '../api/me';
 import { useAddMember, useMembers, usePatchMember, useRemoveMember } from '../api/members';
 import type { Team, TeamMember } from '../api/types';
-import { DataTable } from '../components/DataTable';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { Forbidden, ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';
@@ -147,7 +146,7 @@ export function TeamMembersPage() {
       {members.data && (
         <DataTable
           aria-label={t('tabs.members')} rows={members.data} columns={columns} getRowId={(m) => m.userId} rowActions={rowActions}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuUsers />} title={t('tabs.members')} /></Card.Body></Card.Root>}
+          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuUsers />} title={t('members.empty')} /></Card.Body></Card.Root>}
         />
       )}
       <AppDialog open={adding} onClose={() => setAdding(false)} title={t('members.add')}>
