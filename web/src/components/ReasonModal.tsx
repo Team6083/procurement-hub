@@ -3,11 +3,11 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import type { ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
+import { BlockerList, blockersOf } from './Blockers';
 import { ErrorAlert } from './ErrorAlert';
 import { AppDialog, DialogFooter } from './ui/dialog';
 import { FormField } from './ui/field';
 import { requiredText, useFieldError } from './ui/form';
-import { BlockerList, blockersOf } from './UndoDialog';
 
 interface Props {
   open: boolean;

@@ -6,7 +6,7 @@ import type { Candidate, DeliveryLine, MatchRequest } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
-import { BlockerList } from '../../components/UndoDialog';
+import { BlockerList } from '../../components/Blockers';
 import { parseCount } from './allocate';
 import { CandidateLabel } from './CandidateLabel';
 

@@ -1,4 +1,5 @@
-import { Portal, Text, Tooltip as ChakraTooltip, type TextProps } from '@chakra-ui/react';
+import { Text, type TextProps } from '@chakra-ui/react';
+import { Tooltip } from '@team6083/ui';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 /**
@@ -19,15 +20,8 @@ export function ClampedText({ text, lines = 2, children, ...rest }: { text: stri
     return () => ro.disconnect();
   }, [text, lines]);
   return (
-    <ChakraTooltip.Root openDelay={300} disabled={!clipped}>
-      <ChakraTooltip.Trigger asChild>
-        <Text as="span" ref={ref} lineClamp={lines} overflowWrap="anywhere" tabIndex={clipped ? 0 : undefined} {...rest}>{children ?? text}</Text>
-      </ChakraTooltip.Trigger>
-      <Portal>
-        <ChakraTooltip.Positioner>
-          <ChakraTooltip.Content maxW="sm" whiteSpace="pre-wrap" overflowWrap="anywhere">{text}</ChakraTooltip.Content>
-        </ChakraTooltip.Positioner>
-      </Portal>
-    </ChakraTooltip.Root>
+    <Tooltip content={text} openDelay={300} disabled={!clipped} contentProps={{ maxW: 'sm', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+      <Text as="span" ref={ref} lineClamp={lines} overflowWrap="anywhere" tabIndex={clipped ? 0 : undefined} {...rest}>{children ?? text}</Text>
+    </Tooltip>
   );
 }
