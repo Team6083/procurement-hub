@@ -1,4 +1,4 @@
-import { Button, Dialog, NativeSelect, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import type { Problem, ProblemAction } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
 import { RefundFields, checkRefundAmount, refundBody, refundDefaults, refundShape } from '../orders/RefundFields';
 
 const ACTIONS = ['exchange', 'return_no_replace', 'accept'] as const satisfies readonly ProblemAction[];
@@ -42,22 +43,11 @@ function Form({ problem, baseDigits, onClose }: { problem: Problem; baseDigits: 
               {t('problem.summary', { order: problem.vendorOrderNumber, n: problem.lineNo, name: problem.lineName, count: problem.quantity, type: t(`problemType.${problem.type}`) })}
             </Text>
             <Controller control={form.control} name="action" render={({ field }) => (
-              <FormField label={t('problem.action')} helperText={t(`problem.actionHelp.${field.value}`)}>
-                <NativeSelect.Root size="md">
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    onBlur={field.onBlur}
-                  >
-                    {!field.value && <option value="" />}
-                    {ACTIONS.map((a) => (
-                      <option key={a} value={a}>{t(`problem.actions.${a}`)}</option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={t('problem.action')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                helperText={t(`problem.actionHelp.${field.value}`)}
+                options={ACTIONS.map((a) => ({ value: a, label: t(`problem.actions.${a}`) }))}
+              />
             )} />
             {withRefund && (
               <FormProvider {...form}>

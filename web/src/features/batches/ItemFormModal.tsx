@@ -14,6 +14,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { isEditedSinceReturn } from './rules';
 import { emptyItemForm, itemFormSchema, itemToForm, safeHttpUrl, toItemRequest, type ItemForm } from './itemForm';
@@ -182,28 +183,14 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
                 {/* Vendor, SKU and price share a row (the price keeps a little more room for its currency). */}
                 <SimpleGrid templateColumns={{ base: '1fr', sm: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.3fr)' }} gap="3">
                   <Controller control={form.control} name="vendorId" render={({ field }) => (
-                    <FormField label={t('item.vendor')} helperText={mark('vendorId')}>
-                      <NativeSelect.Root size="md">
-                        <NativeSelect.Field
-                          name={field.name}
-                          value={field.value ?? ''}
-                          onChange={(e) => {
-                            const id = e.currentTarget.value;
-                            field.onChange(id);
-                            const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
-                            if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
-                          }}
-                          onBlur={field.onBlur}
-                        >
-                          <option value="">{t('item.noVendor')}</option>
-                          {(vendors.data ?? []).map((v) => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
-                          ))}
-                          <option value="other">{t('item.vendorOther')}</option>
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                    </FormField>
+                    <SelectField label={t('item.vendor')} helperText={mark('vendorId')} placeholder={t('item.noVendor')} name={field.name} value={field.value} onBlur={field.onBlur}
+                      // Choosing a listed vendor fills in its default currency (still changeable afterwards).
+                      onChange={(id) => {
+                        field.onChange(id);
+                        const currency = vendors.data?.find((v) => v.id === id)?.defaultCurrency;
+                        if (currency && currencies.includes(currency)) form.setValue('currency', currency, { shouldDirty: true });
+                      }}
+                      options={[...(vendors.data ?? []).map((v) => ({ value: v.id, label: v.name })), { value: 'other', label: t('item.vendorOther') }]} />
                   )} />
                   <FormField label={t('item.sku')} helperText={mark('sku')}>
                     <Input {...form.register('sku')} />
@@ -266,40 +253,10 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
                 <Input inputMode="numeric" {...form.register('quantity')} />
               </FormField>
               <Controller control={form.control} name="priority" render={({ field }) => (
-                <FormField label={t('item.priority')}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.currentTarget.value)}
-                      onBlur={field.onBlur}
-                    >
-                      {!field.value && <option value="" />}
-                      {PRIORITIES.map((k) => (
-                        <option key={k} value={k}>{`${k} - ${label(k)}`}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField label={t('item.priority')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={PRIORITIES.map((k) => ({ value: k, label: `${k} - ${label(k)}` }))} />
               )} />
               <Controller control={form.control} name="subgroupId" render={({ field }) => (
-                <FormField label={t('item.subgroup')}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.currentTarget.value)}
-                      onBlur={field.onBlur}
-                    >
-                      <option value="">{t('item.noSubgroup')}</option>
-                      {subgroups.map((g) => (
-                        <option key={g.id} value={g.id}>{g.name}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField label={t('item.subgroup')} placeholder={t('item.noSubgroup')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={subgroups.map((g) => ({ value: g.id, label: g.name }))} />
               )} />
             </SimpleGrid>
             <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>

@@ -2,25 +2,22 @@ import { act, cleanup, fireEvent, screen, waitFor, within } from '@testing-libra
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import i18n from '../../i18n';
 import { batch, item, renderWithApi, team } from '../../test/fakeApi';
-import { chooseMenuItem, closeMenu, openRowMenu, rowWith, selectionBar } from '../../test/dataTable';
+import { chooseMenuItem, closeMenu, filterOptions, openRowMenu, rowWith, selectionBar } from '../../test/dataTable';
 import { ItemsTab } from './ItemsTab';
 import { callerFor } from './rules';
 
 beforeAll(() => void i18n.changeLanguage('en'));
 afterEach(cleanup);
 
-/** Opens the FilterBar popover if closed and returns the Status checkboxes by label. */
+/** Opens the FilterBar popover and the Status list if closed; returns the chosen option labels and a toggle. */
 async function statusChecks() {
-  if (!screen.queryByRole('group', { name: 'Status' })) {
-    await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Filter/ })); });
-  }
-  const group = screen.getByRole('group', { name: 'Status' });
+  const list = await filterOptions('Status');
   return {
-    checked: () => within(group).queryAllByRole('checkbox').filter((c) => (c as HTMLInputElement).checked).map((c) => c.closest('label')?.textContent),
-    toggle: async (label: string) => { await act(async () => { fireEvent.click(within(group).getByRole('checkbox', { name: label })); }); },
+    checked: () => within(list).queryAllByRole('option').filter((o) => o.getAttribute('aria-selected') === 'true').map((o) => o.textContent),
+    toggle: async (label: string) => { await act(async () => { fireEvent.click(within(list).getByRole('option', { name: label })); }); },
   };
 }
-/** Unchecks every ticked status, i.e. shows all. */
+/** Deselects every chosen status, i.e. shows all. */
 async function showAllStatuses() {
   const s = await statusChecks();
   for (const l of s.checked()) await s.toggle(l!);

@@ -1,4 +1,4 @@
-import { Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, NativeSelect, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { deadlineChange, fromLocalInput, toLocalInput } from './datetime';
 
 const editSchema = z.object({
@@ -94,22 +95,10 @@ function Inner({ batch, members, onClose }: { batch: Batch; members: TeamMember[
               <Input type="datetime-local" {...form.register('deadline')} />
             </FormField>
             <Controller control={form.control} name="visibility" render={({ field }) => (
-              <FormField label={t('header.visibility')}>
-                <NativeSelect.Root size="md">
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    onBlur={field.onBlur}
-                  >
-                    {!field.value && <option value="" />}
-                    <option value="inherit">{t('visibility.inherit')}</option>
-                    <option value="public">{t('visibility.public')}</option>
-                    <option value="members">{t('visibility.members')}</option>
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={t('header.visibility')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                options={[{ value: 'inherit', label: t('visibility.inherit') }, { value: 'public', label: t('visibility.public') }, { value: 'members', label: t('visibility.members') }]}
+              />
             )} />
             <Controller control={form.control} name="approvers" render={({ field }) => (
               <Fieldset.Root>

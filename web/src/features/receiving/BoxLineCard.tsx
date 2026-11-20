@@ -1,10 +1,11 @@
-import { Alert, Box, Card, Checkbox, HStack, IconButton, Input, NativeSelect, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Alert, Box, Card, Checkbox, HStack, IconButton, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { LuTrash2 } from 'react-icons/lu';
 import { useMatchCandidates } from '../../api/deliveries';
 import type { Candidate } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
 import { useDebouncedValue } from '../../hooks/useDebouncedValue';
 import { allocate, parseCount, type Slot } from './allocate';
 import { CandidateLabel } from './CandidateLabel';
@@ -85,19 +86,11 @@ export function BoxLineCard({ index, line, showErrors, onChange, onRemove }: Pro
             </FormField>
             {problem > 0 && (
               <Box gridColumn="span 2">
-                <FormField label={t('box.problemType')} errorText={errors.problemType && t(errors.problemType)}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      value={line.problemType ?? ''}
-                      onChange={(e) => set({ problemType: e.currentTarget.value as BoxLineDraft['problemType'] })}
-                    >
-                      <option value="">{t('box.choose')}</option>
-                      <option value="damaged">{t('problemType.damaged')}</option>
-                      <option value="wrong_item">{t('problemType.wrong_item')}</option>
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={t('box.problemType')} placeholder={t('box.choose')} value={line.problemType} errorText={errors.problemType && t(errors.problemType)}
+                  onChange={(v) => set({ problemType: v as BoxLineDraft['problemType'] })}
+                  options={[{ value: 'damaged', label: t('problemType.damaged') }, { value: 'wrong_item', label: t('problemType.wrong_item') }]}
+                />
               </Box>
             )}
           </SimpleGrid>

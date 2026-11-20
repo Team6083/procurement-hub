@@ -1,5 +1,5 @@
-import { Box, Button, Card, Checkbox, CheckboxGroup, Fieldset, NativeSelect, Stack, Text } from '@chakra-ui/react';
-import { FormField } from '../../components/ui/field';
+import { Button, Card, Stack, Text } from '@chakra-ui/react';
+import { FilterMultiSelect, FilterSelect } from '../../components/FilterSelect';
 import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -32,7 +32,7 @@ interface Props {
 }
 
 const distinct = (xs: string[]) => [...new Set(xs.filter(Boolean))].sort();
-/** Values present in the items, plus the chosen one if no item has it any more, so a native select never shows "All" while filtering. */
+/** Values present in the items, plus the chosen one if no item has it any more, so a select never shows "All" while filtering. */
 const withChosen = (values: string[], chosen: string | undefined) => (chosen && !values.includes(chosen) ? [...values, chosen] : values);
 
 export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId }: Props) {
@@ -151,80 +151,13 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
           </Button>
         )}
       >
-        <Fieldset.Root>
-          <Fieldset.Legend textStyle="sm" fontWeight="medium">{t('item.status')}</Fieldset.Legend>
-          <CheckboxGroup value={status} onValueChange={setStatus}>
-            <Box maxH="40" overflowY="auto" borderWidth="1px" rounded="md" px="3" py="2">
-              <Stack gap="1.5">
-                {statusOptions.map((o) => (
-                  <Checkbox.Root key={o.value} value={o.value} size="sm">
-                    <Checkbox.HiddenInput />
-                    <Checkbox.Control />
-                    <Checkbox.Label>{o.label}</Checkbox.Label>
-                  </Checkbox.Root>
-                ))}
-              </Stack>
-            </Box>
-          </CheckboxGroup>
-        </Fieldset.Root>
-        <FormField label={t('item.subgroup')}>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={others.subgroup ?? ''}
-              onChange={(e) => set('subgroup')(e.currentTarget.value)}
-            >
-              <option value="">{t('filters.all')}</option>
-              {withChosen(distinct(items.map((i) => i.subgroupId)), others.subgroup).map((id) => (
-                <option key={id} value={id}>{team?.subgroups.find((g) => g.id === id)?.name ?? '—'}</option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
+        <FilterMultiSelect label={t('item.status')} placeholder={t('filters.all')} value={status} onChange={setStatus} options={statusOptions} />
+        <FilterSelect label={t('item.subgroup')} value={others.subgroup} onChange={set('subgroup')} allLabel={t('filters.all')} options={withChosen(distinct(items.map((i) => i.subgroupId)), others.subgroup).map((id) => ({ value: id, label: team?.subgroups.find((g) => g.id === id)?.name ?? '—' }))} />
         {internal && (
-          <FormField label={t('item.requester')}>
-            <NativeSelect.Root size="sm">
-              <NativeSelect.Field
-                value={others.requester ?? ''}
-                onChange={(e) => set('requester')(e.currentTarget.value)}
-              >
-                <option value="">{t('filters.all')}</option>
-                {withChosen(distinct(items.map((i) => i.requesterId)), others.requester).map((id) => (
-                  <option key={id} value={id}>{nameOf(id)}</option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </FormField>
+          <FilterSelect label={t('item.requester')} value={others.requester} onChange={set('requester')} allLabel={t('filters.all')} options={withChosen(distinct(items.map((i) => i.requesterId)), others.requester).map((id) => ({ value: id, label: nameOf(id) }))} />
         )}
-        <FormField label={t('item.priority')}>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={others.priority ?? ''}
-              onChange={(e) => set('priority')(e.currentTarget.value)}
-            >
-              <option value="">{t('filters.all')}</option>
-              {PRIORITIES.map((p) => (
-                <option key={p} value={p}>{priorityLabel(team?.priorityLabels, p, (k) => t(`teams:priority.default.${k}`))}</option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
-        <FormField label={t('item.vendor')}>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={others.vendor ?? ''}
-              onChange={(e) => set('vendor')(e.currentTarget.value)}
-            >
-              <option value="">{t('filters.all')}</option>
-              {withChosen(distinct(items.map((i) => i.vendorName)), others.vendor).map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
+        <FilterSelect label={t('item.priority')} value={others.priority} onChange={set('priority')} allLabel={t('filters.all')} options={PRIORITIES.map((p) => ({ value: p, label: priorityLabel(team?.priorityLabels, p, (k) => t(`teams:priority.default.${k}`)) }))} />
+        <FilterSelect label={t('item.vendor')} value={others.vendor} onChange={set('vendor')} allLabel={t('filters.all')} options={withChosen(distinct(items.map((i) => i.vendorName)), others.vendor).map((o) => ({ value: o, label: o }))} />
       </FilterBar>
 
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}

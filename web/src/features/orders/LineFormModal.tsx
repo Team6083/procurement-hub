@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, NativeSelect, SimpleGrid, Stack } from '@chakra-ui/react';
+import { Button, Dialog, Input, SimpleGrid, Stack } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { amountText, positiveInt, requiredText, useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { currencyFractionDigits } from '../money';
 
 interface Props {
@@ -54,22 +55,11 @@ function Form({ order, teams, line, onClose }: Omit<Props, 'open'>) {
         <form id="line-form" onSubmit={submit} noValidate>
           <Stack gap="3">
             <Controller control={form.control} name="teamId" render={({ field }) => (
-              <FormField label={t('line.team')} errorText={fieldError(err.teamId)} required disabled={placed || linked}>
-                <NativeSelect.Root size="md" disabled={placed || linked}>
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => field.onChange(e.currentTarget.value)}
-                    onBlur={field.onBlur}
-                  >
-                    <option value="">{t('line.chooseTeam')}</option>
-                    {teams.map((x) => (
-                      <option key={x.id} value={x.id}>{x.name}</option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={t('line.team')} required name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur}
+                placeholder={t('line.chooseTeam')} disabled={placed || linked} errorText={fieldError(err.teamId)}
+                options={teams.map((x) => ({ value: x.id, label: x.name }))}
+              />
             )} />
             <FormField label={t('line.name')} required errorText={fieldError(err.name)}><Input {...form.register('name')} /></FormField>
             <FormField label={t('line.sku')}><Input {...form.register('sku')} /></FormField>

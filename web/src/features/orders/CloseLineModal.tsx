@@ -1,4 +1,4 @@
-import { Button, Dialog, NativeSelect, Stack, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, FormProvider, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { RefundFields, checkRefundAmount, refundBody, refundDefaults, refundShape } from './RefundFields';
 
 const closeSchema = (baseDigits: number) => z.object({
@@ -33,21 +34,10 @@ function Form({ orderId, line, baseDigits, onClose }: { orderId: string; line: V
         <form id="close-line-form" onSubmit={submit} noValidate>
           <Stack gap="3">
             <Controller control={form.control} name="type" render={({ field }) => (
-              <FormField label={t('close.type')}>
-                <NativeSelect.Root size="md">
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    onBlur={field.onBlur}
-                  >
-                    {!field.value && <option value="" />}
-                    <option value="short_accepted">{t('close.short_accepted')}</option>
-                    <option value="not_obtained">{t('close.not_obtained')}</option>
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={t('close.type')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                options={[{ value: 'short_accepted', label: t('close.short_accepted') }, { value: 'not_obtained', label: t('close.not_obtained') }]}
+              />
             )} />
             <FormField label={t('undo.reason')} required errorText={fieldError(err.reason)}>
               <Textarea autoresize rows={2} {...form.register('reason')} />

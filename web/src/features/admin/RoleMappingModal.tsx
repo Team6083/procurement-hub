@@ -1,4 +1,4 @@
-import { Button, Dialog, Input, NativeSelect, Stack, Switch, Textarea } from '@chakra-ui/react';
+import { Button, Dialog, Input, Stack, Switch, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -8,6 +8,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { roleMappingSchema, type RoleMappingForm } from '../teams/schemas';
 
 const EMPTY: RoleMappingForm = { claim: 'groups', pattern: '', team: '', role: 'member', enabled: true, description: '' };
@@ -39,22 +40,14 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
               control={form.control}
               name="claim"
               render={({ field }) => (
-                <FormField label={t('form.claim')}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.currentTarget.value)}
-                      onBlur={field.onBlur}
-                    >
-                      {!field.value && <option value="" />}
-                      {(['groups', 'roles'] as const).map((c) => (
-                        <option key={c} value={c}>{t(`claim.${c}`)}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={t('form.claim')}
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  options={(['groups', 'roles'] as const).map((c) => ({ value: c, label: t(`claim.${c}`) }))}
+                />
               )}
             />
             <FormField label={t('form.pattern')} required helperText={t('patternHelp')} errorText={fieldError(err.pattern)}>
@@ -67,22 +60,14 @@ function Inner({ rule, onClose }: { rule: RoleMapping | null; onClose: () => voi
               control={form.control}
               name="role"
               render={({ field }) => (
-                <FormField label={t('form.role')}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => field.onChange(e.currentTarget.value)}
-                      onBlur={field.onBlur}
-                    >
-                      {!field.value && <option value="" />}
-                      {(['member', 'admin'] as const).map((r) => (
-                        <option key={r} value={r}>{t(`teams:role.${r}`)}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={t('form.role')}
+                  name={field.name}
+                  value={field.value}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  options={(['member', 'admin'] as const).map((r) => ({ value: r, label: t(`teams:role.${r}`) }))}
+                />
               )}
             />
             <Controller

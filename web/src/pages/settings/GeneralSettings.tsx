@@ -1,4 +1,4 @@
-import { Alert, Button, Card, Fieldset, HStack, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Card, Fieldset, HStack, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SectionHeader, toaster } from '@team6083/ui';
 import { useState } from 'react';
@@ -13,6 +13,7 @@ import { Forbidden } from '../../components/PageStates';
 import { ReasonModal } from '../../components/ReasonModal';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { useTeamCtx } from '../../features/teams/TeamContext';
 import { diffGeneral, toForm } from '../../features/teams/general';
 import { PRIORITIES } from '../../features/teams/priority';
@@ -56,40 +57,16 @@ function GeneralSettingsForm({ team }: { team: Team }) {
               </FormField>
               <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                 <Controller control={form.control} name="visibility" render={({ field }) => (
-                  <FormField label={t('general.visibility')}>
-                    <NativeSelect.Root size="md">
-                      <NativeSelect.Field
-                        name={field.name}
-                        value={field.value ?? ''}
-                        onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                        onBlur={field.onBlur}
-                      >
-                        {!field.value && <option value="" />}
-                        {(['public', 'members'] as const).map((v) => (
-                          <option key={v} value={v}>{t(`team.visibility.${v}`)}</option>
-                        ))}
-                      </NativeSelect.Field>
-                      <NativeSelect.Indicator />
-                    </NativeSelect.Root>
-                  </FormField>
+                  <SelectField
+                    label={t('general.visibility')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                    options={(['public', 'members'] as const).map((v) => ({ value: v, label: t(`team.visibility.${v}`) }))}
+                  />
                 )} />
                 <Controller control={form.control} name="locale" render={({ field }) => (
-                  <FormField label={t('general.locale')} helperText={t('general.localeHelp')}>
-                    <NativeSelect.Root size="md">
-                      <NativeSelect.Field
-                        name={field.name}
-                        value={field.value ?? ''}
-                        onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                        onBlur={field.onBlur}
-                      >
-                        {!field.value && <option value="" />}
-                        {SUPPORTED_LANGUAGES.map((l) => (
-                          <option key={l} value={l}>{t(`common:language.${l}`)}</option>
-                        ))}
-                      </NativeSelect.Field>
-                      <NativeSelect.Indicator />
-                    </NativeSelect.Root>
-                  </FormField>
+                  <SelectField
+                    label={t('general.locale')} helperText={t('general.localeHelp')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                    options={SUPPORTED_LANGUAGES.map((l) => ({ value: l, label: t(`common:language.${l}`) }))}
+                  />
                 )} />
               </SimpleGrid>
               <Stack gap="1" pt="2">

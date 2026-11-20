@@ -1,5 +1,4 @@
-import { Button, Card, Dialog, NativeSelect, Stack, Text } from '@chakra-ui/react';
-import { FormField } from '../components/ui/field';
+import { Button, Card, Dialog, Stack, Text } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
@@ -17,6 +16,7 @@ import { SectionActions } from '../components/SectionLayout';
 import { UserSearchSelect } from '../components/UserSearchSelect';
 import { AppDialog, DialogFooter } from '../components/ui/dialog';
 import { requiredText, useFieldError } from '../components/ui/form';
+import { SelectField } from '../components/ui/select';
 import { RoleCell } from '../features/teams/RoleBadges';
 import { useTeamCtx } from '../features/teams/TeamContext';
 import { canClearManualRole, canRemoveMember } from '../features/teams/roles';
@@ -43,22 +43,10 @@ function AddMemberForm({ team, existing, onClose }: { team: Team; existing: stri
               />
             )} />
             <Controller control={form.control} name="role" render={({ field }) => (
-              <FormField label={t('members.role')}>
-                <NativeSelect.Root size="md">
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    onBlur={field.onBlur}
-                  >
-                    {!field.value && <option value="" />}
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{t(`role.${r}`)}</option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={t('members.role')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                options={ROLES.map((r) => ({ value: r, label: t(`role.${r}`) }))}
+              />
             )} />
             <ErrorAlert error={add.error} />
           </Stack>
@@ -91,20 +79,10 @@ function MemberFieldForm({ team, editing, onClose }: { team: Team; editing: Edit
       <Dialog.Body>
         <Stack gap="3">
           <Text>{member.displayName || member.username}</Text>
-          <FormField label={t(field === 'manualRole' ? 'members.manualRole' : 'members.defaultSubgroup')}>
-            <NativeSelect.Root size="md">
-              <NativeSelect.Field
-                value={value ?? ''}
-                onChange={(e) => setValue(e.currentTarget.value)}
-              >
-                {(field === 'defaultSubgroupId' || !value) && <option value="">{field === 'defaultSubgroupId' ? t('members.noDefault') : ''}</option>}
-                {options.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </FormField>
+          <SelectField
+            label={t(field === 'manualRole' ? 'members.manualRole' : 'members.defaultSubgroup')} value={value} onChange={setValue}
+            placeholder={field === 'defaultSubgroupId' ? t('members.noDefault') : undefined} options={options}
+          />
           <ErrorAlert error={patch.error} />
         </Stack>
       </Dialog.Body>

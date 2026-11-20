@@ -27,12 +27,19 @@ export async function chooseMenuItem(name: string | RegExp): Promise<void> {
   await act(async () => { fireEvent.keyDown(menu, { key: 'Enter' }); });
 }
 
-/** Opens a FilterBar's 篩選 popover (if closed) and returns the named filter select. */
-export async function filterSelect(name: string): Promise<HTMLSelectElement> {
+/** Opens a FilterBar's 篩選 popover (if closed) and returns the named filter's select trigger (a combobox button). */
+export async function filterSelect(name: string): Promise<HTMLElement> {
   if (!screen.queryByRole('combobox', { name })) {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: /^Filter/ })); });
   }
-  return screen.getByRole('combobox', { name }) as HTMLSelectElement;
+  return screen.getByRole('combobox', { name });
+}
+
+/** Opens a filter select's option list (if closed) and returns it. */
+export async function filterOptions(name: string): Promise<HTMLElement> {
+  const trigger = await filterSelect(name);
+  if (trigger.getAttribute('aria-expanded') !== 'true') await act(async () => { fireEvent.click(trigger); });
+  return document.getElementById(trigger.getAttribute('aria-controls') ?? '')!;
 }
 
 /** The SelectionBar, present once rows are picked. */

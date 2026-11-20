@@ -1,4 +1,4 @@
-import { Alert, Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
@@ -8,6 +8,7 @@ import { useCreateCostEntry, usePutCostEntry } from '../../api/vendorOrders';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
+import { SelectField } from '../../components/ui/select';
 import {
   bodyOf, effective, emptyValues, entryIssues, forcesSeparate, linesRequestedBy, manualRemaining, noteRequired, typesFor, valuesOf, type EntryValues, type Issue,
 } from './costEntries';
@@ -71,55 +72,28 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
           <Stack gap="3">
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="type" render={({ field }) => (
-                <FormField label={tc('type')} helperText={!placed ? tc('placedOnlyHint') : undefined} errorText={err('type')} required>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => { const x = e.currentTarget.value as typeof field.value; if (!x) return; field.onChange(x); if (forcesSeparate(x)) form.setValue('settlement', 'separate'); recheck(); }}
-                    >
-                      {!field.value && <option value="" />}
-                      {[...new Set([...typesFor(placed), ...(entry ? [entry.type] : [])])].map((x) => (
-                        <option key={x} value={x}>{tc(`types.${x}`)}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={tc('type')} name={field.name} value={field.value} errorText={err('type')} required
+                  onChange={(x) => { if (!x) return; field.onChange(x); if (forcesSeparate(x)) form.setValue('settlement', 'separate'); recheck(); }}
+                  options={[...new Set([...typesFor(placed), ...(entry ? [entry.type] : [])])].map((x) => ({ value: x, label: tc(`types.${x}`) }))}
+                  helperText={!placed ? tc('placedOnlyHint') : undefined}
+                />
               )} />
               <Controller control={form.control} name="settlement" render={({ field }) => (
-                <FormField label={tc('settlement')} helperText={forcesSeparate(v.type) ? tc('forcedSeparate') : tc(`settlementHelp.${separate ? 'separate' : 'with_checkout'}`)} required disabled={forcesSeparate(v.type)}>
-                  <NativeSelect.Root size="md" disabled={forcesSeparate(v.type)}>
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={separate ? 'separate' : 'with_checkout'}
-                      onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    >
-                      <option value="with_checkout">{tc('settlements.with_checkout')}</option>
-                      <option value="separate">{tc('settlements.separate')}</option>
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={tc('settlement')} name={field.name} value={separate ? 'separate' : 'with_checkout'} disabled={forcesSeparate(v.type)} required
+                  onChange={(x) => x && field.onChange(x)}
+                  options={[{ value: 'with_checkout', label: tc('settlements.with_checkout') }, { value: 'separate', label: tc('settlements.separate') }]}
+                  helperText={forcesSeparate(v.type) ? tc('forcedSeparate') : tc(`settlementHelp.${separate ? 'separate' : 'with_checkout'}`)}
+                />
               )} />
             </SimpleGrid>
             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
               <Controller control={form.control} name="currency" render={({ field }) => (
-                <FormField label={tc('currency')} helperText={!separate ? tc('currencyLocked', { currency: order.currency }) : undefined} disabled={!separate}>
-                  <NativeSelect.Root size="md" disabled={!separate}>
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={currency ?? ''}
-                      onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    >
-                      {!currency && <option value="" />}
-                      {supported.map((o) => (
-                        <option key={o} value={o}>{o}</option>
-                      ))}
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={tc('currency')} name={field.name} value={currency} disabled={!separate} onChange={(x) => x && field.onChange(x)} options={supported}
+                  helperText={!separate ? tc('currencyLocked', { currency: order.currency }) : undefined}
+                />
               )} />
               <FormField
                 label={tc('amount', { currency })} required errorText={err('amount')}
@@ -135,39 +109,20 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
             )}
             {v.type === 'refund' && (
               <Controller control={form.control} name="refundMethod" render={({ field }) => (
-                <FormField label={tc('refundMethod')} helperText={field.value === 'coupon' ? tc('couponRefundHint') : undefined}>
-                  <NativeSelect.Root size="md">
-                    <NativeSelect.Field
-                      name={field.name}
-                      value={field.value ?? ''}
-                      onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                    >
-                      {!field.value && <option value="" />}
-                      <option value="cash">{tc('methods.cash')}</option>
-                      <option value="coupon">{tc('methods.coupon')}</option>
-                    </NativeSelect.Field>
-                    <NativeSelect.Indicator />
-                  </NativeSelect.Root>
-                </FormField>
+                <SelectField
+                  label={tc('refundMethod')} name={field.name} value={field.value} onChange={(x) => x && field.onChange(x)}
+                  options={[{ value: 'cash', label: tc('methods.cash') }, { value: 'coupon', label: tc('methods.coupon') }]}
+                  helperText={field.value === 'coupon' ? tc('couponRefundHint') : undefined}
+                />
               )} />
             )}
 
             <Controller control={form.control} name="mode" render={({ field }) => (
-              <FormField label={tc('splitTo')} helperText={tc(`modeHelp.${v.mode}`)}>
-                <NativeSelect.Root size="md">
-                  <NativeSelect.Field
-                    name={field.name}
-                    value={field.value ?? ''}
-                    onChange={(e) => { const x = e.currentTarget.value; if (x) { field.onChange(x); recheck(); } }}
-                  >
-                    {!field.value && <option value="" />}
-                    {(['all', 'teams', 'lines', 'manual'] as const).map((m) => (
-                      <option key={m} value={m}>{tc(`modes.${m}`)}</option>
-                    ))}
-                  </NativeSelect.Field>
-                  <NativeSelect.Indicator />
-                </NativeSelect.Root>
-              </FormField>
+              <SelectField
+                label={tc('splitTo')} name={field.name} value={field.value} onChange={(x) => { if (x) { field.onChange(x); recheck(); } }}
+                options={(['all', 'teams', 'lines', 'manual'] as const).map((m) => ({ value: m, label: tc(`modes.${m}`) }))}
+                helperText={tc(`modeHelp.${v.mode}`)}
+              />
             )} />
             {v.mode === 'teams' && (
               <Stack gap="1">
@@ -195,26 +150,16 @@ function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open
             {v.mode === 'lines' && (
               <Stack gap="2">
                 {byRequester.size > 0 && (
-                  <FormField label={tc('byRequester')} helperText={tc('byRequesterHelp')}>
-                    <NativeSelect.Root size="md">
-                      <NativeSelect.Field
-                        value=""
-                        onChange={(e) => {
-                          const r = e.currentTarget.value;
-                          if (!r) return;
-                          const picked = linesRequestedBy(order.lines, r);
-                          form.setValue('lineIds', [...new Set([...form.getValues('lineIds'), ...picked])]);
-                          recheck();
-                        }}
-                      >
-                        <option value="">{tc('byRequesterPlaceholder')}</option>
-                        {[...byRequester].map(([id, r]) => (
-                          <option key={id} value={id}>{`${r.name} (${tc('lineCount', { count: r.count })})`}</option>
-                        ))}
-                      </NativeSelect.Field>
-                      <NativeSelect.Indicator />
-                    </NativeSelect.Root>
-                  </FormField>
+                  <SelectField
+                    label={tc('byRequester')} value="" placeholder={tc('byRequesterPlaceholder')} helperText={tc('byRequesterHelp')}
+                    onChange={(r) => {
+                      if (!r) return;
+                      const picked = linesRequestedBy(order.lines, r);
+                      form.setValue('lineIds', [...new Set([...form.getValues('lineIds'), ...picked])]);
+                      recheck();
+                    }}
+                    options={[...byRequester].map(([id, r]) => ({ value: id, label: `${r.name} (${tc('lineCount', { count: r.count })})` }))}
+                  />
                 )}
                 <Controller control={form.control} name="lineIds" render={({ field }) => (
                   <Fieldset.Root>

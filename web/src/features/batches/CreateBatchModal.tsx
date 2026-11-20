@@ -1,4 +1,4 @@
-import { Alert, Button, Dialog, Input, NativeSelect, Stack, Switch, Text, Textarea } from '@chakra-ui/react';
+import { Alert, Button, Dialog, Input, Stack, Switch, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useState } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
@@ -11,6 +11,7 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { paths } from '../../paths';
 
 interface InnerProps {
@@ -41,20 +42,10 @@ function Inner({ team, teams, onTeamChange, onClose }: InnerProps) {
       <Dialog.Body>
         <form id="create-batch-form" onSubmit={submit} noValidate>
           <Stack gap="3">
-            <FormField label={t('filters.team')}>
-              <NativeSelect.Root size="md">
-                <NativeSelect.Field
-                  value={team.teamId ?? ''}
-                  onChange={(e) => e.currentTarget.value && onTeamChange(e.currentTarget.value)}
-                >
-                  {!team.teamId && <option value="" />}
-                  {teams.map((m) => (
-                    <option key={m.teamId} value={m.teamId}>{m.name}</option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </FormField>
+            <SelectField
+              label={t('filters.team')} value={team.teamId} onChange={(v) => v && onTeamChange(v)}
+              options={teams.map((m) => ({ value: m.teamId, label: m.name }))}
+            />
             <FormField label={t('create.title')} required errorText={fieldError(form.formState.errors.title)}>
               <Input maxLength={200} {...form.register('title')} />
             </FormField>

@@ -29,31 +29,30 @@ export function localInputInDays(days: number): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-/** The Items tab's status checkboxes, behind the Filter button; opens the popover when it is closed. */
-async function statusGroup(page: Page): Promise<Locator> {
-  const group = page.getByRole('group', { name: 'Status' });
-  if (!(await group.isVisible())) await page.getByRole('button', { name: /^Filter/ }).click();
-  await expect(group).toBeVisible();
-  return group;
+/** The Items tab's Status filter (a multi-select behind the Filter button): opens the popover and the list when closed. */
+async function statusOptions(page: Page): Promise<Locator> {
+  const trigger = page.getByRole('combobox', { name: 'Status', exact: true });
+  if (!(await trigger.isVisible())) await page.getByRole('button', { name: /^Filter/ }).click();
+  const list = page.getByRole('listbox', { name: 'Status', exact: true });
+  if (!(await list.isVisible())) await trigger.click();
+  await expect(list).toBeVisible();
+  return list;
 }
 
-/** The labels of the ticked statuses. */
+/** The labels of the chosen statuses. */
 export async function checkedStatuses(page: Page): Promise<string[]> {
-  const boxes = (await statusGroup(page)).getByRole('checkbox');
-  const out: string[] = [];
-  for (const box of await boxes.all()) {
-    if (await box.isChecked()) out.push(((await box.locator('xpath=ancestor::label').textContent()) ?? '').trim());
-  }
-  return out;
+  const chosen = (await statusOptions(page)).getByRole('option', { selected: true });
+  return (await chosen.allTextContents()).map((t) => t.trim());
 }
 
-/** Ticks exactly the given statuses (none = show all) and closes the popover. */
+/** Chooses exactly the given statuses (none = show all) and closes the list and the popover. */
 export async function showStatuses(page: Page, labels: string[]): Promise<void> {
-  const group = await statusGroup(page);
-  for (const box of await group.getByRole('checkbox').all()) {
-    const label = ((await box.locator('xpath=ancestor::label').textContent()) ?? '').trim();
-    if ((await box.isChecked()) !== labels.includes(label)) await box.setChecked(labels.includes(label), { force: true });
+  const list = await statusOptions(page);
+  for (const option of await list.getByRole('option').all()) {
+    const label = ((await option.textContent()) ?? '').trim();
+    if ((await option.getAttribute('aria-selected') === 'true') !== labels.includes(label)) await option.click();
   }
+  await page.keyboard.press('Escape');
   await page.keyboard.press('Escape');
 }
 

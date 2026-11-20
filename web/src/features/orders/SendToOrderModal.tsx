@@ -1,5 +1,4 @@
-import { Alert, Button, Dialog, NativeSelect, Stack, Text } from '@chakra-ui/react';
-import { FormField } from '../../components/ui/field';
+import { Alert, Button, Dialog, Stack, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useMeta } from '../../api/meta';
@@ -8,6 +7,7 @@ import { useVendors } from '../../api/vendors';
 import type { QueueItem } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
+import { SelectField } from '../../components/ui/select';
 
 interface Props {
   items: QueueItem[];
@@ -54,50 +54,16 @@ function Form({ items, vendorId: initialVendor, otherTeamCount, onDone }: Omit<P
               <Alert.Description>{t('send.mergeHint', { count: otherTeamCount })}</Alert.Description>
             </Alert.Root>
           )}
-          <FormField label={t('list.vendor')}>
-            <NativeSelect.Root size="md">
-              <NativeSelect.Field
-                value={vendorId ?? ''}
-                onChange={(e) => { const v = e.currentTarget.value; setVendorId(v); setTarget('new'); }}
-              >
-                <option value="">{t('send.chooseVendor')}</option>
-                {vendors.map((v) => (
-                  <option key={v.id} value={v.id}>{v.name}</option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </FormField>
-          <FormField label={t('send.target')} disabled={!vendorId}>
-            <NativeSelect.Root size="md" disabled={!vendorId}>
-              <NativeSelect.Field
-                value={target ?? ''}
-                onChange={(e) => setTarget(e.currentTarget.value)}
-              >
-                {!target && <option value="" />}
-                <option value="new">{t('send.newOrder')}</option>
-                {draftOrders.map((o) => (
-                  <option key={o.id} value={o.id}>{t('send.addTo', { number: o.number, count: o.lineCount })}</option>
-                ))}
-              </NativeSelect.Field>
-              <NativeSelect.Indicator />
-            </NativeSelect.Root>
-          </FormField>
+          <SelectField
+            label={t('list.vendor')} value={vendorId} onChange={(v) => { setVendorId(v); setTarget('new'); }} placeholder={t('send.chooseVendor')}
+            options={vendors.map((v) => ({ value: v.id, label: v.name }))}
+          />
+          <SelectField
+            label={t('send.target')} value={target} onChange={setTarget} disabled={!vendorId}
+            options={[{ value: 'new', label: t('send.newOrder') }, ...draftOrders.map((o) => ({ value: o.id, label: t('send.addTo', { number: o.number, count: o.lineCount }) }))]}
+          />
           {target === 'new' && (
-            <FormField label={t('details.currency')} disabled={!vendorId}>
-              <NativeSelect.Root size="md" disabled={!vendorId}>
-                <NativeSelect.Field
-                  value={currency ?? ''}
-                  onChange={(e) => setCurrency(e.currentTarget.value)}
-                >
-                  <option value="">{t('send.defaultCurrency', { currency: vendor?.defaultCurrency ?? '' })}</option>
-                  {supported.map((o) => (
-                    <option key={o} value={o}>{o}</option>
-                  ))}
-                </NativeSelect.Field>
-                <NativeSelect.Indicator />
-              </NativeSelect.Root>
-            </FormField>
+            <SelectField label={t('details.currency')} value={currency} onChange={setCurrency} placeholder={t('send.defaultCurrency', { currency: vendor?.defaultCurrency ?? '' })} options={supported} disabled={!vendorId} />
           )}
           <ErrorAlert error={create.error ?? addTo.error} />
         </Stack>

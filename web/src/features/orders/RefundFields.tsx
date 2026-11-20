@@ -1,10 +1,11 @@
-import { Input, NativeSelect, Stack } from '@chakra-ui/react';
+import { Input, Stack } from '@chakra-ui/react';
 import { Controller, useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
 import { useMeta } from '../../api/meta';
 import { FormField } from '../../components/ui/field';
 import { amountText, useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { currencyFractionDigits, validateAmount } from '../money';
 
 /** Form values of the optional refund of a line closure or problem resolution. A blank amount means no refund. */
@@ -57,22 +58,7 @@ export function RefundFields({ currency, baseCurrency }: { currency: string; bas
   return (
     <Stack gap="3">
       <Controller control={control} name="refundCurrency" render={({ field }) => (
-        <FormField label={t('refundInput.currency')}>
-          <NativeSelect.Root size="md">
-            <NativeSelect.Field
-              name={field.name}
-              value={field.value ?? ''}
-              onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-              onBlur={field.onBlur}
-            >
-              {!field.value && <option value="" />}
-              {currencies.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
+        <SelectField label={t('refundInput.currency')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur} options={currencies} />
       )} />
       <FormField label={t('refundInput.amount', { currency })} helperText={t('refundInput.amountHelp')} errorText={fieldError(errors.refund)}>
         <Input inputMode="decimal" {...register('refund')} />
@@ -83,21 +69,10 @@ export function RefundFields({ currency, baseCurrency }: { currency: string; bas
         </FormField>
       )}
       <Controller control={control} name="refundMethod" render={({ field }) => (
-        <FormField label={t('refundInput.method')}>
-          <NativeSelect.Root size="md">
-            <NativeSelect.Field
-              name={field.name}
-              value={field.value ?? ''}
-              onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-              onBlur={field.onBlur}
-            >
-              {!field.value && <option value="" />}
-              <option value="cash">{t('refundInput.cash')}</option>
-              <option value="coupon">{t('refundInput.coupon')}</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
+        <SelectField
+          label={t('refundInput.method')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+          options={[{ value: 'cash', label: t('refundInput.cash') }, { value: 'coupon', label: t('refundInput.coupon') }]}
+        />
       )} />
       <FormField label={t('refundInput.note')}>
         <Input {...register('refundNote')} />

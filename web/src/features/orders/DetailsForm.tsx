@@ -1,4 +1,4 @@
-import { Box, Button, Card, Checkbox, CheckboxGroup, Fieldset, HStack, Input, NativeSelect, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
+import { Box, Button, Card, Checkbox, CheckboxGroup, Fieldset, HStack, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { SectionHeader, toaster } from '@team6083/ui';
 import { Controller, useForm } from 'react-hook-form';
@@ -10,6 +10,7 @@ import type { Vendor, VendorOrder } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { FormField } from '../../components/ui/field';
 import { useFieldError } from '../../components/ui/form';
+import { SelectField } from '../../components/ui/select';
 import { useRoleHolders } from '../../api/members';
 import { validateAmount } from '../money';
 
@@ -93,40 +94,13 @@ export function DetailsForm({ order, vendors, supported, baseDigits, headingAs =
               {draft && (
                 <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                   <Controller control={form.control} name="vendorId" render={({ field }) => (
-                    <FormField label={t('details.vendor')}>
-                      <NativeSelect.Root size="md">
-                        <NativeSelect.Field
-                          name={field.name}
-                          value={field.value ?? ''}
-                          onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                          onBlur={field.onBlur}
-                        >
-                          {!field.value && <option value="" />}
-                          {vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => (
-                            <option key={v.id} value={v.id}>{v.name}</option>
-                          ))}
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                    </FormField>
+                    <SelectField
+                      label={t('details.vendor')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur}
+                      options={vendors.filter((v) => v.active || v.id === order.vendorId).map((v) => ({ value: v.id, label: v.name }))}
+                    />
                   )} />
                   <Controller control={form.control} name="currency" render={({ field }) => (
-                    <FormField label={t('details.currency')}>
-                      <NativeSelect.Root size="md">
-                        <NativeSelect.Field
-                          name={field.name}
-                          value={field.value ?? ''}
-                          onChange={(e) => e.currentTarget.value && field.onChange(e.currentTarget.value)}
-                          onBlur={field.onBlur}
-                        >
-                          {!field.value && <option value="" />}
-                          {supported.map((o) => (
-                            <option key={o} value={o}>{o}</option>
-                          ))}
-                        </NativeSelect.Field>
-                        <NativeSelect.Indicator />
-                      </NativeSelect.Root>
-                    </FormField>
+                    <SelectField label={t('details.currency')} name={field.name} value={field.value} onChange={(v) => v && field.onChange(v)} onBlur={field.onBlur} options={supported} />
                   )} />
                 </SimpleGrid>
               )}

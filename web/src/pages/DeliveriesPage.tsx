@@ -1,11 +1,12 @@
 import { deliveryLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Input, NativeSelect, Stack } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Input, Stack } from '@chakra-ui/react';
 import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPackageOpen } from 'react-icons/lu';
 import { useDeliveryList, type DeliveryFilters } from '../api/deliveries';
 import type { DeliverySummary } from '../api/types';
+import { FilterSelect } from '../components/FilterSelect';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
 import { FormField } from '../components/ui/field';
@@ -46,19 +47,11 @@ export function DeliveriesPage() {
       <FilterBar
         mb="0" search={{ value: search, onChange: setSearch, placeholder: t('list.search') }} activeCount={activeCount} onClear={() => setFilters(DEFAULT_FILTERS)}
       >
-        <FormField label={t('list.voidedFilter')}>
-          <NativeSelect.Root size="sm">
-            <NativeSelect.Field
-              value={filters.voided ?? ''}
-              onChange={(e) => setFilters({ ...filters, voided: (e.currentTarget.value as 'true' | 'false' | '') || undefined })}
-            >
-              <option value="">{t('list.all')}</option>
-              <option value="false">{t('list.active')}</option>
-              <option value="true">{t('voided')}</option>
-            </NativeSelect.Field>
-            <NativeSelect.Indicator />
-          </NativeSelect.Root>
-        </FormField>
+        <FilterSelect
+          label={t('list.voidedFilter')} value={filters.voided} allLabel={t('list.all')}
+          onChange={(v) => setFilters({ ...filters, voided: (v as 'true' | 'false' | '') || undefined })}
+          options={[{ value: 'false', label: t('list.active') }, { value: 'true', label: t('voided') }]}
+        />
         <FormField label={t('list.from')}>
           <Input size="sm" type="date" value={filters.from ?? ''} onChange={(e) => setFilters({ ...filters, from: e.currentTarget.value || undefined })} />
         </FormField>
