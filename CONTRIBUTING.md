@@ -45,6 +45,8 @@ npm run build
 npm audit --audit-level=high      # main and weekly CI only
 ```
 
+**`package-lock.json` is the source of truth for versions.** `package.json` uses caret ranges (`^`), so always install with `npm ci`, never `npm install`, and commit the lockfile with any dependency change. Two exceptions stay pinned: `@team6083/ui` is an exact version (see "Web UI package" below), and `typescript` is `~6.0.x` (see `.github/dependabot.yml`).
+
 End-to-end tests (Playwright against Keycloak, MongoDB, the server image and the production build; needs Docker):
 
 ```sh
