@@ -50,7 +50,7 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(screen.getByText('2 pending')).toBeTruthy();
     expect(await screen.findByRole('link', { name: 'Robotics' })).toBeTruthy();
     expect(screen.getByRole('heading', { name: 'Home' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Open menu' })).toBeTruthy();
+    expect(screen.getByLabelText('Open menu')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Alice Example' })).toBeTruthy();
   });
 
