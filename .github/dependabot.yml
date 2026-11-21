@@ -9,10 +9,11 @@ updates:
     schedule:
       interval: weekly
     ignore:
-      # typescript-eslint peer range is <6.1.0 and eslint crashes on TS 7; remove once it supports TS 7.1+
+      # Stay on TypeScript 6.0.x: the typescript-eslint peer range is <6.1.0 and eslint crashes on TS 7;
+      # remove once typescript-eslint supports TS 7.1+
       # (https://github.com/typescript-eslint/typescript-eslint/issues/10940)
       - dependency-name: "typescript"
-        versions: [">=7"]
+        versions: [">=6.1"]
   - package-ecosystem: github-actions
     directory: /
     schedule:
