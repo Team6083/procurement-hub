@@ -23,14 +23,9 @@ Unknown fields are rejected. If `config.json` is missing or invalid, the app sho
 
 The OIDC client must allow `<site origin><base path>auth/callback` as a redirect URI and `<site origin><base path>` as a post-logout redirect URI; the site origin must also be in the API's `CORS_ALLOWED_ORIGINS`. See [`../docs/keycloak.md`](../docs/keycloak.md).
 
-## Private UI package
+## UI package
 
-The UI comes from `@team6083/ui` (the team's theme, frame and standard pages), a private package on GitHub Packages. `.npmrc` points the `@team6083` scope there and reads the token from `NODE_AUTH_TOKEN`, so every `npm ci` or `npm install` needs it:
-
-- **Your machine:** a classic token with `read:packages`. With the GitHub CLI: `gh auth refresh -h github.com -s read:packages`, then `export NODE_AUTH_TOKEN=$(gh auth token)`.
-- **GitHub Actions:** the workflows pass `GITHUB_TOKEN` with `packages: read`. The package must grant this repository read access once (the package's page → Package settings → Manage Actions access).
-- **Cloudflare builds:** set `NODE_AUTH_TOKEN` as a build secret.
-- **Dependabot:** the `TEAM6083_PACKAGES_TOKEN` Dependabot secret.
+The UI comes from [`@team6083/ui`](https://www.npmjs.com/package/@team6083/ui) (the team's theme, frame and standard pages), a public package on npm. No token or registry setting is needed.
 
 ## Commands
 
@@ -80,7 +75,7 @@ A production build (`NODE_ENV=production`, `CI=true`, or any `vite build`) fails
 
 ## Deploying to Cloudflare
 
-Set the environment variable `APP_CONFIG` to the whole `config.json` and `NODE_AUTH_TOKEN` to a token that can read `@team6083/ui` (see "Private UI package"), and run `npm ci && npm run build:cloudflare` with root directory `web`. `scripts/write-config.mjs` validates `APP_CONFIG` with the same schema the app uses and fails the build if it is missing or invalid. It writes:
+Set the environment variable `APP_CONFIG` to the whole `config.json`, and run `npm ci && npm run build:cloudflare` with root directory `web`. `scripts/write-config.mjs` validates `APP_CONFIG` with the same schema the app uses and fails the build if it is missing or invalid. It writes:
 
 - `dist/config.json`: the validated config (with the default scope filled in).
 - `dist/_headers` (built by `scripts/csp.mjs`), for every path:

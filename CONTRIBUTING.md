@@ -77,7 +77,7 @@ CI also builds the image from [`server/Dockerfile`](server/Dockerfile) without p
 
 ## Web UI package
 
-The web app's frame, theme and standard pages come from the private package `@team6083/ui` (installation: [`web/README.md`](web/README.md)). Its design rules are in `DESIGN.md` inside the package (`node_modules/@team6083/ui/DESIGN.md`):
+The web app's frame, theme and standard pages come from the package `@team6083/ui` on npm. Its design rules are in `DESIGN.md` inside the package (`node_modules/@team6083/ui/DESIGN.md`):
 
 - One `PageHeader` per page, with the status as its badge; sections use `SectionHeader` with the count as a badge and actions on the right.
 - An empty list is an `EmptyState`, never a line of grey text; the first load shows skeletons, not a spinner.

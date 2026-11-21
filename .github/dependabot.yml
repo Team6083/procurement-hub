@@ -1,10 +1,4 @@
 version: 2
-registries:
-  # @team6083/ui; the Dependabot secret holds a classic token with read:packages.
-  team6083-npm:
-    type: npm-registry
-    url: https://npm.pkg.github.com
-    token: ${{secrets.TEAM6083_PACKAGES_TOKEN}}
 updates:
   - package-ecosystem: gomod
     directory: /server
@@ -12,8 +6,6 @@ updates:
       interval: weekly
   - package-ecosystem: npm
     directory: /web
-    registries:
-      - team6083-npm
     schedule:
       interval: weekly
   - package-ecosystem: github-actions
