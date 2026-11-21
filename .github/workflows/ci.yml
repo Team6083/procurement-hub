@@ -24,46 +24,43 @@ env:
 jobs:
   # Pull requests only fail on vulnerabilities they introduce. Vulnerabilities
   # already in the tree are found by the `vulnerabilities` job below.
-  # dependency-review:
-  #   name: dependency review
-  #   if: github.event_name == 'pull_request'
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #       with:
-  #         persist-credentials: false
-  #     - uses: actions/dependency-review-action@v4
-  #       with:
-  #         fail-on-severity: high
+  dependency-review:
+    name: dependency review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
 
-  # vulnerabilities:
-  #   name: vulnerabilities (main and weekly)
-  #   if: github.event_name != 'pull_request'
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     contents: read
-  #     packages: read
-  #   steps:
-  #     - uses: actions/checkout@v7
-  #       with:
-  #         persist-credentials: false
-  #     - uses: actions/setup-go@v7
-  #       with:
-  #         go-version-file: server/go.mod
-  #         cache-dependency-path: server/go.sum
-  #     - name: govulncheck
-  #       working-directory: server
-  #       run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
-  #     - uses: actions/setup-node@v7
-  #       with:
-  #         node-version-file: web/package.json
-  #         cache: npm
-  #         cache-dependency-path: web/package-lock.json
-  #     - name: npm audit
-  #       working-directory: web
-  #       run: |
-  #         npm ci
-  #         npm audit --audit-level=high
+  vulnerabilities:
+    name: vulnerabilities (main and weekly)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: govulncheck
+        working-directory: server
+        run: go run "golang.org/x/vuln/cmd/govulncheck@${GOVULNCHECK_VERSION}" ./...
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: web/package.json
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: npm audit
+        working-directory: web
+        run: |
+          npm ci
+          npm audit --audit-level=high
 
   server:
     name: server (Go)

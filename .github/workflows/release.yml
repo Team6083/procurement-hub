@@ -76,8 +76,8 @@ jobs:
 
   sign:
     name: sign image
-    # Off by default. Keyless signatures are recorded in the public Sigstore
-    # transparency log, so leave ENABLE_SIGNING unset while the repo is private.
+    # Off by default; set the repository variable ENABLE_SIGNING to "true".
+    # Keyless signatures are recorded in the public Sigstore transparency log.
     if: vars.ENABLE_SIGNING == 'true'
     needs: image
     runs-on: ubuntu-latest
