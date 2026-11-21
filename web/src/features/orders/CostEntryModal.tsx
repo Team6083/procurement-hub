@@ -1,5 +1,6 @@
 import { Alert, Box, Button, Checkbox, CheckboxGroup, Dialog, Fieldset, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
+import type { TOptions } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { useState } from 'react';
 import { useBaseCurrency, useMeta } from '../../api/meta';
@@ -25,7 +26,7 @@ interface Props {
 
 function Form({ order, teamName, baseDigits, entry, onClose }: Omit<Props, 'open'>) {
   const { t } = useTranslation('purchasing');
-  const tc = (k: string, o?: Record<string, unknown>) => t(`costs.${k}`, o);
+  const tc = (k: string, o: TOptions = {}) => t(`costs.${k}`, o);
   const baseCurrency = useBaseCurrency();
   const supported = useMeta().data?.supportedCurrencies ?? [order.currency];
   const create = useCreateCostEntry(order.id);
