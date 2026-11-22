@@ -233,6 +233,9 @@ func cleanAliases(in []string) ([]string, error) {
 		seen[strings.ToLower(a)] = true
 		out = append(out, a)
 	}
+	if len(out) > 50 {
+		return nil, Invalid("aliases", "at most 50")
+	}
 	return out, nil
 }
 
