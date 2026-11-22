@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"math/big"
 	"sort"
 
@@ -135,7 +136,12 @@ func abs32(x int32) int32 {
 	return x
 }
 
+// minorDecimal turns an amount in minor units into a decimal. digits is a
+// currency's minor-unit digit count, which config and ISO 4217 keep in 0-4.
 func minorDecimal(n *big.Int, digits int) decimal.Decimal {
+	if digits < 0 || digits > 4 {
+		panic(fmt.Sprintf("minorDecimal: minor-unit digits %d out of range 0-4", digits))
+	}
 	return decimal.NewFromBigInt(n, -int32(digits))
 }
 
