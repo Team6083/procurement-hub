@@ -207,8 +207,9 @@ func Load(getenv func(string) string) (*Config, error) {
 		n, err := strconv.Atoi(d)
 		if err != nil || n < 0 || n > 4 {
 			fail("BASE_CURRENCY_DECIMALS: must be an integer 0-4, got %q", d)
+		} else {
+			c.BaseCurrencyDecimals = n
 		}
-		c.BaseCurrencyDecimals = n
 	}
 	c.SupportedCurrencies = []string{c.BaseCurrency}
 	if s := get("SUPPORTED_CURRENCIES"); s != "" {

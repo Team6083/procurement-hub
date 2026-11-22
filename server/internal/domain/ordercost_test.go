@@ -2,6 +2,7 @@ package domain
 
 import (
 	"errors"
+	"math/big"
 	"math/rand"
 	"strings"
 	"testing"
@@ -447,4 +448,13 @@ func TestCostSums(t *testing.T) {
 	if b := BatchCost([]CostSum{SumPlaced(nil)}); b.Has || b.Value != nil {
 		t.Errorf("batch with no placed lines is null: %+v", b)
 	}
+}
+
+func TestMinorDecimalRejectsOutOfRangeDigits(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("minorDecimal(1, 5) did not panic")
+		}
+	}()
+	minorDecimal(big.NewInt(1), 5)
 }
