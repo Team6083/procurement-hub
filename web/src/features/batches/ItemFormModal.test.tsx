@@ -7,7 +7,7 @@ import { ItemFormModal } from './ItemFormModal';
 beforeAll(() => void i18n.changeLanguage('en'));
 afterEach(cleanup);
 
-const meta = (lookupEnabled: boolean) => ({ version: '1', commit: 'unknown', baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled, emailEnabled: false });
+const meta = (lookupEnabled: boolean) => ({ build: { version: null, commit: null, builtAt: null }, baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled, emailEnabled: false });
 const found = { name: 'Wheel 5in', vendorId: null, vendorName: 'Acme Store', sku: 'W-5', unitPrice: { amount: '12.5', currency: 'USD' }, url: 'https://acme.example/w5', inStock: true };
 
 function show(routes: Record<string, unknown>) {

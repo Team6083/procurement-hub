@@ -7,6 +7,7 @@ import (
 )
 
 type MetaInfo struct {
+	Build               Version
 	BaseCurrency        string
 	SupportedCurrencies []string
 	LookupEnabled       bool
@@ -17,12 +18,23 @@ type MetaInfo struct {
 func MountMeta(r chi.Router, m MetaInfo) {
 	r.Get("/api/v1/meta", func(w http.ResponseWriter, req *http.Request) {
 		WriteJSON(w, http.StatusOK, map[string]any{
-			"version":             w.Header().Get("X-App-Version"),
-			"commit":              w.Header().Get("X-App-Commit"),
+			"build": map[string]any{
+				"version": nullIf(m.Build.Version, ""),
+				"commit":  nullIf(m.Build.Commit, "unknown"),
+				"builtAt": nullIf(m.Build.BuiltAt, ""),
+			},
 			"baseCurrency":        m.BaseCurrency,
 			"supportedCurrencies": m.SupportedCurrencies,
 			"lookupEnabled":       m.LookupEnabled,
 			"emailEnabled":        m.EmailEnabled,
 		})
 	})
+}
+
+// nullIf returns nil (JSON null) when s equals empty, else s.
+func nullIf(s, empty string) any {
+	if s == empty {
+		return nil
+	}
+	return s
 }

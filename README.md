@@ -24,7 +24,7 @@ Licensed under the [Apache License 2.0](LICENSE).
 | Cost report | Not yet |
 | Product lookup (part-finder): fills an item's name, vendor, SKU, price and URL from a SKU or product URL | Works (API and web UI) |
 
-Configuration variables for the missing features (`SMTP_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Version` and `X-App-Commit`.
+Configuration variables for the missing features (`SMTP_*`, `NOTIFY_DIGEST_WINDOW`, `WEBHOOK_ENCRYPTION_KEY`) are already validated at startup but have no effect yet; [`docs/configuration.md`](docs/configuration.md) marks them. The HTTP API is described in [`api/openapi.yaml`](api/openapi.yaml) (OpenAPI 3.1); responses carry `X-App-Commit`, and `X-App-Version` for release builds.
 
 ## Architecture
 
@@ -52,7 +52,7 @@ docker compose up -d   # pulls ghcr.io/team6083/procurement-hub:latest
 ```sh
 curl http://127.0.0.1:9090/healthz            # {"status":"ok"}
 curl http://127.0.0.1:9090/readyz             # 200 {"status":"ready"} once OIDC is loaded and migrations have run
-curl http://127.0.0.1:8080/api/v1/meta        # version, commit, base currency, supported currencies
+curl http://127.0.0.1:8080/api/v1/meta        # build info, base currency, supported currencies
 docker compose down -v                        # stop and delete the data
 ```
 
@@ -138,11 +138,12 @@ Release images are published to `ghcr.io/team6083/procurement-hub` (linux/amd64)
 ```sh
 docker build -t procurement-hub:local \
   --build-arg GO_VERSION="$(sed -n 's/^go //p' server/go.mod)" \
-  --build-arg VERSION=dev --build-arg COMMIT="$(git rev-parse HEAD)" \
+  --build-arg COMMIT="$(git rev-parse HEAD)" \
+  --build-arg BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   server
 ```
 
-The image is distroless, runs as UID/GID `65532`, works with a read-only root filesystem, and exposes `8080` (API) and `9090` (health and metrics). It runs `serve` by default; pass `migrate` as the container command for the migration job. `VERSION` and `COMMIT` end up in the `X-App-Version` and `X-App-Commit` response headers. The Go version comes from `server/go.mod`; the Dockerfile's `GO_VERSION` default must match it, which CI checks.
+The image is distroless, runs as UID/GID `65532`, works with a read-only root filesystem, and exposes `8080` (API) and `9090` (health and metrics). It runs `serve` by default; pass `migrate` as the container command for the migration job. The build arguments `VERSION` (release tag without the `v`; leave empty for any other build), `COMMIT` and `BUILT_AT` (UTC ISO 8601) end up in `GET /api/v1/meta` as `build.version`, `build.commit` and `build.builtAt` (`null` when empty or unknown). `COMMIT` is always sent in the `X-App-Commit` response header, and `VERSION` in `X-App-Version` only when it is set. The Go version comes from `server/go.mod`; the Dockerfile's `GO_VERSION` default must match it, which CI checks.
 
 The repository ships no deployment manifests; [`examples/`](examples/) has a Docker Compose setup for local trials.
 

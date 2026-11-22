@@ -3,8 +3,8 @@ info:
   title: procurement-hub API
   version: 0.1.0
   description: |
-    Common headers. Every response carries `X-App-Version`, `X-App-Commit`, `X-Request-ID` and
-    `X-Content-Type-Options: nosniff`. Clients may send `X-Request-ID` (1–128 characters from
+    Common headers. Every response carries `X-App-Commit`, `X-Request-ID` and
+    `X-Content-Type-Options: nosniff`, and `X-App-Version` when the build is a release tag. Clients may send `X-Request-ID` (1–128 characters from
     `A-Z a-z 0-9 - _ . :`) to correlate a request with server logs; the server echoes it, or generates an id
     when it is missing or invalid. Error responses document `X-Request-ID` explicitly; quote it when
     reporting a problem.
@@ -2584,12 +2584,18 @@ components:
       required: [items]
       properties:
         items: { type: array, items: { $ref: "#/components/schemas/RoleMapping" } }
+    BuildInfo:
+      type: object
+      required: [version, commit, builtAt]
+      properties:
+        version: { type: [string, "null"], description: "Release version without the leading v; null for builds that are not a release tag." }
+        commit: { type: [string, "null"], description: Git commit SHA; null when unknown. }
+        builtAt: { type: [string, "null"], format: date-time, description: Build time in UTC; null for local builds. }
     Meta:
       type: object
-      required: [version, commit, baseCurrency, supportedCurrencies, lookupEnabled, emailEnabled]
+      required: [build, baseCurrency, supportedCurrencies, lookupEnabled, emailEnabled]
       properties:
-        version: { type: string }
-        commit: { type: string }
+        build: { $ref: "#/components/schemas/BuildInfo" }
         baseCurrency: { type: string }
         supportedCurrencies: { type: array, items: { type: string } }
         lookupEnabled: { type: boolean }

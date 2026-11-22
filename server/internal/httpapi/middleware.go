@@ -15,15 +15,19 @@ import (
 
 // Version identifies the running build (spec §6.3).
 type Version struct {
-	Version string
+	Version string // empty for builds that are not a release tag
 	Commit  string
+	BuiltAt string // UTC ISO 8601, empty for local builds
 }
 
-// VersionHeaders adds X-App-Version and X-App-Commit to every response.
+// VersionHeaders adds X-App-Commit to every response, and X-App-Version when
+// the build has a version.
 func VersionHeaders(v Version) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-App-Version", v.Version)
+			if v.Version != "" {
+				w.Header().Set("X-App-Version", v.Version)
+			}
 			w.Header().Set("X-App-Commit", v.Commit)
 			next.ServeHTTP(w, r)
 		})

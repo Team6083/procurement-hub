@@ -23,7 +23,7 @@ afterAll(() => {
 afterEach(cleanup);
 
 const base: Routes = {
-  'GET /meta': { version: '1', commit: 'unknown', baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled: false, emailEnabled: false },
+  'GET /meta': { build: { version: null, commit: null, builtAt: null }, baseCurrency: 'TWD', supportedCurrencies: ['TWD', 'USD'], lookupEnabled: false, emailEnabled: false },
   'GET /me': me(),
   'GET /teams': { items: [{ id: 't1', slug: 'robotics', name: 'Robotics', description: 'Robot team', archived: false }], nextCursor: null },
   'GET /teams/t1': team(),

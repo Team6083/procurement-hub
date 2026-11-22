@@ -203,7 +203,7 @@ func newEnvOpts(t *testing.T, overrides map[string]string, undiscovered bool) *e
 	logs := &syncBuffer{}
 	h, _ := NewHandler(Deps{
 		Config: cfg, Store: st, Verifier: verifier, RoleMappings: service.NewRoleMappings(st),
-		Version: httpapi.Version{Version: "test", Commit: "abc123"},
+		Version: httpapi.Version{Version: "test", Commit: "abc123", BuiltAt: "2026-11-22T04:31:00Z"},
 		Logger:  slog.New(slog.NewJSONHandler(logs, nil)),
 	})
 
@@ -359,7 +359,7 @@ func (e *env) do(t *testing.T, c call) *result {
 	resp.SetBodyBytes(body)
 	// Common headers on every response (spec §16.1, §18.2).
 	if rec.Header().Get("X-Content-Type-Options") != "nosniff" || rec.Header().Get("X-Request-ID") == "" ||
-		rec.Header().Get("X-App-Version") == "" {
+		rec.Header().Get("X-App-Commit") == "" {
 		t.Fatalf("response to %s %s (status %d) lacks common headers: %v", c.method, c.path, rec.Code, rec.Header())
 	}
 	if err := openapi3filter.ValidateResponse(ctx, resp); err != nil {

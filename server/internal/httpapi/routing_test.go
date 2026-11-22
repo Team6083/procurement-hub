@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -30,6 +31,42 @@ func TestMetaIsPublicOthersRequireAuth(t *testing.T) {
 		if rec.Code != 401 {
 			t.Errorf("%s without token: got %d want 401", path, rec.Code)
 		}
+	}
+}
+
+func TestMetaBuild(t *testing.T) {
+	get := func(v Version) (*httptest.ResponseRecorder, map[string]any) {
+		r := chi.NewRouter()
+		r.Use(VersionHeaders(v))
+		MountMeta(r, MetaInfo{Build: v})
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest("GET", "/api/v1/meta", nil))
+		var body map[string]any
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return rec, body
+	}
+
+	// Non-tag build: no version, unknown commit and no build time are null; no X-App-Version.
+	rec, body := get(Version{Commit: "unknown"})
+	build, _ := body["build"].(map[string]any)
+	if build["version"] != nil || build["commit"] != nil || build["builtAt"] != nil {
+		t.Fatalf("non-tag build: %v", build)
+	}
+	if _, ok := rec.Header()["X-App-Version"]; ok || rec.Header().Get("X-App-Commit") != "unknown" {
+		t.Fatalf("non-tag headers: %v", rec.Header())
+	}
+	if _, ok := body["version"]; ok {
+		t.Fatal("top-level version must be gone")
+	}
+
+	// Tag build.
+	rec, body = get(Version{Version: "1.2.3", Commit: "abc", BuiltAt: "2026-11-22T04:31:00Z"})
+	build, _ = body["build"].(map[string]any)
+	if build["version"] != "1.2.3" || build["commit"] != "abc" || build["builtAt"] != "2026-11-22T04:31:00Z" ||
+		rec.Header().Get("X-App-Version") != "1.2.3" {
+		t.Fatalf("tag build: %v %v", build, rec.Header())
 	}
 }
 

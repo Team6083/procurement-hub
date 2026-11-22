@@ -26,8 +26,9 @@ import (
 
 // Set at build time via -ldflags.
 var (
-	version = "dev"
+	version = "" // release tag without the leading v; empty otherwise
 	commit  = "unknown"
+	builtAt = "" // UTC ISO 8601
 )
 
 func main() {
@@ -162,7 +163,7 @@ func serve() error {
 	reg := ops.NewRegistry()
 	handler, services := app.NewHandler(app.Deps{
 		Config: cfg, Store: st, Verifier: verifier, RoleMappings: rm,
-		Version: httpapi.Version{Version: version, Commit: commit}, Metrics: ops.NewHTTPMetrics(reg),
+		Version: httpapi.Version{Version: version, Commit: commit, BuiltAt: builtAt}, Metrics: ops.NewHTTPMetrics(reg),
 	})
 
 	host, _ := os.Hostname()

@@ -52,6 +52,7 @@ func NewHandler(d Deps) (http.Handler, *App) {
 	r.Use(httpapi.MaxBody(1 << 20))
 
 	httpapi.MountMeta(r, httpapi.MetaInfo{
+		Build:               d.Version,
 		BaseCurrency:        cfg.BaseCurrency,
 		SupportedCurrencies: cfg.SupportedCurrencies,
 		LookupEnabled:       cfg.LookupProvider != "none",
