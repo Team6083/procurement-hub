@@ -1,8 +1,9 @@
-import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, type NavItem } from '@team6083/ui';
+import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, commitsDiffer, type NavItem } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPackage, LuPackageCheck, LuShieldCheck, LuShoppingCart } from 'react-icons/lu';
 import { Link, useLocation } from 'react-router';
+import { useMeta } from '../api/meta';
 import { useSession } from '../auth/AuthGate';
 import { useAccess } from '../auth/useAccess';
 import { paths } from '../paths';
@@ -23,6 +24,11 @@ export function AppFrame({ children }: { children: ReactNode }) {
   const { isPurchaser: canPurchase, canSeeReceiving, isSystemAdmin } = useAccess();
   const { change } = useChangeLanguage();
   const { pathname } = useLocation();
+  const { data: meta } = useMeta();
+  // The footer shows the API's release version only while the SPA is the same build as the API (spec 6.3); the
+  // front end never derives a version itself. An unknown commit on either side is not "the same".
+  const appCommit = __APP_COMMIT__ === 'unknown' ? null : __APP_COMMIT__;
+  const sameCommit = appCommit !== null && !!meta?.build.commit && !commitsDiffer(appCommit, meta.build.commit);
   const name = (user.profile.name as string | undefined) ?? user.profile.email ?? t('user.unknown');
 
   // At most five pages per role (the team's DESIGN.md: Frame); vendor orders and vendors open from the Purchasing
@@ -64,7 +70,15 @@ export function AppFrame({ children }: { children: ReactNode }) {
           <SignOutMenuItem onSelect={() => void logout()} />
         </AccountMenu>
       }
-      buildInfo={<BuildInfo commit={__APP_COMMIT__ === 'unknown' ? null : __APP_COMMIT__} />}
+      buildInfo={
+        <BuildInfo
+          name="App"
+          commit={appCommit}
+          builtAt={__APP_BUILT_AT__}
+          version={sameCommit ? meta?.build.version : undefined}
+          components={meta ? [{ name: 'API', ...meta.build }] : []}
+        />
+      }
     >
       {children}
     </AppShell>

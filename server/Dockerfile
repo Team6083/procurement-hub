@@ -2,7 +2,8 @@
 #
 # Build context is this directory (server/):
 #   docker build --build-arg GO_VERSION="$(sed -n 's/^go //p' go.mod)" \
-#     --build-arg VERSION=1.2.3 --build-arg COMMIT="$(git rev-parse HEAD)" .
+#     --build-arg VERSION=1.2.3 --build-arg COMMIT="$(git rev-parse HEAD)" \
+#     --build-arg BUILT_AT="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
 #
 # The Go version lives only in go.mod (spec section 5.1). CI and the release
 # workflow always pass it as GO_VERSION; the default below is a fallback for
@@ -14,12 +15,13 @@ WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . ./
-ARG VERSION=dev
+ARG VERSION=
 ARG COMMIT=unknown
+ARG BUILT_AT=
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build -trimpath \
-    -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT}" \
+    -ldflags "-s -w -X main.version=${VERSION} -X main.commit=${COMMIT} -X main.builtAt=${BUILT_AT}" \
     -o /out/procurement-hub ./cmd/procurement-hub
 
 FROM gcr.io/distroless/static-debian12:nonroot

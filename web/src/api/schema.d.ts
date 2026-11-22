@@ -1720,9 +1720,19 @@ export interface components {
         RoleMappingList: {
             items: components["schemas"]["RoleMapping"][];
         };
+        BuildInfo: {
+            /** @description Release version without the leading v; null for builds that are not a release tag. */
+            version: string | null;
+            /** @description Git commit SHA; null when unknown. */
+            commit: string | null;
+            /**
+             * Format: date-time
+             * @description Build time in UTC; null for local builds.
+             */
+            builtAt: string | null;
+        };
         Meta: {
-            version: string;
-            commit: string;
+            build: components["schemas"]["BuildInfo"];
             baseCurrency: string;
             supportedCurrencies: string[];
             lookupEnabled: boolean;

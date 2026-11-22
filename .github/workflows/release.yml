@@ -35,8 +35,9 @@ jobs:
           if [ "$GITHUB_REF_TYPE" = tag ]; then
             echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=main-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+            echo "version=" >> "$GITHUB_OUTPUT"
           fi
+          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - name: Image tags
         id: meta
         uses: docker/metadata-action@v6
@@ -68,6 +69,7 @@ jobs:
             GO_VERSION=${{ steps.args.outputs.go }}
             VERSION=${{ steps.args.outputs.version }}
             COMMIT=${{ github.sha }}
+            BUILT_AT=${{ steps.args.outputs.built_at }}
           # SBOM and provenance attestations only when signing is enabled.
           sbom: ${{ vars.ENABLE_SIGNING == 'true' }}
           provenance: ${{ vars.ENABLE_SIGNING == 'true' && 'mode=max' || 'false' }}
