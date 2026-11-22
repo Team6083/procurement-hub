@@ -15,7 +15,7 @@
     "vendor_name_taken": "A vendor with this name or alias already exists.",
     "team_slug_taken": "A team with this slug already exists.",
     "team_archived": "This team is archived and read-only.",
-    "subgroup_exists": "A subgroup with this name already exists.",
+    "subgroup_name_conflict": "This name or alias is already used by another subgroup of the team (inactive subgroups included).",
     "member_no_role_source": "This member has no SSO role, so the manual role cannot be cleared. Remove the member instead.",
     "member_managed_by_sso": "This membership is managed by SSO and cannot be removed here.",
     "role_mapping_managed": "Managed rules are read-only.",

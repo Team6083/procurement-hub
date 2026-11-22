@@ -69,7 +69,7 @@ const at = '2026-01-01T00:00:00Z';
 export function team(over: Partial<Team> = {}): Team {
   return {
     id: 't1', slug: 'robotics', name: 'Robotics', description: '', visibility: 'members', locale: 'en',
-    priorityLabels: null, subgroups: [{ id: 'g1', name: 'Mechanical', active: true }, { id: 'g2', name: 'Electrical', active: true }],
+    priorityLabels: null, subgroups: [{ id: 'g1', name: 'Mechanical', aliases: ['Mech'], active: true }, { id: 'g2', name: 'Electrical', aliases: [], active: true }],
     archived: false, createdAt: at, updatedAt: at, version: 3, ...over,
   };
 }

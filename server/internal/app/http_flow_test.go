@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"strconv"
 	"testing"
 	"time"
 
@@ -267,7 +268,27 @@ func TestHTTPTeams(t *testing.T) {
 	sg := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: cur.ETag(), body: map[string]any{"name": "Hardware"}}).expect(200)
 	sgID := sg.JSON()["subgroups"].([]any)[0].(map[string]any)["id"].(string)
 	sg = w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: sg.ETag(), body: map[string]any{"active": false}}).expect(200)
-	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(422, "subgroup_exists")
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(409, "subgroup_name_conflict")
+	// Aliases: trimmed and deduplicated; clashes with names or aliases (case-insensitive, inactive included) are 409.
+	al := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "Software", "aliases": []string{" SW ", "sw", "", "Soft"}}}).expect(200)
+	if got := al.JSON()["subgroups"].([]any)[1].(map[string]any)["aliases"].([]any); len(got) != 2 || got[0] != "SW" || got[1] != "Soft" {
+		t.Errorf("aliases = %v", got)
+	}
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"SOFT"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"HARDWARE"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"sw"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"HW"}}}).expect(200)
+	// At most 50 aliases per subgroup (the server enforces what the OpenAPI schema states).
+	many := func(n int) []string {
+		out := make([]string, n)
+		for i := range out {
+			out[i] = "a" + strconv.Itoa(i)
+		}
+		return out
+	}
+	hw := w.do(t, call{token: w.adm, method: "GET", path: team}).expect(200)
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: map[string]any{"aliases": many(51)}, skipRequestValidation: true}).expect(400, "invalid_request")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: map[string]any{"aliases": many(50)}}).expect(200)
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")
@@ -375,4 +396,28 @@ func mustParse(t *testing.T, doc string) []domain.RoleMapping {
 		t.Fatal(err)
 	}
 	return rules
+}
+
+// A team document written before subgroups had aliases reads back with an empty list, not null.
+func TestSubgroupWithoutAliasesReadsEmpty(t *testing.T) {
+	w := setup(t)
+	res, err := w.st.DB.Collection("teams").InsertOne(context.Background(), bson.D{
+		{Key: "slug", Value: "legacy"}, {Key: "name", Value: "Legacy"}, {Key: "description", Value: ""},
+		{Key: "visibility", Value: "members"}, {Key: "locale", Value: "en"}, {Key: "archived", Value: false},
+		{Key: "priorityLabels", Value: bson.D{}}, {Key: "version", Value: 1},
+		{Key: "createdAt", Value: time.Now().UTC()}, {Key: "updatedAt", Value: time.Now().UTC()},
+		{Key: "subgroups", Value: bson.A{bson.D{{Key: "id", Value: "sg1"}, {Key: "name", Value: "Old"}, {Key: "active", Value: true}}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	id := res.InsertedID.(bson.ObjectID)
+	got, err := w.st.GetTeam(context.Background(), id)
+	if err != nil || got.Subgroups[0].Aliases == nil || len(got.Subgroups[0].Aliases) != 0 {
+		t.Fatalf("GetTeam = %+v, %v", got, err)
+	}
+	sg := w.do(t, call{token: w.root, method: "GET", path: "/api/v1/teams/" + id.Hex()}).expect(200).JSON()["subgroups"].([]any)[0].(map[string]any)
+	if a, ok := sg["aliases"].([]any); !ok || len(a) != 0 {
+		t.Errorf("aliases = %v", sg["aliases"])
+	}
 }

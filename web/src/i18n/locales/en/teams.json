@@ -80,7 +80,9 @@
   "subgroups": {
     "name": "Subgroup name",
     "add": "Add subgroup",
-    "rename": "Rename",
+    "edit": "Edit",
+    "aliases": "Aliases",
+    "aliasesHint": "One per line. Names and aliases are unique within the team, ignoring case, inactive subgroups included.",
     "deactivate": "Deactivate",
     "activate": "Activate",
     "inactive": "Inactive",

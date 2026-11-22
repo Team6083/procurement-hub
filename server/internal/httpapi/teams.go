@@ -315,13 +315,14 @@ func (a *TeamsAPI) addSubgroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name string `json:"name"`
+		Name    string   `json:"name"`
+		Aliases []string `json:"aliases"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	t, err := a.Teams.AddSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, req.Name)
+	t, err := a.Teams.AddSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, req.Name, req.Aliases)
 	a.respondTeam(w, r, t, err)
 }
 
@@ -336,13 +337,14 @@ func (a *TeamsAPI) patchSubgroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name   *string `json:"name"`
-		Active *bool   `json:"active"`
+		Name    *string   `json:"name"`
+		Aliases *[]string `json:"aliases"`
+		Active  *bool     `json:"active"`
 	}
 	if e := decode(r, &req); e != nil {
 		WriteError(w, e)
 		return
 	}
-	t, err := a.Teams.UpdateSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, chi.URLParam(r, "id"), req.Name, req.Active)
+	t, err := a.Teams.UpdateSubgroup(r.Context(), CallerFrom(r.Context()).Actor, id, ver, chi.URLParam(r, "id"), req.Name, req.Aliases, req.Active)
 	a.respondTeam(w, r, t, err)
 }

@@ -178,9 +178,7 @@ func (s *Store) SearchUsers(ctx context.Context, q, role string, limit int64) ([
 func (s *Store) CreateTeam(ctx context.Context, t *domain.Team) error {
 	now := time.Now().UTC()
 	t.CreatedAt, t.UpdatedAt, t.Version = now, now, 1
-	if t.Subgroups == nil {
-		t.Subgroups = []domain.Subgroup{}
-	}
+	normalizeTeam(t)
 	res, err := s.c("teams").InsertOne(ctx, t)
 	if err != nil {
 		return mapErr(err)
@@ -194,7 +192,21 @@ func (s *Store) GetTeam(ctx context.Context, id bson.ObjectID) (*domain.Team, er
 	if err := s.c("teams").FindOne(ctx, bson.D{{Key: "_id", Value: id}}).Decode(&t); err != nil {
 		return nil, mapErr(err)
 	}
+	normalizeTeam(&t)
 	return &t, nil
+}
+
+// normalizeTeam gives subgroups of documents written before aliases existed an empty list, so
+// the API never returns null.
+func normalizeTeam(t *domain.Team) {
+	if t.Subgroups == nil {
+		t.Subgroups = []domain.Subgroup{}
+	}
+	for i := range t.Subgroups {
+		if t.Subgroups[i].Aliases == nil {
+			t.Subgroups[i].Aliases = []string{}
+		}
+	}
 }
 
 func (s *Store) GetTeamBySlug(ctx context.Context, slug string) (*domain.Team, error) {
@@ -202,6 +214,7 @@ func (s *Store) GetTeamBySlug(ctx context.Context, slug string) (*domain.Team, e
 	if err := s.c("teams").FindOne(ctx, bson.D{{Key: "slug", Value: slug}}).Decode(&t); err != nil {
 		return nil, mapErr(err)
 	}
+	normalizeTeam(&t)
 	return &t, nil
 }
 
@@ -211,7 +224,13 @@ func (s *Store) ListTeams(ctx context.Context) ([]domain.Team, error) {
 		return nil, err
 	}
 	var out []domain.Team
-	return out, cur.All(ctx, &out)
+	if err := cur.All(ctx, &out); err != nil {
+		return nil, err
+	}
+	for i := range out {
+		normalizeTeam(&out[i])
+	}
+	return out, nil
 }
 
 // ---- memberships ----

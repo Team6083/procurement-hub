@@ -109,5 +109,6 @@ describe('logged-in pages render with Chakra and API data', () => {
     expect(await screen.findByRole('heading', { name: 'Robotics' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Subgroups' }).getAttribute('aria-selected')).toBe('true');
     expect(screen.getAllByText('Mechanical').length).toBeGreaterThan(0);
+    expect(screen.getByText('Mech')).toBeTruthy();
   });
 });

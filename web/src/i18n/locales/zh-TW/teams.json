@@ -80,7 +80,9 @@
   "subgroups": {
     "name": "子群組名稱",
     "add": "新增子群組",
-    "rename": "重新命名",
+    "edit": "編輯",
+    "aliases": "別名",
+    "aliasesHint": "每行一個。同一團隊內名稱與別名不可重複（不分大小寫，含已停用的子群組）。",
     "deactivate": "停用",
     "activate": "啟用",
     "inactive": "已停用",
