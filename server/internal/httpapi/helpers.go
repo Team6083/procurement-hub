@@ -83,7 +83,7 @@ func fail(w http.ResponseWriter, r *http.Request, err error) {
 		WriteError(w, e)
 	case errors.As(err, &re):
 		status := http.StatusUnprocessableEntity
-		if re.Code == "invalid_transition" {
+		if re.Code == "invalid_transition" || re.Code == "subgroup_name_conflict" {
 			status = http.StatusConflict // spec §16.1
 		}
 		e := NewError(status, re.Code, re.Message)

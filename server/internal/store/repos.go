@@ -181,6 +181,11 @@ func (s *Store) CreateTeam(ctx context.Context, t *domain.Team) error {
 	if t.Subgroups == nil {
 		t.Subgroups = []domain.Subgroup{}
 	}
+	for i := range t.Subgroups {
+		if t.Subgroups[i].Aliases == nil {
+			t.Subgroups[i].Aliases = []string{}
+		}
+	}
 	res, err := s.c("teams").InsertOne(ctx, t)
 	if err != nil {
 		return mapErr(err)

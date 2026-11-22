@@ -267,7 +267,16 @@ func TestHTTPTeams(t *testing.T) {
 	sg := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: cur.ETag(), body: map[string]any{"name": "Hardware"}}).expect(200)
 	sgID := sg.JSON()["subgroups"].([]any)[0].(map[string]any)["id"].(string)
 	sg = w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: sg.ETag(), body: map[string]any{"active": false}}).expect(200)
-	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(422, "subgroup_exists")
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "hardware"}}).expect(409, "subgroup_name_conflict")
+	// Aliases: trimmed and deduplicated; clashes with names or aliases (case-insensitive, inactive included) are 409.
+	al := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sg.ETag(), body: map[string]any{"name": "Software", "aliases": []string{" SW ", "sw", "", "Soft"}}}).expect(200)
+	if got := al.JSON()["subgroups"].([]any)[1].(map[string]any)["aliases"].([]any); len(got) != 2 || got[0] != "SW" || got[1] != "Soft" {
+		t.Errorf("aliases = %v", got)
+	}
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"SOFT"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"HARDWARE"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"sw"}}}).expect(409, "subgroup_name_conflict")
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"HW"}}}).expect(200)
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")

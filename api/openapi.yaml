@@ -485,7 +485,7 @@ paths:
     post:
       operationId: addSubgroup
       summary: Add a subgroup (team admin)
-      description: Returns the whole updated team. 422 `subgroup_exists` when the name exists (case-insensitive); 422 `team_archived` for archived teams.
+      description: Returns the whole updated team. `aliases` are trimmed; empty and duplicate ones are dropped. 409 `subgroup_name_conflict` when the name or an alias equals another subgroup's name or alias in the team (case-insensitive, inactive subgroups included); 422 `team_archived` for archived teams.
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -520,7 +520,7 @@ paths:
         schema: { type: string }
     patch:
       operationId: patchSubgroup
-      summary: Rename and/or (de)activate a subgroup (team admin; subgroups are never deleted)
+      summary: Rename, edit aliases of and/or (de)activate a subgroup (team admin; subgroups are never deleted)
       parameters:
         - $ref: "#/components/parameters/IfMatch"
       requestBody:
@@ -2285,14 +2285,14 @@ components:
           schema: { $ref: "#/components/schemas/Error" }
     Unprocessable:
       description: |
-        Business-rule violation. Codes: `team_slug_taken`, `team_archived`, `subgroup_exists`,
+        Business-rule violation. Codes: `team_slug_taken`, `team_archived`,
         `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
         `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
         `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
         `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
         `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
         `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
-        (`invalid_transition` is a business rule too but is returned as HTTP 409.)
+        (`invalid_transition` and `subgroup_name_conflict` are business rules too but are returned as HTTP 409.)
       headers:
         X-Request-ID: { $ref: "#/components/headers/XRequestID" }
       content:
@@ -2374,10 +2374,11 @@ components:
         email: { type: string }
     Subgroup:
       type: object
-      required: [id, name, active]
+      required: [id, name, aliases, active]
       properties:
         id: { type: string }
         name: { type: string }
+        aliases: { type: array, items: { type: string } }
         active: { type: boolean }
     ReferenceRate:
       type: object
@@ -2522,11 +2523,13 @@ components:
       required: [name]
       properties:
         name: { type: string, maxLength: 200 }
+        aliases: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
     PatchSubgroupRequest:
       type: object
       additionalProperties: false
       properties:
         name: { type: string, maxLength: 200 }
+        aliases: { type: array, maxItems: 50, items: { type: string, maxLength: 200 } }
         active: { type: boolean }
     RoleMapping:
       type: object
@@ -3297,7 +3300,7 @@ components:
       type: string
       description: |
         Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
-        401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
+        401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `subgroup_name_conflict`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
         413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
         503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
         422 for every other (business-rule) code.
@@ -3316,7 +3319,7 @@ components:
         - upstream_unavailable
         - team_slug_taken
         - team_archived
-        - subgroup_exists
+        - subgroup_name_conflict
         - member_no_role_source
         - member_managed_by_sso
         - role_mapping_managed

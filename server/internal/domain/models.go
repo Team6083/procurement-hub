@@ -57,9 +57,10 @@ type NotificationPref struct {
 }
 
 type Subgroup struct {
-	ID     string `bson:"id" json:"id"`
-	Name   string `bson:"name" json:"name"`
-	Active bool   `bson:"active" json:"active"`
+	ID      string   `bson:"id" json:"id"`
+	Name    string   `bson:"name" json:"name"`
+	Aliases []string `bson:"aliases" json:"aliases"`
+	Active  bool     `bson:"active" json:"active"`
 }
 
 type Team struct {

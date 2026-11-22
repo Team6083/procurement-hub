@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode/utf8"
 
@@ -217,7 +218,53 @@ func (s *Teams) SetArchived(ctx context.Context, actor authz.Actor, teamID bson.
 
 // ---- subgroups ----
 
-func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.ObjectID, version int64, name string) (*domain.Team, error) {
+// cleanAliases trims aliases and drops empty and duplicate (case-insensitive) ones.
+func cleanAliases(in []string) ([]string, error) {
+	out := []string{}
+	seen := map[string]bool{}
+	for _, a := range in {
+		a = strings.TrimSpace(a)
+		if a == "" || seen[strings.ToLower(a)] {
+			continue
+		}
+		if utf8.RuneCountInString(a) > 200 {
+			return nil, Invalid("aliases", "at most 200 characters each")
+		}
+		seen[strings.ToLower(a)] = true
+		out = append(out, a)
+	}
+	return out, nil
+}
+
+// checkSubgroupNames rejects a name or alias used by another subgroup of the team (the one at
+// index self, or -1 for none), case-insensitively and including inactive subgroups. The
+// subgroup's own name and aliases may not repeat each other either.
+func checkSubgroupNames(sgs []domain.Subgroup, self int, name string, aliases []string) error {
+	taken := map[string]bool{}
+	for i, g := range sgs {
+		if i == self {
+			continue
+		}
+		taken[strings.ToLower(g.Name)] = true
+		for _, a := range g.Aliases {
+			taken[strings.ToLower(a)] = true
+		}
+	}
+	own := map[string]bool{strings.ToLower(name): true}
+	if taken[strings.ToLower(name)] {
+		return Rule("subgroup_name_conflict", "The name or alias %q is already used by another subgroup.", name)
+	}
+	for _, a := range aliases {
+		k := strings.ToLower(a)
+		if taken[k] || own[k] {
+			return Rule("subgroup_name_conflict", "The name or alias %q is already used by another subgroup.", a)
+		}
+		own[k] = true
+	}
+	return nil
+}
+
+func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.ObjectID, version int64, name string, aliases []string) (*domain.Team, error) {
 	t, err := s.writableTeamAdmin(ctx, actor, teamID)
 	if err != nil {
 		return nil, err
@@ -226,18 +273,20 @@ func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.
 	if err := validName(name); err != nil {
 		return nil, err
 	}
-	for _, g := range t.Subgroups {
-		if strings.EqualFold(g.Name, name) {
-			return nil, Rule("subgroup_exists", "A subgroup named %q already exists.", name)
-		}
+	aliases, err = cleanAliases(aliases)
+	if err != nil {
+		return nil, err
 	}
-	sgs := append(append([]domain.Subgroup{}, t.Subgroups...), domain.Subgroup{ID: bson.NewObjectID().Hex(), Name: name, Active: true})
+	if err := checkSubgroupNames(t.Subgroups, -1, name, aliases); err != nil {
+		return nil, err
+	}
+	sgs := append(append([]domain.Subgroup{}, t.Subgroups...), domain.Subgroup{ID: bson.NewObjectID().Hex(), Name: name, Aliases: aliases, Active: true})
 	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "subgroups", Value: sgs}},
 		[]domain.AuditChange{{Field: "subgroups", From: nil, To: name}}, "team.subgroup_added")
 }
 
-// UpdateSubgroup renames and/or (de)activates a subgroup. Subgroups are never deleted.
-func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bson.ObjectID, version int64, id string, name *string, active *bool) (*domain.Team, error) {
+// UpdateSubgroup renames, replaces the aliases of and/or (de)activates a subgroup. Subgroups are never deleted.
+func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bson.ObjectID, version int64, id string, name *string, aliases *[]string, active *bool) (*domain.Team, error) {
 	t, err := s.writableTeamAdmin(ctx, actor, teamID)
 	if err != nil {
 		return nil, err
@@ -252,19 +301,32 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 	if idx < 0 {
 		return nil, ErrNotFound
 	}
-	var changes []domain.AuditChange
-	if name != nil && strings.TrimSpace(*name) != sgs[idx].Name {
-		n := strings.TrimSpace(*name)
-		if err := validName(n); err != nil {
+	newName := sgs[idx].Name
+	newAliases := sgs[idx].Aliases
+	if name != nil {
+		newName = strings.TrimSpace(*name)
+		if err := validName(newName); err != nil {
 			return nil, err
 		}
-		for i, g := range sgs {
-			if i != idx && strings.EqualFold(g.Name, n) {
-				return nil, Rule("subgroup_exists", "A subgroup named %q already exists.", n)
-			}
+	}
+	if aliases != nil {
+		if newAliases, err = cleanAliases(*aliases); err != nil {
+			return nil, err
 		}
-		changes = append(changes, domain.AuditChange{Field: "subgroup.name", From: sgs[idx].Name, To: n})
-		sgs[idx].Name = n
+	}
+	var changes []domain.AuditChange
+	if newName != sgs[idx].Name || aliases != nil && !slices.Equal(newAliases, sgs[idx].Aliases) {
+		if err := checkSubgroupNames(sgs, idx, newName, newAliases); err != nil {
+			return nil, err
+		}
+	}
+	if newName != sgs[idx].Name {
+		changes = append(changes, domain.AuditChange{Field: "subgroup.name", From: sgs[idx].Name, To: newName})
+		sgs[idx].Name = newName
+	}
+	if aliases != nil && !slices.Equal(newAliases, sgs[idx].Aliases) {
+		changes = append(changes, domain.AuditChange{Field: "subgroup.aliases", From: sgs[idx].Aliases, To: newAliases})
+		sgs[idx].Aliases = newAliases
 	}
 	if active != nil && *active != sgs[idx].Active {
 		changes = append(changes, domain.AuditChange{Field: "subgroup.active", From: sgs[idx].Active, To: *active})

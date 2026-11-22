@@ -307,7 +307,7 @@ export interface paths {
         put?: never;
         /**
          * Add a subgroup (team admin)
-         * @description Returns the whole updated team. 422 `subgroup_exists` when the name exists (case-insensitive); 422 `team_archived` for archived teams.
+         * @description Returns the whole updated team. `aliases` are trimmed; empty and duplicate ones are dropped. 409 `subgroup_name_conflict` when the name or an alias equals another subgroup's name or alias in the team (case-insensitive, inactive subgroups included); 422 `team_archived` for archived teams.
          */
         post: operations["addSubgroup"];
         delete?: never;
@@ -334,7 +334,7 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Rename and/or (de)activate a subgroup (team admin; subgroups are never deleted) */
+        /** Rename, edit aliases of and/or (de)activate a subgroup (team admin; subgroups are never deleted) */
         patch: operations["patchSubgroup"];
         trace?: never;
     };
@@ -1546,6 +1546,7 @@ export interface components {
         Subgroup: {
             id: string;
             name: string;
+            aliases: string[];
             active: boolean;
         };
         ReferenceRate: {
@@ -1668,9 +1669,11 @@ export interface components {
         };
         AddSubgroupRequest: {
             name: string;
+            aliases?: string[];
         };
         PatchSubgroupRequest: {
             name?: string;
+            aliases?: string[];
             active?: boolean;
         };
         RoleMapping: {
@@ -2414,13 +2417,13 @@ export interface components {
         };
         /**
          * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
-         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
+         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `subgroup_name_conflict`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
          *     503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
          *     422 for every other (business-rule) code.
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_exists" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_name_conflict" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
         VoidInfo: {
             reason: string;
             by: string;
@@ -2719,14 +2722,14 @@ export interface components {
             };
         };
         /**
-         * @description Business-rule violation. Codes: `team_slug_taken`, `team_archived`, `subgroup_exists`,
+         * @description Business-rule violation. Codes: `team_slug_taken`, `team_archived`,
          *     `member_no_role_source`, `member_managed_by_sso`, `role_mapping_managed`, `batch_not_collecting`,
          *     `batch_not_reviewing`, `batch_closed`, `assignments_incomplete`, `deadline_required`, `deadline_not_in_future`,
          *     `no_pending_items`, `reason_required`, `item_not_editable`, `item_not_deletable`, `item_not_edited`, `item_not_reviewable`, `batch_item_limit` (more than 5000 non-withdrawn items in a batch),
          *     `vendor_name_taken`, `items_undecided` (confirm_review with pending/returned items), `line_quantity_exceeded`, `shared_cost_allocation_invalid`,
          *     `item_not_purchasable`, `item_already_on_order`, `order_not_draft`, `order_locked`, `line_locked`, `unit_price_required`, `order_has_no_lines`,
          *     `line_missing_price`, `order_not_placed`, `cost_entry_voided`, `line_not_closable`, `line_not_matchable`.
-         *     (`invalid_transition` is a business rule too but is returned as HTTP 409.)
+         *     (`invalid_transition` and `subgroup_name_conflict` are business rules too but are returned as HTTP 409.)
          */
         Unprocessable: {
             headers: {
