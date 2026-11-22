@@ -1,4 +1,4 @@
-import { Button, Card, HStack, List, Stack, Text } from '@chakra-ui/react';
+import { Badge, Button, Card, HStack, Stack, Text } from '@chakra-ui/react';
 import { useState } from 'react';
 import { EmptyState, FactList, SectionHeader } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
@@ -37,9 +37,9 @@ export function TeamOverview() {
                   value: active.length === 0 ? (
                     <Text color="fg.muted">{t('team.noSubgroups')}</Text>
                   ) : (
-                    <List.Root ps="4">
-                      {active.map((g) => <List.Item key={g.id}>{g.name}</List.Item>)}
-                    </List.Root>
+                    <HStack wrap="wrap" gap="2" my={1}>
+                      {active.map((g) => <Badge key={g.id} variant="surface">{g.name}</Badge>)}
+                    </HStack>
                   ),
                 },
               ]}
