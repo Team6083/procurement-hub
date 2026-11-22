@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The web UI footer shows the build through the UI library's `BuildInfo`: the SPA's commit and build time, the API's build in the details, and the API's release version only when the SPA and API are the same commit.
 - `GET /api/v1/meta` returns the build as `build: {version, commit, builtAt}` instead of top-level `version` and `commit`; each is `null` when unknown. The image takes a `BUILT_AT` build argument, `VERSION` is empty for builds that are not a release tag, and `X-App-Version` is sent only when the version is set.
 - Vendor order lines carry a read-only `productUrl`, the linked item's current product URL looked up when the order is read (empty for free-form lines or items without one) and `estimatedUnitPrice` (the item's current estimate, null without an item); the web UI links the line name to the product page and shows the estimate as the unit-price placeholder.
 - `DELETE /items/{id}` deletes an item that was never reviewed (pending, `firstReviewedAt` null, batch draft, proposed or collecting; requester or team admin), writing an `item.deleted` audit event with the item's content; other items keep the withdraw flow (422 `item_not_deletable`). Items gain `firstReviewedAt`, set on the first review decision and never cleared. The web UI shows Delete instead of Withdraw on such items.
