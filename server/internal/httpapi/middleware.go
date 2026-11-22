@@ -28,7 +28,11 @@ func VersionHeaders(v Version) func(http.Handler) http.Handler {
 			if v.Version != "" {
 				w.Header().Set("X-App-Version", v.Version)
 			}
-			w.Header().Set("X-App-Commit", v.Commit)
+			commit := v.Commit
+			if commit == "" {
+				commit = "unknown"
+			}
+			w.Header().Set("X-App-Commit", commit)
 			next.ServeHTTP(w, r)
 		})
 	}

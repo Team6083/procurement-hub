@@ -9,7 +9,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Added
 
 - The web UI footer shows the build through the UI library's `BuildInfo`: the SPA's commit and build time, the API's build in the details, and the API's release version only when the SPA and API are the same commit.
-- `GET /api/v1/meta` returns the build as `build: {version, commit, builtAt}` instead of top-level `version` and `commit`; each is `null` when unknown. The image takes a `BUILT_AT` build argument, `VERSION` is empty for builds that are not a release tag, and `X-App-Version` is sent only when the version is set.
 - Vendor order lines carry a read-only `productUrl`, the linked item's current product URL looked up when the order is read (empty for free-form lines or items without one) and `estimatedUnitPrice` (the item's current estimate, null without an item); the web UI links the line name to the product page and shows the estimate as the unit-price placeholder.
 - `DELETE /items/{id}` deletes an item that was never reviewed (pending, `firstReviewedAt` null, batch draft, proposed or collecting; requester or team admin), writing an `item.deleted` audit event with the item's content; other items keep the withdraw flow (422 `item_not_deletable`). Items gain `firstReviewedAt`, set on the first review decision and never cleared. The web UI shows Delete instead of Withdraw on such items.
 - `GET /audit` takes `order=asc|desc` (default `asc`); the batch and vendor order timelines in the web UI now show the newest event first, with an icon per event.
@@ -28,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- `GET /api/v1/meta` no longer returns top-level `version` and `commit`; the build is now `build: {version, commit, builtAt}`, each `null` when unknown. `X-App-Version` is sent only when the version is set (it is absent on builds that are not a release tag). The image takes a `BUILT_AT` build argument and `VERSION` is empty for builds that are not a release tag.
 - The new-item form is lookup first when product lookup is enabled: it starts with a single product URL or SKU box and the fields unrelated to the product (quantity, priority, subgroup, purpose, notes), and shows the product fields after a lookup, on a lookup error, on "Fill in manually" or when the form is submitted with errors.
 - The web app uses the team UI package `@team6083/ui` (public, on npm): the shared frame (pages as icon buttons with the current one highlighted, a color mode toggle, the account menu with the language and sign-out, a drawer on phones, the build in the footer) in a centered column, the team theme (gray by default, `brand` for emphasis only), and the home page rebuilt with a single page heading, a teams section with its count, and empty states.
 - Repository layout is now `server/` (Go module `github.com/team6083/procurement-hub/server`) and `web/`.

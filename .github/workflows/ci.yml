@@ -196,7 +196,9 @@ jobs:
             exit 1
           fi
           echo "version=$gomod" >> "$GITHUB_OUTPUT"
-          echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
+      - name: Build time
+        id: build
+        run: echo "built_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$GITHUB_OUTPUT"
       - uses: docker/setup-buildx-action@v4
       - uses: docker/build-push-action@v7
         with:
@@ -206,6 +208,6 @@ jobs:
           build-args: |
             GO_VERSION=${{ steps.go.outputs.version }}
             COMMIT=${{ github.sha }}
-            BUILT_AT=${{ steps.go.outputs.built_at }}
+            BUILT_AT=${{ steps.build.outputs.built_at }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

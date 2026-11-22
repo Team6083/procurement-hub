@@ -20,7 +20,7 @@ func MountMeta(r chi.Router, m MetaInfo) {
 		WriteJSON(w, http.StatusOK, map[string]any{
 			"build": map[string]any{
 				"version": nullIf(m.Build.Version, ""),
-				"commit":  nullIf(m.Build.Commit, "unknown"),
+				"commit":  commitOrNil(m.Build.Commit),
 				"builtAt": nullIf(m.Build.BuiltAt, ""),
 			},
 			"baseCurrency":        m.BaseCurrency,
@@ -29,6 +29,14 @@ func MountMeta(r chi.Router, m MetaInfo) {
 			"emailEnabled":        m.EmailEnabled,
 		})
 	})
+}
+
+// commitOrNil is null for an unknown commit: "unknown" or empty.
+func commitOrNil(c string) any {
+	if c == "" {
+		return nil
+	}
+	return nullIf(c, "unknown")
 }
 
 // nullIf returns nil (JSON null) when s equals empty, else s.

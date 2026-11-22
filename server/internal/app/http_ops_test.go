@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/team6083/procurement-hub/server/internal/httpapi"
 )
 
 // The access log goes through the production middleware chain: one JSON line
@@ -91,4 +93,30 @@ func TestHTTPAuthBeforeDiscovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	e.do(t, call{token: tok, method: "GET", path: "/api/v1/me"}).expect(200)
+}
+
+// A build that is not a release tag has no version, and an unknown commit is
+// null in /meta; X-App-Commit is still sent, X-App-Version is not.
+func TestHTTPMetaUnknownBuild(t *testing.T) {
+	for _, commit := range []string{"unknown", ""} {
+		e := newEnvBuild(t, nil, false, httpapi.Version{Commit: commit})
+		r := e.do(t, call{method: "GET", path: "/api/v1/meta"}).expect(200)
+		j := r.JSON()
+		b, _ := j["build"].(map[string]any)
+		if len(b) != 3 || b["version"] != nil || b["commit"] != nil || b["builtAt"] != nil {
+			t.Fatalf("commit %q: build = %v", commit, j["build"])
+		}
+		if _, ok := j["version"]; ok {
+			t.Fatal("top-level version present")
+		}
+		if _, ok := j["commit"]; ok {
+			t.Fatal("top-level commit present")
+		}
+		req := httptest.NewRequest("GET", "/api/v1/meta", nil)
+		rec := httptest.NewRecorder()
+		e.handler.ServeHTTP(rec, req)
+		if _, ok := rec.Header()["X-App-Version"]; ok || rec.Header().Get("X-App-Commit") != "unknown" {
+			t.Fatalf("commit %q: headers %v", commit, rec.Header())
+		}
+	}
 }
