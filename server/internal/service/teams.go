@@ -336,7 +336,7 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 		sgs[idx].Active = *active
 	}
 	if len(changes) == 0 {
-		return t, nil
+		return s.applyTeamChange(ctx, actor, t, version, nil, nil, "")
 	}
 	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "subgroups", Value: sgs}}, changes, "team.subgroup_updated")
 }

@@ -288,7 +288,13 @@ func TestHTTPTeams(t *testing.T) {
 	}
 	hw := w.do(t, call{token: w.adm, method: "GET", path: team}).expect(200)
 	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: map[string]any{"aliases": many(51)}, skipRequestValidation: true}).expect(400, "invalid_request")
-	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: map[string]any{"aliases": many(50)}}).expect(200)
+	fifty := w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: map[string]any{"aliases": many(50)}}).expect(200)
+	// A no-op PATCH still checks If-Match: stale is 409, current is 200 without a new version.
+	noop := map[string]any{"name": "Hardware", "aliases": many(50), "active": false}
+	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: hw.ETag(), body: noop}).expect(409, "version_conflict")
+	if same := w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: fifty.ETag(), body: noop}).expect(200); same.ETag() != fifty.ETag() {
+		t.Errorf("no-op PATCH changed the version: %s -> %s", fifty.ETag(), same.ETag())
+	}
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")

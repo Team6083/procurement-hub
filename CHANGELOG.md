@@ -43,4 +43,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - Item table columns sort ascending on the first click; editing a batch no longer rewrites a deadline that has seconds when the deadline field was not changed.
 - UI cleanup after review: dialogs have a consistent footer and size, the navigation has five items (an admin section holds the rest), and receiving is split into tabs for deliveries, box entry, matching and the receiving workbench.
 
+### Fixed
+
+- `PATCH /teams/{teamId}/subgroups/{id}` that changes nothing now returns 409 `version_conflict` when `If-Match` is stale, like the other writes, instead of 200.
+
 [Unreleased]: https://github.com/team6083/procurement-hub/commits/main
