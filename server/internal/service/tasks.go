@@ -175,17 +175,40 @@ func (s *Tasks) itemsToPurchase(ctx context.Context, actor authz.Actor) ([]Vendo
 	if err != nil {
 		return nil, err
 	}
+	vendors, err := s.st.ListVendors(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	names := map[bson.ObjectID]string{}
+	for _, v := range vendors {
+		names[v.ID] = v.Name
+	}
 	mine := map[bson.ObjectID]bool{}
 	byVendor := map[string]*VendorTask{}
 	var order []string
 	for _, it := range items {
-		key := it.VendorName
+		// Group by the vendor an item belongs to, the same way the purchasing overview does: a vendor
+		// picked from the list, or a typed name that matches a vendor's name or alias; any other typed
+		// name stays its own group.
+		id, name := it.VendorID, it.VendorName
+		if id == nil {
+			if v := matchVendor(vendors, name); v != nil {
+				id = &v.ID
+			}
+		}
+		key := name
+		if id != nil {
+			key = id.Hex()
+			if n, ok := names[*id]; ok {
+				name = n
+			}
+		}
 		vt, ok := byVendor[key]
 		if !ok {
 			vt = &VendorTask{}
-			if key != "" {
-				k := key
-				vt.Vendor = &k
+			if name != "" {
+				n := name
+				vt.Vendor = &n
 			}
 			byVendor[key] = vt
 			order = append(order, key)

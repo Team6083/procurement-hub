@@ -69,3 +69,18 @@ func containsKey(keys []string, key string) bool {
 	}
 	return false
 }
+
+// matchVendor returns the active vendor whose name or alias an item's free-text vendor name
+// matches, or nil. An item with a vendor picked from the list already has its VendorID.
+func matchVendor(vendors []domain.Vendor, name string) *domain.Vendor {
+	key := domain.NameKey(name)
+	if key == "" {
+		return nil
+	}
+	for i := range vendors {
+		if vendors[i].Active && (vendors[i].NameKey == key || containsKey(vendors[i].AliasKeys, key)) {
+			return &vendors[i]
+		}
+	}
+	return nil
+}

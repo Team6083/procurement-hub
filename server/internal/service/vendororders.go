@@ -536,14 +536,9 @@ func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilt
 		// An item with only a vendor name (the "other" vendor) joins the vendor
 		// whose name or alias it matches.
 		if it.VendorID == nil {
-			if key := domain.NameKey(it.VendorName); key != "" {
-				for _, v := range vendors {
-					if v.NameKey == key || containsKey(v.AliasKeys, key) {
-						id := v.ID
-						it.VendorID = &id
-						break
-					}
-				}
+			if v := matchVendor(vendors, it.VendorName); v != nil {
+				id := v.ID
+				it.VendorID = &id
 			}
 		}
 		if !f.VendorID.IsZero() && (it.VendorID == nil || *it.VendorID != f.VendorID) {
