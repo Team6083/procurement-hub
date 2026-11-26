@@ -14,8 +14,8 @@ export type Routes = Record<string, Handler | unknown>;
 const STATUS = Symbol('status');
 
 /** A route result that answers with an API error envelope. */
-export function apiError(status: number, code: string) {
-  return { [STATUS]: status, error: { code, message: code } };
+export function apiError(status: number, code: string, details?: Record<string, unknown>) {
+  return { [STATUS]: status, error: { code, message: code, details } };
 }
 
 /** A real API client over a fake fetch, so pages exercise the same request code as in production. */

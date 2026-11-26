@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Dialog, Input, Stack, Textarea } from '@chakra-ui/react';
+import { Badge, Button, Card, Dialog, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
@@ -17,10 +17,24 @@ import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
 import { useTeamCtx } from '../../features/teams/TeamContext';
 
-const nameSchema = z.object({ name: requiredText(200), aliases: z.string() });
+/** The server's limits on a subgroup's aliases (service.cleanAliases). */
+const MAX_ALIASES = 50;
+const MAX_ALIAS_LENGTH = 200;
 
-/** One alias per line; the server trims and drops empty and duplicate ones. */
-const splitAliases = (v: string) => v.split('\n').map((a) => a.trim()).filter(Boolean);
+/**
+ * Aliases are separated by new lines or commas (ASCII or full-width); each is trimmed, and empty and repeated ones
+ * are dropped. The server also drops case-insensitive duplicates and an alias equal to the subgroup's own name.
+ */
+const splitAliases = (v: string) => [...new Set(v.split(/[\n,，]/).map((a) => a.trim()).filter(Boolean))];
+
+const nameSchema = z.object({
+  name: requiredText(200),
+  aliases: z.string().superRefine((v, ctx) => {
+    const aliases = splitAliases(v);
+    if (aliases.length > MAX_ALIASES) ctx.addIssue({ code: 'custom', message: 'teams:subgroups.aliasesTooMany' });
+    else if (aliases.some((a) => [...a].length > MAX_ALIAS_LENGTH)) ctx.addIssue({ code: 'custom', message: 'teams:subgroups.aliasesTooLong' });
+  }),
+});
 
 /** Add a subgroup (group === null) or edit its name and aliases. */
 function NameForm({ team, group, onClose }: { team: Team; group: Subgroup | null; onClose: () => void }) {
@@ -32,6 +46,7 @@ function NameForm({ team, group, onClose }: { team: Team; group: Subgroup | null
   );
   const form = useForm({ resolver: zodResolver(nameSchema), defaultValues: { name: group?.name ?? '', aliases: (group?.aliases ?? []).join('\n') } });
   const fieldError = useFieldError();
+  const aliasError = form.formState.errors.aliases?.message;
   const submit = form.handleSubmit((v) => save.mutate({ name: v.name.trim(), aliases: splitAliases(v.aliases) }, { onSuccess: onClose }));
   return (
     <>
@@ -41,7 +56,10 @@ function NameForm({ team, group, onClose }: { team: Team; group: Subgroup | null
             <FormField label={t('subgroups.name')} required errorText={fieldError(form.formState.errors.name)}>
               <Input maxLength={200} {...form.register('name')} />
             </FormField>
-            <FormField label={t('subgroups.aliases')} helperText={t('subgroups.aliasesHint')}>
+            <FormField
+              label={t('subgroups.aliases')} helperText={t('subgroups.aliasesHint')}
+              errorText={aliasError && t(aliasError, { max: MAX_ALIASES, maxLength: MAX_ALIAS_LENGTH })}
+            >
               <Textarea autoresize rows={2} {...form.register('aliases')} />
             </FormField>
             <ErrorAlert error={save.error} />
@@ -69,7 +87,9 @@ export function SubgroupsSettings() {
 
   const columns: DataColumn<Subgroup>[] = [
     { key: 'name', header: t('subgroups.name'), priority: 'primary', cell: (g) => g.name },
-    { key: 'aliases', header: t('subgroups.aliases'), cell: (g) => g.aliases.join(', ') },
+    { key: 'aliases', header: t('subgroups.aliases'), cell: (g) => (
+      <HStack wrap="wrap" gap="1">{g.aliases.map((a) => <Badge key={a} variant="surface">{a}</Badge>)}</HStack>
+    ) },
     { key: 'status', header: t('subgroups.status'), cell: (g) => (g.active ? <Badge colorPalette="green" variant="subtle">{t('subgroups.active')}</Badge> : <Badge variant="outline">{t('subgroups.inactive')}</Badge>) },
   ];
   const rowActions = (g: Subgroup): RowAction[] => (writable ? [

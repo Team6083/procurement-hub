@@ -16,6 +16,7 @@
     "team_slug_taken": "已有使用此代稱的團隊。",
     "team_archived": "此團隊已封存，僅供檢視。",
     "subgroup_name_conflict": "此名稱或別名已被團隊內其他子群組使用（含已停用的子群組）。",
+    "subgroup_name_conflict_value": "「{{value}}」已被團隊內其他子群組用作名稱或別名（含已停用的子群組）。",
     "member_no_role_source": "此成員沒有 SSO 角色，因此無法清除手動角色。請改為移除該成員。",
     "member_managed_by_sso": "此成員資格由 SSO 管理，無法在此移除。",
     "role_mapping_managed": "受管理的規則為唯讀。",

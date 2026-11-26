@@ -42,6 +42,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - A user without an allowed role sees only a "no access" page with a sign-out button once the API answers `403 missing_role`.
 - Item table columns sort ascending on the first click; editing a batch no longer rewrites a deadline that has seconds when the deadline field was not changed.
 - UI cleanup after review: dialogs have a consistent footer and size, the navigation has five items (an admin section holds the rest), and receiving is split into tabs for deliveries, box entry, matching and the receiving workbench.
+- Subgroup settings (web UI): the aliases field takes one alias per line or separated by commas and refuses more than 50 aliases or an alias over 200 characters before saving; the table shows each alias as its own badge; a `subgroup_name_conflict` names the clashing name or alias.
 
 ### Fixed
 
