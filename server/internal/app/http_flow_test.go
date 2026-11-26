@@ -315,6 +315,11 @@ func TestHTTPTeams(t *testing.T) {
 		t.Errorf("conflict details.value = %v", v)
 	}
 	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"cafe\u0301"}}}).expect(409, "subgroup_name_conflict")
+	// Composed and decomposed forms in one request are duplicates.
+	docs := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "Docs", "aliases": []string{"R\u00e9sum\u00e9", "Re\u0301sume\u0301"}}}).expect(200)
+	if got := docs.JSON()["subgroups"].([]any)[4].(map[string]any)["aliases"].([]any); len(got) != 1 || got[0] != "R\u00e9sum\u00e9" {
+		t.Errorf("docs aliases = %v", got)
+	}
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")

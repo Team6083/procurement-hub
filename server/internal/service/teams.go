@@ -313,9 +313,12 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 	if aliases != nil {
 		newAliases = *aliases
 	}
-	// Cleaned against the final name, so a rename to one of the subgroup's own aliases drops that alias.
-	if newAliases, err = cleanAliases(newName, newAliases); err != nil {
-		return nil, err
+	// Cleaned against the final name, so a rename to one of the subgroup's own aliases drops that
+	// alias. A PATCH that sends neither name nor aliases leaves the stored aliases as they are.
+	if name != nil || aliases != nil {
+		if newAliases, err = cleanAliases(newName, newAliases); err != nil {
+			return nil, err
+		}
 	}
 	var changes []domain.AuditChange
 	if newName != sgs[idx].Name || !slices.Equal(newAliases, sgs[idx].Aliases) {
