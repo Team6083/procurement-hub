@@ -1,6 +1,6 @@
 import { deliveryLabel, orderLabel } from '../features/labels';
 import { Badge, Stack, Tabs, Text } from '@chakra-ui/react';
-import { DataTable, EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheck, LuInbox, LuUndo2, LuX } from 'react-icons/lu';
@@ -42,7 +42,7 @@ function PendingLines() {
   ];
   return (
     <Stack gap="2">
-      <SectionHeader as="h2" mb="0" title={t('pending.title')} count={countOf(q.data?.length)} />
+      <TitleBar level={2} title={t('pending.title')} after={countOf(q.data?.length) && <Badge>{countOf(q.data?.length)}</Badge>} />
       {q.isPending && <ListSkeleton rows={2} />}
       <ErrorAlert error={q.error} />
       {q.data && <DataTable aria-label={t('pending.title')} rows={q.data} columns={columns} getRowId={(l) => l.id} empty={emptyState(t('pending.empty'))} />}
@@ -89,7 +89,7 @@ function Problems({ canPurchase, baseDigits }: { canPurchase: boolean; baseDigit
   const handlers = { canPurchase, onResolve: setResolving, onUnresolve: (p: Problem) => { unresolve.reset(); setUndoing(p); } };
   return (
     <Stack gap="2">
-      <SectionHeader as="h2" mb="0" title={t('problem.title')} count={countOf(open.data?.length)} />
+      <TitleBar level={2} title={t('problem.title')} after={countOf(open.data?.length) && <Badge>{countOf(open.data?.length)}</Badge>} />
       <Tabs.Root defaultValue="open" variant="subtle" size="sm" lazyMount>
         <Tabs.List>
           <Tabs.Trigger value="open">{t('problem.openTitle')}</Tabs.Trigger>
@@ -132,7 +132,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
   ];
   return (
     <Stack gap="2">
-      <SectionHeader as="h2" mb="0" title={t('toClose.title')} count={countOf(q.data?.length)} />
+      <TitleBar level={2} title={t('toClose.title')} after={countOf(q.data?.length) && <Badge>{countOf(q.data?.length)}</Badge>} />
       {q.isPending && <ListSkeleton rows={2} />}
       <ErrorAlert error={q.error} />
       {q.data && (

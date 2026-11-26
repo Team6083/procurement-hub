@@ -1,14 +1,14 @@
 import { Badge, Card, HStack, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, SectionHeader } from '@team6083/ui';
+import { EmptyState, TitleBar } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheckBig } from 'react-icons/lu';
 import { useMyTasks } from '../../api/batches';
 import type { Batch } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { ListSkeleton } from '../../components/PageStates';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
-import { ListSkeleton } from '../../components/PageStates';
 
 /** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
 function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
@@ -25,7 +25,7 @@ function TaskGroup({ title, count, children }: { title: string; count: number; c
   if (count === 0) return null;
   return (
     <Stack gap="2">
-      <SectionHeader as="h3" title={title} count={count} mb="0" />
+      <TitleBar level={3} title={title} after={<Badge>{count}</Badge>} />
       <Card.Root size="sm">
         <Card.Body gap="2" alignItems="flex-start">
           {children}

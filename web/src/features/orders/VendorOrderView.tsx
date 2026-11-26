@@ -1,7 +1,7 @@
 import { orderLabel } from '../labels';
 import { currencyFractionDigits, formatMoney } from '../money';
-import { Alert, Button, Card, CloseButton, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
-import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
+import { Alert, Badge, Button, Card, CloseButton, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { FactList, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuCircleCheck, LuPlus, LuUndo2 } from 'react-icons/lu';
@@ -88,7 +88,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
             {actions}
           </HStack>
         ) : (
-          <PageHeader mb="0" title={`${orderLabel(order.number)} · ${vendor}`} badge={<HStack gap="2">{header}</HStack>} actions={actions} />
+          <TitleBar level={1} title={`${orderLabel(order.number)} · ${vendor}`} after={<HStack gap="2">{header}</HStack>} end={actions} />
         )}
         {order.restricted && (
           <Alert.Root status="info">
@@ -128,10 +128,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       </Stack>
 
       <Stack gap="2">
-        <SectionHeader
-          as={h} mb="0" title={t('line.title')} count={order.lines.length}
-          actions={canWrite && draft && <Button size="sm" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>}
-        />
+        <TitleBar level={h === 'h3' ? 3 : 2} title={t('line.title')} after={<Badge>{order.lines.length}</Badge>} end={canWrite && draft && <Button size="sm" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>} />
         <LinesTable
           order={order} baseCurrency={baseCurrency} teamName={teamName} canWrite={canWrite}
           onEdit={setLineForm} onRemove={(l) => { del.reset(); setRemoving(l); }} onClose={setClosing} onReopen={(l) => { reopen.reset(); setReopening(l); }}
@@ -153,7 +150,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       </SimpleGrid>
 
       <Stack gap="2">
-        <SectionHeader as={h} mb="0" title={t('timeline.title')} />
+        <TitleBar level={h === 'h3' ? 3 : 2} title={t('timeline.title')} />
         <OrderTimeline orderId={order.id} />
       </Stack>
 

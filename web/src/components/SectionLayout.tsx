@@ -1,5 +1,5 @@
 import { Box, HStack, Stack, Tabs } from '@chakra-ui/react';
-import { PageHeader } from '@team6083/ui';
+import { TitleBar } from '@team6083/ui';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, useLocation, useNavigate } from 'react-router';
@@ -50,13 +50,7 @@ export function SectionLayout({ title, badge, tabs, keepTitle = false, children 
   const single = tabs.length <= 1;
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0"
-        title={single && active && !keepTitle ? active.label : title}
-        badge={badge}
-        description={active?.description}
-        actions={<HStack ref={setSlot} gap="2" wrap="wrap" />}
-      />
+      <TitleBar level={1} title={single && active && !keepTitle ? active.label : title} after={badge} description={active?.description} end={<HStack ref={setSlot} gap="2" wrap="wrap" />} />
       {!single && (
         <Tabs.Root value={active?.to ?? ''} onValueChange={(e) => void navigate(e.value)}>
           <Box overflowX="auto">

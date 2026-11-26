@@ -1,6 +1,6 @@
 import { Alert, Button, Card, Fieldset, HStack, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { SectionHeader, toaster } from '@team6083/ui';
+import { toaster, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
@@ -99,7 +99,7 @@ function ArchiveControl({ team }: { team: Team }) {
   const toggle = useTeamMutation<boolean>(team.id, (api, archived, headers) => api.patch<Team>(`/teams/${team.id}`, { archived }, { headers }));
   return (
     <Stack gap="2">
-      <SectionHeader mb="0" title={t('general.archive.title')} />
+      <TitleBar level={2} title={t('general.archive.title')} />
       <Card.Root size="sm">
         <Card.Body gap="3">
           <Text color="fg.muted">{t('general.archive.help')}</Text>

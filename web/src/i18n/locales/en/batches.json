@@ -234,7 +234,7 @@
     "problems": "Open problems",
     "problemsLink": "Delivery problems to resolve",
     "linesToClose": "Lines to close",
-    "linesToCloseLink": "Short lines with no open problem",
+    "linesToCloseLink": "Lines that arrived short",
     "deliveriesToMatch": "Deliveries to match",
     "deliveriesToMatchLink": "Delivery lines waiting for a match",
     "noVendor": "No vendor",

@@ -146,7 +146,7 @@ export function LinesTable({ order, baseCurrency, teamName, canWrite, onEdit, on
     total: <HStack gap="2" justify="flex-end">{order.totals.provisional && <ProvisionalBadge />}<b>{money(order.totals.netBase, true)}</b></HStack>,
   };
   const rows: Row[] = showTotals ? [...order.lines, TOTALS] : order.lines;
-  const cols: DataColumn<Row>[] = columns.map((c) => ({ ...c, cell: (r: Row) => (r === TOTALS ? (totalsCell[c.key] ?? null) : c.cell(r)) }));
+  const cols: DataColumn<Row>[] = columns.map((c) => ({ ...c, sortValue: c.sortValue && ((r: Row) => (r === TOTALS ? null : c.sortValue!(r))), cell: (r: Row) => (r === TOTALS ? (totalsCell[c.key] ?? null) : c.cell(r)) }));
   return (
     <Stack gap="2">
       <ErrorAlert error={put.error} />

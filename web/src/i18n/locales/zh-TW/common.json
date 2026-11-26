@@ -52,13 +52,13 @@
   "undo": {
     "reason": "原因",
     "blockedTitle": "請先撤銷這些：",
-    "blockedLine": "明細行",
+    "blockedLine": "明細",
     "blockedItem": "品項",
     "blockedBatch": "批次",
     "blockedVendorOrder": "廠商訂單",
     "blockedDelivery": "到貨紀錄",
     "blockedProblem": "到貨問題",
-    "blockedClosure": "明細行結案",
+    "blockedClosure": "明細結案",
     "blockedCostEntry": "退款或補款"
   },
   "notFound": {

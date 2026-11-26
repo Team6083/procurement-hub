@@ -1,5 +1,5 @@
 import { Badge, Card, HStack, Stack, Text } from '@chakra-ui/react';
-import { SectionHeader, Totals } from '@team6083/ui';
+import { Totals, TitleBar } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import type { VendorOrder } from '../../api/types';
 import { IncompleteReasons } from './Incomplete';
@@ -20,7 +20,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
   if (order.restricted) {
     return (
       <Stack gap="2">
-        <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
+        <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('breakdown.title')} />
         <Card.Root size="sm">
           <Card.Body gap="2">
             <Text color="fg.muted">{t('breakdown.restricted')}</Text>
@@ -37,7 +37,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
 
   return (
     <Stack gap="2">
-      <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
+      <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('breakdown.title')} />
       <Card.Root size="sm">
         <Card.Body gap="3">
           <Totals

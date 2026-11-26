@@ -1,5 +1,5 @@
 import { Badge, Stack, Text } from '@chakra-ui/react';
-import { DataTable, EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction, TitleBar } from '@team6083/ui';
 import { Button } from '@chakra-ui/react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -95,10 +95,7 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
 
   return (
     <Stack gap="2">
-      <SectionHeader
-        as={headingAs} mb="0" title={t('costs.title')} count={order.costEntries.length}
-        actions={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>}
-      />
+      <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('costs.title')} after={<Badge>{order.costEntries.length}</Badge>} end={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>} />
       <DataTable
         aria-label={t('costs.title')} rows={order.costEntries} columns={columns} getRowId={(e) => e.id} rowActions={editable ? rowActions : undefined}
         empty={<EmptyState icon={<LuReceipt />} title={t('costs.empty')} />}

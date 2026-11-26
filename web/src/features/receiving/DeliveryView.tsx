@@ -1,6 +1,6 @@
 import { deliveryLabel } from '../labels';
-import { Alert, Button, Card, Stack } from '@chakra-ui/react';
-import { FactList, PageHeader, SectionHeader } from '@team6083/ui';
+import { Alert, Badge, Button, Card, Stack } from '@chakra-ui/react';
+import { FactList, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan } from 'react-icons/lu';
@@ -37,10 +37,7 @@ export function DeliveryView({ id }: { id: string }) {
   return (
     <Stack gap="6">
       <Stack gap="4">
-        <PageHeader
-          mb="0" title={deliveryLabel(d.number)} badge={d.voided ? <VoidedBadge /> : undefined}
-          actions={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuBan />{t('void.action')}</Button>}
-        />
+        <TitleBar level={1} title={deliveryLabel(d.number)} after={d.voided ? <VoidedBadge /> : undefined} end={canWrite && <Button size="sm" variant="outline" colorPalette="red" onClick={() => { voidIt.reset(); setVoiding(true); }}><LuBan />{t('void.action')}</Button>} />
         {d.voided && (
           <Alert.Root status="warning">
             <Alert.Indicator />
@@ -63,7 +60,7 @@ export function DeliveryView({ id }: { id: string }) {
       </Stack>
 
       <Stack gap="2">
-        <SectionHeader as="h2" mb="0" title={t('line.title')} count={d.lines.length} />
+        <TitleBar level={2} title={t('line.title')} after={<Badge>{d.lines.length}</Badge>} />
         {d.lines.map((l) => (
           <DeliveryLineCard
             key={l.id} line={l} canWrite={canWrite}

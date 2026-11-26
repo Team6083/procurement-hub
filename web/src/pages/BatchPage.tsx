@@ -1,6 +1,6 @@
 import { Alert, Badge, Button, Card, HStack, Stack, Tabs, Text } from '@chakra-ui/react';
 import { useState } from 'react';
-import { FactList, PageHeader } from '@team6083/ui';
+import { FactList, TitleBar } from '@team6083/ui';
 import { LuPencil } from 'react-icons/lu';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
@@ -50,17 +50,12 @@ export function BatchPage() {
   return (
     <Stack gap="6">
       <Stack gap="4">
-        <PageHeader
-          mb="0"
-          title={`#${batch.number} ${batch.title}`}
-          badge={
+        <TitleBar level={1} title={`#${batch.number} ${batch.title}`} after={
             <HStack gap="2">
               <BatchStatusBadge status={batch.status} />
               {batch.origin === 'proposed' && <Badge variant="outline">{t('header.proposed')}</Badge>}
             </HStack>
-          }
-          description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>}
-          actions={
+          } description={teamData && <RouteAnchor to={paths.team(teamData.slug)} color="fg.muted">{teamData.name}</RouteAnchor>} end={
             // Top-aligned: BatchActions can grow a "why disabled" line under its buttons, and the edit button must stay on the button row.
             <HStack gap="2" wrap="wrap" align="flex-start" justify="flex-end">
               {canEditBatch(batch, caller) && (
@@ -71,8 +66,7 @@ export function BatchPage() {
               )}
               <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} items={items.data} />
             </HStack>
-          }
-        />
+          } />
         {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}
         {batch.statusReason && (
           <Alert.Root status="neutral">

@@ -14,16 +14,16 @@
     "ordered": "已下單"
   },
   "provisional": "暫估",
-  "restricted": "你只看得到自己團隊與可讀批次的明細行，其他行與訂單帳務僅顯示摘要。",
+  "restricted": "你只看得到自己團隊與可讀批次的明細，其他明細與訂單帳務僅顯示摘要。",
   "cancelledReason": "已取消：{{reason}}",
   "incomplete": {
     "title": "目前算不出金額：",
-    "no_lines": "訂單沒有明細行。",
-    "line_missing_price": "第 {{line}} 行缺單價。",
+    "no_lines": "訂單沒有明細。",
+    "line_missing_price": "第 {{line}} 筆明細缺單價。",
     "no_conversion": "請填實際扣款，或設定 {{currency}} 的參考匯率。",
     "original_total_zero": "原幣合計為 0，無法分攤實際扣款。",
     "entry_no_conversion": "請填第 {{entry}} 筆費用（{{currency}}）的實際台幣金額，或設定 {{currency}} 的參考匯率。",
-    "allocation_invalid": "第 {{entry}} 筆費用的分配對不到這張訂單的任何明細行。"
+    "allocation_invalid": "第 {{entry}} 筆費用的分配對不到這張訂單的任何明細。"
   },
   "timeline": {
     "title": "時間軸",
@@ -38,12 +38,12 @@
       "vendor_order_unplaced": "撤銷已下單",
       "vendor_order_cancelled": "取消訂單",
       "vendor_order_uncancelled": "撤銷取消",
-      "vendor_order_line_added": "新增明細行",
-      "vendor_order_line_updated": "修改明細行",
-      "vendor_order_line_removed": "移除明細行",
-      "vendor_order_line_closed": "明細行結案",
+      "vendor_order_line_added": "新增明細",
+      "vendor_order_line_updated": "修改明細",
+      "vendor_order_line_removed": "移除明細",
+      "vendor_order_line_closed": "明細結案",
       "vendor_order_line_reopened": "撤銷結案",
-      "vendor_order_line_status_derived": "明細行狀態自動變更",
+      "vendor_order_line_status_derived": "明細狀態自動變更",
       "vendor_order_problem_reported": "回報問題",
       "vendor_order_problem_resolved": "問題已處理",
       "vendor_order_problem_resolved_undone": "復原問題處理",
@@ -68,7 +68,7 @@
       "name": "名稱",
       "sku": "型號",
       "teamId": "團隊",
-      "line": "品項行",
+      "line": "明細",
       "problem": "問題",
       "closure": "結案",
       "accounting": "帳務",
@@ -77,23 +77,23 @@
   },
   "breakdown": {
     "title": "金額如何計算",
-    "restricted": "其他團隊明細行的帳務不顯示。",
-    "visibleTotal": "你的明細行合計",
-    "otherTeams": "其他團隊：{{count}} 行",
-    "lines": "明細行合計（訂單幣別）",
+    "restricted": "其他團隊明細的帳務不顯示。",
+    "visibleTotal": "你的明細合計",
+    "otherTeams": "其他團隊：{{count}} 筆",
+    "lines": "明細合計（訂單幣別）",
     "shared": "隨貨款結帳的費用",
     "original": "原幣合計",
     "factor": "換算係數",
     "factorHint": "{{from}} 換算為 {{to}}",
     "target": "目標總額（{{currency}}）",
     "net": "淨額",
-    "invariantOk": "檢查通過：淨額等於各行合計",
-    "invariantBroken": "檢查失敗：淨額與各行合計不一致",
+    "invariantOk": "檢查通過：淨額等於各筆明細合計",
+    "invariantBroken": "檢查失敗：淨額與各筆明細合計不一致",
     "invariantUnknown": "算出金額後才能檢查",
     "separate": "另外付款與退款"
   },
   "line": {
-    "title": "明細行",
+    "title": "明細",
     "team": "成本歸屬團隊",
     "chooseTeam": "選擇團隊",
     "name": "品名",
@@ -102,10 +102,10 @@
     "quantityInvalid": "請輸入至少 1 的整數。",
     "unitPrice": "單價（{{currency}}）",
     "unitPriceShort": "單價",
-    "priceOf": "第 {{n}} 行單價",
-    "edit": "編輯明細行",
-    "add": "新增明細行",
-    "remove": "移除明細行",
+    "priceOf": "第 {{n}} 筆明細單價",
+    "edit": "編輯明細",
+    "add": "新增明細",
+    "remove": "移除明細",
     "removeHelp": "要從這張草稿訂單移除「{{name}}」嗎？品項會回到待採購總覽。",
     "fromBatch": "批次",
     "received": "已到 / 應到",
@@ -137,7 +137,7 @@
     "not_obtained": "未取得（取消剩餘數量）",
     "confirm": "結案",
     "reopen": "撤銷結案",
-    "reopenHelp": "明細行重新打開，它的退款紀錄會作廢。"
+    "reopenHelp": "明細重新打開，它的退款紀錄會作廢。"
   },
   "details": {
     "title": "訂單資料",
@@ -165,13 +165,13 @@
   },
   "list": {
     "title": "廠商訂單",
-    "intro": "向廠商下的訂單。你會看到包含自己團隊明細行的訂單。",
+    "intro": "向廠商下的訂單。你會看到包含自己團隊明細的訂單。",
     "introAll": "向廠商下的訂單。",
     "number": "訂單",
     "vendor": "廠商",
     "teams": "團隊",
-    "lines": "明細行",
-    "visibleLines": "可見 {{count}} 行",
+    "lines": "明細",
+    "visibleLines": "可見 {{count}} 筆",
     "search": "搜尋 VO 編號或廠商訂單編號",
     "all": "全部",
     "empty": "還沒有廠商訂單",
@@ -212,7 +212,7 @@
     "chooseVendor": "選擇廠商",
     "target": "訂單",
     "newOrder": "建立新的草稿訂單",
-    "addTo": "加入 VO-{{number}}（{{count}} 行）",
+    "addTo": "加入 VO-{{number}}（{{count}} 筆）",
     "defaultCurrency": "廠商預設 {{currency}}",
     "create": "建立訂單",
     "add": "加入訂單"
@@ -220,7 +220,7 @@
   "refundInput": {
     "currency": "退款幣別",
     "amount": "退款金額（{{currency}}）",
-    "amountHelp": "選填，以正數輸入；會在這一行建立一筆退款。",
+    "amountHelp": "選填，以正數輸入；會在這筆明細建立一筆退款。",
     "actual": "實際金額（{{currency}}）",
     "actualHelp": "選填。退款換算後實際的本位幣金額，可以晚點再補。",
     "method": "退款方式",
@@ -243,7 +243,7 @@
     "source": {
       "manual": "手動",
       "problem": "來自問題處理",
-      "closure": "來自明細行結案"
+      "closure": "來自明細結案"
     },
     "type": "類型",
     "settlement": "付款方式",
@@ -290,33 +290,33 @@
       "coupon": "抵用券（按面額）"
     },
     "modes": {
-      "all": "全部明細行",
+      "all": "全部明細",
       "teams": "指定團隊",
-      "lines": "指定明細行",
+      "lines": "指定明細",
       "manual": "手動"
     },
     "modeHelp": {
-      "all": "依各行金額比例分給所有明細行。",
-      "teams": "依金額比例分給所選團隊的明細行。",
-      "lines": "依金額比例分給所選明細行。",
-      "manual": "逐行填金額，加總必須等於金額。"
+      "all": "依各筆明細金額比例分給所有明細。",
+      "teams": "依金額比例分給所選團隊的明細。",
+      "lines": "依金額比例分給所選明細。",
+      "manual": "逐筆填金額，加總必須等於金額。"
     },
     "pickTeams": "團隊",
-    "pickLines": "明細行",
+    "pickLines": "明細",
     "byRequester": "選出某人申請的品項",
     "byRequesterPlaceholder": "選擇一個人",
-    "byRequesterHelp": "加入所有品項由此人申請的明細行。",
-    "lineCount": "{{count}} 行",
-    "manualAmounts": "每行金額（{{currency}}）",
+    "byRequesterHelp": "加入所有品項由此人申請的明細。",
+    "lineCount": "{{count}} 筆",
+    "manualAmounts": "每筆明細金額（{{currency}}）",
     "remaining": "尚未分配：{{amount}} {{currency}}",
     "editAudit": "修改會記錄在時間軸，金額也會重新計算。",
-    "allocationsReset": "費用原本分給的某些團隊或明細行已不存在，這些費用現在改為分給全部明細行。請檢查費用與調整表。",
+    "allocationsReset": "費用原本分給的某些團隊或明細已不存在，這些費用現在改為分給全部明細。請檢查費用與調整表。",
     "errors": {
       "placedOnly": "退款與補款需要已下單的訂單。",
       "pickTeams": "至少選一個團隊。",
-      "pickLines": "至少選一條明細行。",
-      "manualEmpty": "至少填一行的金額。",
-      "manualSum": "各行金額加總必須等於金額。"
+      "pickLines": "至少選一筆明細。",
+      "manualEmpty": "至少填一筆明細的金額。",
+      "manualSum": "各筆明細金額加總必須等於金額。"
     }
   },
   "progress": {

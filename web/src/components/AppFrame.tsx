@@ -1,4 +1,4 @@
-import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, commitsDiffer, type NavItem } from '@team6083/ui';
+import { AccountMenu, AppShell, BuildInfo, LanguageMenu, SignOutMenuItem, commitsDiffer, type NavLink } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPackage, LuPackageCheck, LuShieldCheck, LuShoppingCart } from 'react-icons/lu';
@@ -33,7 +33,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
 
   // At most five pages per role (the team's DESIGN.md: Frame); vendor orders and vendors open from the Purchasing
   // page, deliveries are a tab of Receiving, and the admin pages share one entry.
-  const nav: (NavItem & { match?: string[] })[] = [
+  const nav: (NavLink & { match?: string[] })[] = [
     { href: '/batches', label: t('nav.batches'), icon: <LuPackage /> },
     ...(canPurchase
       ? [{
@@ -45,7 +45,7 @@ export function AppFrame({ children }: { children: ReactNode }) {
     ...(canSeeReceiving ? [{ href: paths.receiving, label: t('nav.receiving'), icon: <LuPackageCheck />, match: [paths.deliveries] }] : []),
     ...(isSystemAdmin ? [{ href: paths.admin, label: t('nav.admin'), icon: <LuShieldCheck /> }] : []),
   ];
-  const items: NavItem[] = nav.map(({ match = [], ...item }) => ({
+  const items: NavLink[] = nav.map(({ match = [], ...item }) => ({
     ...item,
     active: [item.href, ...match].some((href) => isActive(href, pathname)),
   }));
