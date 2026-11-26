@@ -50,7 +50,7 @@ func (s *Vendors) List(ctx context.Context, q string, includeInactive bool) ([]d
 	if err != nil {
 		return nil, err
 	}
-	key := domain.VendorKey(q)
+	key := domain.NameKey(q)
 	out := []domain.Vendor{}
 	for _, v := range all {
 		if key == "" || strings.Contains(v.NameKey, key) || anyContains(v.AliasKeys, key) {
@@ -90,13 +90,13 @@ func (s *Vendors) normalise(in VendorInput, v *domain.Vendor) error {
 			return Invalid("website", "must be an http(s) URL")
 		}
 	}
-	nameKey := domain.VendorKey(name)
+	nameKey := domain.NameKey(name)
 	seen := map[string]bool{nameKey: true}
 	aliases := []string{}
 	var keys []string
 	for _, a := range in.Aliases {
 		a = strings.TrimSpace(a)
-		k := domain.VendorKey(a)
+		k := domain.NameKey(a)
 		if k == "" || seen[k] {
 			continue // blank, duplicate, or same as the name
 		}
@@ -111,7 +111,7 @@ func (s *Vendors) normalise(in VendorInput, v *domain.Vendor) error {
 }
 
 // checkKeys refuses a name or alias already used by another vendor, in either
-// role (case-insensitive, trimmed). Run inside the write's transaction.
+// role (compared by domain.NameKey). Run inside the write's transaction.
 func (s *Vendors) checkKeys(ctx context.Context, v *domain.Vendor) error {
 	keys := append([]string{v.NameKey}, v.AliasKeys...)
 	if other, err := s.st.VendorKeyOwner(ctx, v.ID, keys); err != nil {

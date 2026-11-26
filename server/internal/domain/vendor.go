@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -17,7 +16,7 @@ type Vendor struct {
 	Website         string        `bson:"website" json:"website"`
 	Notes           string        `bson:"notes" json:"notes"`
 	Active          bool          `bson:"active" json:"active"`
-	// NameKey and AliasKeys are the normalised (trimmed, lower-cased) forms used
+	// NameKey and AliasKeys are the normalised forms (see NameKey) used
 	// for uniqueness; AliasKeys is omitted when empty so the partial unique
 	// index ignores vendors without aliases.
 	NameKey   string    `bson:"nameKey" json:"-"`
@@ -26,9 +25,6 @@ type Vendor struct {
 	UpdatedAt time.Time `bson:"updatedAt" json:"updatedAt"`
 	Version   int64     `bson:"version" json:"version"`
 }
-
-// VendorKey normalises a vendor name or alias for uniqueness checks.
-func VendorKey(s string) string { return strings.ToLower(strings.TrimSpace(s)) }
 
 // GlobalRate is the system-wide reference rate of one currency to the base
 // currency (spec §9.1); one document per currency, versioned independently.

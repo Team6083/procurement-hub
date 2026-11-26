@@ -307,7 +307,7 @@ export interface paths {
         put?: never;
         /**
          * Add a subgroup (team admin)
-         * @description Returns the whole updated team. `aliases` are trimmed; empty and duplicate ones are dropped. 409 `subgroup_name_conflict` when the name or an alias equals another subgroup's name or alias in the team (case-insensitive, inactive subgroups included); 422 `team_archived` for archived teams.
+         * @description Returns the whole updated team. `aliases` are trimmed; empty and duplicate ones, and ones equal to the subgroup's own name, are dropped. Names and aliases are compared after Unicode case folding and NFC normalization. 409 `subgroup_name_conflict` (`details.value`: the clashing name or alias) when the name or an alias equals another subgroup's name or alias in the team (inactive subgroups included); 422 `team_archived` for archived teams.
          */
         post: operations["addSubgroup"];
         delete?: never;
@@ -334,7 +334,10 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        /** Rename, edit aliases of and/or (de)activate a subgroup (team admin; subgroups are never deleted) */
+        /**
+         * Rename, edit aliases of and/or (de)activate a subgroup (team admin; subgroups are never deleted)
+         * @description Returns the whole updated team. `aliases` are cleaned as in `addSubgroup`; an alias equal to the subgroup's final name is dropped, so renaming a subgroup to one of its own aliases removes that alias. 409 `subgroup_name_conflict` (`details.value`: the clashing name or alias) when the name or an alias equals another subgroup's name or alias in the team (inactive subgroups included); 422 `team_archived` for archived teams.
+         */
         patch: operations["patchSubgroup"];
         trace?: never;
     };
@@ -2417,7 +2420,7 @@ export interface components {
         };
         /**
          * @description Stable lowercase snake_case error code (spec §16.1). 400 `invalid_request`, `invalid_if_match`;
-         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `subgroup_name_conflict`, `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
+         *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `subgroup_name_conflict` (`details.value`), `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
          *     503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
          *     422 for every other (business-rule) code.
@@ -2669,6 +2672,16 @@ export interface components {
         };
         /** @description `version_conflict`: the If-Match version is stale; refetch and retry. */
         VersionConflict: {
+            headers: {
+                "X-Request-ID": components["headers"]["XRequestID"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description `version_conflict`: the If-Match version is stale; refetch and retry. `subgroup_name_conflict`: the name or an alias is already the name or an alias of another subgroup in the team; `details.value` is the clashing value as sent (trimmed). */
+        SubgroupConflict: {
             headers: {
                 "X-Request-ID": components["headers"]["XRequestID"];
                 [name: string]: unknown;
@@ -3456,7 +3469,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
+            409: components["responses"]["SubgroupConflict"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];
@@ -3502,7 +3515,7 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
-            409: components["responses"]["VersionConflict"];
+            409: components["responses"]["SubgroupConflict"];
             413: components["responses"]["PayloadTooLarge"];
             422: components["responses"]["Unprocessable"];
             428: components["responses"]["IfMatchRequired"];

@@ -59,4 +59,9 @@ func TestHTTPVendors(t *testing.T) {
 	bad := itemBody("bad")
 	bad["vendorId"] = "000000000000000000000001"
 	w.do(t, call{token: w.mem, method: "POST", path: w.path("/batches/{}", id) + "/items", body: bad}).expect(400, "invalid_request")
+
+	// Keys use Unicode case folding and NFC: Greek final sigma, and composed vs decomposed é.
+	w.do(t, call{token: buyer, method: "POST", path: "/api/v1/vendors", body: body("ΟΔΟΣ", "Caf\u00e9")}).expect(201)
+	w.do(t, call{token: buyer, method: "POST", path: "/api/v1/vendors", body: body("οδος")}).expect(422, "vendor_name_taken")
+	w.do(t, call{token: buyer, method: "POST", path: "/api/v1/vendors", body: body("cafe\u0301")}).expect(422, "vendor_name_taken")
 }

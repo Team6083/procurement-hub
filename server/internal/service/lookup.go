@@ -45,7 +45,7 @@ func (s *Lookups) Lookup(ctx context.Context, query string) (*LookupFound, error
 		// Keep the price within the currency's minor unit so it can be saved on an item as-is.
 		p.Amount = domain.Decimal{Decimal: p.Amount.Round(int32(s.currencies.Digits(p.Currency)))}
 	}
-	if key := domain.VendorKey(res.Vendor); key != "" {
+	if key := domain.NameKey(res.Vendor); key != "" {
 		vendors, err := s.st.ListVendors(ctx, false)
 		if err != nil {
 			return nil, err
