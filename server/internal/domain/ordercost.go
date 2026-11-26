@@ -44,9 +44,11 @@ type CostEntryInput struct {
 
 // OrderCostInput is everything the calculation needs about one non-cancelled order.
 type OrderCostInput struct {
-	Currency    string
-	Base        string
-	BaseDigits  int // minor-unit digits of the base currency
+	Currency   string
+	Base       string
+	BaseDigits int // minor-unit digits of the base currency
+	// Digits is the minor-unit digits of the order currency (rounds SharedC).
+	Digits      int
 	Lines       []CostLine
 	Entries     []CostEntryInput
 	ChargedBase *decimal.Decimal
@@ -81,8 +83,12 @@ type Incomplete struct {
 // LineCost is one line's computed amounts. Base-currency fields are nil when
 // the order is incomplete.
 type LineCost struct {
-	LineNo       int
-	LineC        *decimal.Decimal
+	LineNo int
+	LineC  *decimal.Decimal
+	// SharedC is the with-checkout costs allocated to the line in the order
+	// currency, rounded to its minor unit so the lines sum to CheckoutC; nil
+	// when the base amounts are.
+	SharedC      *decimal.Decimal
 	CostBase     *decimal.Decimal
 	SharedBase   *decimal.Decimal // with-checkout costs
 	SeparateBase *decimal.Decimal // separate payments and refunds
@@ -434,6 +440,20 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 		for i := range shared {
 			shared[i].Add(shared[i], parts[i])
 		}
+	}
+
+	// The same allocation in the order currency, rounded to its minor unit
+	// (largest remainder, ties by lineNo) so the lines add up to checkoutC.
+	scaleC := new(big.Rat).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(in.Digits)), nil))
+	sharedCVals := make([]*big.Rat, n)
+	sharedCSum := new(big.Rat)
+	for i := range shared {
+		sharedCVals[i] = new(big.Rat).Mul(shared[i], scaleC)
+		sharedCSum.Add(sharedCSum, sharedCVals[i])
+	}
+	for i, m := range largestRemainder(sharedCVals, roundHalfAwayRat(sharedCSum)) {
+		d := minorDecimal(m, in.Digits)
+		res.Lines[i].SharedC = &d
 	}
 
 	// Step 7: convert and round all cost/shared values together.

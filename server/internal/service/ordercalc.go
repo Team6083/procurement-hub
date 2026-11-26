@@ -132,7 +132,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 	cost := domain.OrderCost{}
 	if o.Status != domain.OrderCancelled {
 		in := domain.OrderCostInput{
-			Currency: o.Currency, Base: s.cur.Base, BaseDigits: s.cur.Digits(s.cur.Base), Rates: map[string]decimal.Decimal{},
+			Currency: o.Currency, Base: s.cur.Base, BaseDigits: s.cur.Digits(s.cur.Base), Digits: s.cur.Digits(o.Currency), Rates: map[string]decimal.Decimal{},
 		}
 		if o.ChargedAmountBase != nil {
 			c := o.ChargedAmountBase.Decimal
@@ -203,6 +203,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		if i < len(cost.Lines) {
 			c = cost.Lines[i]
 		}
+		cc, sc := decPtr(c.LineC), decPtr(c.SharedC)
 		cb, sb, gb, tb := decPtr(c.CostBase), decPtr(c.SharedBase), decPtr(c.SeparateBase), decPtr(c.TotalBase)
 		stored, err := s.st.GetLine(ctx, l.ID)
 		if err != nil {
@@ -210,13 +211,13 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		}
 		if stored.Status == l.Status && stored.ReturnedQty == l.ReturnedQty && stored.ExpectedQty == l.ExpectedQty &&
 			stored.ReceivedQty == l.ReceivedQty && stored.OpenProblemQty == l.OpenProblemQty &&
-			eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.SeparateBase, gb) && eqDec(stored.TotalBase, tb) {
+			eqDec(stored.Cost, cc) && eqDec(stored.Shared, sc) && eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.SeparateBase, gb) && eqDec(stored.TotalBase, tb) {
 			continue
 		}
 		if err := s.st.UpdateLine(ctx, l.ID, bson.D{
 			{Key: "status", Value: l.Status}, {Key: "returnedQuantity", Value: l.ReturnedQty}, {Key: "expectedQuantity", Value: l.ExpectedQty},
 			{Key: "receivedQuantity", Value: l.ReceivedQty}, {Key: "openProblemQuantity", Value: l.OpenProblemQty},
-			{Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "separateBase", Value: gb}, {Key: "totalBase", Value: tb},
+			{Key: "cost", Value: cc}, {Key: "shared", Value: sc}, {Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "separateBase", Value: gb}, {Key: "totalBase", Value: tb},
 		}); err != nil {
 			return nil, nil, err
 		}

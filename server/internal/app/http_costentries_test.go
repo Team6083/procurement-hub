@@ -99,6 +99,10 @@ func TestHTTPCostEntriesAfterPlacing(t *testing.T) {
 	if o.JSON()["totals"].(map[string]any)["separateBase"] != "-9.5" {
 		t.Errorf("separateBase = %v", o.JSON()["totals"])
 	}
+	// Lines carry cost and shared in the order currency (USD): quantity x 5.00 and the 1 tax.
+	if l := o.JSON()["lines"].([]any)[0].(map[string]any); l["cost"] == nil || l["shared"] != "1" {
+		t.Errorf("line cost/shared = %v / %v, want a price and 1", l["cost"], l["shared"])
+	}
 
 	// Deleting needs a draft; unplace is blocked by the refund but not by the tax.
 	w.do(t, call{token: f.buyer, method: "DELETE", path: w.path("/cost-entries/{}", tax), ifMatch: o.ETag()}).expect(422, "order_not_draft")

@@ -2078,6 +2078,10 @@ export interface components {
             openProblemQuantity: number;
             closure: components["schemas"]["LineClosure"] | null;
             status: components["schemas"]["LineStatus"];
+            /** @description Decimal string in the order currency; quantity x unitPrice; null when unitPrice is null. */
+            cost: string | null;
+            /** @description Decimal string in the order currency; the with_checkout cost entries allocated to this line, rounded to the currency's minor unit so the lines add up to the order's checkoutC; null when it cannot be computed. */
+            shared: string | null;
             /** @description Decimal string; null when it cannot be computed. */
             costBase: string | null;
             /** @description Decimal string; the with_checkout cost entries allocated to this line; null when it cannot be computed. */

@@ -458,3 +458,50 @@ func TestMinorDecimalRejectsOutOfRangeDigits(t *testing.T) {
 	}()
 	minorDecimal(big.NewInt(1), 5)
 }
+
+// cost and shared are in the order currency: shared adds up to checkoutC
+// (with and without a discount) and both are nil when the order cannot be priced.
+func TestOrderCurrencyAmounts(t *testing.T) {
+	mk := func(lines []CostLine, amounts ...string) OrderCostInput {
+		in := OrderCostInput{Currency: "USD", Base: "TWD", BaseDigits: 0, Digits: 2, Lines: lines,
+			Rates: map[string]decimal.Decimal{"USD": dd("31")}}
+		for _, a := range amounts {
+			in.Entries = append(in.Entries, checkout(a, nil))
+		}
+		return in
+	}
+	three := []CostLine{line(1, "a", 1, "10"), line(2, "a", 2, "10"), line(3, "a", 1, "10")}
+	missing := []CostLine{line(1, "a", 1, "10"), {LineNo: 2, LineID: "b", TeamID: "a", Quantity: 1}}
+	tests := []struct {
+		name   string
+		in     OrderCostInput
+		cost   []string
+		shared []string
+	}{
+		{"fee splits by weight, ties by lineNo", mk(three, "1"), []string{"10.00", "20.00", "10.00"}, []string{"0.25", "0.50", "0.25"}},
+		{"remainder goes to the lowest line", mk([]CostLine{line(1, "a", 1, "10"), line(2, "a", 1, "10"), line(3, "a", 1, "10")}, "1"),
+			[]string{"10.00", "10.00", "10.00"}, []string{"0.34", "0.33", "0.33"}},
+		{"discount", mk(three, "5", "-6.01"), []string{"10.00", "20.00", "10.00"}, []string{"-0.25", "-0.51", "-0.25"}},
+		{"missing price", mk(missing, "1"), []string{"10.00", "nil"}, []string{"nil", "nil"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CalcOrderCost(tt.in)
+			sum := decimal.Zero
+			for i, l := range got.Lines {
+				if c := str(l.LineC); c != tt.cost[i] {
+					t.Errorf("line %d cost = %q, want %q", i+1, c, tt.cost[i])
+				}
+				if s := str(l.SharedC); s != tt.shared[i] {
+					t.Errorf("line %d shared = %q, want %q", i+1, s, tt.shared[i])
+				}
+				if l.SharedC != nil {
+					sum = sum.Add(*l.SharedC)
+				}
+			}
+			if got.LinesC != nil && !sum.Equal(got.CheckoutC) {
+				t.Errorf("Σ shared = %s, checkoutC %s", sum, got.CheckoutC)
+			}
+		})
+	}
+}

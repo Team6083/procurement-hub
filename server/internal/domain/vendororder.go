@@ -90,6 +90,8 @@ type VendorOrderLine struct {
 	OpenProblemQty  int            `bson:"openProblemQuantity" json:"openProblemQuantity"`
 	Closure         *Closure       `bson:"closure" json:"closure"`
 	Status          LineStatus     `bson:"status" json:"status"`
+	Cost            *Decimal       `bson:"cost" json:"cost"`
+	Shared          *Decimal       `bson:"shared" json:"shared"`
 	CostBase        *Decimal       `bson:"costBase" json:"costBase"`
 	SharedBase      *Decimal       `bson:"sharedBase" json:"sharedBase"`
 	SeparateBase    *Decimal       `bson:"separateBase" json:"separateBase"`

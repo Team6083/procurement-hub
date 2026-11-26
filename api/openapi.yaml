@@ -2945,7 +2945,7 @@ components:
         isPurchaser: { type: boolean, description: "From users.roleSnapshot; false for an owner who lost the purchaser role." }
     VendorOrderLine:
       type: object
-      required: [requester, id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, costBase, sharedBase, separateBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
+      required: [requester, id, vendorOrderId, lineNo, teamId, itemId, batchId, name, sku, productUrl, quantity, unitPrice, returnedQuantity, expectedQuantity, receivedQuantity, openProblemQuantity, closure, status, cost, shared, costBase, sharedBase, separateBase, totalBase, createdAt, updatedAt, vendorOrderVersion, vendorOrderNumber, problems]
       properties:
         id: { type: string }
         vendorOrderId: { type: string }
@@ -2966,6 +2966,8 @@ components:
         openProblemQuantity: { type: integer }
         closure: { oneOf: [{ $ref: "#/components/schemas/LineClosure" }, { type: "null" }] }
         status: { $ref: "#/components/schemas/LineStatus" }
+        cost: { type: [string, "null"], description: Decimal string in the order currency; quantity x unitPrice; null when unitPrice is null. }
+        shared: { type: [string, "null"], description: "Decimal string in the order currency; the with_checkout cost entries allocated to this line, rounded to the currency's minor unit so the lines add up to the order's checkoutC; null when it cannot be computed." }
         costBase: { type: [string, "null"], description: Decimal string; null when it cannot be computed. }
         sharedBase: { type: [string, "null"], description: "Decimal string; the with_checkout cost entries allocated to this line; null when it cannot be computed." }
         separateBase: { type: [string, "null"], description: "Decimal string; the separate payments and refunds allocated to this line; null when it cannot be computed." }
