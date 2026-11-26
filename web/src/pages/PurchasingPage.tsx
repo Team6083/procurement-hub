@@ -16,6 +16,7 @@ import { SendToOrderModal } from '../features/orders/SendToOrderModal';
 import { VendorOrderView } from '../features/orders/VendorOrderView';
 import { lineTotal } from '../features/batches/estimates';
 import { safeHttpUrl } from '../features/batches/itemForm';
+import { PriorityBadge } from '../features/batches/PriorityBadge';
 import { format } from '../features/batches/decimal';
 import { paths } from '../paths';
 import { StatusBadge } from '../components/StatusBadge';
@@ -51,11 +52,12 @@ export function PurchasingPage() {
       key: 'name', header: t('queue.item'), priority: 'primary',
       cell: (i) => (
         <Stack gap="0">
-          <span>
+          <HStack as="span" gap="1.5">
             {safeHttpUrl(i.productUrl)
               ? <Link href={safeHttpUrl(i.productUrl)} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{`#${i.seqNo} ${i.name}`}</Link>
               : `#${i.seqNo} ${i.name}`}
-          </span>
+            <PriorityBadge priority={i.priority} label={t(`teams:priority.default.${i.priority}`)} />
+          </HStack>
           {i.sku && <Text textStyle="xs" color="fg.muted">{i.sku}</Text>}
           {/* Items grouped under "other" keep the vendor their requester typed. */}
           {!i.vendorId && i.vendorName && <Text textStyle="xs" color="fg.muted">{i.vendorName}</Text>}

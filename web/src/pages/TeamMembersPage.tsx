@@ -1,5 +1,6 @@
 import { Button, Dialog, Stack, Text } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { PersonAvatar } from '../components/PersonAvatar';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
@@ -115,10 +116,7 @@ export function TeamMembersPage() {
     {
       key: 'user', header: t('members.user'), priority: 'primary',
       cell: (m) => (
-        <Stack gap="0">
-          <Text fontWeight="medium">{m.displayName || m.username}</Text>
-          <Text textStyle="xs" color="fg.muted">{m.email}</Text>
-        </Stack>
+        <PersonAvatar name={m.displayName || m.username} tip={`${m.displayName || m.username} · ${m.email}`} />
       ),
     },
     { key: 'role', header: t('members.effective'), cell: (m) => <RoleCell sources={m} effective={m.effectiveRole} /> },

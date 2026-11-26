@@ -1,10 +1,11 @@
-import { Badge, Box, Flex, HStack, Link, Text } from '@chakra-ui/react';
+import { Box, Flex, HStack, Link, Text } from '@chakra-ui/react';
 import { DataTable, InfoTip, type DataColumn, type DataSort, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { ClampedText } from '../../components/ClampedText';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Team } from '../../api/types';
-import { Tooltip } from '@team6083/ui';
+import { PersonAvatar } from '../../components/PersonAvatar';
+import { PriorityBadge } from './PriorityBadge';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
 import { format } from './decimal';
 import { formatMoney } from '../money';
@@ -59,16 +60,20 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
                 <Text as="span" color="fg.muted" fontWeight="normal" fontVariantNumeric="tabular-nums" me="1.5">#{it.seqNo}</Text>
                 {url ? <Link display="inline" href={url} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{it.name}</Link> : it.name}
               </ClampedText>
-              {/* The priority rides along with the name instead of taking a column of its own (B3: the table must fit). */}
-              <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
-                <Badge variant="outline" size="sm" flexShrink={0} tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
-              </Tooltip>
               {/* A marker that this item has notes; the notes show on click or focus. */}
               {it.notes && (
-                <InfoTip buttonProps={{ 'aria-label': `${t('item.notes')}: ${it.notes}` }}>
-                  <Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="xs">{it.notes}</Text>
-                </InfoTip>
+                <Box as="span" display="inline-flex" alignItems="center" h="1lh" flexShrink={0}>
+                  <InfoTip buttonProps={{ 'aria-label': `${t('item.notes')}: ${it.notes}` }}>
+                    <Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="xs">{it.notes}</Text>
+                  </InfoTip>
+                </Box>
               )}
+              {/* The priority and the notes marker ride along with the name instead of taking columns of their own (B3: the
+                  table must fit); each is one line tall so it centres on the first line of the name. */}
+              <Box as="span" display="inline-flex" alignItems="center" h="1lh" flexShrink={0}>
+                <PriorityBadge priority={it.priority} label={prio(it.priority)} />
+              </Box>
+              
             </Flex>
             {it.purpose && <ClampedText text={it.purpose} lines={2} display="block" textStyle="xs" fontWeight="normal" color="fg.muted" />}
             {it.status === 'returned' && it.review?.comment && (
@@ -90,8 +95,8 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         );
       },
     }),
-    ...(showRequester ? [col('requester', t('item.requester'), (i) => nameOf(i.requesterId), { cell: (it) => nameOf(it.requesterId) })] : []),
-    col('subgroup', t('item.subgroup'), (i) => subgroupName(i.subgroupId), { priority: 'secondary', cell: (it) => subgroupName(it.subgroupId) || '—' }),
+    ...(showRequester ? [col('requester', t('item.requester'), (i) => nameOf(i.requesterId), { cell: (it) => <PersonAvatar name={nameOf(it.requesterId)} /> })] : []),
+    col('subgroup', t('item.subgroup'), (i) => subgroupName(i.subgroupId), { cell: (it) => subgroupName(it.subgroupId) || '—' }),
     col('vendor', t('item.vendor'), (i) => i.vendorName, { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
     col('quantity', t('item.quantity'), (i) => i.quantity, { numeric: true, cell: (it) => it.quantity }),
     // Unit price under the total: one money column instead of two.

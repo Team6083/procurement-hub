@@ -67,17 +67,17 @@ describe('ItemsTable', () => {
   it('shows requester names, updating when names load after the first render', () => {
     const rows = [item(1, { requesterId: 'u1' }), item(2, { requesterId: 'u2' })];
     const view = renderUI(<ItemsTable items={rows} team={team()} nameOf={() => '…'} />);
-    expect(screen.getAllByText('…')).toHaveLength(2);
+    expect(screen.getAllByRole('img', { name: '…' })).toHaveLength(2);
     const nameOf = (id: string) => (id === 'u1' ? 'Alice' : 'Former member');
     view.rerender(<ItemsTable items={rows} team={team()} nameOf={nameOf} />);
-    expect(screen.getByText('Alice')).toBeTruthy();
-    expect(screen.getByText('Former member')).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Alice' })).toBeTruthy();
+    expect(screen.getByRole('img', { name: 'Former member' })).toBeTruthy();
   });
 
   it('leaves the requester out for viewers who cannot see names', () => {
     renderUI(<ItemsTable items={items} team={team()} nameOf={() => 'Alice'} showRequester={false} />);
     expect(screen.queryByRole('columnheader', { name: /Requester/ })).toBeNull();
-    expect(screen.queryByText('Alice')).toBeNull();
+    expect(screen.queryByRole('img', { name: 'Alice' })).toBeNull();
   });
 
   it('has no checkboxes when not selectable', () => {
