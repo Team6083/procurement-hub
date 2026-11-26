@@ -33,6 +33,7 @@
     "aliasesHelp": "一行一個。名稱與別名在所有廠商之間不可重複。",
     "currency": "預設幣別",
     "website": "網站",
+    "openWebsite": "在新分頁開啟 {{name}} 的網站",
     "badUrl": "請輸入 http(s) 網址。",
     "notes": "備註",
     "active": "啟用",

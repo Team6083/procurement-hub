@@ -1,14 +1,15 @@
-import { Button, Stack, Switch } from '@chakra-ui/react';
+import { Button, HStack, IconButton, Stack, Switch } from '@chakra-ui/react';
 import { DataTable, EmptyState, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuPencil, LuPlus, LuStore } from 'react-icons/lu';
+import { LuExternalLink, LuPencil, LuPlus, LuStore } from 'react-icons/lu';
 import { useVendors } from '../api/vendors';
 import type { Vendor } from '../api/types';
 import { useAccess } from '../auth/useAccess';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { SectionActions } from '../components/SectionLayout';
+import { safeHttpUrl } from '../features/batches/itemForm';
 import { VendorModal } from '../features/vendors/VendorModal';
 import { StatusBadge } from '../components/StatusBadge';
 
@@ -21,7 +22,19 @@ export function VendorsPage() {
   const [editing, setEditing] = useState<Vendor | 'new' | null>(null);
 
   const columns: DataColumn<Vendor>[] = [
-    { key: 'name', header: t('vendors.name'), priority: 'primary', cell: (v) => v.name },
+    {
+      key: 'name', header: t('vendors.name'), priority: 'primary',
+      cell: (v) => (
+        <HStack gap="1">
+          {v.name}
+          {safeHttpUrl(v.website) && (
+            <IconButton asChild variant="ghost" size="2xs" aria-label={t('vendors.openWebsite', { name: v.name })}>
+              <a href={safeHttpUrl(v.website)} target="_blank" rel="noopener noreferrer"><LuExternalLink /></a>
+            </IconButton>
+          )}
+        </HStack>
+      ),
+    },
     { key: 'aliases', header: t('vendors.aliases'), priority: 'secondary', cell: (v) => v.aliases.join(', ') || '—' },
     { key: 'currency', header: t('vendors.currency'), cell: (v) => v.defaultCurrency },
     { key: 'status', header: t('vendors.status'), cell: (v) => (v.active ? <StatusBadge tone="done">{t('vendors.active')}</StatusBadge> : <StatusBadge tone="neutral">{t('vendors.inactive')}</StatusBadge>) },

@@ -33,6 +33,7 @@
     "aliasesHelp": "One per line. Names and aliases must be unique across vendors.",
     "currency": "Default currency",
     "website": "Website",
+    "openWebsite": "Open {{name}} website in a new tab",
     "badUrl": "Enter an http(s) address.",
     "notes": "Notes",
     "active": "Active",
