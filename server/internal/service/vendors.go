@@ -111,7 +111,7 @@ func (s *Vendors) normalise(in VendorInput, v *domain.Vendor) error {
 }
 
 // checkKeys refuses a name or alias already used by another vendor, in either
-// role (case-insensitive, trimmed). Run inside the write's transaction.
+// role (compared by domain.NameKey). Run inside the write's transaction.
 func (s *Vendors) checkKeys(ctx context.Context, v *domain.Vendor) error {
 	keys := append([]string{v.NameKey}, v.AliasKeys...)
 	if other, err := s.st.VendorKeyOwner(ctx, v.ID, keys); err != nil {

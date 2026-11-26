@@ -7,7 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
-	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -331,29 +331,33 @@ func TestHTTPTeams(t *testing.T) {
 		t.Errorf("conflict details.value = %v", v)
 	}
 	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"cafe\u0301"}}}).expect(409, "subgroup_name_conflict")
-	// The audit log records the aliases a subgroup is created with and alias changes (newest first).
-	evs := w.do(t, call{token: w.adm, method: "GET", path: team + "/audit?limit=2"}).expect(200).Items()
-	wantChanges := func(e any, action string, want []map[string]any) {
+	// Composed and decomposed forms in one request are duplicates.
+	docs := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "Docs", "aliases": []string{"R\u00e9sum\u00e9", "Re\u0301sume\u0301"}}}).expect(200)
+	if got := docs.JSON()["subgroups"].([]any)[4].(map[string]any)["aliases"].([]any); len(got) != 1 || got[0] != "R\u00e9sum\u00e9" {
+		t.Errorf("docs aliases = %v", got)
+	}
+	// The audit log records the aliases a subgroup is created with and alias changes.
+	evs := w.do(t, call{token: w.adm, method: "GET", path: team + "/audit?limit=100"}).expect(200).Items()
+	// findEvent returns the changes of the event with the given action whose first change is first.
+	findEvent := func(action string, first map[string]any) []any {
 		t.Helper()
-		ev := e.(map[string]any)
-		chs, _ := ev["changes"].([]any)
-		if ev["action"] != action || len(chs) != len(want) {
-			t.Fatalf("audit event = %v, want %s with %v", ev, action, want)
-		}
-		for i, w := range want {
-			if got := fmt.Sprint(chs[i]); got != fmt.Sprint(w) {
-				t.Errorf("%s change %d = %s, want %s", action, i, got, fmt.Sprint(w))
+		for _, e := range evs {
+			ev := e.(map[string]any)
+			if chs, _ := ev["changes"].([]any); ev["action"] == action && len(chs) > 0 && reflect.DeepEqual(chs[0], first) {
+				return chs
 			}
 		}
+		t.Fatalf("no %s event starting with %v in %v", action, first, evs)
+		return nil
 	}
-	wantChanges(evs[0], "team.subgroup_added", []map[string]any{
-		{"field": "subgroups", "from": nil, "to": "ΟΔΟΣ"},
-		{"field": "subgroup.aliases", "from": nil, "to": []any{"Caf\u00e9"}},
-	})
-	wantChanges(evs[1], "team.subgroup_updated", []map[string]any{
-		{"field": "subgroup.name", "from": "Software", "to": "SW"},
-		{"field": "subgroup.aliases", "from": []any{"SW", "Soft"}, "to": []any{"Soft"}},
-	})
+	added := findEvent("team.subgroup_added", map[string]any{"field": "subgroups", "from": nil, "to": "ΟΔΟΣ"})
+	if want := []any{map[string]any{"field": "subgroup.aliases", "from": nil, "to": []any{"Caf\u00e9"}}}; !reflect.DeepEqual(added[1:], want) {
+		t.Errorf("subgroup_added changes = %v, want %v after the name", added, want)
+	}
+	updated := findEvent("team.subgroup_updated", map[string]any{"field": "subgroup.name", "from": "Software", "to": "SW"})
+	if want := []any{map[string]any{"field": "subgroup.aliases", "from": []any{"SW", "Soft"}, "to": []any{"Soft"}}}; !reflect.DeepEqual(updated[1:], want) {
+		t.Errorf("subgroup_updated changes = %v, want %v after the name", updated, want)
+	}
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")
