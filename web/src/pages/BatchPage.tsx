@@ -59,12 +59,15 @@ export function BatchPage() {
             // Top-aligned: BatchActions can grow a "why disabled" line under its buttons, and the edit button must stay on the button row.
             <HStack gap="2" wrap="wrap" align="flex-start" justify="flex-end">
               {canEditBatch(batch, caller) && (
-                <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                <Button size="sm" variant="outline" hideBelow="md" onClick={() => setEditing(true)}>
                   <LuPencil />
                   {t('edit.button')}
                 </Button>
               )}
-              <BatchActions batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} items={items.data} />
+              <BatchActions
+                batch={batch} caller={caller} pendingItems={pendingItems} undecidedItems={undecidedItems} items={items.data}
+                leading={canEditBatch(batch, caller) ? { label: t('edit.button'), icon: <LuPencil />, onSelect: () => setEditing(true) } : undefined}
+              />
             </HStack>
           } />
         {batch.description && <Text whiteSpace="pre-wrap">{batch.description}</Text>}

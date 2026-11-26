@@ -69,6 +69,7 @@
     "purchasersHelp": "選填，只用於通知與待辦清單，不授予任何權限。"
   },
   "actions": {
+    "menu": "批次操作",
     "open": "開放收集品項",
     "start_review": "開始審核",
     "close": "結束收集",

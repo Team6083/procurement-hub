@@ -69,6 +69,7 @@
     "purchasersHelp": "Optional. Only used for notifications and task lists; grants nothing."
   },
   "actions": {
+    "menu": "Batch actions",
     "open": "Open for items",
     "start_review": "Start review",
     "close": "Close collection",
