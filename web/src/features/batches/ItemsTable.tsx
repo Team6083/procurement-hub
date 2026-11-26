@@ -1,9 +1,8 @@
-import { Badge, Box, Button, Flex, HStack, Icon, Link, Text } from '@chakra-ui/react';
-import { DataTable, type DataColumn, type DataTableSelection, type RowAction } from '@team6083/ui';
+import { Badge, Box, Flex, HStack, Link, Text } from '@chakra-ui/react';
+import { DataTable, InfoTip, type DataColumn, type DataSort, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { ClampedText } from '../../components/ClampedText';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { LuArrowDown, LuArrowUp, LuStickyNote } from 'react-icons/lu';
 import type { Item, Team } from '../../api/types';
 import { Tooltip } from '@team6083/ui';
 import { priorityLabel, type PriorityKey } from '../teams/priority';
@@ -13,8 +12,7 @@ import { lineTotal } from './estimates';
 import { safeHttpUrl } from './itemForm';
 import { FulfillmentBadge, ItemStatusBadge, ItemStatusIcon } from './StatusBadges';
 
-type SortKey = 'name' | 'requester' | 'subgroup' | 'priority' | 'quantity' | 'unitPrice' | 'lineTotal' | 'vendor' | 'status';
-interface Sort { key: SortKey; desc: boolean }
+type SortKey = 'name' | 'requester' | 'subgroup' | 'quantity' | 'lineTotal' | 'vendor' | 'status';
 
 interface Props {
   items: Item[];
@@ -38,51 +36,17 @@ const total = (i: Item) => {
 /** The batch's items: name first, numbers right-aligned, detail columns dropped on narrow screens; sortable by any column. */
 export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty, reviewAsIcon = false }: Props) {
   const { t } = useTranslation('batches');
-  const [sort, setSort] = useState<Sort | null>(null);
   const subgroupName = (id: string) => team?.subgroups.find((g) => g.id === id)?.name ?? '';
   const prio = (p: number) => priorityLabel(team?.priorityLabels, String(p) as PriorityKey, (k) => t(`teams:priority.default.${k}`));
 
-  const rows = useMemo(() => {
-    if (!sort) return items;
-    const value = (i: Item): string | number => {
-      switch (sort.key) {
-        case 'name': return i.name;
-        case 'requester': return nameOf(i.requesterId);
-        case 'subgroup': return team?.subgroups.find((g) => g.id === i.subgroupId)?.name ?? '';
-        case 'priority': return i.priority;
-        case 'quantity': return i.quantity;
-        case 'unitPrice': return Number(i.estimatedUnitPrice.amount);
-        case 'lineTotal': return total(i);
-        case 'vendor': return i.vendorName;
-        case 'status': return t(`itemStatus.${i.status}`, { defaultValue: i.status });
-      }
-    };
-    const sorted = [...items].sort((a, b) => {
-      const x = value(a);
-      const y = value(b);
-      return typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y));
-    });
-    return sort.desc ? sorted.reverse() : sorted;
-  }, [items, sort, nameOf, team, t]);
-
   // Like a spreadsheet: the first click sorts ascending, the second descending, the third restores the batch order.
-  const header = (key: SortKey, label: string, numeric = false) => {
-    const dir = sort?.key === key ? (sort.desc ? 'descending' : 'ascending') : undefined;
-    const next = () => setSort(!dir ? { key, desc: false } : dir === 'ascending' ? { key, desc: true } : null);
-    return (
-      <Button variant="plain" size="sm" px="0" h="auto" minW="0" color="inherit" fontWeight="inherit" data-sort={dir} onClick={next}
-        flexDirection={numeric ? 'row-reverse' : 'row'}>
-        {label}
-        {dir && <Icon boxSize="3" aria-hidden>{dir === 'ascending' ? <LuArrowUp /> : <LuArrowDown />}</Icon>}
-      </Button>
-    );
-  };
-  const col = (key: SortKey, label: string, rest: Omit<DataColumn<Item>, 'key' | 'header' | 'label'>): DataColumn<Item> => ({
-    key, label, header: header(key, label, rest.numeric), ...rest,
+  const [by, setBy] = useState<DataSort['by']>(null);
+  const col = (key: SortKey, label: string, sortValue: (i: Item) => string | number, rest: Omit<DataColumn<Item>, 'key' | 'header' | 'label' | 'sortValue'>): DataColumn<Item> => ({
+    key, header: label, sortValue, ...rest,
   });
 
   const columns: DataColumn<Item>[] = [
-    col('name', t('item.name'), {
+    col('name', t('item.name'), (i) => i.name, {
       priority: 'primary',
       cell: (it) => {
         const url = safeHttpUrl(it.productUrl);
@@ -99,11 +63,11 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
               <Tooltip content={t('item.priorityOf', { label: prio(it.priority) })}>
                 <Badge variant="outline" size="sm" flexShrink={0} tabIndex={0} aria-label={t('item.priorityOf', { label: prio(it.priority) })}>P{it.priority}</Badge>
               </Tooltip>
-              {/* A marker that this item has notes; the notes show on hover or focus. */}
+              {/* A marker that this item has notes; the notes show on click or focus. */}
               {it.notes && (
-                <Tooltip content={<Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="xs">{it.notes}</Text>}>
-                  <Icon as={LuStickyNote} boxSize="4" mt="0.5" color="fg.muted" flexShrink={0} tabIndex={0} role="img" aria-label={`${t('item.notes')}: ${it.notes}`} />
-                </Tooltip>
+                <InfoTip buttonProps={{ 'aria-label': `${t('item.notes')}: ${it.notes}` }}>
+                  <Text whiteSpace="pre-wrap" overflowWrap="anywhere" maxW="xs">{it.notes}</Text>
+                </InfoTip>
               )}
             </Flex>
             {it.purpose && <ClampedText text={it.purpose} lines={2} display="block" textStyle="xs" fontWeight="normal" color="fg.muted" />}
@@ -126,12 +90,12 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         );
       },
     }),
-    ...(showRequester ? [col('requester', t('item.requester'), { cell: (it) => nameOf(it.requesterId) })] : []),
-    col('subgroup', t('item.subgroup'), { priority: 'secondary', cell: (it) => subgroupName(it.subgroupId) || '—' }),
-    col('vendor', t('item.vendor'), { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
-    col('quantity', t('item.quantity'), { numeric: true, cell: (it) => it.quantity }),
+    ...(showRequester ? [col('requester', t('item.requester'), (i) => nameOf(i.requesterId), { cell: (it) => nameOf(it.requesterId) })] : []),
+    col('subgroup', t('item.subgroup'), (i) => subgroupName(i.subgroupId), { priority: 'secondary', cell: (it) => subgroupName(it.subgroupId) || '—' }),
+    col('vendor', t('item.vendor'), (i) => i.vendorName, { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
+    col('quantity', t('item.quantity'), (i) => i.quantity, { numeric: true, cell: (it) => it.quantity }),
     // Unit price under the total: one money column instead of two.
-    col('lineTotal', t('item.lineTotal'), {
+    col('lineTotal', t('item.lineTotal'), total, {
       numeric: true,
       cell: (it) => (
         <Box as="span" display="block">
@@ -140,7 +104,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
         </Box>
       ),
     }),
-    col('status', t('item.status'), { cell: (it) => (
+    col('status', t('item.status'), (i) => t(`itemStatus.${i.status}`, { defaultValue: i.status }), { cell: (it) => (
       reviewAsIcon
         ? (it.fulfillment ? <FulfillmentBadge value={it.fulfillment} /> : '—')
         : (
@@ -155,7 +119,8 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
   return (
     <DataTable
       aria-label={t('tabs.items')}
-      rows={rows}
+      rows={items}
+      sort={{ by, onChange: setBy }}
       columns={columns}
       getRowId={(i) => i.id}
       selection={selection}

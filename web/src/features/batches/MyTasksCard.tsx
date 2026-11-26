@@ -9,13 +9,14 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { ListSkeleton } from '../../components/PageStates';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
+import { StatusBadge } from '../../components/StatusBadge';
 
 /** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
 function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
   return (
     <HStack gap="2" wrap="wrap">
       <RouteAnchor to={paths.batch(batch.id)}>#{batch.number} {batch.title}</RouteAnchor>
-      {badge && <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{badge}</Badge>}
+      {badge && <StatusBadge tone="attention">{badge}</StatusBadge>}
     </HStack>
   );
 }
@@ -100,7 +101,7 @@ export function MyTasksCard() {
         {purchase.map((v) => (
           <HStack key={v.vendor ?? ''} gap="2" wrap="wrap">
             <RouteAnchor to={paths.purchasing}>{v.vendor ?? tb('tasks.noVendor')}</RouteAnchor>
-            <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseCount', { count: v.count })}</Badge>
+            <StatusBadge tone="attention">{tb('tasks.purchaseCount', { count: v.count })}</StatusBadge>
             {v.myBatches > 0 && <Badge variant="outline" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseMine', { count: v.myBatches })}</Badge>}
           </HStack>
         ))}

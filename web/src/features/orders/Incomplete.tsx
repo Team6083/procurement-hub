@@ -1,4 +1,4 @@
-import { List, Text } from '@chakra-ui/react';
+import { Alert, List } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import type { OrderTotals } from '../../api/types';
 
@@ -7,13 +7,16 @@ export function IncompleteReasons({ totals, currency }: { totals: OrderTotals; c
   const { t } = useTranslation('purchasing');
   if (totals.incomplete.length === 0) return null;
   return (
-    <div>
-      <Text textStyle="sm" fontWeight="medium" color="fg.warning">{t('incomplete.title')}</Text>
-      <List.Root textStyle="sm" ps="4">
-        {totals.incomplete.map((r, i) => (
-          <List.Item key={`${r.code}:${r.lineNo ?? ''}:${i}`}>{t(`incomplete.${r.code}`, { line: r.lineNo, entry: r.entryNo, currency: r.currency ?? currency })}</List.Item>
-        ))}
-      </List.Root>
-    </div>
+    <Alert.Root status="warning" size="sm">
+      <Alert.Indicator />
+      <Alert.Content>
+        <Alert.Title>{t('incomplete.title')}</Alert.Title>
+        <List.Root textStyle="sm" ps="4">
+          {totals.incomplete.map((r, i) => (
+            <List.Item key={`${r.code}:${r.lineNo ?? ''}:${i}`}>{t(`incomplete.${r.code}`, { line: r.lineNo, entry: r.entryNo, currency: r.currency ?? currency })}</List.Item>
+          ))}
+        </List.Root>
+      </Alert.Content>
+    </Alert.Root>
   );
 }

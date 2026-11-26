@@ -57,7 +57,6 @@ export function AppFrame({ children }: { children: ReactNode }) {
     <AppShell
       appName={t('app.name')}
       // One width for the whole app, so the header and content never move while navigating; tables need the wide one.
-      // width="wide"
       nav={items}
       renderLink={renderLink}
       account={

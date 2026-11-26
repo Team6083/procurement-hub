@@ -12,6 +12,7 @@ import { MyTasksCard } from '../features/batches/MyTasksCard';
 import { CreateTeamModal } from '../features/teams/CreateTeamModal';
 import { RoleBadge } from '../features/teams/RoleBadges';
 import { paths } from '../paths';
+import { StatusBadge } from '../components/StatusBadge';
 
 export function HomePage() {
   const { t } = useTranslation('teams');
@@ -59,7 +60,7 @@ export function HomePage() {
                       <Card.Title><RouteAnchor to={paths.team(team.slug)}>{team.name}</RouteAnchor></Card.Title>
                       {(team.archived || role) && (
                         <HStack gap="2">
-                          {team.archived && <Badge colorPalette="gray">{t('home.teams.archived')}</Badge>}
+                          {team.archived && <StatusBadge tone="neutral">{t('home.teams.archived')}</StatusBadge>}
                           {role && <RoleBadge role={role} />}
                         </HStack>
                       )}

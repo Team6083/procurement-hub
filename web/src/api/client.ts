@@ -1,4 +1,4 @@
-import { readApiError } from '@team6083/ui';
+import { isMissingRole, readApiError } from '@team6083/ui';
 
 export interface ApiClientOptions {
   /** Base URL of the API origin, e.g. https://api.example.org (no /api/v1 suffix). */
@@ -63,7 +63,7 @@ export function createApiClient(opts: ApiClientOptions) {
     }
     if (!res.ok) {
       const err = await readApiError(res);
-      if (err.status === 403 && err.code === 'missing_role') opts.onMissingRole?.();
+      if (isMissingRole(err)) opts.onMissingRole?.();
       throw err;
     }
     if (res.status === 204) return undefined as T;

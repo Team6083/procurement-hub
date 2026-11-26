@@ -9,6 +9,7 @@ import { useDeleteCostEntry, useVoidCostEntry } from '../../api/vendorOrders';
 import { ReasonModal } from '../../components/ReasonModal';
 import { formatMoney } from '../money';
 import { CostEntryModal } from './CostEntryModal';
+import { ProvisionalTip } from './StatusBadges';
 import { entryNumbers, isDerived } from './costEntries';
 
 interface Props {
@@ -66,7 +67,7 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
       cell: (e) => {
         if (e.settlement !== 'separate') return '—';
         if (e.currency === baseCurrency) return strike(e, formatMoney(e.amount, baseCurrency, i18n.language));
-        return strike(e, e.actualAmountBase ? formatMoney(e.actualAmountBase, baseCurrency, i18n.language) : <Badge variant="outline" colorPalette="orange">{t('provisional')}</Badge>);
+        return strike(e, e.actualAmountBase ? formatMoney(e.actualAmountBase, baseCurrency, i18n.language) : <ProvisionalTip />);
       },
     },
     { key: 'method', header: t('costs.refundMethod'), cell: (e) => strike(e, e.refundMethod ? t(`costs.methods.${e.refundMethod}`) : '—') },

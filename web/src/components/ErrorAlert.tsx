@@ -1,5 +1,4 @@
 import { Alert, Button, List } from '@chakra-ui/react';
-import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ApiError } from '@team6083/ui';
 import { errorMessage } from '../api/errors';
@@ -41,16 +40,6 @@ export function ErrorAlert({ error, onDiscard }: Props) {
       {keptEdits && (
         <Button size="xs" variant="outline" alignSelf="center" onClick={onDiscard}>{t('actions.discardChanges')}</Button>
       )}
-    </Alert.Root>
-  );
-}
-
-/** Neutral or warning notice (not an error). */
-export function Notice({ children, status = 'neutral' }: { children: ReactNode; status?: 'neutral' | 'warning' | 'info' }) {
-  return (
-    <Alert.Root status={status}>
-      <Alert.Indicator />
-      <Alert.Description>{children}</Alert.Description>
     </Alert.Root>
   );
 }

@@ -8,7 +8,6 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { Tooltip } from '@team6083/ui';
-import { UndoDialog } from '../../components/UndoDialog';
 import { availableActions, type Caller } from './rules';
 import { DeadlineModal } from './DeadlineModal';
 import { EstimateSummary } from './EstimateSummary';
@@ -102,7 +101,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems, item
         </AppDialog>
       )}
       {active && UNDO.includes(active) && !needsDeadline && (
-        <UndoDialog
+        <ReasonModal reasonLabel={t('common:undo.reason')}
           open
           title={t(`actions.${active}`)}
           body={t(`actions.confirm.${active}`)}

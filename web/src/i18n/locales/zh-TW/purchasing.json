@@ -14,6 +14,7 @@
     "ordered": "已下單"
   },
   "provisional": "暫估",
+  "provisionalHint": "依參考匯率換算，填入實際扣款後會更新。",
   "restricted": "你只看得到自己團隊與可讀批次的明細，其他明細與訂單帳務僅顯示摘要。",
   "cancelledReason": "已取消：{{reason}}",
   "incomplete": {
@@ -107,16 +108,17 @@
     "add": "新增明細",
     "remove": "移除明細",
     "removeHelp": "要從這張草稿訂單移除「{{name}}」嗎？品項會回到待採購總覽。",
-    "fromBatch": "批次",
+    "openBatch": "前往批次",
     "received": "已到 / 應到",
     "problem": "{{count}} 件有問題",
     "status": "狀態",
-    "total": "合計（{{currency}}）",
+    "total": "合計",
     "problemLink": "{{count}} 件{{type}}（{{state}}）：查看到貨紀錄",
+    "priceUnset": "未填",
     "notSaved": "未儲存",
-    "goods": "貨款（{{currency}}）",
-    "checkout": "隨貨款（{{currency}}）",
-    "separate": "另外付款（{{currency}}）",
+    "goods": "貨款",
+    "checkout": "隨貨款",
+    "separate": "另外付款",
     "totals": "合計"
   },
   "amount": {

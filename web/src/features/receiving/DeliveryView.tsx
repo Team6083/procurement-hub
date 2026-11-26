@@ -7,7 +7,6 @@ import { LuBan } from 'react-icons/lu';
 import { useDelivery, useNoMatch, useVoidDelivery } from '../../api/deliveries';
 import type { DeliveryLine } from '../../api/types';
 import { ReasonModal } from '../../components/ReasonModal';
-import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
 import { useAccess } from '../../auth/useAccess';
 import { DeliveryLineCard } from './DeliveryLineCard';
@@ -47,7 +46,6 @@ export function DeliveryView({ id }: { id: string }) {
         <Card.Root size="sm">
           <Card.Body>
             <FactList
-              minChildWidth={{ base: '9rem', md: '12rem' }}
               items={[
                 { label: t('box.receivedAt'), value: shortDay(d.receivedAt) },
                 { label: t('box.source'), value: d.source || '—' },
@@ -76,12 +74,12 @@ export function DeliveryView({ id }: { id: string }) {
         loading={noMatch.isPending} error={noMatch.error} onClose={closeMark}
         onConfirm={(reason) => marking && noMatch.mutate({ lineId: marking.line.id, undo: false, reason }, { onSuccess: closeMark })}
       />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={!!marking?.undo} title={t('noMatch.undo')} body={t('noMatch.undoHelp')} confirmLabel={t('noMatch.undo')}
         loading={noMatch.isPending} error={noMatch.error} onClose={closeMark}
         onConfirm={(reason) => marking && noMatch.mutate({ lineId: marking.line.id, undo: true, reason }, { onSuccess: closeMark })}
       />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={voiding} title={t('void.action')} body={t('void.help')} confirmLabel={t('void.action')}
         loading={voidIt.isPending} error={voidIt.error} onClose={() => setVoiding(false)}
         onConfirm={(reason) => voidIt.mutate({ reason }, { onSuccess: () => setVoiding(false) })}

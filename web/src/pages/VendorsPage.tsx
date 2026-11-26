@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Stack, Switch } from '@chakra-ui/react';
+import { Button, Stack, Switch } from '@chakra-ui/react';
 import { DataTable, EmptyState, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ErrorAlert } from '../components/ErrorAlert';
 import { ListSkeleton } from '../components/PageStates';
 import { SectionActions } from '../components/SectionLayout';
 import { VendorModal } from '../features/vendors/VendorModal';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** The shared vendor list: purchasers and system admins edit it (a tab of Purchasing or of Admin). */
 export function VendorsPage() {
@@ -23,7 +24,7 @@ export function VendorsPage() {
     { key: 'name', header: t('vendors.name'), priority: 'primary', cell: (v) => v.name },
     { key: 'aliases', header: t('vendors.aliases'), priority: 'secondary', cell: (v) => v.aliases.join(', ') || '—' },
     { key: 'currency', header: t('vendors.currency'), cell: (v) => v.defaultCurrency },
-    { key: 'status', header: t('vendors.status'), cell: (v) => (v.active ? <Badge colorPalette="green" variant="subtle">{t('vendors.active')}</Badge> : <Badge variant="outline">{t('vendors.inactive')}</Badge>) },
+    { key: 'status', header: t('vendors.status'), cell: (v) => (v.active ? <StatusBadge tone="done">{t('vendors.active')}</StatusBadge> : <StatusBadge tone="neutral">{t('vendors.inactive')}</StatusBadge>) },
   ];
 
   return (
@@ -44,7 +45,7 @@ export function VendorsPage() {
         <DataTable
           aria-label={t('vendors.title')} rows={vendors.data} columns={columns} getRowId={(v) => v.id}
           rowActions={canEdit ? (v) => [{ value: 'edit', icon: <LuPencil />, label: t('common:actions.edit'), onSelect: () => setEditing(v) }] : undefined}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuStore />} title={t('vendors.empty')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuStore />} title={t('vendors.empty')} />}
         />
       )}
       <VendorModal open={editing !== null} vendor={editing && editing !== 'new' ? editing : null} onClose={() => setEditing(null)} />

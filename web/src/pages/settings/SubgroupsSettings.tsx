@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Dialog, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
+import { Badge, Button, Dialog, HStack, Input, Stack, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
@@ -16,6 +16,7 @@ import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { FormField } from '../../components/ui/field';
 import { requiredText, useFieldError } from '../../components/ui/form';
 import { useTeamCtx } from '../../features/teams/TeamContext';
+import { StatusBadge } from '../../components/StatusBadge';
 
 /** The server's limits on a subgroup's aliases (service.cleanAliases). */
 const MAX_ALIASES = 50;
@@ -90,7 +91,7 @@ export function SubgroupsSettings() {
     { key: 'aliases', header: t('subgroups.aliases'), cell: (g) => (
       <HStack wrap="wrap" gap="1">{g.aliases.map((a) => <Badge key={a} variant="surface">{a}</Badge>)}</HStack>
     ) },
-    { key: 'status', header: t('subgroups.status'), cell: (g) => (g.active ? <Badge colorPalette="green" variant="subtle">{t('subgroups.active')}</Badge> : <Badge variant="outline">{t('subgroups.inactive')}</Badge>) },
+    { key: 'status', header: t('subgroups.status'), cell: (g) => (g.active ? <StatusBadge tone="done">{t('subgroups.active')}</StatusBadge> : <StatusBadge tone="neutral">{t('subgroups.inactive')}</StatusBadge>) },
   ];
   const rowActions = (g: Subgroup): RowAction[] => (writable ? [
     { value: 'rename', icon: <LuPencil />, label: t('subgroups.edit'), onSelect: () => setEditing(g) },
@@ -105,7 +106,7 @@ export function SubgroupsSettings() {
       {!deactivating && <ErrorAlert error={setActive.error} />}
       <DataTable
         aria-label={t('tabs.subgroups')} rows={full.subgroups} columns={columns} getRowId={(g) => g.id} rowActions={rowActions}
-        empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuFolderTree />} title={t('subgroups.empty')} /></Card.Body></Card.Root>}
+        empty={<EmptyState icon={<LuFolderTree />} title={t('subgroups.empty')} />}
       />
       <AppDialog open={editing !== null} onClose={() => setEditing(null)} title={editing && editing !== 'new' ? t('subgroups.edit') : t('subgroups.add')} size="sm">
         {editing && <NameForm team={full} group={editing === 'new' ? null : editing} onClose={() => setEditing(null)} />}

@@ -28,7 +28,6 @@ export function TeamOverview() {
         <Card.Root size="sm">
           <Card.Body>
             <FactList
-              minChildWidth={{ base: '9rem', md: '12rem' }}
               items={[
                 { label: t('general.visibility'), value: t(`team.visibility.${full.visibility}`) },
                 { label: t('general.locale'), value: t(`common:language.${full.locale}`) },
@@ -58,14 +57,7 @@ export function TeamOverview() {
           } />
         {list.isPending && <ListSkeleton />}
         {list.error && <ErrorAlert error={list.error} />}
-        {list.data && batches.length === 0 && (
-          <Card.Root size="sm">
-            <Card.Body>
-              <EmptyState icon={<LuPackage />} title={tb('list.empty')} />
-            </Card.Body>
-          </Card.Root>
-        )}
-        {batches.length > 0 && <BatchTable batches={batches} />}
+        {list.data && <BatchTable batches={batches} empty={<EmptyState icon={<LuPackage />} title={tb('list.empty')} />} />}
         {list.hasNextPage && (
           <HStack>
             <Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{tb('list.loadMore')}</Button>

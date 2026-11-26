@@ -2,6 +2,7 @@ import { deliveryLabel, orderLabel } from '../features/labels';
 import { Badge, Stack, Tabs, Text } from '@chakra-ui/react';
 import { DataTable, EmptyState, type DataColumn, type RowAction, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
+import { ReasonModal } from '../components/ReasonModal';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheck, LuInbox, LuUndo2, LuX } from 'react-icons/lu';
 import { useLinesToClose, usePendingLines, useProblems, useUnresolveProblem } from '../api/deliveries';
@@ -10,7 +11,6 @@ import type { DeliveryLine, Problem, VendorOrderLine } from '../api/types';
 import { useVendorOrder } from '../api/vendorOrders';
 import { ErrorAlert } from '../components/ErrorAlert';
 import { RouteAnchor } from '../components/RouteLinks';
-import { UndoDialog } from '../components/UndoDialog';
 import { shortDate, shortDay } from '../features/dates';
 import { currencyFractionDigits } from '../features/money';
 import { CloseLineModal } from '../features/orders/CloseLineModal';
@@ -19,6 +19,7 @@ import { ResolveProblemModal } from '../features/receiving/ResolveProblemModal';
 import { MatchStateBadge, ProblemBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
 import { ListSkeleton } from '../components/PageStates';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** A compact empty state: these lists are usually empty, so they should not dominate the page. */
 const emptyState = (title: string) => <EmptyState icon={<LuInbox />} title={title} />;
@@ -99,7 +100,7 @@ function Problems({ canPurchase, baseDigits }: { canPurchase: boolean; baseDigit
         <Tabs.Content value="resolved"><ProblemTable status="resolved" {...handlers} /></Tabs.Content>
       </Tabs.Root>
       <ResolveProblemModal problem={resolving} baseDigits={baseDigits} onClose={() => setResolving(null)} />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={!!undoing} title={t('problem.unresolve')} body={t('problem.unresolveHelp')} confirmLabel={t('problem.unresolve')}
         loading={unresolve.isPending} error={unresolve.error} onClose={() => setUndoing(null)}
         onConfirm={(reason) => undoing && unresolve.mutate({ problem: undoing, reason }, { onSuccess: () => setUndoing(null) })}
@@ -125,7 +126,7 @@ function LinesToClose({ canPurchase, baseDigits }: { canPurchase: boolean; baseD
       cell: (l) => <RouteAnchor to={paths.vendorOrder(l.vendorOrderId)}>{`${orderLabel(l.vendorOrderNumber)} #${l.lineNo} ${l.name}`}</RouteAnchor>,
     },
     { key: 'received', header: t('toClose.received'), numeric: true, cell: (l) => `${l.receivedQuantity} / ${l.expectedQuantity}` },
-    { key: 'missing', header: t('toClose.missing'), numeric: true, cell: (l) => <Badge variant="subtle" colorPalette="orange">{l.expectedQuantity - l.receivedQuantity}</Badge> },
+    { key: 'missing', header: t('toClose.missing'), numeric: true, cell: (l) => <StatusBadge tone="attention">{l.expectedQuantity - l.receivedQuantity}</StatusBadge> },
   ];
   const rowActions = (l: VendorOrderLine): RowAction[] => [
     { value: 'close', icon: <LuX />, label: t('purchasing:close.action'), danger: true, onSelect: () => setClosing(l) },

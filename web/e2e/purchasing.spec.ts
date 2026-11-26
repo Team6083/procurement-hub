@@ -158,17 +158,20 @@ test('a purchaser puts both teams\' items into one USD order, adds a third team\
   // Marking as placed needs a price on every line; the price saves when the field loses focus.
   const place = dialog.getByRole('button', { name: 'Mark as placed' });
   for (const [name, price] of [[names.gear, '10'], [names.motor, '20'], [names.freight, '10']] as const) {
-    const input = itemRow(lines, name).getByLabel(/^Unit price of line/);
+    const row = itemRow(lines, name);
+    // The price is text until clicked, then an input.
+    await row.locator('[data-scope="editable"][data-part="preview"]').click();
+    const input = row.getByLabel(/^Unit price of line/);
     const saved = page.waitForResponse((r) => r.url().includes('/vendor-order-lines/') && r.request().method() === 'PUT');
     await input.fill(price);
     await input.blur();
     expect((await saved).ok()).toBe(true);
   }
   // Without the charged amount the amounts come from the reference rate and are marked provisional.
-  await expect(dialog.getByText('Provisional', { exact: true }).first()).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Provisional', exact: true }).first()).toBeVisible();
   await place.click();
   await expect(dialog.getByText('Placed', { exact: true }).first()).toBeVisible();
-  await expect(dialog.getByText('Provisional', { exact: true }).first()).toBeVisible();
+  await expect(dialog.getByRole('button', { name: 'Provisional', exact: true }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: 'Mark as placed' })).toHaveCount(0);
 
   // The order was created with no vendor order number.
@@ -208,12 +211,12 @@ test('shipping, a coupon of one team, customs in TWD and the charged amount sett
   await expect(costs.getByRole('row').filter({ hasText: 'Customs' })).toContainText('Separately');
 
   // Still estimated: the charged amount is unknown.
-  await expect(page.getByText('Provisional', { exact: true }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Provisional', exact: true }).first()).toBeVisible();
 
   await page.getByLabel('Amount charged (TWD)').fill('3300');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.getByText('Saved.')).toBeVisible();
-  await expect(page.getByText('Provisional', { exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Provisional', exact: true })).toHaveCount(0);
   await expect(page.getByText('Check passed: net total equals the sum of the line totals')).toBeVisible();
 
   // The teams' totals add up to the actual charge plus the customs fee paid in TWD.

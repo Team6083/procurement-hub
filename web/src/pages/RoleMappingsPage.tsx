@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Stack, Text } from '@chakra-ui/react';
+import { Badge, Button, Stack, Text } from '@chakra-ui/react';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,7 @@ import { ListSkeleton } from '../components/PageStates';
 import { ReasonModal } from '../components/ReasonModal';
 import { SectionActions } from '../components/SectionLayout';
 import { RoleMappingModal } from '../features/admin/RoleMappingModal';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** UI-managed role-mapping rules (system admins only; the admin section guards the route). */
 export function RoleMappingsPage() {
@@ -29,7 +30,7 @@ export function RoleMappingsPage() {
       key: 'state', header: t('form.enabled'),
       cell: (r) => (
         <Stack direction="row" gap="1" wrap="wrap" justify="inherit">
-          {r.enabled ? <Badge colorPalette="green" variant="subtle">{t('on')}</Badge> : <Badge variant="outline">{t('off')}</Badge>}
+          {r.enabled ? <StatusBadge tone="done">{t('on')}</StatusBadge> : <StatusBadge tone="neutral">{t('off')}</StatusBadge>}
           {r.managed && <Badge variant="outline">{t('managed')}</Badge>}
         </Stack>
       ),
@@ -52,7 +53,7 @@ export function RoleMappingsPage() {
       {rules.data && (
         <DataTable
           aria-label={t('title')} rows={rules.data} columns={columns} getRowId={(r) => r.id} rowActions={rowActions}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShieldCheck />} title={t('empty')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuShieldCheck />} title={t('empty')} />}
         />
       )}
       <RoleMappingModal open={editing !== null} rule={editing && editing !== 'new' ? editing : null} onClose={() => setEditing(null)} />

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Dialog, HStack, Link, Stack, Text } from '@chakra-ui/react';
+import { Badge, Button, Dialog, HStack, Link, Stack, Text } from '@chakra-ui/react';
 import { DataTable, EmptyState, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,7 @@ import { lineTotal } from '../features/batches/estimates';
 import { safeHttpUrl } from '../features/batches/itemForm';
 import { format } from '../features/batches/decimal';
 import { paths } from '../paths';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** Whether skipping the item stops buying what is left (something is already planned or ordered) rather than marking it unpurchasable. */
 const skipsRemaining = (i: QueueItem) => i.orderedQuantity > 0 || i.plannedQuantity > 0;
@@ -94,13 +95,13 @@ export function PurchasingPage() {
               <HStack gap="2" wrap="wrap">
                 <Text fontWeight="semibold">{g?.vendorName || t('queue.other')}</Text>
                 <Badge variant="subtle">{t('queue.itemCount', { count: g?.items.length ?? 0 })}</Badge>
-                {(g?.teamIds.length ?? 0) > 1 && <Badge colorPalette="orange" variant="subtle">{t('queue.mergeBadge', { count: g?.teamIds.length })}</Badge>}
+                {(g?.teamIds.length ?? 0) > 1 && <StatusBadge tone="attention">{t('queue.mergeBadge', { count: g?.teamIds.length })}</StatusBadge>}
               </HStack>
             );
           }}
           selection={{ selected: picked, onChange: setPicked }}
           rowActions={rowActions}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShoppingCart />} title={t('queue.empty')} description={t('queue.emptyHint')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuShoppingCart />} title={t('queue.empty')} description={t('queue.emptyHint')} />}
         />
       )}
       <SelectionBar count={selected.length} onClear={() => setPicked([])}>

@@ -1,6 +1,6 @@
 import { orderLabel } from '../labels';
 import { currencyFractionDigits, formatMoney } from '../money';
-import { Alert, Badge, Button, Card, CloseButton, HStack, SimpleGrid, Stack, Text } from '@chakra-ui/react';
+import { Alert, Badge, Button, Card, CloseButton, HStack, SimpleGrid, Stack } from '@chakra-ui/react';
 import { FactList, TitleBar } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -13,7 +13,6 @@ import { useDeleteLine, useOrderAction, useReopenLine, useVendorOrder, type Orde
 import { useVendors } from '../../api/vendors';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
-import { UndoDialog } from '../../components/UndoDialog';
 import { shortDate, shortDay } from '../dates';
 import { Breakdown } from './Breakdown';
 import { CostEntriesTable } from './CostEntriesTable';
@@ -21,7 +20,7 @@ import { CloseLineModal } from './CloseLineModal';
 import { DetailsForm } from './DetailsForm';
 import { LineFormModal } from './LineFormModal';
 import { LinesTable } from './LinesTable';
-import { OrderProgressBadges, OrderStatusBadge, ProvisionalBadge } from './StatusBadges';
+import { OrderProgressBadges, OrderStatusBadge, ProvisionalTip } from './StatusBadges';
 import { OrderTimeline } from './OrderTimeline';
 import { PageSkeleton, LoadError } from '../../components/PageStates';
 
@@ -63,7 +62,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
     <>
       <OrderStatusBadge status={order.status} />
       <OrderProgressBadges order={order} />
-      {order.totals.provisional && <ProvisionalBadge />}
+      {order.totals.provisional && <ProvisionalTip />}
     </>
   );
   const actions = canWrite && (
@@ -83,10 +82,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
     <Stack gap="6">
       <Stack gap="4">
         {embedded ? (
-          <HStack justify="space-between" wrap="wrap">
-            <HStack gap="2"><Text fontWeight="semibold">{orderLabel(order.number)}</Text><Text color="fg.muted">{vendor}</Text>{header}</HStack>
-            {actions}
-          </HStack>
+          <TitleBar level={4} title={orderLabel(order.number)} description={vendor} after={<HStack gap="2">{header}</HStack>} end={actions} />
         ) : (
           <TitleBar level={1} title={`${orderLabel(order.number)} · ${vendor}`} after={<HStack gap="2">{header}</HStack>} end={actions} />
         )}
@@ -156,7 +152,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
 
       <LineFormModal order={order} teams={teams} line={lineForm && lineForm !== 'new' ? lineForm : null} open={lineForm !== null} onClose={() => setLineForm(null)} />
       <CloseLineModal orderId={order.id} line={closing} baseDigits={baseDigits} onClose={() => setClosing(null)} />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={!!reopening} title={t('close.reopen')} body={t('close.reopenHelp')} confirmLabel={t('close.reopen')}
         loading={reopen.isPending} error={reopen.error} onClose={() => setReopening(null)}
         onConfirm={(reason) => reopening && reopen.mutate({ line: reopening, reason }, { onSuccess: () => setReopening(null) })}
@@ -166,7 +162,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
         loading={del.isPending} error={del.error} onClose={() => setRemoving(null)}
         onConfirm={() => removing && del.mutate(removing, { onSuccess: () => setRemoving(null) })}
       />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={!!undo} title={t(`actions.${undo ?? 'unplace'}`)} body={t(`actions.${undo ?? 'unplace'}Help`)} confirmLabel={t(`actions.${undo ?? 'unplace'}`)}
         loading={action.isPending} error={action.error} onClose={close}
         onConfirm={(reason) => undo && action.mutate({ action: undo, reason }, { onSuccess: close })}

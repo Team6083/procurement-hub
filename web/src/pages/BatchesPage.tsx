@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Stack } from '@chakra-ui/react';
+import { Button, HStack, Stack } from '@chakra-ui/react';
 import { EmptyState, FilterBar, TitleBar } from '@team6083/ui';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useState } from 'react';
@@ -53,14 +53,7 @@ export function BatchesPage() {
       </FilterBar>
       {list.isPending && <ListSkeleton />}
       {list.error && <ErrorAlert error={list.error} />}
-      {list.data && batches.length === 0 && (
-        <Card.Root size="sm">
-          <Card.Body>
-            <EmptyState icon={<LuPackage />} title={t('list.empty')} />
-          </Card.Body>
-        </Card.Root>
-      )}
-      {batches.length > 0 && <BatchTable batches={batches} teamName={teamName} />}
+      {list.data && <BatchTable batches={batches} teamName={teamName} empty={<EmptyState icon={<LuPackage />} title={t('list.empty')} />} />}
       {list.hasNextPage && (
         <HStack>
           <Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{t('list.loadMore')}</Button>

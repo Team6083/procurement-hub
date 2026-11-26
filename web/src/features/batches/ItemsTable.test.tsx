@@ -28,17 +28,18 @@ function Harness({ onChange, selectable = true }: { onChange?: (s: string[]) => 
 }
 
 const names = () => screen.getAllByRole('row').slice(1).map((r) => ['Bolt', 'Arduino', 'Cable'].find((n) => r.textContent?.includes(n)));
-const sortButton = (name: string) => within(screen.getByRole('columnheader', { name: new RegExp(name) })).getByRole('button');
+const header = (name: string) => screen.getByRole('columnheader', { name: new RegExp(name) });
+const sortButton = (name: string) => within(header(name)).getByRole('button');
 
 describe('ItemsTable', () => {
   it('sorts by a column, toggling ascending, descending and back to the batch order', () => {
     renderUI(<Harness />);
     expect(names()).toEqual(['Bolt', 'Arduino', 'Cable']);
     fireEvent.click(sortButton('Name'));
-    expect(sortButton('Name').getAttribute('data-sort')).toBe('ascending');
+    expect(header('Name').getAttribute('aria-sort')).toBe('ascending');
     expect(names()).toEqual(['Arduino', 'Bolt', 'Cable']);
     fireEvent.click(sortButton('Name'));
-    expect(sortButton('Name').getAttribute('data-sort')).toBe('descending');
+    expect(header('Name').getAttribute('aria-sort')).toBe('descending');
     expect(names()).toEqual(['Cable', 'Bolt', 'Arduino']);
     fireEvent.click(sortButton('Name'));
     expect(names()).toEqual(['Bolt', 'Arduino', 'Cable']);

@@ -1,4 +1,4 @@
-import { Button, Card, Dialog, Input, Stack } from '@chakra-ui/react';
+import { Button, Dialog, Input, Stack } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { DataTable, EmptyState, type DataColumn, type RowAction } from '@team6083/ui';
 import { useState } from 'react';
@@ -83,7 +83,7 @@ export function ReferenceRatesPage() {
         <DataTable
           aria-label={t('rates.title')} rows={rows} columns={columns} getRowId={(r) => r.currency}
           rowActions={isSystemAdmin ? rowActions : undefined}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuCoins />} title={t('rates.noCurrencies')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuCoins />} title={t('rates.noCurrencies')} />}
         />
       )}
       <AppDialog open={!!editing} onClose={() => setEditing(null)} title={editing?.rate ? t('rates.edit') : t('rates.set')} size="sm">

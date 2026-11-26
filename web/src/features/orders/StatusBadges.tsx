@@ -1,5 +1,7 @@
-import { Badge } from '@chakra-ui/react';
+import { IconButton } from '@chakra-ui/react';
+import { ToggleTip } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
+import { LuClock } from 'react-icons/lu';
 import type { AccountingState, LineStatus, OrderStatus, ReceivingState } from '../../api/types';
 import { StatusBadge, type StatusTone } from '../../components/StatusBadge';
 
@@ -18,10 +20,16 @@ export function LineStatusBadge({ status }: { status: LineStatus }) {
   return <StatusBadge tone={LINE_TONE[status] ?? 'neutral'}>{t(`lineStatus.${status}`, { defaultValue: status })}</StatusBadge>;
 }
 
-/** Amounts that are not final (computed from a reference rate, spec section 11). */
-export function ProvisionalBadge() {
+/** Amounts that are not final (computed from a reference rate, spec section 11): a small icon, the reason opens on click. */
+export function ProvisionalTip() {
   const { t } = useTranslation('purchasing');
-  return <Badge variant="outline" colorPalette="orange">{t('provisional')}</Badge>;
+  return (
+    <ToggleTip content={t('provisionalHint')}>
+      <IconButton variant="ghost" size="2xs" colorPalette="orange" aria-label={t('provisional')}>
+        <LuClock />
+      </IconButton>
+    </ToggleTip>
+  );
 }
 
 const RECEIVING_TONE: Record<ReceivingState, StatusTone> = { none: 'neutral', partial: 'active', closed: 'done' };

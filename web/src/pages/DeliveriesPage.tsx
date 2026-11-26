@@ -1,5 +1,5 @@
 import { deliveryLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Input, Stack } from '@chakra-ui/react';
+import { Button, HStack, Input, Stack } from '@chakra-ui/react';
 import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ import { shortDate, shortDay } from '../features/dates';
 import { VoidedBadge } from '../features/receiving/StatusBadges';
 import { paths } from '../paths';
 import { ListSkeleton } from '../components/PageStates';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** Voided boxes are hidden until asked for; that default is not a filter the user set. */
 const DEFAULT_FILTERS: DeliveryFilters = { voided: 'false' };
@@ -35,8 +36,8 @@ export function DeliveriesPage() {
     {
       key: 'state', header: t('list.state'),
       cell: (d) => (d.voided ? <VoidedBadge /> : d.pendingLineCount > 0
-        ? <Badge variant="subtle" colorPalette="orange">{t('list.pending', { count: d.pendingLineCount })}</Badge>
-        : <Badge variant="subtle" colorPalette="green">{t('list.done')}</Badge>),
+        ? <StatusBadge tone="attention">{t('list.pending', { count: d.pendingLineCount })}</StatusBadge>
+        : <StatusBadge tone="done">{t('list.done')}</StatusBadge>),
     },
     { key: 'note', header: t('box.note'), priority: 'secondary', cell: (d) => d.note || '—' },
     { key: 'created', header: t('list.created'), priority: 'secondary', cell: (d) => shortDate(d.createdAt) },
@@ -64,7 +65,7 @@ export function DeliveriesPage() {
       {list.data && (
         <DataTable
           aria-label={t('list.title')} rows={rows} columns={columns} getRowId={(d) => d.id}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuPackageOpen />} title={t('list.empty')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuPackageOpen />} title={t('list.empty')} />}
         />
       )}
       {list.hasNextPage && (

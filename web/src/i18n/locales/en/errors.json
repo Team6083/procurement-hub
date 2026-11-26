@@ -1,17 +1,10 @@
 {
   "generic": "Something went wrong.",
-  "network": "Could not reach the server.",
   "versionMismatch": "The system has been updated. Please reload the page.",
   "codes": {
     "invalid_request": "The request is invalid. Check the highlighted fields and try again.",
-    "unauthenticated": "Your session has expired.",
-    "forbidden": "You do not have permission to do this.",
-    "not_found": "The requested item was not found.",
     "version_conflict": "This item was changed by someone else. The latest version has been reloaded; review it and try again.",
     "invalid_transition": "This action is not allowed in the current state. The latest state has been reloaded.",
-    "rate_limited": "Too many requests. Please try again shortly.",
-    "internal_error": "An internal error occurred.",
-    "upstream_unavailable": "A service this app depends on is temporarily unavailable. Please try again shortly.",
     "vendor_name_taken": "A vendor with this name or alias already exists.",
     "team_slug_taken": "A team with this slug already exists.",
     "team_archived": "This team is archived and read-only.",
@@ -22,7 +15,6 @@
     "role_mapping_managed": "Managed rules are read-only.",
     "if_match_required": "The request is missing version information. Reload the page and try again.",
     "invalid_if_match": "The request carried invalid version information. Reload the page and try again.",
-    "payload_too_large": "The request is too large.",
     "batch_not_collecting": "This batch is not accepting items.",
     "batch_not_reviewing": "This batch is not under review.",
     "batch_closed": "This batch is closed and can no longer be edited.",
@@ -53,8 +45,7 @@
     "line_not_closable": "Only lines that are short and have no open problem can be closed.",
     "line_not_matchable": "That vendor order line cannot take deliveries: its order is not placed or the line is closed. Reopen the line or choose another one.",
     "lookup_not_found": "No product was found for that SKU or URL. You can fill in the item by hand.",
-    "lookup_disabled": "Product lookup is not enabled.",
-    "upstream_timeout": "The product lookup took too long. Please try again."
+    "lookup_disabled": "Product lookup is not enabled."
   },
   "conflictKeptEdits": "Someone else changed this while you were editing. Your changes are kept and the fields you did not touch now show the latest values; save again to apply your changes.",
   "order_not_placed": "Refunds and extra charges can be added only to a placed order, and cost entries can be voided only on a placed order (delete them in a draft)."

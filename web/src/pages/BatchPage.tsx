@@ -77,7 +77,6 @@ export function BatchPage() {
         <Card.Root size="sm">
           <Card.Body>
             <FactList
-              minChildWidth={{ base: '9rem', md: '12rem' }}
               items={[
                 { label: t('header.deadline'), value: shortDate(batch.deadline) },
                 { label: t('header.visibility'), value: visibility ? t(`visibility.${visibility}`) : '—' },

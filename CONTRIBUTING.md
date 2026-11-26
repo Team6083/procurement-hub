@@ -56,7 +56,7 @@ npm run e2e:ci                    # start the environment, run the tests, tear i
 
 `npm run e2e` runs the tests against an environment already started with `npm run e2e:up` (stop it with `npm run e2e:down`). [`web/README.md`](web/README.md#end-to-end-tests) describes the environment and the test users. CI runs the suite in the `e2e` job on `main`, and on a pull request only when it has the `e2e` label (it is slow, so other pull requests skip it; add the label to run it, for example on a Dependabot update of Playwright or a runtime dependency) and uploads the HTML report, traces and service logs when it fails. Add a flow to `web/e2e/` when a change affects sign-in, permissions or a multi-user workflow; keep tests independent of run order across files, use unique names per run, and wait with Playwright assertions instead of sleeps.
 
-**Keep the e2e tests in step with the UI.** Selectors use visible labels, button names and status text, so renaming a label, changing a button or reworking a filter breaks them; update `web/e2e` in the same pull request. The tests inside one file run serially and build on each other, so one failure makes the rest report "did not run": fix the first failure and rerun to see the next. Selector conventions: the page title is the `h1` (`PageHeader`); match text with `exact: true`, because an `EmptyState` title is also a heading (for example "No batches found." matches `name: 'Batches'`); the update banner has the test id `app-outdated-banner`; the account menu button is named after the user.
+**Keep the e2e tests in step with the UI.** Selectors use visible labels, button names and status text, so renaming a label, changing a button or reworking a filter breaks them; update `web/e2e` in the same pull request. The tests inside one file run serially and build on each other, so one failure makes the rest report "did not run": fix the first failure and rerun to see the next. Selector conventions: the page title is the `h1` (`TitleBar` level 1); match text with `exact: true`, because an `EmptyState` title is also a heading (for example "No batches found." matches `name: 'Batches'`); the update banner has the test id `app-outdated-banner`; the account menu button is named after the user.
 
 `npm run build:cloudflare` additionally needs `APP_CONFIG` (see [`web/README.md`](web/README.md)). Lint is ESLint with typescript-eslint and the full `eslint-plugin-react-hooks` recommended set; `react-hooks/exhaustive-deps` is an error.
 
@@ -79,9 +79,9 @@ CI also builds the image from [`server/Dockerfile`](server/Dockerfile) without p
 
 ## Web UI package
 
-The web app's frame, theme and standard pages come from the package `@team6083/ui` on npm. Its design rules are in `DESIGN.md` inside the package (`node_modules/@team6083/ui/DESIGN.md`):
+The web app's frame, theme and standard pages come from the package `@team6083/ui` on npm. Its design rules are in the package README (`node_modules/@team6083/ui/README.md`) and the demo (https://ui.cmsrobotics.org/):
 
-- One `PageHeader` per page, with the status as its badge; sections use `SectionHeader` with the count as a badge and actions on the right.
+- One `TitleBar` level 1 per page, with the status as its badge; sections use `TitleBar` level 2 with the count as a badge and actions on the right; inside cards and dialogs use level 3 or 4.
 - An empty list is an `EmptyState`, never a line of grey text; the first load shows skeletons, not a spinner.
 - Grey by default; `brand` only for emphasis. Use semantic tokens (`fg.muted`, `brand.solid`), never hard-coded colours.
 - One solid button per card or dialog.

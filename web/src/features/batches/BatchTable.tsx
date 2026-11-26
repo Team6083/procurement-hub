@@ -1,5 +1,6 @@
 import { DataTable } from '@team6083/ui';
 import { Text } from '@chakra-ui/react';
+import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Batch } from '../../api/types';
 import { RouteAnchor } from '../../components/RouteLinks';
@@ -8,12 +9,13 @@ import { shortDate } from '../dates';
 import { BatchStatusBadge } from './StatusBadges';
 
 /** The list of batches shared by the Batches page and a team's overview; `teamName` adds the team column. */
-export function BatchTable({ batches, teamName }: { batches: Batch[]; teamName?: (teamId: string) => string }) {
+export function BatchTable({ batches, teamName, empty }: { batches: Batch[]; teamName?: (teamId: string) => string; empty?: ReactNode }) {
   const { t } = useTranslation('batches');
   return (
     <DataTable
       aria-label={t('list.title')}
       rows={batches}
+      empty={empty}
       getRowId={(b) => b.id}
       columns={[
         {

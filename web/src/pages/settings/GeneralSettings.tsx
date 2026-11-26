@@ -69,10 +69,7 @@ function GeneralSettingsForm({ team }: { team: Team }) {
                   />
                 )} />
               </SimpleGrid>
-              <Stack gap="1" pt="2">
-                <Text fontWeight="semibold">{t('general.priorityLabels')}</Text>
-                <Text color="fg.muted">{t('general.priorityHelp')}</Text>
-              </Stack>
+              <TitleBar level={4} title={t('general.priorityLabels')} description={t('general.priorityHelp')} pt="2" />
               <SimpleGrid columns={{ base: 1, sm: 2 }} gap="3">
                 {PRIORITIES.map((k) => (
                   <FormField key={k} label={t('priority.level', { n: k })} errorText={fieldError(err.priority?.[k])}>

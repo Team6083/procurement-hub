@@ -1,11 +1,13 @@
 import { orderLabel } from '../labels';
-import { Alert, Badge, Button, Card, HStack, List, Stack, Text } from '@chakra-ui/react';
+import { Alert, Button, Card, HStack, List, Stack, Text } from '@chakra-ui/react';
+import { TitleBar } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuLink, LuUndo2 } from 'react-icons/lu';
 import type { DeliveryLine } from '../../api/types';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
 import { MatchStateBadge } from './StatusBadges';
+import { StatusBadge } from '../../components/StatusBadge';
 
 interface Props {
   line: DeliveryLine;
@@ -24,20 +26,14 @@ export function DeliveryLineCard({ line, canWrite, onMatch, onNoMatch, onUndoNoM
   return (
     <Card.Root size="sm" as="article" aria-label={title}>
       <Card.Header>
-        <HStack justify="space-between" align="flex-start" gap="2">
-          <Stack gap="0" minW="0">
-            <Text fontWeight="semibold">{title}</Text>
-            {line.name && line.sku && <Text textStyle="xs" color="fg.muted">{line.sku}</Text>}
-          </Stack>
-          <MatchStateBadge state={line.matchState} />
-        </HStack>
+        <TitleBar level={4} title={title} description={line.name && line.sku ? line.sku : undefined} end={<MatchStateBadge state={line.matchState} />} />
       </Card.Header>
       <Card.Body>
         <Stack gap="3">
           <HStack gap="2" wrap="wrap" textStyle="sm">
             <Text>{t('line.good', { count: line.goodQuantity })}</Text>
             {line.problemQuantity > 0 && (
-              <Badge variant="subtle" colorPalette="red">{t('line.problem', { count: line.problemQuantity, type: t(`problemType.${line.problemType || 'damaged'}`) })}</Badge>
+              <StatusBadge tone="attention">{t('line.problem', { count: line.problemQuantity, type: t(`problemType.${line.problemType || 'damaged'}`) })}</StatusBadge>
             )}
             {line.problemNote && <Text color="fg.muted">{line.problemNote}</Text>}
           </HStack>
