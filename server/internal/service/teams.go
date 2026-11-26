@@ -199,6 +199,7 @@ func (s *Teams) applyTeamChange(ctx context.Context, actor authz.Actor, t *domai
 	if err != nil {
 		return nil, err
 	}
+	store.NormalizeTeam(&out)
 	return &out, nil
 }
 
@@ -282,8 +283,11 @@ func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.
 		return nil, err
 	}
 	sgs := append(append([]domain.Subgroup{}, t.Subgroups...), domain.Subgroup{ID: bson.NewObjectID().Hex(), Name: name, Aliases: aliases, Active: true})
-	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "subgroups", Value: sgs}},
-		[]domain.AuditChange{{Field: "subgroups", From: nil, To: name}}, "team.subgroup_added")
+	changes := []domain.AuditChange{{Field: "subgroups", From: nil, To: name}}
+	if len(aliases) > 0 {
+		changes = append(changes, domain.AuditChange{Field: "subgroup.aliases", From: nil, To: aliases})
+	}
+	return s.applyTeamChange(ctx, actor, t, version, bson.D{{Key: "subgroups", Value: sgs}}, changes, "team.subgroup_added")
 }
 
 // UpdateSubgroup renames, replaces the aliases of and/or (de)activates a subgroup. Subgroups are never deleted.
