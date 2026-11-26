@@ -218,19 +218,21 @@ func (s *Teams) SetArchived(ctx context.Context, actor authz.Actor, teamID bson.
 
 // ---- subgroups ----
 
-// cleanAliases trims aliases and drops empty and duplicate (case-insensitive) ones.
-func cleanAliases(in []string) ([]string, error) {
+// cleanAliases trims aliases and drops empty and duplicate ones and ones equal to the subgroup's
+// own name, comparing by domain.NameKey.
+func cleanAliases(name string, in []string) ([]string, error) {
 	out := []string{}
-	seen := map[string]bool{}
+	seen := map[string]bool{domain.NameKey(name): true}
 	for _, a := range in {
 		a = strings.TrimSpace(a)
-		if a == "" || seen[strings.ToLower(a)] {
+		k := domain.NameKey(a)
+		if a == "" || seen[k] {
 			continue
 		}
 		if utf8.RuneCountInString(a) > 200 {
 			return nil, Invalid("aliases", "at most 200 characters each")
 		}
-		seen[strings.ToLower(a)] = true
+		seen[k] = true
 		out = append(out, a)
 	}
 	if len(out) > 50 {
@@ -240,29 +242,25 @@ func cleanAliases(in []string) ([]string, error) {
 }
 
 // checkSubgroupNames rejects a name or alias used by another subgroup of the team (the one at
-// index self, or -1 for none), case-insensitively and including inactive subgroups. The
-// subgroup's own name and aliases may not repeat each other either.
+// index self, or -1 for none), compared by domain.NameKey and including inactive subgroups. The
+// aliases must already be cleaned by cleanAliases. details.value is the clashing value.
 func checkSubgroupNames(sgs []domain.Subgroup, self int, name string, aliases []string) error {
 	taken := map[string]bool{}
 	for i, g := range sgs {
 		if i == self {
 			continue
 		}
-		taken[strings.ToLower(g.Name)] = true
+		taken[domain.NameKey(g.Name)] = true
 		for _, a := range g.Aliases {
-			taken[strings.ToLower(a)] = true
+			taken[domain.NameKey(a)] = true
 		}
 	}
-	own := map[string]bool{strings.ToLower(name): true}
-	if taken[strings.ToLower(name)] {
-		return Rule("subgroup_name_conflict", "The name or alias %q is already used by another subgroup.", name)
-	}
-	for _, a := range aliases {
-		k := strings.ToLower(a)
-		if taken[k] || own[k] {
-			return Rule("subgroup_name_conflict", "The name or alias %q is already used by another subgroup.", a)
+	for _, v := range append([]string{name}, aliases...) {
+		if taken[domain.NameKey(v)] {
+			e := Rule("subgroup_name_conflict", "The name or alias %q is already used by another subgroup.", v)
+			e.Details = map[string]any{"value": v}
+			return e
 		}
-		own[k] = true
 	}
 	return nil
 }
@@ -276,7 +274,7 @@ func (s *Teams) AddSubgroup(ctx context.Context, actor authz.Actor, teamID bson.
 	if err := validName(name); err != nil {
 		return nil, err
 	}
-	aliases, err = cleanAliases(aliases)
+	aliases, err = cleanAliases(name, aliases)
 	if err != nil {
 		return nil, err
 	}
@@ -313,12 +311,14 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 		}
 	}
 	if aliases != nil {
-		if newAliases, err = cleanAliases(*aliases); err != nil {
-			return nil, err
-		}
+		newAliases = *aliases
+	}
+	// Cleaned against the final name, so a rename to one of the subgroup's own aliases drops that alias.
+	if newAliases, err = cleanAliases(newName, newAliases); err != nil {
+		return nil, err
 	}
 	var changes []domain.AuditChange
-	if newName != sgs[idx].Name || aliases != nil && !slices.Equal(newAliases, sgs[idx].Aliases) {
+	if newName != sgs[idx].Name || !slices.Equal(newAliases, sgs[idx].Aliases) {
 		if err := checkSubgroupNames(sgs, idx, newName, newAliases); err != nil {
 			return nil, err
 		}
@@ -327,7 +327,7 @@ func (s *Teams) UpdateSubgroup(ctx context.Context, actor authz.Actor, teamID bs
 		changes = append(changes, domain.AuditChange{Field: "subgroup.name", From: sgs[idx].Name, To: newName})
 		sgs[idx].Name = newName
 	}
-	if aliases != nil && !slices.Equal(newAliases, sgs[idx].Aliases) {
+	if !slices.Equal(newAliases, sgs[idx].Aliases) {
 		changes = append(changes, domain.AuditChange{Field: "subgroup.aliases", From: sgs[idx].Aliases, To: newAliases})
 		sgs[idx].Aliases = newAliases
 	}

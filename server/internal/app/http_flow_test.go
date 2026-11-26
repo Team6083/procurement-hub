@@ -276,7 +276,10 @@ func TestHTTPTeams(t *testing.T) {
 	}
 	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"SOFT"}}}).expect(409, "subgroup_name_conflict")
 	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: al.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"HARDWARE"}}}).expect(409, "subgroup_name_conflict")
-	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"sw"}}}).expect(409, "subgroup_name_conflict")
+	clash := w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"HW", "sw"}}}).expect(409, "subgroup_name_conflict")
+	if v := clash.JSON()["error"].(map[string]any)["details"].(map[string]any)["value"]; v != "sw" {
+		t.Errorf("conflict details.value = %v", v)
+	}
 	w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: al.ETag(), body: map[string]any{"aliases": []string{"HW"}}}).expect(200)
 	// At most 50 aliases per subgroup (the server enforces what the OpenAPI schema states).
 	many := func(n int) []string {
@@ -295,6 +298,23 @@ func TestHTTPTeams(t *testing.T) {
 	if same := w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + sgID, ifMatch: fifty.ETag(), body: noop}).expect(200); same.ETag() != fifty.ETag() {
 		t.Errorf("no-op PATCH changed the version: %s -> %s", fifty.ETag(), same.ETag())
 	}
+	// An alias equal to the subgroup's own name is dropped, not a conflict; so is an alias the subgroup is renamed to.
+	fw := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: fifty.ETag(), body: map[string]any{"name": "Firmware", "aliases": []string{"firmware", "FW"}}}).expect(200)
+	if got := fw.JSON()["subgroups"].([]any)[2].(map[string]any)["aliases"].([]any); len(got) != 1 || got[0] != "FW" {
+		t.Errorf("firmware aliases = %v", got)
+	}
+	swID := al.JSON()["subgroups"].([]any)[1].(map[string]any)["id"].(string)
+	sw := w.do(t, call{token: w.adm, method: "PATCH", path: team + "/subgroups/" + swID, ifMatch: fw.ETag(), body: map[string]any{"name": "SW"}}).expect(200)
+	if g := sw.JSON()["subgroups"].([]any)[1].(map[string]any); g["name"] != "SW" || len(g["aliases"].([]any)) != 1 || g["aliases"].([]any)[0] != "Soft" {
+		t.Errorf("renamed subgroup = %v", g)
+	}
+	// Names and aliases are compared with Unicode case folding and NFC normalization.
+	gr := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: sw.ETag(), body: map[string]any{"name": "ΟΔΟΣ", "aliases": []string{"Caf\u00e9"}}}).expect(200)
+	sigma := w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "οδος"}}).expect(409, "subgroup_name_conflict")
+	if v := sigma.JSON()["error"].(map[string]any)["details"].(map[string]any)["value"]; v != "οδος" {
+		t.Errorf("conflict details.value = %v", v)
+	}
+	w.do(t, call{token: w.adm, method: "POST", path: team + "/subgroups", ifMatch: gr.ETag(), body: map[string]any{"name": "Other", "aliases": []string{"cafe\u0301"}}}).expect(409, "subgroup_name_conflict")
 
 	// Global reference rates: system admins write, everyone reads, modification needs If-Match.
 	w.do(t, call{token: w.adm, method: "PUT", path: "/api/v1/reference-rates/TWD", body: map[string]any{"rateToBase": "0.031"}}).expect(403, "forbidden")

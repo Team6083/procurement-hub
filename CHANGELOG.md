@@ -46,5 +46,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Fixed
 
 - `PATCH /teams/{teamId}/subgroups/{id}` that changes nothing now returns 409 `version_conflict` when `If-Match` is stale, like the other writes, instead of 200.
+- Subgroup and vendor names and aliases are compared with Unicode case folding and NFC normalization (so "ΟΔΟΣ" and "οδος", or a composed and a decomposed "é", clash), instead of plain lower-casing. A subgroup alias equal to the subgroup's own name is dropped instead of returning 409 `subgroup_name_conflict`, so renaming a subgroup to one of its aliases removes that alias; the 409, now only for clashes with another subgroup, carries the clashing value in `details.value`.
 
 [Unreleased]: https://github.com/team6083/procurement-hub/commits/main
