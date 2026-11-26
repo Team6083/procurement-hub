@@ -22,10 +22,10 @@ const MAX_ALIASES = 50;
 const MAX_ALIAS_LENGTH = 200;
 
 /**
- * Aliases are separated by new lines or commas (ASCII or full-width); each is trimmed, and empty and repeated ones
- * are dropped. The server also drops case-insensitive duplicates and an alias equal to the subgroup's own name.
+ * One alias per line (an alias may contain a comma); each is trimmed, and empty and repeated ones are dropped. The
+ * server also drops case-insensitive duplicates and an alias equal to the subgroup's own name.
  */
-const splitAliases = (v: string) => [...new Set(v.split(/[\n,，]/).map((a) => a.trim()).filter(Boolean))];
+const splitAliases = (v: string) => [...new Set(v.split('\n').map((a) => a.trim()).filter(Boolean))];
 
 const nameSchema = z.object({
   name: requiredText(200),

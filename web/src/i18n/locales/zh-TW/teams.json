@@ -82,7 +82,7 @@
     "add": "新增子群組",
     "edit": "編輯",
     "aliases": "別名",
-    "aliasesHint": "每行一個別名，或以逗號分隔。同一團隊內名稱與別名不可重複（不分大小寫，含已停用的子群組）。",
+    "aliasesHint": "每行一個別名。同一團隊內名稱與別名不可重複（不分大小寫，含已停用的子群組）。",
     "aliasesTooMany": "別名最多 {{max}} 個。",
     "aliasesTooLong": "每個別名最多 {{maxLength}} 個字元。",
     "deactivate": "停用",

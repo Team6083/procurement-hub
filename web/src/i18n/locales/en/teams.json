@@ -82,7 +82,7 @@
     "add": "Add subgroup",
     "edit": "Edit",
     "aliases": "Aliases",
-    "aliasesHint": "One alias per line or separated by commas. Names and aliases are unique within the team, ignoring case, inactive subgroups included.",
+    "aliasesHint": "One alias per line. Names and aliases are unique within the team, ignoring case, inactive subgroups included.",
     "aliasesTooMany": "At most {{max}} aliases.",
     "aliasesTooLong": "Each alias can be at most {{maxLength}} characters.",
     "deactivate": "Deactivate",
