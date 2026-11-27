@@ -92,7 +92,7 @@ Production runs the backend as the container image `ghcr.io/team6083/procurement
 4. **Image.** `latest` and `X.Y.Z` tags exist only after a `vX.Y.Z` release; before that use `ghcr.io/team6083/procurement-hub:main` or `:sha-<7 chars>`.
 5. **CORS.** `CORS_ALLOWED_ORIGINS` must contain the exact origin of the SPA (`https://host`, no path) and `FRONTEND_URL` its root URL. The same origin must be allowed in the Keycloak client (redirect and post-logout URIs, see [`web/README.md`](web/README.md)).
 6. **SPA on Cloudflare.** Build with root directory `web`: `npm ci && npm run build:cloudflare`. Set the environment variable `APP_CONFIG` on the build to the whole `config.json` (`apiBaseUrl`, `oidc.authority`, `oidc.clientId`). Both URLs must be plain `https://` origins. Details, headers and the Workers or Pages setup are in [`web/README.md`](web/README.md#deploying-to-cloudflare).
-7. **First check.** Sign in, open the browser console and look for Content-Security-Policy violations while browsing and signing out (the generated policy allows only the SPA, the API origin and the OIDC authority origin). Then confirm `GET <apiBaseUrl>/api/v1/meta` answers and that an admin can create a team.
+7. **First check.** Sign in, open the browser console and look for Content-Security-Policy violations while browsing and signing out (the generated policy allows scripts and connections only to the SPA, the API origin and the OIDC authority origin, and images from the SPA and any https host). Then confirm `GET <apiBaseUrl>/api/v1/meta` answers and that an admin can create a team.
 
 ## Running the server
 

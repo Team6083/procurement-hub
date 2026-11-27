@@ -116,7 +116,7 @@ export function TeamMembersPage() {
     {
       key: 'user', header: t('members.user'), priority: 'primary',
       cell: (m) => (
-        <PersonAvatar name={m.displayName || m.username} tip={`${m.displayName || m.username} · ${m.email}`} />
+        <PersonAvatar showName name={m.displayName || m.username} tip={m.email} />
       ),
     },
     { key: 'role', header: t('members.effective'), cell: (m) => <RoleCell sources={m} effective={m.effectiveRole} /> },

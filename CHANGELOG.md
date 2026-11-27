@@ -51,6 +51,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The Content-Security-Policy allows `https:` images, so the picture from the OIDC `picture` claim shows in the account menu instead of being blocked.
+- The team members table writes each member's name next to the avatar on wide screens too (the e-mail address is on hover); only phone cards and narrow lists keep the avatar alone.
 - `PATCH /teams/{teamId}/subgroups/{id}` that changes nothing now returns 409 `version_conflict` when `If-Match` is stale, like the other writes, instead of 200.
 - Vendor names and aliases are compared with Unicode case folding and NFC normalization (so "ΟΔΟΣ" and "οδος", or a composed and a decomposed "é", clash), the same key as subgroups, instead of plain lower-casing. Vendor search (`GET /vendors?q=`) folds the same way, so "ss" finds "ß".
 

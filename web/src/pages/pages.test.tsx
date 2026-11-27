@@ -103,7 +103,7 @@ describe('logged-in pages render with Chakra and API data', () => {
     open('/teams/robotics/members');
     expect(await screen.findByRole('heading', { name: 'Robotics' })).toBeTruthy();
     expect(screen.getByRole('tab', { name: 'Members' }).getAttribute('aria-selected')).toBe('true');
-    expect(await screen.findByRole('img', { name: /^Bob/ })).toBeTruthy();
+    expect(await screen.findByText('Bob')).toBeTruthy();
     cleanup();
     open('/teams/robotics/settings/subgroups');
     expect(await screen.findByRole('heading', { name: 'Robotics' })).toBeTruthy();

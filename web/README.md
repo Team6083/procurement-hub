@@ -79,7 +79,7 @@ Set the environment variable `APP_CONFIG` to the whole `config.json`, and run `n
 
 - `dist/config.json`: the validated config (with the default scope filled in).
 - `dist/_headers` (built by `scripts/csp.mjs`), for every path:
-  - `Content-Security-Policy`: `default-src 'none'`; `script-src 'self' https://static.cloudflareinsights.com`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self'` plus the API origin, the OIDC authority origin and `https://cloudflareinsights.com`; `img-src 'self'`; `font-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`.
+  - `Content-Security-Policy`: `default-src 'none'`; `script-src 'self' https://static.cloudflareinsights.com`; `style-src 'self' 'unsafe-inline'`; `connect-src 'self'` plus the API origin, the OIDC authority origin and `https://cloudflareinsights.com`; `img-src 'self' https:` (a person's picture comes from the OIDC `picture` claim); `font-src 'self'`; `frame-ancestors 'none'`; `base-uri 'self'`; `form-action 'self'`.
   - `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`.
   - `/assets/*` (hashed file names) additionally gets `Cache-Control: public, max-age=31536000, immutable`. `index.html` and `config.json` keep Cloudflare's default caching.
 - `wrangler.generated.jsonc` (gitignored): a Workers static-assets config with `assets.not_found_handling = "single-page-application"` and a fixed `compatibility_date`. Deploy with `npx wrangler deploy -c wrangler.generated.jsonc`; set `WORKERS_DEV=false` to turn off the `*.workers.dev` URL.
