@@ -3,6 +3,7 @@
   "versionMismatch": "The system has been updated. Please reload the page.",
   "codes": {
     "invalid_request": "The request is invalid. Check the highlighted fields and try again.",
+    "currency_change_blocked": "The currency cannot change while the order has with-checkout costs. Remove or void them first.",
     "version_conflict": "This item was changed by someone else. The latest version has been reloaded; review it and try again.",
     "invalid_transition": "This action is not allowed in the current state. The latest state has been reloaded.",
     "vendor_name_taken": "A vendor with this name or alias already exists.",

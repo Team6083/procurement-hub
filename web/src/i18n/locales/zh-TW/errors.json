@@ -3,6 +3,7 @@
   "versionMismatch": "系統已更新，請重新載入頁面。",
   "codes": {
     "invalid_request": "請求內容無效，請檢查欄位後再試一次。",
+    "currency_change_blocked": "訂單有隨貨款的費用時不能改幣別，請先移除或作廢這些費用。",
     "version_conflict": "此項目已被他人修改。已重新載入最新版本，請確認後再試一次。",
     "invalid_transition": "目前狀態下不允許此操作。已重新載入最新狀態。",
     "vendor_name_taken": "已有使用此名稱或別名的廠商。",

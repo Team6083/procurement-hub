@@ -86,7 +86,7 @@ export function DetailsForm({ order, vendors, supported, baseDigits, headingAs =
 
   return (
     <Stack gap="2">
-      <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('details.title')} />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('details.title')} />
       <Card.Root size="sm">
         <Card.Body>
           <form onSubmit={submit} noValidate>

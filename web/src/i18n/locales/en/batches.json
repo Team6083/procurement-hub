@@ -238,7 +238,8 @@
     "linesToCloseLink": "Lines that arrived short",
     "deliveriesToMatch": "Deliveries to match",
     "deliveriesToMatchLink": "Delivery lines waiting for a match",
-    "noVendor": "No vendor",
+    "noVendor": "Other",
+    "vendorInactive": "Inactive vendor",
     "ownedMine": "{{count}} yours"
   },
   "validation": {

@@ -12,7 +12,7 @@ afterEach(cleanup);
 const at = '2026-01-01T00:00:00Z';
 const line = (n: number, over: Partial<VendorOrderLine>): VendorOrderLine => ({
   id: `l${n}`, vendorOrderId: 'vo1', lineNo: n, teamId: 't1', itemId: null, requester: null, batchId: null, name: `Part ${n}`, sku: '', productUrl: '', quantity: 1, unitPrice: null,
-  returnedQuantity: 0, expectedQuantity: 1, receivedQuantity: 0, openProblemQuantity: 0, closure: null, status: 'draft', cost: null, shared: null, costBase: null, sharedBase: null,
+  returnedQuantity: 0, expectedQuantity: 1, receivedQuantity: 0, openProblemQuantity: 0, closure: null, status: 'draft', lineC: null, costProvisional: false, separateProvisional: false, costBase: null, sharedBase: null,
   separateBase: null, totalBase: null, createdAt: at, updatedAt: at, vendorOrderVersion: 1, vendorOrderNumber: 1, problems: [], ...over,
 });
 

@@ -99,8 +99,9 @@ export function MyTasksCard() {
       </TaskGroup>
       <TaskGroup title={tb('tasks.purchase')} count={purchase.length}>
         {purchase.map((v) => (
-          <HStack key={v.vendor ?? ''} gap="2" wrap="wrap">
+          <HStack key={v.vendorId ?? 'other'} gap="2" wrap="wrap">
             <RouteAnchor to={paths.purchasing}>{v.vendor ?? tb('tasks.noVendor')}</RouteAnchor>
+            {v.inactive && <Badge variant="outline">{tb('tasks.vendorInactive')}</Badge>}
             <StatusBadge tone="attention">{tb('tasks.purchaseCount', { count: v.count })}</StatusBadge>
             {v.myBatches > 0 && <Badge variant="outline" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseMine', { count: v.myBatches })}</Badge>}
           </HStack>

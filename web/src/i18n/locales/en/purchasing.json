@@ -184,6 +184,7 @@
     "ownerMine": "Mine"
   },
   "queue": {
+    "vendorInactive": "Inactive vendor",
     "title": "Purchasing",
     "intro": "Approved items still to buy, across teams and grouped by vendor. Pick items to create or extend a draft order.",
     "item": "Item",

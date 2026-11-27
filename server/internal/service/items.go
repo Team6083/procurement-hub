@@ -60,12 +60,26 @@ func sameID(a, b *bson.ObjectID) bool {
 }
 
 // resolveVendor sets the item's vendor from the list when an id is given
-// (name copied from the vendor), else keeps the free-text name ("Other").
+// (name copied from the vendor). Without an id, a typed name that matches an
+// active vendor's name or alias (case-insensitive) picks that vendor; any other
+// text stays in vendorName with no vendor ("Other"). This is the only place a
+// name is matched to a vendor: reading and grouping go by vendorId alone.
 func (s *Items) resolveVendor(ctx context.Context, in *ItemInput) error {
 	if in.VendorID == nil {
 		in.VendorName = strings.TrimSpace(in.VendorName)
 		if len([]rune(in.VendorName)) > 200 {
 			return Invalid("vendorName", "at most 200 characters")
+		}
+		if in.VendorName == "" {
+			return nil
+		}
+		vendors, err := s.st.ListVendors(ctx, false)
+		if err != nil {
+			return err
+		}
+		if v := matchVendor(vendors, in.VendorName); v != nil {
+			id := v.ID
+			in.VendorID, in.VendorName = &id, v.Name
 		}
 		return nil
 	}

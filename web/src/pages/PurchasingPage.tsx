@@ -96,6 +96,7 @@ export function PurchasingPage() {
             return (
               <HStack gap="2" wrap="wrap">
                 <Text fontWeight="semibold">{g?.vendorName || t('queue.other')}</Text>
+                {g?.inactive && <Badge variant="outline">{t('queue.vendorInactive')}</Badge>}
                 <Badge variant="subtle">{t('queue.itemCount', { count: g?.items.length ?? 0 })}</Badge>
                 {(g?.teamIds.length ?? 0) > 1 && <StatusBadge tone="attention">{t('queue.mergeBadge', { count: g?.teamIds.length })}</StatusBadge>}
               </HStack>

@@ -82,7 +82,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
     <Stack gap="6">
       <Stack gap="4">
         {embedded ? (
-          <TitleBar level={4} title={orderLabel(order.number)} description={vendor} after={<HStack gap="2">{header}</HStack>} end={actions} />
+          <TitleBar level={3} title={orderLabel(order.number)} description={vendor} after={<HStack gap="2">{header}</HStack>} end={actions} />
         ) : (
           <TitleBar level={1} title={`${orderLabel(order.number)} · ${vendor}`} after={<HStack gap="2">{header}</HStack>} end={actions} />
         )}
@@ -124,7 +124,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       </Stack>
 
       <Stack gap="2">
-        <TitleBar level={h === 'h3' ? 3 : 2} title={t('line.title')} after={<Badge>{order.lines.length}</Badge>} end={canWrite && draft && <Button size="sm" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>} />
+        <TitleBar level={h === 'h3' ? 4 : 2} title={t('line.title')} after={<Badge>{order.lines.length}</Badge>} end={canWrite && draft && <Button size="sm" variant="outline" onClick={() => setLineForm('new')}><LuPlus />{t('line.add')}</Button>} />
         <LinesTable
           order={order} baseCurrency={baseCurrency} teamName={teamName} canWrite={canWrite}
           onEdit={setLineForm} onRemove={(l) => { del.reset(); setRemoving(l); }} onClose={setClosing} onReopen={(l) => { reopen.reset(); setReopening(l); }}
@@ -146,7 +146,7 @@ export function VendorOrderView({ id, embedded = false }: { id: string; embedded
       </SimpleGrid>
 
       <Stack gap="2">
-        <TitleBar level={h === 'h3' ? 3 : 2} title={t('timeline.title')} />
+        <TitleBar level={h === 'h3' ? 4 : 2} title={t('timeline.title')} />
         <OrderTimeline orderId={order.id} />
       </Stack>
 

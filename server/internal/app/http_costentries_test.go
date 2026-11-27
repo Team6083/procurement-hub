@@ -99,9 +99,13 @@ func TestHTTPCostEntriesAfterPlacing(t *testing.T) {
 	if o.JSON()["totals"].(map[string]any)["separateBase"] != "-9.5" {
 		t.Errorf("separateBase = %v", o.JSON()["totals"])
 	}
-	// Lines carry cost and shared in the order currency (USD): quantity x 5.00 and the 1 tax.
-	if l := o.JSON()["lines"].([]any)[0].(map[string]any); l["cost"] == nil || l["shared"] != "1" {
-		t.Errorf("line cost/shared = %v / %v, want a price and 1", l["cost"], l["shared"])
+	// Lines carry lineC (quantity x unit price, exact) in the order currency.
+	if l := o.JSON()["lines"].([]any)[0].(map[string]any); l["lineC"] != "10" {
+		t.Errorf("lineC = %v, want 10", l["lineC"])
+	}
+	// The refund's base amount is the actual one, not provisional.
+	if e := o.JSON()["costEntries"].([]any)[0].(map[string]any); e["amountBase"] != "-9.5" || e["provisional"] != false {
+		t.Errorf("refund amountBase/provisional = %v / %v", e["amountBase"], e["provisional"])
 	}
 
 	// Deleting needs a draft; unplace is blocked by the refund but not by the tax.

@@ -780,7 +780,8 @@ export interface paths {
          * Work waiting for the caller
          * @description Everyone gets `proposalsToHandle`, `itemsToReview`, `returnedItems` and `reviewsToConfirm` (reviewing batches where the
          *     caller is an approver and every item is decided). Purchasers also get `itemsToPurchase` (approved items with remaining
-         *     quantity, grouped by vendor name; `vendor` null for items without one; `myBatches` counts those in batches where the
+         *     quantity, grouped by `vendorId` exactly as the purchasing queue is: a deactivated vendor still forms its own group, marked `inactive`; the
+         *     last group has `vendorId` and `vendor` null ("other"); `myBatches` counts those in batches where the
          *     caller is the assigned purchaser), `draftVendorOrders`, `openProblems`, `linesToClose`; purchasers and receivers get
          *     `deliveriesToMatch` (delivery lines that are unmatched or partial); `openProblems` counts unresolved problems.
          */
@@ -846,7 +847,8 @@ export interface paths {
         /**
          * Purchasing queue: approved items with quantity still to purchase (purchasers)
          * @description Items of review-confirmed batches (not purchased outside) with `toPurchaseQuantity > 0`, grouped by vendor (`vendorId` null is the
-         *     "other" group, last). Each item carries the quantity already in draft lines (`draftQuantity`) and the placed quantity (`orderedQuantity`).
+         *     "other" group, last, its items sorted by `vendorName`). An item belongs to a vendor only through its `vendorId` (a typed vendor name that matches a vendor is resolved
+         *     when the item is written, never here); a deactivated vendor still forms its own group, marked `inactive`. Each item carries the quantity already in draft lines (`draftQuantity`) and the placed quantity (`orderedQuantity`).
          *     Purchasers only (403 otherwise). Not paginated.
          */
         get: operations["getPurchasingQueue"];
@@ -905,6 +907,9 @@ export interface paths {
         /**
          * Replace the editable fields of a vendor order (purchasers)
          * @description Replaces every editable field; omitted ones are cleared. `vendorId` and `currency` only change while the order is a draft (422 `order_locked`).
+         *     Changing the currency of a draft is refused with 422 `currency_change_blocked` (`details.entries`) while a non-voided `with_checkout` cost entry exists,
+         *     because those entries are in the order currency; the caller removes them first (nothing is converted or deleted). Otherwise the change is applied and the
+         *     `unitPrice` of every line is cleared (the old prices are in the `vendor_order.updated` audit event's `changes`); `separate` entries keep their own currency.
          *     Money other than the goods lives in cost entries, not here. Recomputes amounts, items and batch status in the same transaction.
          */
         put: operations["putVendorOrder"];
@@ -1922,7 +1927,7 @@ export interface components {
             name: string;
             /** @description A vendor from the list (the name is then taken from it); 400 when unknown. */
             vendorId?: string | null;
-            /** @description Free-text vendor when vendorId is null. */
+            /** @description Free-text vendor when vendorId is null. Without a vendorId, a name that matches an active vendor's name or alias (case-insensitive) is resolved to that vendor when the item is saved (`vendorId` and the vendor's name are then stored); otherwise the text stays here with no vendor. */
             vendorName?: string;
             sku?: string;
             quantity: number;
@@ -1971,7 +1976,12 @@ export interface components {
             mine: number;
         };
         VendorTask: {
+            /** @description Null for the "other" group (items without a vendor from the list), listed last. */
+            vendorId: string | null;
+            /** @description The vendor's name; null for the "other" group. */
             vendor: string | null;
+            /** @description True for a deactivated vendor; its items still form their own group. */
+            inactive: boolean;
             count: number;
             myBatches: number;
         };
@@ -1996,22 +2006,30 @@ export interface components {
             /** @description Set for entry_no_conversion. */
             currency?: string;
         };
+        /**
+         * @description Every value is null on its own when one of its inputs is missing. `linesC`, `checkoutC` and `originalC` need every line priced;
+         *     `factor` and `targetBase` need those and a conversion (the charged amount, or the order currency's reference rate); `separateBase` and
+         *     `netBase` additionally need the base amount of every non-voided separate entry. `incomplete` lists every missing input.
+         *     A cancelled order keeps `linesC`, `checkoutC` and `originalC`; everything else is null or false and `incomplete` is empty.
+         */
         OrderTotals: {
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string, order currency; sum of the lines' lineC. Null when a line has no unit price. */
             linesC: string | null;
-            /** @description Decimal string; sum of the with_checkout cost entries (order currency). */
+            /** @description Decimal string; sum of the with_checkout cost entries (order currency). Null when a line has no unit price. */
             checkoutC: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string; linesC plus checkoutC. Null when a line has no unit price. */
             originalC: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string; the conversion factor to the base currency. Null when originalC or the conversion is missing. */
             factor: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description True when the factor came from a reference rate. */
+            factorProvisional: boolean;
+            /** @description Decimal string; null when factor is null. */
             targetBase: string | null;
-            /** @description Decimal string; base-currency sum of the separate cost entries; null when it cannot be computed. */
+            /** @description Decimal string; base-currency sum of the separate cost entries; null when an entry's amountBase or allocation is missing, or the base amounts are. */
             separateBase: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string; null when separateBase or targetBase is. */
             netBase: string | null;
-            /** @description True when a reference rate stands in for a real amount. */
+            /** @description True when any provisional flag is true: factorProvisional, or a cost entry's provisional. */
             provisional: boolean;
             incomplete: components["schemas"]["Incomplete"][];
         };
@@ -2078,18 +2096,20 @@ export interface components {
             openProblemQuantity: number;
             closure: components["schemas"]["LineClosure"] | null;
             status: components["schemas"]["LineStatus"];
-            /** @description Decimal string in the order currency; quantity x unitPrice; null when unitPrice is null. */
-            cost: string | null;
-            /** @description Decimal string in the order currency; the with_checkout cost entries allocated to this line, rounded to the currency's minor unit so the lines add up to the order's checkoutC; null when it cannot be computed. */
-            shared: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string in the order currency; quantity x unitPrice, exact (never rounded); null when unitPrice is null. Also returned on cancelled orders. */
+            lineC: string | null;
+            /** @description Decimal string; the goods amount in the base currency. Null unless the order's factor and every line's price are known; null on cancelled orders. */
             costBase: string | null;
-            /** @description Decimal string; the with_checkout cost entries allocated to this line; null when it cannot be computed. */
+            /** @description Decimal string; the with_checkout cost entries allocated to this line, in the base currency; null whenever costBase is. */
             sharedBase: string | null;
-            /** @description Decimal string; the separate payments and refunds allocated to this line; null when it cannot be computed. */
+            /** @description Decimal string; the separate payments and refunds allocated to this line; null unless every separate entry has an amountBase. */
             separateBase: string | null;
-            /** @description Decimal string; null when it cannot be computed. */
+            /** @description Decimal string; costBase + sharedBase + separateBase; null when any of them is. */
             totalBase: string | null;
+            /** @description True when costBase and sharedBase use a conversion factor from a reference rate (the order's factorProvisional). */
+            costProvisional: boolean;
+            /** @description True when a non-voided separate entry allocated to this line has a provisional amountBase. */
+            separateProvisional: boolean;
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -2128,6 +2148,10 @@ export interface components {
             amount: string;
             /** @description Separate entries only: the real base-currency amount, same sign as amount. */
             actualAmountBase: string | null;
+            /** @description Computed, separate entries only: the amount in the base currency (the actual base amount, the amount itself in the base currency, or amount x reference rate; rounded to the base currency's minor unit). Null for with_checkout and voided entries and when the entry has neither an actual base amount nor a rate. */
+            amountBase: string | null;
+            /** @description Computed: true when amountBase came from a reference rate; false for with_checkout and voided entries. */
+            provisional: boolean;
             /** @enum {string|null} */
             refundMethod: "cash" | "coupon" | null;
             allocation: components["schemas"]["CostAllocation"];
@@ -2257,6 +2281,8 @@ export interface components {
             /** @description Null for items without a vendor from the list ("other"). */
             vendorId: string | null;
             vendorName: string;
+            /** @description True for a deactivated vendor; its items still form their own group. */
+            inactive: boolean;
             /** @description Teams with items in this group (more than one suggests merging). */
             teamIds: string[];
             items: components["schemas"]["QueueItem"][];
@@ -2427,10 +2453,11 @@ export interface components {
          *     401 `unauthenticated`; 403 `forbidden`, `missing_role`; 404 `not_found`; 409 `version_conflict`, `invalid_transition`, `subgroup_name_conflict` (`details.value`), `blocked_by_dependency` (`details.blockers`: `[{type, id, label}]`);
          *     413 `payload_too_large`; 428 `if_match_required`; 500 `internal_error` (no internal details);
          *     503 `upstream_unavailable`, `lookup_disabled`; 504 `upstream_timeout`; 429 `rate_limited`; 404 `lookup_not_found`;
-         *     422 for every other (business-rule) code.
+         *     422 for every other (business-rule) code; `currency_change_blocked` carries `details.entries`: `[{entryNo, type, currency}]`, the non-voided
+         *     with_checkout cost entries that block a currency change (`entryNo` is the 1-based position among the non-voided cost entries, as in `Incomplete`).
          * @enum {string}
          */
-        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_name_conflict" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited";
+        ErrorCode: "invalid_request" | "invalid_if_match" | "unauthenticated" | "forbidden" | "missing_role" | "not_found" | "version_conflict" | "invalid_transition" | "payload_too_large" | "if_match_required" | "internal_error" | "upstream_unavailable" | "team_slug_taken" | "team_archived" | "subgroup_name_conflict" | "member_no_role_source" | "member_managed_by_sso" | "role_mapping_managed" | "batch_not_collecting" | "batch_not_reviewing" | "batch_closed" | "batch_item_limit" | "assignments_incomplete" | "deadline_required" | "deadline_not_in_future" | "no_pending_items" | "reason_required" | "item_not_editable" | "item_not_deletable" | "item_not_edited" | "item_not_reviewable" | "blocked_by_dependency" | "vendor_name_taken" | "items_undecided" | "line_quantity_exceeded" | "shared_cost_allocation_invalid" | "item_not_purchasable" | "item_already_on_order" | "order_not_draft" | "order_locked" | "line_locked" | "unit_price_required" | "order_has_no_lines" | "line_missing_price" | "order_not_placed" | "cost_entry_voided" | "line_not_closable" | "line_not_matchable" | "lookup_not_found" | "lookup_disabled" | "upstream_timeout" | "rate_limited" | "currency_change_blocked";
         VoidInfo: {
             reason: string;
             by: string;

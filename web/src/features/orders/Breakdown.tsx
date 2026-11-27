@@ -21,7 +21,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
   if (order.restricted) {
     return (
       <Stack gap="2">
-        <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('breakdown.title')} />
+        <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('breakdown.title')} />
         <Card.Root size="sm">
           <Card.Body gap="2">
             <Text color="fg.muted">{t('breakdown.restricted')}</Text>
@@ -41,7 +41,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
 
   return (
     <Stack gap="2">
-      <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('breakdown.title')} />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('breakdown.title')} />
       <Card.Root size="sm">
         <Card.Body gap="3">
           <Totals

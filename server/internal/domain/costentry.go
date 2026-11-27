@@ -56,23 +56,28 @@ type Allocation struct {
 
 // CostEntry is money on a vendor order other than the goods (spec §9.1).
 type CostEntry struct {
-	ID               bson.ObjectID  `bson:"_id,omitempty" json:"id"`
-	VendorOrderID    bson.ObjectID  `bson:"vendorOrderId" json:"vendorOrderId"`
-	Type             string         `bson:"type" json:"type"`
-	Settlement       string         `bson:"settlement" json:"settlement"`
-	Currency         string         `bson:"currency" json:"currency"`
-	Amount           Decimal        `bson:"amount" json:"amount"`
-	ActualAmountBase *Decimal       `bson:"actualAmountBase" json:"actualAmountBase"`
-	RefundMethod     *string        `bson:"refundMethod" json:"refundMethod"`
-	Allocation       Allocation     `bson:"allocation" json:"allocation"`
-	Note             string         `bson:"note" json:"note"`
-	Source           string         `bson:"source" json:"source"`
-	SourceID         *bson.ObjectID `bson:"sourceId" json:"sourceId"`
-	Voided           *Void          `bson:"voided" json:"voided"`
-	CreatedBy        bson.ObjectID  `bson:"createdBy" json:"createdBy"`
-	CreatedAt        time.Time      `bson:"createdAt" json:"createdAt"`
-	UpdatedAt        time.Time      `bson:"updatedAt" json:"updatedAt"`
-	Version          int64          `bson:"version" json:"version"`
+	ID               bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	VendorOrderID    bson.ObjectID `bson:"vendorOrderId" json:"vendorOrderId"`
+	Type             string        `bson:"type" json:"type"`
+	Settlement       string        `bson:"settlement" json:"settlement"`
+	Currency         string        `bson:"currency" json:"currency"`
+	Amount           Decimal       `bson:"amount" json:"amount"`
+	ActualAmountBase *Decimal      `bson:"actualAmountBase" json:"actualAmountBase"`
+	// AmountBase is E, the base-currency amount of a separate entry (computed); nil for
+	// with_checkout entries and while the entry has neither an actual base amount nor a rate.
+	AmountBase *Decimal `bson:"amountBase" json:"amountBase"`
+	// Provisional is true when AmountBase came from a reference rate (computed).
+	Provisional  bool           `bson:"provisional" json:"provisional"`
+	RefundMethod *string        `bson:"refundMethod" json:"refundMethod"`
+	Allocation   Allocation     `bson:"allocation" json:"allocation"`
+	Note         string         `bson:"note" json:"note"`
+	Source       string         `bson:"source" json:"source"`
+	SourceID     *bson.ObjectID `bson:"sourceId" json:"sourceId"`
+	Voided       *Void          `bson:"voided" json:"voided"`
+	CreatedBy    bson.ObjectID  `bson:"createdBy" json:"createdBy"`
+	CreatedAt    time.Time      `bson:"createdAt" json:"createdAt"`
+	UpdatedAt    time.Time      `bson:"updatedAt" json:"updatedAt"`
+	Version      int64          `bson:"version" json:"version"`
 }
 
 // EntryError is a field-level validation failure of a cost entry.

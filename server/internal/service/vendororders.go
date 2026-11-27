@@ -508,15 +508,18 @@ type QueueItem struct {
 
 // QueueGroup is the queue entries of one vendor (VendorID nil: "other").
 type QueueGroup struct {
-	VendorID   *bson.ObjectID  `json:"vendorId"`
-	VendorName string          `json:"vendorName"`
-	TeamIDs    []bson.ObjectID `json:"teamIds"`
-	Items      []QueueItem     `json:"items"`
+	VendorID   *bson.ObjectID `json:"vendorId"`
+	VendorName string         `json:"vendorName"`
+	// Inactive is true for a vendor that was deactivated; its items still form its own group.
+	Inactive bool            `json:"inactive"`
+	TeamIDs  []bson.ObjectID `json:"teamIds"`
+	Items    []QueueItem     `json:"items"`
 }
 
 type QueueFilter struct{ VendorID, TeamID, BatchID bson.ObjectID }
 
-// Queue is the purchasing overview (spec §16.2): purchasers only.
+// Queue is the purchasing overview (spec §16.2): purchasers only. Items are grouped
+// by GroupByVendor, the same rule /me/tasks uses.
 func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilter) ([]QueueGroup, error) {
 	if !actor.IsPurchaser {
 		return nil, ErrForbidden
@@ -525,22 +528,13 @@ func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilt
 	if err != nil {
 		return nil, err
 	}
-	vendors, err := s.st.ListVendors(ctx, false)
+	vendors, err := s.st.ListVendors(ctx, true)
 	if err != nil {
 		return nil, err
 	}
 	teams, batches := map[bson.ObjectID]string{}, map[bson.ObjectID]*domain.Batch{}
-	groups := map[string]*QueueGroup{}
-	var keys []string
+	var rows []QueueItem
 	for _, it := range items {
-		// An item with only a vendor name (the "other" vendor) joins the vendor
-		// whose name or alias it matches.
-		if it.VendorID == nil {
-			if v := matchVendor(vendors, it.VendorName); v != nil {
-				id := v.ID
-				it.VendorID = &id
-			}
-		}
 		if !f.VendorID.IsZero() && (it.VendorID == nil || *it.VendorID != f.VendorID) {
 			continue
 		}
@@ -567,45 +561,25 @@ func (s *VendorOrders) Queue(ctx context.Context, actor authz.Actor, f QueueFilt
 			}
 			teams[it.TeamID] = tn
 		}
-		key := ""
-		if it.VendorID != nil {
-			key = it.VendorID.Hex()
-		}
-		g, ok := groups[key]
-		if !ok {
-			g = &QueueGroup{VendorID: it.VendorID, Items: []QueueItem{}, TeamIDs: []bson.ObjectID{}}
-			if it.VendorID != nil {
-				g.VendorName = s.vendorName(ctx, *it.VendorID)
-			}
-			groups[key] = g
-			keys = append(keys, key)
-		}
-		g.Items = append(g.Items, QueueItem{PurchaserItem: purchaserItem(&it), PlannedQuantity: it.PlannedQuantity,
+		rows = append(rows, QueueItem{PurchaserItem: purchaserItem(&it), PlannedQuantity: it.PlannedQuantity,
 			ToPurchaseQuantity: it.ToPurchaseQuantity, OrderedQuantity: it.OrderedQuantity, ReceivedQuantity: it.ReceivedQuantity, TeamName: tn, BatchNumber: b.Number, BatchTitle: b.Title,
 			DraftQuantity: it.PlannedQuantity - it.OrderedQuantity})
 	}
-	sort.Slice(keys, func(i, j int) bool {
-		a, b := groups[keys[i]], groups[keys[j]]
-		if (a.VendorID == nil) != (b.VendorID == nil) {
-			return a.VendorID != nil // "other" last
+	// Items of one vendor are listed by their typed name, then by id.
+	sort.SliceStable(rows, func(i, j int) bool {
+		if rows[i].VendorName != rows[j].VendorName {
+			return strings.ToLower(rows[i].VendorName) < strings.ToLower(rows[j].VendorName)
 		}
-		return strings.ToLower(a.VendorName) < strings.ToLower(b.VendorName)
+		return rows[i].ID.Hex() < rows[j].ID.Hex()
 	})
-	out := make([]QueueGroup, 0, len(keys))
-	for _, k := range keys {
-		g := groups[k]
-		sort.SliceStable(g.Items, func(i, j int) bool {
-			if g.Items[i].VendorName != g.Items[j].VendorName {
-				return strings.ToLower(g.Items[i].VendorName) < strings.ToLower(g.Items[j].VendorName)
-			}
-			return g.Items[i].ID.Hex() < g.Items[j].ID.Hex()
-		})
+	grouped := GroupByVendor(rows, vendors, func(q QueueItem) *bson.ObjectID { return q.VendorID }, func(q QueueItem) string { return q.VendorName })
+	out := make([]QueueGroup, 0, len(grouped))
+	for _, g := range grouped {
 		seen := map[bson.ObjectID]bool{}
 		for _, it := range g.Items {
 			seen[it.TeamID] = true
 		}
-		g.TeamIDs = sortedIDs(seen)
-		out = append(out, *g)
+		out = append(out, QueueGroup{VendorID: g.VendorID, VendorName: g.Name, Inactive: g.Inactive, TeamIDs: sortedIDs(seen), Items: g.Items})
 	}
 	return out, nil
 }

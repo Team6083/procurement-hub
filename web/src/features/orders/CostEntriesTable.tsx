@@ -96,7 +96,7 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
 
   return (
     <Stack gap="2">
-      <TitleBar level={headingAs === 'h3' ? 3 : 2} title={t('costs.title')} after={<Badge>{order.costEntries.length}</Badge>} end={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>} />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('costs.title')} after={<Badge>{order.costEntries.length}</Badge>} end={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>} />
       <DataTable
         aria-label={t('costs.title')} rows={order.costEntries} columns={columns} getRowId={(e) => e.id} rowActions={editable ? rowActions : undefined}
         empty={<EmptyState icon={<LuReceipt />} title={t('costs.empty')} />}

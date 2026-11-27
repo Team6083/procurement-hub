@@ -236,7 +236,8 @@
     "linesToCloseLink": "已到貨但數量短少的明細",
     "deliveriesToMatch": "待對應的到貨",
     "deliveriesToMatchLink": "等待對應訂單的到貨明細",
-    "noVendor": "沒有廠商",
+    "noVendor": "其他",
+    "vendorInactive": "已停用的廠商",
     "ownedMine": "您負責的有 {{count}} 項"
   },
   "validation": {

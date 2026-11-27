@@ -184,11 +184,11 @@ func TestCalcOrderCost(t *testing.T) {
 			total: []string{"1600.00", "1440.00"}, target: "3200.00", net: "3040.00",
 		},
 		{
-			name: "a separate entry without actual amount or rate makes the order incomplete",
+			name: "a separate entry without actual amount or rate only nulls the separate amounts and netBase",
 			in: usd([]CostLine{line(1, "a", 1, "10")}, func(in *OrderCostInput) {
 				in.Entries = []CostEntryInput{checkout("1", nil), separate("JPY", "1500", nil)}
 			}),
-			target: "nil", net: "nil", incomplete: []Incomplete{{Code: IncompleteEntryNoConversion, EntryNo: 2, Currency: "JPY"}},
+			target: "11.00", net: "nil", incomplete: []Incomplete{{Code: IncompleteEntryNoConversion, EntryNo: 2, Currency: "JPY"}},
 		},
 		{
 			name: "manual allocation: with-checkout by amounts, separate scaled to the real amount",
@@ -459,49 +459,105 @@ func TestMinorDecimalRejectsOutOfRangeDigits(t *testing.T) {
 	minorDecimal(big.NewInt(1), 5)
 }
 
-// cost and shared are in the order currency: shared adds up to checkoutC
-// (with and without a discount) and both are nil when the order cannot be priced.
-func TestOrderCurrencyAmounts(t *testing.T) {
-	mk := func(lines []CostLine, amounts ...string) OrderCostInput {
-		in := OrderCostInput{Currency: "USD", Base: "TWD", BaseDigits: 0, Digits: 2, Lines: lines,
+// Every value is null on its own: it has a value when all of its inputs do.
+func TestPartialNulls(t *testing.T) {
+	usd := func(lines []CostLine, entries ...CostEntryInput) OrderCostInput {
+		return OrderCostInput{Currency: "USD", Base: "TWD", BaseDigits: 0, Lines: lines, Entries: entries,
 			Rates: map[string]decimal.Decimal{"USD": dd("31")}}
-		for _, a := range amounts {
-			in.Entries = append(in.Entries, checkout(a, nil))
-		}
-		return in
 	}
 	three := []CostLine{line(1, "a", 1, "10"), line(2, "a", 2, "10"), line(3, "a", 1, "10")}
-	missing := []CostLine{line(1, "a", 1, "10"), {LineNo: 2, LineID: "b", TeamID: "a", Quantity: 1}}
-	tests := []struct {
-		name   string
-		in     OrderCostInput
-		cost   []string
-		shared []string
-	}{
-		{"fee splits by weight, ties by lineNo", mk(three, "1"), []string{"10.00", "20.00", "10.00"}, []string{"0.25", "0.50", "0.25"}},
-		{"remainder goes to the lowest line", mk([]CostLine{line(1, "a", 1, "10"), line(2, "a", 1, "10"), line(3, "a", 1, "10")}, "1"),
-			[]string{"10.00", "10.00", "10.00"}, []string{"0.34", "0.33", "0.33"}},
-		{"discount", mk(three, "5", "-6.01"), []string{"10.00", "20.00", "10.00"}, []string{"-0.25", "-0.51", "-0.25"}},
-		{"missing price", mk(missing, "1"), []string{"10.00", "nil"}, []string{"nil", "nil"}},
+
+	t.Run("no rate: lineC, linesC, checkoutC and originalC show, base fields are null", func(t *testing.T) {
+		in := usd(three, checkout("1", nil))
+		in.Rates = map[string]decimal.Decimal{}
+		got := CalcOrderCost(in)
+		if str(got.LinesC) != "40.00" || str(got.CheckoutC) != "1.00" || str(got.OriginalC) != "41.00" {
+			t.Fatalf("linesC=%s checkoutC=%s originalC=%s", str(got.LinesC), str(got.CheckoutC), str(got.OriginalC))
+		}
+		for i, w := range []string{"10.00", "20.00", "10.00"} {
+			if got.Lines[i].LineC == nil || str(got.Lines[i].LineC) != w {
+				t.Errorf("line %d lineC = %s, want %s", i+1, str(got.Lines[i].LineC), w)
+			}
+			if got.Lines[i].CostBase != nil || got.Lines[i].SharedBase != nil || got.Lines[i].TotalBase != nil {
+				t.Errorf("line %d has base amounts", i+1)
+			}
+		}
+		if got.F != nil || got.TargetBase != nil || got.NetBase != nil {
+			t.Errorf("factor/target/net must be null: %v %v %v", got.F, got.TargetBase, got.NetBase)
+		}
+		if len(got.Incomplete) != 1 || got.Incomplete[0].Code != IncompleteNoConversion {
+			t.Errorf("incomplete = %v", got.Incomplete)
+		}
+	})
+
+	t.Run("lineC is exact", func(t *testing.T) {
+		got := CalcOrderCost(usd([]CostLine{line(1, "a", 3, "0.333")}))
+		if got.Lines[0].LineC == nil || got.Lines[0].LineC.String() != "0.999" {
+			t.Errorf("lineC = %v", got.Lines[0].LineC)
+		}
+	})
+
+	t.Run("a line without a unit price nulls the totals and every base field", func(t *testing.T) {
+		got := CalcOrderCost(usd([]CostLine{line(1, "a", 1, "10"), {LineNo: 2, LineID: "b", TeamID: "a", Quantity: 1}}, checkout("1", nil)))
+		if got.Lines[0].LineC == nil || got.Lines[1].LineC != nil {
+			t.Errorf("lineC = %v %v", got.Lines[0].LineC, got.Lines[1].LineC)
+		}
+		if got.LinesC != nil || got.CheckoutC != nil || got.OriginalC != nil || got.F != nil || got.TargetBase != nil || got.NetBase != nil {
+			t.Errorf("totals must be null: %+v", got)
+		}
+		for _, l := range got.Lines {
+			if l.CostBase != nil || l.SharedBase != nil || l.SeparateBase != nil || l.TotalBase != nil {
+				t.Errorf("line %d has base amounts", l.LineNo)
+			}
+		}
+		if len(got.Incomplete) != 1 || got.Incomplete[0].Code != IncompleteMissingPrice || got.Incomplete[0].LineNo != 2 {
+			t.Errorf("incomplete = %v", got.Incomplete)
+		}
+	})
+
+	t.Run("one separate entry without E keeps costBase and sharedBase", func(t *testing.T) {
+		got := CalcOrderCost(usd(three, checkout("1", nil), separate("EUR", "5", nil), separate("USD", "2", nil)))
+		for i, l := range got.Lines {
+			if l.CostBase == nil || l.SharedBase == nil {
+				t.Errorf("line %d lost costBase/sharedBase", i+1)
+			}
+			if l.SeparateBase != nil || l.TotalBase != nil {
+				t.Errorf("line %d has separate/total", i+1)
+			}
+		}
+		if got.TargetBase == nil || got.SeparateBase != nil || got.NetBase != nil {
+			t.Errorf("target=%v separate=%v net=%v", got.TargetBase, got.SeparateBase, got.NetBase)
+		}
+		if got.Entries[1].AmountBase != nil || got.Entries[2].AmountBase == nil || str(got.Entries[2].AmountBase) != "62.00" {
+			t.Errorf("entry E = %v %v", got.Entries[1].AmountBase, got.Entries[2].AmountBase)
+		}
+		if len(got.Incomplete) != 1 || got.Incomplete[0].Code != IncompleteEntryNoConversion || got.Incomplete[0].EntryNo != 2 {
+			t.Errorf("incomplete = %v", got.Incomplete)
+		}
+	})
+}
+
+// A separate entry on a reference rate marks only its own lines; a provisional
+// factor marks every line's cost.
+func TestProvisionalFlags(t *testing.T) {
+	lines := []CostLine{line(1, "a", 1, "10"), line(2, "b", 1, "10")}
+	in := OrderCostInput{Currency: "TWD", Base: "TWD", BaseDigits: 0, Lines: lines,
+		Entries: []CostEntryInput{separate("USD", "1", onTeams("a")), separate("TWD", "5", nil)},
+		Rates:   map[string]decimal.Decimal{"USD": dd("31")}}
+	got := CalcOrderCost(in)
+	if got.FactorProvisional || !got.Provisional {
+		t.Errorf("factorProvisional=%v provisional=%v", got.FactorProvisional, got.Provisional)
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := CalcOrderCost(tt.in)
-			sum := decimal.Zero
-			for i, l := range got.Lines {
-				if c := str(l.LineC); c != tt.cost[i] {
-					t.Errorf("line %d cost = %q, want %q", i+1, c, tt.cost[i])
-				}
-				if s := str(l.SharedC); s != tt.shared[i] {
-					t.Errorf("line %d shared = %q, want %q", i+1, s, tt.shared[i])
-				}
-				if l.SharedC != nil {
-					sum = sum.Add(*l.SharedC)
-				}
-			}
-			if got.LinesC != nil && !sum.Equal(got.CheckoutC) {
-				t.Errorf("Σ shared = %s, checkoutC %s", sum, got.CheckoutC)
-			}
-		})
+	if !got.Entries[0].Provisional || got.Entries[1].Provisional {
+		t.Errorf("entry provisional = %v %v", got.Entries[0].Provisional, got.Entries[1].Provisional)
+	}
+	if !got.Lines[0].SeparateProvisional || got.Lines[1].SeparateProvisional || got.Lines[0].CostProvisional || got.Lines[1].CostProvisional {
+		t.Errorf("line flags = %+v", got.Lines)
+	}
+
+	in = OrderCostInput{Currency: "USD", Base: "TWD", BaseDigits: 0, Lines: lines, Rates: map[string]decimal.Decimal{"USD": dd("31")}}
+	got = CalcOrderCost(in)
+	if !got.FactorProvisional || !got.Lines[0].CostProvisional || !got.Lines[1].CostProvisional || got.Lines[0].SeparateProvisional {
+		t.Errorf("factor flags = %v %+v", got.FactorProvisional, got.Lines)
 	}
 }
