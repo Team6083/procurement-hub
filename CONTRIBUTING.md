@@ -79,7 +79,7 @@ CI also builds the image from [`server/Dockerfile`](server/Dockerfile) without p
 
 ## Web UI package
 
-The web app's frame, theme and standard pages come from the package `@team6083/ui` on npm. Its design rules are in the package README (`node_modules/@team6083/ui/README.md`) and the demo (https://ui.cmsrobotics.org/):
+The web app's frame, theme and standard pages come from the package `@team6083/ui` on npm. Its design rules are in the package README (`node_modules/@team6083/ui/README.md`):
 
 - One `TitleBar` level 1 per page, with the status as its badge; sections use `TitleBar` level 2 with the count as a badge and actions on the right; inside cards and dialogs use level 3 or 4.
 - An empty list is an `EmptyState`, never a line of grey text; the first load shows skeletons, not a spinner.

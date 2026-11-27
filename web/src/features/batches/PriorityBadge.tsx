@@ -2,7 +2,7 @@ import { Badge, type BadgeProps } from '@chakra-ui/react';
 import { Tooltip } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 
-// P5 and P4 stand out, the rest stay grey (the team's rule: grey by default, colour for emphasis).
+// P5, P4 and P3 stand out in red, orange and yellow; P2 and P1 stay grey.
 const STYLE: Record<number, BadgeProps> = {
   5: { colorPalette: 'red', variant: 'solid' },
   4: { colorPalette: 'orange', variant: 'subtle' },

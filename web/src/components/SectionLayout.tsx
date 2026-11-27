@@ -30,7 +30,7 @@ const matchLength = (tab: SectionTab, pathname: string) =>
   Math.max(-1, ...[tab.to, ...(tab.match ?? [])].filter((p) => pathname === p || pathname.startsWith(`${p}/`)).map((p) => p.length));
 
 /**
- * The one sub-navigation pattern of the app: a section's PageHeader, then URL-routed line tabs under it, then the
+ * The one sub-navigation pattern of the app: a section's heading, then URL-routed line tabs under it, then the
  * open tab's page. The pages never repeat the tab's name as a heading. With a single tab no tab list shows, and the
  * tab's own label is the heading unless `keepTitle`.
  */

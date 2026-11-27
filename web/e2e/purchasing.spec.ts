@@ -155,7 +155,7 @@ test('a purchaser puts both teams\' items into one USD order, adds a third team\
   await expect(edit).toBeHidden();
   await expect(itemRow(lines, names.gear)).toContainText('Team A');
 
-  // Marking as placed needs a price on every line; the price saves when the field loses focus.
+  // Marking as placed needs a price on every line; the price saves on Enter.
   const place = dialog.getByRole('button', { name: 'Mark as placed' });
   for (const [name, price] of [[names.gear, '10'], [names.motor, '20'], [names.freight, '10']] as const) {
     const row = itemRow(lines, name);
@@ -164,7 +164,7 @@ test('a purchaser puts both teams\' items into one USD order, adds a third team\
     const input = row.getByLabel(/^Unit price of line/);
     const saved = page.waitForResponse((r) => r.url().includes('/vendor-order-lines/') && r.request().method() === 'PUT');
     await input.fill(price);
-    await input.blur();
+    await input.press('Enter');
     expect((await saved).ok()).toBe(true);
   }
   // Without the charged amount the amounts come from the reference rate and are marked provisional.

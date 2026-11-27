@@ -1,7 +1,7 @@
 import i18n from '../i18n';
 
 /**
- * A timestamp for display, short and without seconds (the team's DESIGN.md: Data pages): `11/23 03:34`
+ * A timestamp for display, short and without seconds: `11/23 03:34`
  * this year, with the year otherwise. `time: false` leaves the time out where only the day matters.
  */
 export function shortDate(iso: string | null | undefined, { time = true, now = new Date() }: { time?: boolean; now?: Date } = {}): string {
