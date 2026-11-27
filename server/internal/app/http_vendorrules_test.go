@@ -88,7 +88,7 @@ func TestHTTPVendorGrouping(t *testing.T) {
 	}
 	for i, g := range q {
 		m := g.(map[string]any)
-		name := any(m["vendorName"])
+		name := m["vendorName"]
 		if m["vendorId"] == nil {
 			name = nil
 			// "Other" lists its items by typed vendor name.
