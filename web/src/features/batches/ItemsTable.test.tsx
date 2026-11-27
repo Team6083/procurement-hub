@@ -104,6 +104,9 @@ describe('ItemsTable', () => {
     expect(onQuantityChange).not.toHaveBeenCalled();
     fireEvent.change(input, { target: { value: '7' } });
     fireEvent.blur(input);
-    expect(onQuantityChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'Bolt' }), 7);
+    expect(onQuantityChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'Bolt' }), 7, expect.any(Function));
+    fireEvent.keyDown(input, { key: 'Enter' });
+    fireEvent.blur(input);
+    expect(onQuantityChange).toHaveBeenCalledTimes(1);
   });
 });

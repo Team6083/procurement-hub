@@ -167,7 +167,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       <ErrorAlert error={putItem.error} />
       <ItemsTable
         canEditQuantity={(it) => canModifyItem(it, batch, caller)}
-        onQuantityChange={(item, quantity) => { putItem.reset(); putItem.mutate({ item, body: toItemRequest({ ...itemToForm(item), quantity: String(quantity) }) }); }}
+        onQuantityChange={(item, quantity, onFail) => { putItem.reset(); putItem.mutate({ item, body: toItemRequest({ ...itemToForm(item), quantity: String(quantity) }) }, { onError: onFail }); }}
         items={visible}
         reviewAsIcon={inPurchasing(batch)}
         team={team}

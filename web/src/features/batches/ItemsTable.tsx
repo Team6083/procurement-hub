@@ -1,7 +1,7 @@
 import { Box, Flex, HStack, Input, Link, Text } from '@chakra-ui/react';
 import { DataTable, InfoTip, type DataColumn, type DataSort, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { ClampedText } from '../../components/ClampedText';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Team } from '../../api/types';
 import { PersonAvatar } from '../../components/PersonAvatar';
@@ -30,16 +30,21 @@ interface Props {
   /** Items whose quantity can be edited in place; needs onQuantityChange. */
   canEditQuantity?: (item: Item) => boolean;
   /** Called with a valid new quantity (a whole number of at least 1) when the user commits an inline edit. */
-  onQuantityChange?: (item: Item, quantity: number) => void;
+  onQuantityChange?: (item: Item, quantity: number, onFail: () => void) => void;
 }
 
 /** A quantity input inside the table: Enter or leaving the field saves, Escape reverts; invalid input is flagged and not sent. */
-function QuantityInput({ item, onCommit }: { item: Item; onCommit: (q: number) => void }) {
+function QuantityInput({ item, onCommit }: { item: Item; onCommit: (q: number, onFail: () => void) => void }) {
   const { t } = useTranslation('batches');
   const [draft, setDraft] = useState(String(item.quantity));
   const valid = /^[1-9]\d*$/.test(draft.trim());
+  // The last value sent: Enter then blur must not save twice (the second PUT would carry the old If-Match and conflict).
+  const sent = useRef<number | null>(null);
   const commit = () => {
-    if (valid && Number(draft) !== item.quantity) onCommit(Number(draft));
+    const q = Number(draft);
+    if (!valid || q === item.quantity || q === sent.current) return;
+    sent.current = q;
+    onCommit(q, () => { sent.current = null; setDraft(String(item.quantity)); });
   };
   return (
     <Input
@@ -135,7 +140,7 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
     col('quantity', t('item.quantity'), (i) => i.quantity, {
       numeric: true,
       cell: (it) => (onQuantityChange && canEditQuantity?.(it)
-        ? <QuantityInput key={`${it.id}:${it.version}`} item={it} onCommit={(q) => onQuantityChange(it, q)} />
+        ? <QuantityInput key={`${it.id}:${it.version}`} item={it} onCommit={(q, fail) => onQuantityChange(it, q, fail)} />
         : it.quantity),
     }),
     // Unit price under the total: one money column instead of two.
