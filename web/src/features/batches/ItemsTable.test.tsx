@@ -93,4 +93,17 @@ describe('ItemsTable', () => {
     expect(link.getAttribute('rel')).toBe('noopener noreferrer');
     expect(screen.queryByRole('link', { name: 'Cable' })).toBeNull();
   });
+
+  it('saves an edited quantity inline and ignores an invalid one', () => {
+    const onQuantityChange = vi.fn();
+    renderUI(<ItemsTable items={items} team={team()} nameOf={() => 'Alice'} canEditQuantity={(i) => i.name === 'Bolt'} onQuantityChange={onQuantityChange} />);
+    expect(screen.getAllByRole('textbox')).toHaveLength(1);
+    const input = screen.getByRole('textbox');
+    fireEvent.change(input, { target: { value: '0' } });
+    fireEvent.blur(input);
+    expect(onQuantityChange).not.toHaveBeenCalled();
+    fireEvent.change(input, { target: { value: '7' } });
+    fireEvent.blur(input);
+    expect(onQuantityChange).toHaveBeenCalledWith(expect.objectContaining({ name: 'Bolt' }), 7);
+  });
 });
