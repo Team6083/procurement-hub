@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- Items' quantity can be edited directly in the batch's items table for items the caller may edit (same `PUT /items/{id}` and rules as the edit dialog).
+- Team admins may leave an item's `purpose` empty when adding or editing it; other members still must fill it (400 `invalid_request` otherwise).
+- The batches list shows the team column before the batch title.
 - Subgroups have `aliases`, edited by team admins in the subgroup settings. Within a team, names and aliases together are unique (compared with Unicode case folding and NFC normalization, inactive subgroups included). An alias equal to the subgroup's own name is dropped, so renaming a subgroup to one of its aliases removes that alias; a clash with another subgroup returns 409 `subgroup_name_conflict` with the clashing value in `details.value`, which replaces the 422 `subgroup_exists` of subgroup names. Responses always list `aliases` (an empty list for subgroups stored before aliases existed), and the `team.subgroup_added` audit event records the aliases a subgroup is created with.
 - The web UI footer shows the build through the UI library's `BuildInfo`: the SPA's commit and build time, the API's build in the details, and the API's release version only when the SPA and API are the same commit.
 - Vendor order lines carry a read-only `productUrl`, the linked item's current product URL looked up when the order is read (empty for free-form lines or items without one) and `estimatedUnitPrice` (the item's current estimate, null without an item); the web UI links the line name to the product page and shows the estimate as a hint while the unit price is typed (an empty price reads "not set").
