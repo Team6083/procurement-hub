@@ -28,7 +28,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
             <Totals
               maxW="none"
               lines={[
-                { label: t('breakdown.visibleTotal'), value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalTip />}<span>{b(order.visibleTotalBase)}</span></HStack> },
+                { label: t('breakdown.visibleTotal'), value: <HStack gap="2" justify="flex-end">{order.lines.some((l) => l.costProvisional || l.separateProvisional) && <ProvisionalTip />}<span>{b(order.visibleTotalBase)}</span></HStack> },
                 ...(order.otherTeams ? [{ label: t('breakdown.otherTeams', { count: order.otherTeams.lines }), value: b(order.otherTeams.totalBase) }] : []),
               ]}
             />
@@ -52,7 +52,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
               { label: t('breakdown.original'), value: c(tt.originalC) },
               {
                 label: t('breakdown.factor'),
-                value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalTip />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
+                value: <HStack gap="2" justify="flex-end">{tt.factorProvisional && <ProvisionalTip />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
                 hint: order.currency === baseCurrency ? undefined : t('breakdown.factorHint', { from: order.currency, to: baseCurrency }),
               },
               { label: t('breakdown.target', { currency: baseCurrency }), value: b(tt.targetBase) },
