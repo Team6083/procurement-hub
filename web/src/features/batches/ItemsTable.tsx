@@ -1,7 +1,7 @@
-import { Box, Flex, HStack, Link, Text } from '@chakra-ui/react';
+import { Box, Flex, HStack, Input, Link, Text } from '@chakra-ui/react';
 import { DataTable, InfoTip, type DataColumn, type DataSort, type DataTableSelection, type RowAction } from '@team6083/ui';
 import { ClampedText } from '../../components/ClampedText';
-import { useState, type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Item, Team } from '../../api/types';
 import { PersonAvatar } from '../../components/PersonAvatar';
@@ -27,6 +27,45 @@ interface Props {
   empty?: ReactNode;
   /** While purchasing runs, the review status is an icon before the name and the status column keeps only the fulfillment. */
   reviewAsIcon?: boolean;
+  /** Items whose quantity can be edited in place; needs onQuantityChange. */
+  canEditQuantity?: (item: Item) => boolean;
+  /** Called with a valid new quantity (a whole number of at least 1) when the user commits an inline edit. */
+  onQuantityChange?: (item: Item, quantity: number, onFail: () => void) => void;
+}
+
+/** A quantity input inside the table: Enter or leaving the field saves, Escape reverts; invalid input is flagged and not sent. */
+function QuantityInput({ item, onCommit }: { item: Item; onCommit: (q: number, onFail: () => void) => void }) {
+  const { t } = useTranslation('batches');
+  const [draft, setDraft] = useState(String(item.quantity));
+  const valid = /^[1-9]\d*$/.test(draft.trim());
+  // The last value sent: Enter then blur must not save twice (the second PUT would carry the old If-Match and conflict).
+  const sent = useRef<number | null>(null);
+  const commit = () => {
+    const q = Number(draft);
+    if (!valid || q === item.quantity || q === sent.current) return;
+    sent.current = q;
+    onCommit(q, () => { sent.current = null; setDraft(String(item.quantity)); });
+  };
+  return (
+    <Input
+      size="xs"
+      w="5rem"
+      ms="auto"
+      textAlign="end"
+      inputMode="numeric"
+      aria-label={`${t('item.quantity')}: #${item.seqNo} ${item.name}`}
+      aria-invalid={!valid}
+      title={valid ? undefined : t('validation.quantity')}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); }
+        if (e.key === 'Escape') setDraft(String(item.quantity));
+      }}
+    />
+  );
 }
 
 const total = (i: Item) => {
@@ -35,7 +74,7 @@ const total = (i: Item) => {
 };
 
 /** The batch's items: name first, numbers right-aligned, detail columns dropped on narrow screens; sortable by any column. */
-export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty, reviewAsIcon = false }: Props) {
+export function ItemsTable({ items, team, nameOf, showRequester = true, rowActions, selection, empty, reviewAsIcon = false, canEditQuantity, onQuantityChange }: Props) {
   const { t } = useTranslation('batches');
   const subgroupName = (id: string) => team?.subgroups.find((g) => g.id === id)?.name ?? '';
   const prio = (p: number) => priorityLabel(team?.priorityLabels, String(p) as PriorityKey, (k) => t(`teams:priority.default.${k}`));
@@ -98,7 +137,12 @@ export function ItemsTable({ items, team, nameOf, showRequester = true, rowActio
     ...(showRequester ? [col('requester', t('item.requester'), (i) => nameOf(i.requesterId), { cell: (it) => <PersonAvatar name={nameOf(it.requesterId)} /> })] : []),
     col('subgroup', t('item.subgroup'), (i) => subgroupName(i.subgroupId), { cell: (it) => subgroupName(it.subgroupId) || '—' }),
     col('vendor', t('item.vendor'), (i) => i.vendorName, { priority: 'secondary', cell: (it) => it.vendorName || '—' }),
-    col('quantity', t('item.quantity'), (i) => i.quantity, { numeric: true, cell: (it) => it.quantity }),
+    col('quantity', t('item.quantity'), (i) => i.quantity, {
+      numeric: true,
+      cell: (it) => (onQuantityChange && canEditQuantity?.(it)
+        ? <QuantityInput key={`${it.id}:${it.version}`} item={it} onCommit={(q, fail) => onQuantityChange(it, q, fail)} />
+        : it.quantity),
+    }),
     // Unit price under the total: one money column instead of two.
     col('lineTotal', t('item.lineTotal'), total, {
       numeric: true,

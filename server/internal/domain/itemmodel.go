@@ -94,7 +94,7 @@ type ItemFields struct {
 	ProductURL         string
 }
 
-// ValidateItemFields checks required fields and formats, returning field → message.
+// ValidateItemFields checks required fields and formats (purpose is checked by the caller: only team admins may leave it empty), returning field → message.
 // supportedCurrencies bounds the price currency; cur gives the allowed number
 // of fractional digits per currency (spec §9).
 func ValidateItemFields(f ItemFields, supportedCurrencies []string, cur Currencies) map[string]string {
@@ -108,9 +108,6 @@ func ValidateItemFields(f ItemFields, supportedCurrencies []string, cur Currenci
 	}
 	if f.Priority < 1 || f.Priority > 5 {
 		errs["priority"] = "must be between 1 and 5"
-	}
-	if strings.TrimSpace(f.Purpose) == "" {
-		errs["purpose"] = "required"
 	}
 	if f.EstimatedUnitPrice.Amount.IsNegative() {
 		errs["estimatedUnitPrice"] = "must not be negative"

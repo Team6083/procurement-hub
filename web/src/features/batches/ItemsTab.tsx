@@ -4,7 +4,7 @@ import { EmptyState, FilterBar, SelectionBar, type RowAction } from '@team6083/u
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuBan, LuCheck, LuCopy, LuPackageOpen, LuPencil, LuPlus, LuRotateCcw, LuSearchX, LuTrash2, LuUndo2, LuX } from 'react-icons/lu';
-import { useDeleteItem, useItemAction, useReview } from '../../api/batches';
+import { useDeleteItem, useItemAction, usePutItem, useReview } from '../../api/batches';
 import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
@@ -14,10 +14,11 @@ import { EstimateSummary, useEstimateText } from './EstimateSummary';
 import { ResubmitDialog } from './ResubmitDialog';
 import { ItemFormModal } from './ItemFormModal';
 import { ItemsTable } from './ItemsTable';
+import { itemToForm, toItemRequest } from './itemForm';
 import { TO_PURCHASE, countsTowardEstimate, filterItems, type ItemFilters } from './filters';
 import { ReviewBar } from './ReviewBar';
 import {
-  canAddItem, canAddRelatedItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canModifyItem, canReview, canUndoReview, canUndoUnpurchasable,
+  canAdmin, canAddItem, canAddRelatedItem, canCopyItem, canDeleteItem, canForceReject, canMarkUnpurchasable, canModifyItem, canReview, canUndoReview, canUndoUnpurchasable,
   inPurchasing, isMember, showResubmit, type Caller,
 } from './rules';
 
@@ -65,6 +66,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
   const [resubmitting, setResubmitting] = useState<Item | null>(null);
   const action = useItemAction();
   const remove = useDeleteItem();
+  const putItem = usePutItem();
   const internal = isMember(caller) || caller.isSystemAdmin;
 
   const visible = useMemo(() => {
@@ -162,7 +164,10 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
       {internal && batch.status === 'reviewing' && !canReview(batch, caller) && <Text color="fg.muted">{t('review.readOnly')}</Text>}
 
       <ErrorAlert error={!deciding && review.variables?.decisions[0]?.decision === 'approve' ? review.error : null} />
+      <ErrorAlert error={putItem.error} />
       <ItemsTable
+        canEditQuantity={(it) => canModifyItem(it, batch, caller)}
+        onQuantityChange={(item, quantity, onFail) => { putItem.reset(); putItem.mutate({ item, body: toItemRequest({ ...itemToForm(item), quantity: String(quantity) }) }, { onError: onFail }); }}
         items={visible}
         reviewAsIcon={inPurchasing(batch)}
         team={team}
@@ -187,7 +192,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         {internal && batch.status === 'reviewing' && <ReviewBar batch={batch} caller={caller} selected={decidable} onDone={clearSelection} />}
       </SelectionBar>
 
-      <ItemFormModal open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); setRelatedTo(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} resubmittable={editing !== null && editing !== 'new' && showResubmit(editing, batch, caller)} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} relatedTo={editing === 'new' ? relatedTo ?? undefined : undefined} />
+      <ItemFormModal purposeOptional={canAdmin(caller)} open={editing !== null} onClose={() => { setEditing(null); setCopyFrom(null); setRelatedTo(null); }} batch={batch} team={team} defaultSubgroupId={defaultSubgroupId} item={editing && editing !== 'new' ? editing : undefined} resubmittable={editing !== null && editing !== 'new' && showResubmit(editing, batch, caller)} prefill={editing === 'new' ? copyFrom ?? undefined : undefined} relatedTo={editing === 'new' ? relatedTo ?? undefined : undefined} />
       <ResubmitDialog item={resubmitting} loading={action.isPending} error={resubmitting ? action.error : null} onClose={() => setResubmitting(null)}
         onConfirm={(note) => resubmitting && action.mutate({ item: resubmitting, action: 'resubmit', note }, { onSuccess: () => setResubmitting(null) })} />
       <ReasonModal

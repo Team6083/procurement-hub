@@ -3,7 +3,7 @@
     "name": "Procurement Hub"
   },
   "nav": {
-    "batches": "採購批次",
+    "batches": "採購申請",
     "admin": "管理",
     "purchasing": "採購",
     "receiving": "點收",
@@ -25,7 +25,7 @@
   },
   "pages": {
     "home": "首頁",
-    "batches": "採購批次",
+    "batches": "採購申請",
     "reports": "報表",
     "notFound": "找不到頁面"
   },
@@ -54,7 +54,7 @@
     "blockedTitle": "請先撤銷這些：",
     "blockedLine": "明細",
     "blockedItem": "品項",
-    "blockedBatch": "批次",
+    "blockedBatch": "申請",
     "blockedVendorOrder": "廠商訂單",
     "blockedDelivery": "到貨紀錄",
     "blockedProblem": "到貨問題",

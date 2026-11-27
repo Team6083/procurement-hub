@@ -17,7 +17,7 @@ import { useFieldError } from '../../components/ui/form';
 import { SelectField } from '../../components/ui/select';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { isEditedSinceReturn } from './rules';
-import { emptyItemForm, itemFormSchema, itemToForm, safeHttpUrl, toItemRequest, type ItemForm } from './itemForm';
+import { emptyItemForm, makeItemFormSchema, itemToForm, safeHttpUrl, toItemRequest, type ItemForm } from './itemForm';
 import { FORM_TO_LOOKUP_FIELD, LOOKUP_PROVIDER, planLookupFill, type LookupField, type LookupPatch, type LookupResult } from './productLookup';
 
 interface Props {
@@ -34,9 +34,11 @@ interface Props {
   relatedTo?: Item;
   /** The edited item is returned to its requester in a batch under review: offer "save and resubmit". */
   resubmittable?: boolean;
+  /** Team admins may leave the purpose empty; for other members it is required. */
+  purposeOptional?: boolean;
 }
 
-function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, relatedTo, resubmittable }: Omit<Props, 'open'>) {
+function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, relatedTo, resubmittable, purposeOptional = false }: Omit<Props, 'open'>) {
   const { t } = useTranslation('batches');
   const meta = useMeta();
   const vendors = useVendors();
@@ -47,7 +49,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
   const base = meta.data?.baseCurrency ?? currencies[0] ?? '';
   const activeDefault = team?.subgroups.some((g) => g.id === defaultSubgroupId && g.active) ? defaultSubgroupId : '';
   const form = useForm<ItemForm>({
-    resolver: zodResolver(itemFormSchema),
+    resolver: zodResolver(makeItemFormSchema(purposeOptional)),
     defaultValues: item ? itemToForm(item) : prefill ? itemToForm(prefill) : emptyItemForm(base, activeDefault),
   });
   const vendorChoice = useWatch({ control: form.control, name: 'vendorId' });
@@ -259,7 +261,7 @@ function Inner({ onClose, batch, team, defaultSubgroupId, item, prefill, related
                 <SelectField label={t('item.subgroup')} placeholder={t('item.noSubgroup')} name={field.name} value={field.value} onChange={field.onChange} onBlur={field.onBlur} options={subgroups.map((g) => ({ value: g.id, label: g.name }))} />
               )} />
             </SimpleGrid>
-            <FormField label={t('item.purpose')} required errorText={fieldError(err.purpose)}>
+            <FormField label={t('item.purpose')} required={!purposeOptional} errorText={fieldError(err.purpose)}>
               <Textarea autoresize rows={2} {...form.register('purpose')} />
             </FormField>
             <FormField label={t('item.notes')}>
