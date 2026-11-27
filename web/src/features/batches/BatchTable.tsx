@@ -18,6 +18,7 @@ export function BatchTable({ batches, teamName, empty }: { batches: Batch[]; tea
       empty={empty}
       getRowId={(b) => b.id}
       columns={[
+        ...(teamName ? [{ key: 'team', header: t('filters.team'), cell: (b: Batch) => teamName(b.teamId) }] : []),
         {
           key: 'title', header: t('list.batchTitle'), priority: 'primary',
           cell: (b) => (
@@ -27,7 +28,6 @@ export function BatchTable({ batches, teamName, empty }: { batches: Batch[]; tea
             </>
           ),
         },
-        ...(teamName ? [{ key: 'team', header: t('filters.team'), cell: (b: Batch) => teamName(b.teamId) }] : []),
         { key: 'status', header: t('filters.status'), cell: (b) => <BatchStatusBadge status={b.status} /> },
         { key: 'deadline', header: t('header.deadline'), cell: (b) => <Text as="span" fontVariantNumeric="tabular-nums">{shortDate(b.deadline)}</Text> },
       ]}
