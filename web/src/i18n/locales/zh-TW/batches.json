@@ -33,21 +33,21 @@
     "toPurchase": "已核准、尚待採購"
   },
   "list": {
-    "title": "批次",
-    "new": "新增批次",
-    "propose": "提議批次",
-    "empty": "找不到批次",
+    "title": "申請",
+    "new": "新增申請",
+    "propose": "提議申請",
+    "empty": "找不到申請",
     "number": "編號",
     "batchTitle": "標題",
     "loadMore": "載入更多"
   },
   "create": {
-    "dialogTitle": "新增批次",
+    "dialogTitle": "新增申請",
     "title": "標題",
     "description": "說明",
     "proposeInstead": "以提案方式送出而非建立草稿",
     "proposeHelp": "提案需等待團隊管理員開放或駁回。",
-    "memberNote": "您的批次將以提案方式送出。",
+    "memberNote": "您的申請將以提案方式送出。",
     "submitDraft": "建立草稿",
     "submitPropose": "提議"
   },
@@ -69,12 +69,12 @@
     "purchasersHelp": "選填，只用於通知與待辦清單，不授予任何權限。"
   },
   "actions": {
-    "menu": "批次操作",
+    "menu": "申請操作",
     "open": "開放收集品項",
     "start_review": "開始審核",
     "close": "結束收集",
     "reopen": "重新開放",
-    "cancel": "取消批次",
+    "cancel": "取消申請",
     "reject_proposal": "駁回提案",
     "withdraw_proposal": "撤回提案",
     "reason": "原因",
@@ -87,8 +87,8 @@
     },
     "confirm": {
       "start_review": "要立即開始審核待審核品項嗎？",
-      "close": "要結束收集並進入審核嗎？若沒有品項，批次會被取消。",
-      "cancel": "要取消此批次嗎？必須填寫原因。",
+      "close": "要結束收集並進入審核嗎？若沒有品項，申請會被取消。",
+      "cancel": "要取消此申請嗎？必須填寫原因。",
       "reject_proposal": "要駁回此提案嗎？必須填寫原因。",
       "withdraw_proposal": "要撤回您的提案嗎？",
       "uncancel": "要撤銷取消嗎？必須填寫原因。",
@@ -103,11 +103,11 @@
     "summary": "核准 {{approved}} 個、駁回 {{rejected}} 個",
     "summaryVendors": "廠商：{{vendors}}",
     "summaryNoVendor": "未指定廠商",
-    "purchaseOutside": "在系統外採購（批次直接完成）",
-    "newDeadline": "此批次取消前在收集中，截止時間已過：請設定新的截止時間。"
+    "purchaseOutside": "在系統外採購（申請直接完成）",
+    "newDeadline": "此申請取消前在收集中，截止時間已過：請設定新的截止時間。"
   },
   "edit": {
-    "title": "編輯批次",
+    "title": "編輯申請",
     "button": "編輯"
   },
   "item": {
@@ -193,15 +193,15 @@
     "system": "系統",
     "generic": "事件：{{action}}",
     "actions": {
-      "batch_created": "批次已建立",
-      "batch_proposed": "批次已提議",
-      "batch_updated": "批次已編輯",
+      "batch_created": "申請已建立",
+      "batch_proposed": "申請已提議",
+      "batch_updated": "申請已編輯",
       "batch_assignments_changed": "指派已變更",
       "batch_open": "已開放收集品項",
       "batch_start_review": "已開始審核",
       "batch_close": "已結束收集",
       "batch_reopen": "已重新開放",
-      "batch_cancel": "批次已取消",
+      "batch_cancel": "申請已取消",
       "batch_reject_proposal": "提案已駁回",
       "batch_withdraw_proposal": "提案已撤回",
       "batch_auto_transition": "狀態自動變更",
@@ -227,7 +227,7 @@
     "confirmCount": "{{count}} 項已決定",
     "purchase": "待採購的品項",
     "purchaseCount": "{{count}} 項",
-    "purchaseMine": "您負責的批次有 {{count}} 項",
+    "purchaseMine": "您負責的申請有 {{count}} 項",
     "draftOrders": "待下單的訂單",
     "draftOrdersLink": "草稿狀態的廠商訂單",
     "problems": "未處理的問題",
@@ -251,11 +251,11 @@
     "former": "已離開的成員"
   },
   "purchasingTab": {
-    "batchCost": "批次成本",
+    "batchCost": "申請成本",
     "costIncomplete": "尚無法計算",
     "hint": "唯讀。採購人員在「採購」頁建立廠商訂單。",
     "notConfirmed": "審核確認後才會開始採購。",
-    "outside": "此批次在系統外採購。",
+    "outside": "此申請在系統外採購。",
     "empty": "沒有核准的品項",
     "ordered": "已下單",
     "received": "已到",
