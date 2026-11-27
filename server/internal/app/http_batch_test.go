@@ -62,6 +62,10 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 	if fields["quantity"] == nil || fields["estimatedUnitPrice"] == nil {
 		t.Errorf("field errors = %v", fields)
 	}
+	// Purpose is required for members; team admins may leave it empty.
+	np := itemBody("nopurpose")
+	np["purpose"] = ""
+	w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: np}).expect(400, "invalid_request")
 	jp := itemBody("yen")
 	jp["estimatedUnitPrice"] = map[string]any{"amount": "100.5", "currency": "JPY"}
 	w.do(t, call{token: w.mem, method: "POST", path: bp + "/items", body: jp}).expect(400, "invalid_request")
@@ -78,6 +82,10 @@ func TestHTTPBatchLifecycle(t *testing.T) {
 	// System admins may edit any pending item while collecting, though they are not members.
 	got = w.do(t, call{token: w.root, method: "PUT", path: ip, ifMatch: got.ETag(), body: itemBody("a by sysadmin")}).expect(200)
 	w.do(t, call{token: w.appr, method: "PUT", path: ip, ifMatch: got.ETag(), body: edit}).expect(403, "forbidden")
+	got = w.do(t, call{token: w.adm, method: "PUT", path: ip, ifMatch: got.ETag(), body: np}).expect(200) // a team admin may leave the purpose empty
+	if got.String("purpose") != "" {
+		t.Errorf("purpose = %q", got.String("purpose"))
+	}
 
 	// Close collection -> reviewing; adding is no longer possible (except related items, spec §10.2).
 	batch := w.do(t, call{token: w.adm, method: "POST", path: bp + "/transitions", ifMatch: w.do(t, call{token: w.adm, method: "GET", path: bp}).ETag(), body: map[string]any{"action": "close"}}).expect(200)

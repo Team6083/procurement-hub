@@ -14,7 +14,8 @@ export function safeHttpUrl(url: string | undefined | null): string | undefined 
 }
 
 // Messages are i18n keys resolved at render time.
-export const itemFormSchema = z.object({
+// `purposeOptional` is for team admins, who may leave the purpose empty.
+export const makeItemFormSchema = (purposeOptional: boolean) => z.object({
   name: z.string().trim().min(1, 'common:validation.required').max(300, 'common:validation.tooLong'),
   /** A vendor id from the list, 'other' for free text, or '' for none. */
   vendorId: z.string(),
@@ -25,7 +26,7 @@ export const itemFormSchema = z.object({
   currency: z.string().min(1, 'common:validation.required'),
   priority: z.enum(['1', '2', '3', '4', '5']),
   subgroupId: z.string(),
-  purpose: z.string().trim().min(1, 'common:validation.required'),
+  purpose: purposeOptional ? z.string() : z.string().trim().min(1, 'common:validation.required'),
   notes: z.string(),
   productUrl: z
     .string()
@@ -38,6 +39,7 @@ export const itemFormSchema = z.object({
     ctx.addIssue({ code: 'custom', path: ['unitPrice'], message: 'batches:validation.priceDigits' });
   }
 });
+export const itemFormSchema = makeItemFormSchema(false);
 export type ItemForm = z.infer<typeof itemFormSchema>;
 
 export function emptyItemForm(currency: string, subgroupId: string): ItemForm {

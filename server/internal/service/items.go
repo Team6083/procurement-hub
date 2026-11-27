@@ -91,8 +91,12 @@ func (s *Items) resolveVendor(ctx context.Context, in *ItemInput) error {
 	return nil
 }
 
-func (s *Items) validate(in ItemInput, t *domain.Team) error {
-	if errs := domain.ValidateItemFields(in.fields(), s.batches.supported, s.batches.cur); len(errs) > 0 {
+func (s *Items) validate(in ItemInput, t *domain.Team, actor authz.Actor) error {
+	errs := domain.ValidateItemFields(in.fields(), s.batches.supported, s.batches.cur)
+	if in.Purpose == "" && !actor.CanAdminTeam(t.ID) {
+		errs["purpose"] = "required"
+	}
+	if len(errs) > 0 {
 		return &ValidationError{Fields: errs}
 	}
 	if in.SubgroupID != "" {
@@ -249,7 +253,7 @@ func (s *Items) Add(ctx context.Context, actor authz.Actor, batchID bson.ObjectI
 			}
 		}
 	}
-	if err := s.validate(in, t); err != nil {
+	if err := s.validate(in, t, actor); err != nil {
 		return nil, err
 	}
 	if err := s.resolveVendor(ctx, &in); err != nil {
@@ -390,7 +394,7 @@ func (s *Items) Update(ctx context.Context, actor authz.Actor, id bson.ObjectID,
 		return nil, ErrForbidden
 	}
 	in.Name, in.Purpose = strings.TrimSpace(in.Name), strings.TrimSpace(in.Purpose)
-	if err := s.validate(in, t); err != nil {
+	if err := s.validate(in, t, actor); err != nil {
 		return nil, err
 	}
 	if err := s.resolveVendor(ctx, &in); err != nil {

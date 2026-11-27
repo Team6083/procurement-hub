@@ -24,7 +24,6 @@ func TestValidateItemFields(t *testing.T) {
 		{"zero quantity", func(f *ItemFields) { f.Quantity = 0 }, "quantity"},
 		{"priority 0", func(f *ItemFields) { f.Priority = 0 }, "priority"},
 		{"priority 6", func(f *ItemFields) { f.Priority = 6 }, "priority"},
-		{"no purpose", func(f *ItemFields) { f.Purpose = "" }, "purpose"},
 		{"negative price", func(f *ItemFields) { f.EstimatedUnitPrice.Amount = neg }, "estimatedUnitPrice"},
 		{"unsupported currency", func(f *ItemFields) { f.EstimatedUnitPrice.Currency = "EUR" }, "estimatedUnitPrice"},
 		{"too many digits for USD", func(f *ItemFields) { f.EstimatedUnitPrice.Amount, _ = NewDecimal("1.234") }, "estimatedUnitPrice"},

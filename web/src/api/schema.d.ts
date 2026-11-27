@@ -540,7 +540,7 @@ export interface paths {
          *     none; no channel message). `relatedItemId` (optional, create only) must be an item of the same batch (400 `invalid_request`).
          *     Other batch statuses fail with 422 `batch_not_collecting`; non-members get 403; archived teams 422 `team_archived`.
          *     If `subgroupId` is empty the caller's default subgroup is used when active. Field errors are 400 `invalid_request`
-         *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required),
+         *     (`details.fields`): name (required, max 300), quantity (>= 1), priority (1-5), purpose (required unless the caller is a team admin, who may leave it empty),
          *     estimatedUnitPrice (non-negative, supported currency, and at most the currency's minor-unit fractional digits:
          *     ISO 4217, or the server's BASE_CURRENCY_DECIMALS for the base currency if set), productUrl (http/https), subgroupId (active subgroup).
          *     `autoFilledFields` and `lookupProvider` record product-lookup provenance and are only honoured on create.
@@ -1933,6 +1933,7 @@ export interface components {
             quantity: number;
             estimatedUnitPrice: components["schemas"]["Money"];
             priority: number;
+            /** @description Required (non-blank) unless the caller is a team admin, who may send an empty string. */
             purpose: string;
             notes?: string;
             /** @description http or https URL. */
