@@ -34,7 +34,7 @@ describe('buildCsp', () => {
         "script-src 'self' https://static.cloudflareinsights.com",
         "style-src 'self' 'unsafe-inline'",
         "connect-src 'self' https://api.example.org https://sso.example.org https://cloudflareinsights.com",
-        "img-src 'self'",
+        "img-src 'self' https:",
         "font-src 'self'",
         "frame-ancestors 'none'",
         "base-uri 'self'",

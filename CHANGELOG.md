@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-27
+
 ### Added
 
 - Subgroups have `aliases`, edited by team admins in the subgroup settings. Within a team, names and aliases together are unique (compared with Unicode case folding and NFC normalization, inactive subgroups included). An alias equal to the subgroup's own name is dropped, so renaming a subgroup to one of its aliases removes that alias; a clash with another subgroup returns 409 `subgroup_name_conflict` with the clashing value in `details.value`, which replaces the 422 `subgroup_exists` of subgroup names. Responses always list `aliases` (an empty list for subgroups stored before aliases existed), and the `team.subgroup_added` audit event records the aliases a subgroup is created with.
@@ -15,8 +17,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - `GET /audit` takes `order=asc|desc` (default `asc`); the batch and vendor order timelines in the web UI now show the newest event first, with an icon per event.
 - Product lookup (API and web UI): the item form can fill the name, vendor, SKU, price and URL from a SKU or product URL, and marks the vendor as auto-filled. `GET /api/v1/lookup?q=` looks up a SKU or product URL through the configured provider (`LOOKUP_PROVIDER=partfinder` calls part-finder's `GET /api/v1/lookup`), maps the store name to a vendor by name or alias, and is limited to 30 requests per minute per user. See `docs/product-lookup.md`.
 - Teams, members and role-mapping rules synchronized from OIDC token claims; batches and items with the review flow.
-- Ordering (API only): team orders, external orders (vendor transactions) that can merge orders of several teams (the caller must be purchaser of every batch), marking items unpurchasable, and automatic `ordering` to `receiving`/`completed` batch transitions. Actual costs are computed in the base currency from the charged amount (or a reference rate, flagged provisional), with proportional or overridden allocation of shared costs and largest-remainder rounding so the amounts add up exactly to the charge. Adds migration `0002_order_indexes`; run `migrate` before starting this version.
-- Receiving (API only): receiving records (`receivedQuantity` can never exceed the ordered quantity), item exceptions (`quantity_mismatch`, `wrong_item`, `damaged`) and their disposition by purchasers (`exchange` sends the item back to waiting, `accept` closes it as `accepted_short`, `cancel` as `not_obtained`, the last two with an optional refund), and `POST /orders/{id}/adjustments` for refunds and later cost corrections, which flow into the order's `adjustmentsBase` and `totalBase`. A batch in `receiving` completes automatically, in the same transaction, once every ordered item is closed and no exception is open. `GET /me/tasks` now fills `itemsToReceive` and `openExceptions`. Also adds `GET /items/{id}/receipts` and `GET /items/{id}/exceptions`; no new migration (the indexes already exist).
 - Purchasing and receiving restructure (API and web UI): a purchasing queue of approved items, vendors and reference exchange rates, vendor orders (draft, place, cancel and restore, with lines for items or standalone costs, a ledger of manual entries and refunds, and base-currency cost calculation with shared-cost allocation), and receiving with deliveries (boxes), matching of delivery lines to order lines, problems and their resolution, closing and reopening short lines, and automatic batch status changes. Global roles `PURCHASER_ROLES` and `RECEIVER_ROLES`; every purchasing and receiving write can be undone with a reason. This replaces the earlier ordering and receiving API.
 - `serve` (default) and `migrate` subcommands. Data migrations and indexes are versioned, applied only by `migrate` under a MongoDB lease, and `/readyz` stays 503 until they have run.
 - `ALLOWED_ROLES` to restrict who may use the service (`403 missing_role`), alongside the required `ADMIN_ROLES`.
@@ -51,7 +51,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The Content-Security-Policy allows `https:` images, so the picture from the OIDC `picture` claim shows in the account menu instead of being blocked.
+- The team members table writes each member's name next to the avatar on wide screens too (the e-mail address is on hover); only phone cards and narrow lists keep the avatar alone.
 - `PATCH /teams/{teamId}/subgroups/{id}` that changes nothing now returns 409 `version_conflict` when `If-Match` is stale, like the other writes, instead of 200.
 - Vendor names and aliases are compared with Unicode case folding and NFC normalization (so "ΟΔΟΣ" and "οδος", or a composed and a decomposed "é", clash), the same key as subgroups, instead of plain lower-casing. Vendor search (`GET /vendors?q=`) folds the same way, so "ss" finds "ß".
 
-[Unreleased]: https://github.com/team6083/procurement-hub/commits/main
+[Unreleased]: https://github.com/team6083/procurement-hub/compare/v0.1.0...main
+[0.1.0]: https://github.com/team6083/procurement-hub/releases/tag/v0.1.0

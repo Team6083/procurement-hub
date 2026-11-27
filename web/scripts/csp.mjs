@@ -53,7 +53,8 @@ export function buildCsp(config) {
     ['style-src', ["'self'", "'unsafe-inline'"]],
     // config.json ('self'), the API, the OIDC discovery/token/userinfo endpoints, CF analytics.
     ['connect-src', unique(["'self'", api, authority, CF_INSIGHTS_CONNECT])],
-    ['img-src', ["'self'"]],
+    // A person's picture comes from the OIDC `picture` claim, whose host is up to the identity provider.
+    ['img-src', ["'self'", 'https:']],
     ['font-src', ["'self'"]],
     ['frame-ancestors', ["'none'"]],
     ['base-uri', ["'self'"]],
