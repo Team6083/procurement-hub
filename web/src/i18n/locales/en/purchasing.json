@@ -14,6 +14,7 @@
     "ordered": "Ordered"
   },
   "provisional": "Provisional",
+  "provisionalHint": "Converted with a reference rate; it updates once the charged amount is entered.",
   "restricted": "You see only the lines of your teams and batches. Other lines and the order's accounting are summarised.",
   "cancelledReason": "Cancelled: {{reason}}",
   "incomplete": {
@@ -108,16 +109,17 @@
     "add": "Add line",
     "remove": "Remove line",
     "removeHelp": "Remove \"{{name}}\" from this draft order? The item goes back to the purchasing queue.",
-    "fromBatch": "Batch",
+    "openBatch": "Open batch",
     "received": "Received / expected",
     "problem": "{{count}} with a problem",
     "status": "Status",
-    "total": "Total ({{currency}})",
+    "total": "Total",
     "problemLink": "{{count}} {{type}} ({{state}}): open delivery",
+    "priceUnset": "Not set",
     "notSaved": "Not saved",
-    "goods": "Goods ({{currency}})",
-    "checkout": "With checkout ({{currency}})",
-    "separate": "Separate ({{currency}})",
+    "goods": "Goods",
+    "checkout": "With checkout",
+    "separate": "Separate",
     "totals": "Totals"
   },
   "amount": {
@@ -182,6 +184,7 @@
     "ownerMine": "Mine"
   },
   "queue": {
+    "vendorInactive": "Inactive vendor",
     "title": "Purchasing",
     "intro": "Approved items still to buy, across teams and grouped by vendor. Pick items to create or extend a draft order.",
     "item": "Item",

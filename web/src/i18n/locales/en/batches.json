@@ -69,6 +69,7 @@
     "purchasersHelp": "Optional. Only used for notifications and task lists; grants nothing."
   },
   "actions": {
+    "menu": "Batch actions",
     "open": "Open for items",
     "start_review": "Start review",
     "close": "Close collection",
@@ -234,10 +235,11 @@
     "problems": "Open problems",
     "problemsLink": "Delivery problems to resolve",
     "linesToClose": "Lines to close",
-    "linesToCloseLink": "Short lines with no open problem",
+    "linesToCloseLink": "Lines that arrived short",
     "deliveriesToMatch": "Deliveries to match",
     "deliveriesToMatchLink": "Delivery lines waiting for a match",
-    "noVendor": "No vendor",
+    "noVendor": "Other",
+    "vendorInactive": "Inactive vendor",
     "ownedMine": "{{count}} yours"
   },
   "validation": {

@@ -78,30 +78,48 @@ type Incomplete struct {
 	Currency string `bson:"currency" json:"currency,omitempty"`
 }
 
-// LineCost is one line's computed amounts. Base-currency fields are nil when
-// the order is incomplete.
+// LineCost is one line's computed amounts. Each value is nil when one of its
+// own inputs is missing (see CalcOrderCost).
 type LineCost struct {
-	LineNo       int
+	LineNo int
+	// LineC is quantity x unit price in the order currency, exact and never rounded.
 	LineC        *decimal.Decimal
 	CostBase     *decimal.Decimal
 	SharedBase   *decimal.Decimal // with-checkout costs
 	SeparateBase *decimal.Decimal // separate payments and refunds
 	TotalBase    *decimal.Decimal
+	// CostProvisional: the conversion factor came from a reference rate.
+	CostProvisional bool
+	// SeparateProvisional: a separate entry allocated to the line uses a reference rate.
+	SeparateProvisional bool
+}
+
+// EntryCost is the computed part of one cost entry, indexed like OrderCostInput.Entries.
+type EntryCost struct {
+	// AmountBase is E of a separate entry: its base-currency amount; nil for
+	// with-checkout entries and when the entry's own data is not enough.
+	AmountBase *decimal.Decimal
+	// Provisional: E came from a reference rate.
+	Provisional bool
 }
 
 // OrderCost is the result for one order.
 type OrderCost struct {
 	Lines     []LineCost
+	Entries   []EntryCost
 	LinesC    *decimal.Decimal // Σ lineC; nil when a line has no price
-	CheckoutC decimal.Decimal
+	CheckoutC *decimal.Decimal // nil when a line has no price
 	OriginalC *decimal.Decimal // Σ lineC + checkoutC; nil when a line has no price
 	F         *decimal.Decimal
-	// Provisional is true when a reference rate stood in for a real amount.
+	// FactorProvisional: F came from a reference rate.
+	FactorProvisional bool
+	// Provisional is true when a reference rate stands in for a real amount
+	// (the factor, or any separate entry's E).
 	Provisional  bool
 	TargetBase   *decimal.Decimal
 	SeparateBase *decimal.Decimal // Σ E
 	NetBase      *decimal.Decimal
-	// TeamTotals sums each team's line totals (base currency); nil when incomplete.
+	// TeamTotals sums each team's line totals (base currency); nil when netBase is.
 	TeamTotals map[string]decimal.Decimal
 	Incomplete []Incomplete
 }
@@ -114,6 +132,9 @@ func (c OrderCost) InvariantHolds() bool {
 	}
 	sum := decimal.Zero
 	for _, l := range c.Lines {
+		if l.TotalBase == nil {
+			return false
+		}
 		sum = sum.Add(*l.TotalBase)
 	}
 	return sum.Equal(*c.NetBase)
@@ -300,23 +321,27 @@ func splitAmong(n int, idx []int, manual map[int]*big.Rat, entryAmount, total *b
 	return out
 }
 
-// CalcOrderCost implements spec §11 steps 1 to 9 for one order.
+// CalcOrderCost implements spec §11 steps 1 to 9 for one order. Every value is
+// null on its own as soon as one of its inputs is missing: a line's lineC needs
+// only its unit price, the order-currency totals need every line priced, the
+// factor and the line costs/shares need the totals and a conversion, and the
+// separate amounts and netBase additionally need every separate entry's base
+// amount E. Incomplete lists every missing input.
 func CalcOrderCost(in OrderCostInput) OrderCost {
-	res := OrderCost{Lines: make([]LineCost, len(in.Lines))}
+	n := len(in.Lines)
+	res := OrderCost{Lines: make([]LineCost, n), Entries: make([]EntryCost, len(in.Entries))}
 	for i, l := range in.Lines {
 		res.Lines[i].LineNo = l.LineNo
 	}
-	if len(in.Lines) == 0 {
+	if n == 0 {
 		res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteNoLines})
-		return res
 	}
-	// Step 1: line amounts.
-	n := len(in.Lines)
+	// Step 1: line amounts (exact, never rounded).
 	lineC := make([]*big.Rat, n)
-	missing := false
+	allPriced := n > 0
 	for i, l := range in.Lines {
 		if l.UnitPrice == nil {
-			missing = true
+			allPriced = false
 			res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteMissingPrice, LineNo: l.LineNo})
 			continue
 		}
@@ -331,34 +356,28 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 			checkoutC = checkoutC.Add(e.Amount)
 		}
 	}
-	res.CheckoutC = checkoutC
-	if missing {
-		return res
-	}
-	sumLines := new(big.Rat)
-	for _, r := range lineC {
-		sumLines.Add(sumLines, r)
-	}
-	lc := ratToDecimal(sumLines)
-	res.LinesC = &lc
 
 	// Resolve every entry's scope and, for separate entries, its base amount E.
 	scale := new(big.Rat).SetInt(new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(in.BaseDigits)), nil))
 	type resolved struct {
-		idx     []int
-		manual  map[int]*big.Rat
-		eMinor  *big.Int // separate entries only
-		entryNo int
+		idx    []int
+		manual map[int]*big.Rat
+		ok     bool     // the allocation matches the lines
+		eMinor *big.Int // separate entries only; nil without E
 	}
 	rs := make([]resolved, len(in.Entries))
-	provisionalE := false
+	checkoutScopesOK, separateReady := true, true
 	for k, e := range in.Entries {
 		idx, manual, ok := scope(in, e)
+		rs[k] = resolved{idx: idx, manual: manual, ok: ok}
 		if !ok {
 			res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteAllocation, EntryNo: k + 1})
-			continue
+			if e.Settlement == SettleWithCheckout {
+				checkoutScopesOK = false
+			} else {
+				separateReady = false
+			}
 		}
-		rs[k] = resolved{idx: idx, manual: manual, entryNo: k + 1}
 		if e.Settlement != SettleSeparate {
 			continue
 		}
@@ -371,20 +390,48 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 			rate, has := in.Rates[e.Currency]
 			if !has {
 				res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteEntryNoConversion, EntryNo: k + 1, Currency: e.Currency})
+				separateReady = false
 				continue
 			}
 			rs[k].eMinor = roundHalfAwayRat(new(big.Rat).Mul(new(big.Rat).Mul(ratOf(e.Amount), ratOf(rate)), scale))
-			provisionalE = true
+			res.Entries[k].Provisional = true
+			res.Provisional = true
+			if ok {
+				for _, i := range idx {
+					res.Lines[i].SeparateProvisional = true
+				}
+			}
+		}
+		if rs[k].eMinor != nil {
+			d := minorDecimal(rs[k].eMinor, in.BaseDigits)
+			res.Entries[k].AmountBase = &d
 		}
 	}
+	if !allPriced {
+		// The conversion is still checked so that Incomplete lists a missing rate too.
+		if in.ChargedBase == nil && in.Currency != in.Base {
+			if _, has := in.Rates[in.Currency]; !has {
+				res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteNoConversion})
+			}
+		}
+		return res
+	}
 
-	// Step 4.
+	// Step 4: order-currency totals.
+	sumLines := new(big.Rat)
+	for _, r := range lineC {
+		sumLines.Add(sumLines, r)
+	}
+	lc := ratToDecimal(sumLines)
+	res.LinesC = &lc
+	res.CheckoutC = &checkoutC
 	originalRat := new(big.Rat).Add(sumLines, ratOf(checkoutC))
 	original := ratToDecimal(originalRat)
 	res.OriginalC = &original
 
 	// Step 5: conversion factor.
 	var f *big.Rat
+	factorProvisional := false
 	switch {
 	case in.ChargedBase != nil && originalRat.Sign() != 0:
 		f = new(big.Rat).Quo(ratOf(*in.ChargedBase), originalRat)
@@ -397,19 +444,21 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 	default:
 		if rate, has := in.Rates[in.Currency]; has {
 			f = ratOf(rate)
-			res.Provisional = true
+			factorProvisional = true
 		} else {
 			res.Incomplete = append(res.Incomplete, Incomplete{Code: IncompleteNoConversion})
 		}
 	}
-	if f != nil {
-		fDec := ratToDecimal(f)
-		res.F = &fDec
-	}
-	if len(res.Incomplete) > 0 {
+	if f == nil || !checkoutScopesOK {
 		return res
 	}
-	res.Provisional = res.Provisional || provisionalE
+	fDec := ratToDecimal(f)
+	res.F = &fDec
+	res.FactorProvisional = factorProvisional
+	res.Provisional = res.Provisional || factorProvisional
+	for i := range res.Lines {
+		res.Lines[i].CostProvisional = factorProvisional
+	}
 
 	// Step 6: target total in minor units.
 	var targetMinor *big.Int
@@ -447,6 +496,11 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 	sharedMinor := make([]*big.Int, n)
 	for i := 0; i < n; i++ {
 		costMinor[i], sharedMinor[i] = rounded[2*i], rounded[2*i+1]
+		c, s := minorDecimal(costMinor[i], in.BaseDigits), minorDecimal(sharedMinor[i], in.BaseDigits)
+		res.Lines[i].CostBase, res.Lines[i].SharedBase = &c, &s
+	}
+	if !separateReady {
+		return res
 	}
 
 	// Step 8: separate payments and refunds.
@@ -471,9 +525,9 @@ func CalcOrderCost(in OrderCostInput) OrderCost {
 	// Step 9: totals.
 	res.TeamTotals = map[string]decimal.Decimal{}
 	for i, l := range in.Lines {
-		c, s, g := minorDecimal(costMinor[i], in.BaseDigits), minorDecimal(sharedMinor[i], in.BaseDigits), minorDecimal(sepMinor[i], in.BaseDigits)
-		t := c.Add(s).Add(g)
-		res.Lines[i].CostBase, res.Lines[i].SharedBase, res.Lines[i].SeparateBase, res.Lines[i].TotalBase = &c, &s, &g, &t
+		g := minorDecimal(sepMinor[i], in.BaseDigits)
+		t := res.Lines[i].CostBase.Add(*res.Lines[i].SharedBase).Add(g)
+		res.Lines[i].SeparateBase, res.Lines[i].TotalBase = &g, &t
 		res.TeamTotals[l.TeamID] = res.TeamTotals[l.TeamID].Add(t)
 	}
 	sep := minorDecimal(eSum, in.BaseDigits)

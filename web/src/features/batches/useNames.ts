@@ -6,8 +6,7 @@ import { useMembers, useRoleHolders } from '../../api/members';
 /**
  * Resolves user ids to display names: the team's member list (only readable by members and system admins), then the
  * purchasers (global role holders, usually not team members), then the viewer themself. An id none of them knows
- * reads "Former member" when the team list is known, and "Team member" for a viewer who cannot read it: never the id
- * (the team's DESIGN.md: Data pages).
+ * reads "Former member" when the team list is known, and "Team member" for a viewer who cannot read it: never the id.
  */
 export function useNames(teamId: string | undefined, enabled: boolean) {
   const { t } = useTranslation('batches');

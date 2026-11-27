@@ -24,15 +24,17 @@ type Cancellation struct {
 
 // OrderTotals is the computed money summary of an order (spec §11).
 type OrderTotals struct {
-	LinesC       *Decimal     `bson:"linesC" json:"linesC"`
-	CheckoutC    *Decimal     `bson:"checkoutC" json:"checkoutC"`
-	OriginalC    *Decimal     `bson:"originalC" json:"originalC"`
-	Factor       *Decimal     `bson:"factor" json:"factor"`
-	TargetBase   *Decimal     `bson:"targetBase" json:"targetBase"`
-	SeparateBase *Decimal     `bson:"separateBase" json:"separateBase"`
-	NetBase      *Decimal     `bson:"netBase" json:"netBase"`
-	Provisional  bool         `bson:"provisional" json:"provisional"`
-	Incomplete   []Incomplete `bson:"incomplete" json:"incomplete"`
+	LinesC    *Decimal `bson:"linesC" json:"linesC"`
+	CheckoutC *Decimal `bson:"checkoutC" json:"checkoutC"`
+	OriginalC *Decimal `bson:"originalC" json:"originalC"`
+	Factor    *Decimal `bson:"factor" json:"factor"`
+	// FactorProvisional is true when the factor came from a reference rate.
+	FactorProvisional bool         `bson:"factorProvisional" json:"factorProvisional"`
+	TargetBase        *Decimal     `bson:"targetBase" json:"targetBase"`
+	SeparateBase      *Decimal     `bson:"separateBase" json:"separateBase"`
+	NetBase           *Decimal     `bson:"netBase" json:"netBase"`
+	Provisional       bool         `bson:"provisional" json:"provisional"`
+	Incomplete        []Incomplete `bson:"incomplete" json:"incomplete"`
 }
 
 // VendorOrder is a purchase at one vendor (spec §9.1).
@@ -74,29 +76,35 @@ type Closure struct {
 
 // VendorOrderLine is one purchased line (spec §9.1). Version is internal.
 type VendorOrderLine struct {
-	ID              bson.ObjectID  `bson:"_id,omitempty" json:"id"`
-	VendorOrderID   bson.ObjectID  `bson:"vendorOrderId" json:"vendorOrderId"`
-	LineNo          int            `bson:"lineNo" json:"lineNo"`
-	TeamID          bson.ObjectID  `bson:"teamId" json:"teamId"`
-	ItemID          *bson.ObjectID `bson:"itemId" json:"itemId"`
-	BatchID         *bson.ObjectID `bson:"batchId" json:"batchId"`
-	Name            string         `bson:"name" json:"name"`
-	SKU             string         `bson:"sku" json:"sku"`
-	Quantity        int            `bson:"quantity" json:"quantity"`
-	UnitPrice       *Decimal       `bson:"unitPrice" json:"unitPrice"`
-	ReturnedQty     int            `bson:"returnedQuantity" json:"returnedQuantity"`
-	ExpectedQty     int            `bson:"expectedQuantity" json:"expectedQuantity"`
-	ReceivedQty     int            `bson:"receivedQuantity" json:"receivedQuantity"`
-	OpenProblemQty  int            `bson:"openProblemQuantity" json:"openProblemQuantity"`
-	Closure         *Closure       `bson:"closure" json:"closure"`
-	Status          LineStatus     `bson:"status" json:"status"`
-	CostBase        *Decimal       `bson:"costBase" json:"costBase"`
-	SharedBase      *Decimal       `bson:"sharedBase" json:"sharedBase"`
-	SeparateBase    *Decimal       `bson:"separateBase" json:"separateBase"`
-	TotalBase       *Decimal       `bson:"totalBase" json:"totalBase"`
-	InternalVersion int64          `bson:"version" json:"-"`
-	CreatedAt       time.Time      `bson:"createdAt" json:"createdAt"`
-	UpdatedAt       time.Time      `bson:"updatedAt" json:"updatedAt"`
+	ID             bson.ObjectID  `bson:"_id,omitempty" json:"id"`
+	VendorOrderID  bson.ObjectID  `bson:"vendorOrderId" json:"vendorOrderId"`
+	LineNo         int            `bson:"lineNo" json:"lineNo"`
+	TeamID         bson.ObjectID  `bson:"teamId" json:"teamId"`
+	ItemID         *bson.ObjectID `bson:"itemId" json:"itemId"`
+	BatchID        *bson.ObjectID `bson:"batchId" json:"batchId"`
+	Name           string         `bson:"name" json:"name"`
+	SKU            string         `bson:"sku" json:"sku"`
+	Quantity       int            `bson:"quantity" json:"quantity"`
+	UnitPrice      *Decimal       `bson:"unitPrice" json:"unitPrice"`
+	ReturnedQty    int            `bson:"returnedQuantity" json:"returnedQuantity"`
+	ExpectedQty    int            `bson:"expectedQuantity" json:"expectedQuantity"`
+	ReceivedQty    int            `bson:"receivedQuantity" json:"receivedQuantity"`
+	OpenProblemQty int            `bson:"openProblemQuantity" json:"openProblemQuantity"`
+	Closure        *Closure       `bson:"closure" json:"closure"`
+	Status         LineStatus     `bson:"status" json:"status"`
+	// LineC is quantity x unitPrice in the order currency, exact; nil without a unit price.
+	LineC        *Decimal `bson:"lineC" json:"lineC"`
+	CostBase     *Decimal `bson:"costBase" json:"costBase"`
+	SharedBase   *Decimal `bson:"sharedBase" json:"sharedBase"`
+	SeparateBase *Decimal `bson:"separateBase" json:"separateBase"`
+	TotalBase    *Decimal `bson:"totalBase" json:"totalBase"`
+	// CostProvisional: costBase and sharedBase use a conversion factor from a reference rate.
+	CostProvisional bool `bson:"costProvisional" json:"costProvisional"`
+	// SeparateProvisional: a separate entry allocated to the line uses a reference rate.
+	SeparateProvisional bool      `bson:"separateProvisional" json:"separateProvisional"`
+	InternalVersion     int64     `bson:"version" json:"-"`
+	CreatedAt           time.Time `bson:"createdAt" json:"createdAt"`
+	UpdatedAt           time.Time `bson:"updatedAt" json:"updatedAt"`
 }
 
 // Void marks a record as voided (undone); records are never deleted.

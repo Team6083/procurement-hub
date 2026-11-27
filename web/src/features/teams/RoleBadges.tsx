@@ -8,7 +8,7 @@ import { showSsoLock, type RoleSources } from './roles';
 export function RoleBadge({ role }: { role: RoleOrNone | null | undefined }) {
   const { t } = useTranslation('teams');
   return (
-    <Badge colorPalette={role === 'admin' ? 'teal' : role === 'member' ? 'blue' : 'gray'} variant="subtle">
+    <Badge colorPalette={role === 'admin' ? 'brand' : 'gray'} variant="subtle">
       {t(`role.${role || 'none'}`)}
     </Badge>
   );
@@ -20,7 +20,7 @@ function SsoBadge({ sources }: { sources: RoleSources }) {
   if (!showSsoLock(sources)) return null;
   return (
     <Tooltip content={t('ssoBadgeHint')}>
-      <Badge colorPalette="gray" variant="outline" tabIndex={0}>
+      <Badge variant="outline" tabIndex={0}>
         <LuLock aria-hidden />
         {t('ssoBadge')}
       </Badge>

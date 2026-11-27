@@ -128,9 +128,10 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		l.ExpectedQty = l.Quantity - q.Returned
 	}
 
-	// Money (spec §11). Cancelled orders have no amounts.
-	cost := domain.OrderCost{}
-	if o.Status != domain.OrderCancelled {
+	// Money (spec §11). A cancelled order keeps lineC and the order-currency totals; every base-currency value is cleared below.
+	var cost domain.OrderCost
+	var costEntries []int // indexes into entries of the entries the calculation saw (not voided)
+	{
 		in := domain.OrderCostInput{
 			Currency: o.Currency, Base: s.cur.Base, BaseDigits: s.cur.Digits(s.cur.Base), Rates: map[string]decimal.Decimal{},
 		}
@@ -163,10 +164,11 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 			}
 			in.Lines = append(in.Lines, cl)
 		}
-		for _, e := range entries {
+		for k, e := range entries {
 			if e.Voided != nil {
 				continue
 			}
+			costEntries = append(costEntries, k)
 			ci := domain.CostEntryInput{Settlement: e.Settlement, Currency: e.Currency, Amount: e.Amount.Decimal, Mode: e.Allocation.Mode}
 			if e.ActualAmountBase != nil {
 				a := e.ActualAmountBase.Decimal
@@ -190,6 +192,25 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		}
 		cost = domain.CalcOrderCost(in)
 	}
+	if o.Status == domain.OrderCancelled {
+		cost = cancelledCost(cost)
+	}
+	// Computed fields of the cost entries (not a user edit: no version bump).
+	computed := make([]domain.EntryCost, len(entries))
+	for i, k := range costEntries {
+		computed[k] = cost.Entries[i]
+	}
+	for i := range entries {
+		e := &entries[i]
+		am := decPtr(computed[i].AmountBase)
+		if eqDec(e.AmountBase, am) && e.Provisional == computed[i].Provisional {
+			continue
+		}
+		if err := s.st.SetCostEntryComputed(ctx, e.ID, am, computed[i].Provisional); err != nil {
+			return nil, nil, err
+		}
+		e.AmountBase, e.Provisional = am, computed[i].Provisional
+	}
 
 	// Persist changed lines; collect derived-status events.
 	var evs []domain.AuditEvent
@@ -203,6 +224,7 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		if i < len(cost.Lines) {
 			c = cost.Lines[i]
 		}
+		cc := decPtr(c.LineC)
 		cb, sb, gb, tb := decPtr(c.CostBase), decPtr(c.SharedBase), decPtr(c.SeparateBase), decPtr(c.TotalBase)
 		stored, err := s.st.GetLine(ctx, l.ID)
 		if err != nil {
@@ -210,13 +232,15 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		}
 		if stored.Status == l.Status && stored.ReturnedQty == l.ReturnedQty && stored.ExpectedQty == l.ExpectedQty &&
 			stored.ReceivedQty == l.ReceivedQty && stored.OpenProblemQty == l.OpenProblemQty &&
-			eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.SeparateBase, gb) && eqDec(stored.TotalBase, tb) {
+			eqDec(stored.LineC, cc) && eqDec(stored.CostBase, cb) && eqDec(stored.SharedBase, sb) && eqDec(stored.SeparateBase, gb) && eqDec(stored.TotalBase, tb) &&
+			stored.CostProvisional == c.CostProvisional && stored.SeparateProvisional == c.SeparateProvisional {
 			continue
 		}
 		if err := s.st.UpdateLine(ctx, l.ID, bson.D{
 			{Key: "status", Value: l.Status}, {Key: "returnedQuantity", Value: l.ReturnedQty}, {Key: "expectedQuantity", Value: l.ExpectedQty},
 			{Key: "receivedQuantity", Value: l.ReceivedQty}, {Key: "openProblemQuantity", Value: l.OpenProblemQty},
-			{Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "separateBase", Value: gb}, {Key: "totalBase", Value: tb},
+			{Key: "lineC", Value: cc}, {Key: "costBase", Value: cb}, {Key: "sharedBase", Value: sb}, {Key: "separateBase", Value: gb}, {Key: "totalBase", Value: tb},
+			{Key: "costProvisional", Value: c.CostProvisional}, {Key: "separateProvisional", Value: c.SeparateProvisional},
 		}); err != nil {
 			return nil, nil, err
 		}
@@ -241,16 +265,12 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 	}
 
 	// Order totals.
-	t := domain.OrderTotals{Provisional: cost.Provisional, Incomplete: cost.Incomplete}
+	t := domain.OrderTotals{Provisional: cost.Provisional, FactorProvisional: cost.FactorProvisional, Incomplete: cost.Incomplete}
 	if t.Incomplete == nil {
 		t.Incomplete = []domain.Incomplete{}
 	}
-	if o.Status != domain.OrderCancelled {
-		co := domain.Decimal{Decimal: cost.CheckoutC}
-		t.CheckoutC = &co
-		t.LinesC, t.OriginalC, t.Factor = decPtr(cost.LinesC), decPtr(cost.OriginalC), decPtr(cost.F)
-		t.TargetBase, t.SeparateBase, t.NetBase = decPtr(cost.TargetBase), decPtr(cost.SeparateBase), decPtr(cost.NetBase)
-	}
+	t.LinesC, t.CheckoutC, t.OriginalC, t.Factor = decPtr(cost.LinesC), decPtr(cost.CheckoutC), decPtr(cost.OriginalC), decPtr(cost.F)
+	t.TargetBase, t.SeparateBase, t.NetBase = decPtr(cost.TargetBase), decPtr(cost.SeparateBase), decPtr(cost.NetBase)
 	sts := make([]domain.LineStatus, len(lines))
 	for i := range lines {
 		sts[i] = lines[i].Status
@@ -278,6 +298,17 @@ func (s *Batches) recomputeOrder(ctx context.Context, o *domain.VendorOrder, opt
 		return out, reset, nil
 	}
 	return out, reset, s.refreshLinked(ctx, sortedIDs(items))
+}
+
+// cancelledCost keeps what a cancelled order still shows: every line's lineC and the order-currency totals.
+// Every base-currency value, the flags and the incomplete reasons are dropped.
+func cancelledCost(c domain.OrderCost) domain.OrderCost {
+	out := domain.OrderCost{Lines: make([]domain.LineCost, len(c.Lines)), Entries: make([]domain.EntryCost, len(c.Entries)),
+		LinesC: c.LinesC, CheckoutC: c.CheckoutC, OriginalC: c.OriginalC}
+	for i, l := range c.Lines {
+		out.Lines[i] = domain.LineCost{LineNo: l.LineNo, LineC: l.LineC}
+	}
+	return out
 }
 
 func derefID(id *bson.ObjectID) bson.ObjectID {

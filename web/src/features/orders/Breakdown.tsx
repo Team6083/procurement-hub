@@ -1,11 +1,12 @@
-import { Badge, Card, HStack, Stack, Text } from '@chakra-ui/react';
-import { SectionHeader, Totals } from '@team6083/ui';
+import { Card, HStack, Stack, Text } from '@chakra-ui/react';
+import { Totals, TitleBar } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import type { VendorOrder } from '../../api/types';
 import { IncompleteReasons } from './Incomplete';
 import { Tooltip } from '@team6083/ui';
 import { formatFactor, formatMoney } from '../money';
-import { ProvisionalBadge } from './StatusBadges';
+import { ProvisionalTip } from './StatusBadges';
+import { StatusBadge } from '../../components/StatusBadge';
 
 /**
  * The calculation, step by step (spec section 17.2): original total, conversion factor, target, separate payments and net,
@@ -20,14 +21,17 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
   if (order.restricted) {
     return (
       <Stack gap="2">
-        <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
+        <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('breakdown.title')} />
         <Card.Root size="sm">
           <Card.Body gap="2">
             <Text color="fg.muted">{t('breakdown.restricted')}</Text>
-            <HStack gap="2"><Text fontWeight="medium">{t('breakdown.visibleTotal')}</Text><Text>{b(order.visibleTotalBase)}</Text>{tt.provisional && <ProvisionalBadge />}</HStack>
-            {order.otherTeams && (
-              <Text textStyle="sm">{t('breakdown.otherTeams', { count: order.otherTeams.lines })}: {b(order.otherTeams.totalBase)}</Text>
-            )}
+            <Totals
+              maxW="none"
+              lines={[
+                { label: t('breakdown.visibleTotal'), value: <HStack gap="2" justify="flex-end">{order.lines.some((l) => l.costProvisional || l.separateProvisional) && <ProvisionalTip />}<span>{b(order.visibleTotalBase)}</span></HStack> },
+                ...(order.otherTeams ? [{ label: t('breakdown.otherTeams', { count: order.otherTeams.lines }), value: b(order.otherTeams.totalBase) }] : []),
+              ]}
+            />
             <IncompleteReasons totals={tt} currency={order.currency} />
           </Card.Body>
         </Card.Root>
@@ -37,7 +41,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
 
   return (
     <Stack gap="2">
-      <SectionHeader as={headingAs} mb="0" title={t('breakdown.title')} />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('breakdown.title')} />
       <Card.Root size="sm">
         <Card.Body gap="3">
           <Totals
@@ -48,7 +52,7 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
               { label: t('breakdown.original'), value: c(tt.originalC) },
               {
                 label: t('breakdown.factor'),
-                value: <HStack gap="2" justify="flex-end">{tt.provisional && <ProvisionalBadge />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
+                value: <HStack gap="2" justify="flex-end">{tt.factorProvisional && <ProvisionalTip />}<Tooltip content={tt.factor ?? ''} disabled={!tt.factor}><span tabIndex={0}>{formatFactor(tt.factor)}</span></Tooltip></HStack>,
                 hint: order.currency === baseCurrency ? undefined : t('breakdown.factorHint', { from: order.currency, to: baseCurrency }),
               },
               { label: t('breakdown.target', { currency: baseCurrency }), value: b(tt.targetBase) },
@@ -58,11 +62,11 @@ export function Breakdown({ order, baseCurrency, headingAs = 'h2' }: { order: Ve
           />
           <HStack gap="2" justify="flex-end" role="status">
             {order.invariantOk === null ? (
-              <Badge variant="outline">{t('breakdown.invariantUnknown')}</Badge>
+              <StatusBadge tone="neutral">{t('breakdown.invariantUnknown')}</StatusBadge>
             ) : order.invariantOk ? (
-              <Badge colorPalette="green" variant="subtle">{t('breakdown.invariantOk')}</Badge>
+              <StatusBadge tone="done">{t('breakdown.invariantOk')}</StatusBadge>
             ) : (
-              <Badge colorPalette="red" variant="solid">{t('breakdown.invariantBroken')}</Badge>
+              <StatusBadge tone="bad">{t('breakdown.invariantBroken')}</StatusBadge>
             )}
           </HStack>
           <IncompleteReasons totals={tt} currency={order.currency} />

@@ -1,4 +1,4 @@
-import { Badge, Button, Card, Dialog, HStack, Link, Stack, Text } from '@chakra-ui/react';
+import { Badge, Button, Dialog, HStack, Link, Stack, Text } from '@chakra-ui/react';
 import { DataTable, EmptyState, SelectionBar, type DataColumn, type RowAction } from '@team6083/ui';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -16,8 +16,10 @@ import { SendToOrderModal } from '../features/orders/SendToOrderModal';
 import { VendorOrderView } from '../features/orders/VendorOrderView';
 import { lineTotal } from '../features/batches/estimates';
 import { safeHttpUrl } from '../features/batches/itemForm';
+import { PriorityBadge } from '../features/batches/PriorityBadge';
 import { format } from '../features/batches/decimal';
 import { paths } from '../paths';
+import { StatusBadge } from '../components/StatusBadge';
 
 /** Whether skipping the item stops buying what is left (something is already planned or ordered) rather than marking it unpurchasable. */
 const skipsRemaining = (i: QueueItem) => i.orderedQuantity > 0 || i.plannedQuantity > 0;
@@ -50,11 +52,12 @@ export function PurchasingPage() {
       key: 'name', header: t('queue.item'), priority: 'primary',
       cell: (i) => (
         <Stack gap="0">
-          <span>
+          <HStack as="span" gap="1.5">
             {safeHttpUrl(i.productUrl)
               ? <Link href={safeHttpUrl(i.productUrl)} target="_blank" rel="noopener noreferrer" color="fg" textUnderlineOffset="3px">{`#${i.seqNo} ${i.name}`}</Link>
               : `#${i.seqNo} ${i.name}`}
-          </span>
+            <PriorityBadge priority={i.priority} label={t(`teams:priority.default.${i.priority}`)} />
+          </HStack>
           {i.sku && <Text textStyle="xs" color="fg.muted">{i.sku}</Text>}
           {/* Items grouped under "other" keep the vendor their requester typed. */}
           {!i.vendorId && i.vendorName && <Text textStyle="xs" color="fg.muted">{i.vendorName}</Text>}
@@ -93,14 +96,15 @@ export function PurchasingPage() {
             return (
               <HStack gap="2" wrap="wrap">
                 <Text fontWeight="semibold">{g?.vendorName || t('queue.other')}</Text>
+                {g?.inactive && <Badge variant="outline">{t('queue.vendorInactive')}</Badge>}
                 <Badge variant="subtle">{t('queue.itemCount', { count: g?.items.length ?? 0 })}</Badge>
-                {(g?.teamIds.length ?? 0) > 1 && <Badge colorPalette="orange" variant="subtle">{t('queue.mergeBadge', { count: g?.teamIds.length })}</Badge>}
+                {(g?.teamIds.length ?? 0) > 1 && <StatusBadge tone="attention">{t('queue.mergeBadge', { count: g?.teamIds.length })}</StatusBadge>}
               </HStack>
             );
           }}
           selection={{ selected: picked, onChange: setPicked }}
           rowActions={rowActions}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShoppingCart />} title={t('queue.empty')} description={t('queue.emptyHint')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuShoppingCart />} title={t('queue.empty')} description={t('queue.emptyHint')} />}
         />
       )}
       <SelectionBar count={selected.length} onClear={() => setPicked([])}>

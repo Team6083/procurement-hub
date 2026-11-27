@@ -45,17 +45,14 @@ func (s *Lookups) Lookup(ctx context.Context, query string) (*LookupFound, error
 		// Keep the price within the currency's minor unit so it can be saved on an item as-is.
 		p.Amount = domain.Decimal{Decimal: p.Amount.Round(int32(s.currencies.Digits(p.Currency)))}
 	}
-	if key := domain.NameKey(res.Vendor); key != "" {
+	if domain.NameKey(res.Vendor) != "" {
 		vendors, err := s.st.ListVendors(ctx, false)
 		if err != nil {
 			return nil, err
 		}
-		for _, v := range vendors {
-			if v.NameKey == key || containsKey(v.AliasKeys, key) {
-				id := v.ID
-				out.VendorID, out.VendorName = &id, v.Name
-				break
-			}
+		if v := matchVendor(vendors, res.Vendor); v != nil {
+			id := v.ID
+			out.VendorID, out.VendorName = &id, v.Name
 		}
 	}
 	return out, nil
@@ -68,4 +65,20 @@ func containsKey(keys []string, key string) bool {
 		}
 	}
 	return false
+}
+
+// matchVendor returns the active vendor whose name or alias a typed vendor name matches
+// (case-insensitive), or nil. It is used only when an item is written (create, edit, CSV
+// import) and by product lookup; reading and grouping never match names.
+func matchVendor(vendors []domain.Vendor, name string) *domain.Vendor {
+	key := domain.NameKey(name)
+	if key == "" {
+		return nil
+	}
+	for i := range vendors {
+		if vendors[i].Active && (vendors[i].NameKey == key || containsKey(vendors[i].AliasKeys, key)) {
+			return &vendors[i]
+		}
+	}
+	return nil
 }

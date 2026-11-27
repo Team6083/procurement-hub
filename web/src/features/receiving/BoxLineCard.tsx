@@ -1,4 +1,5 @@
-import { Alert, Box, Card, Checkbox, HStack, IconButton, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { Alert, Box, Card, Checkbox, IconButton, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react';
+import { TitleBar } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuTrash2 } from 'react-icons/lu';
 import { useMatchCandidates } from '../../api/deliveries';
@@ -62,10 +63,7 @@ export function BoxLineCard({ index, line, showErrors, onChange, onRemove }: Pro
   return (
     <Card.Root size="sm" as="section" aria-label={t('box.lineN', { n: index + 1 })}>
       <Card.Header>
-        <HStack justify="space-between">
-          <Text fontWeight="semibold">{t('box.lineN', { n: index + 1 })}</Text>
-          {onRemove && <IconButton size="xs" variant="ghost" aria-label={t('box.removeLine', { n: index + 1 })} onClick={onRemove}><LuTrash2 /></IconButton>}
-        </HStack>
+        <TitleBar level={4} title={t('box.lineN', { n: index + 1 })} end={onRemove && <IconButton size="xs" variant="ghost" aria-label={t('box.removeLine', { n: index + 1 })} onClick={onRemove}><LuTrash2 /></IconButton>} />
       </Card.Header>
       <Card.Body>
         <Stack gap="3">

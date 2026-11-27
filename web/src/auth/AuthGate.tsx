@@ -1,4 +1,4 @@
-import { Button, Center, Code, Spinner, Stack, Text } from '@chakra-ui/react';
+import { Button, Code, Spinner } from '@chakra-ui/react';
 import { StatusPage } from '@team6083/ui';
 import type { User, UserManager } from 'oidc-client-ts';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
@@ -80,12 +80,7 @@ function AuthGate({ session, children }: { session: Session; children: ReactNode
   }
   if (!auth.isAuthenticated) {
     return (
-      <Center minH="100vh">
-        <Stack align="center">
-          <Spinner />
-          <Text>{t('signingIn')}</Text>
-        </Stack>
-      </Center>
+      <StatusPage minH="100vh" icon={<Spinner />} title={t('signingIn')} />
     );
   }
   return <>{children}</>;

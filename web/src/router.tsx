@@ -1,4 +1,5 @@
-import { Spinner, Stack } from '@chakra-ui/react';
+import { Spinner } from '@chakra-ui/react';
+import { StatusPage } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Outlet, createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { ErrorAlert } from './components/ErrorAlert';
@@ -60,10 +61,7 @@ function RouteError() {
 function Callback() {
   const { t } = useTranslation('auth');
   return (
-    <Stack align="center">
-      <Spinner />
-      {t('signingIn')}
-    </Stack>
+    <StatusPage minH="100vh" icon={<Spinner />} title={t('signingIn')} />
   );
 }
 

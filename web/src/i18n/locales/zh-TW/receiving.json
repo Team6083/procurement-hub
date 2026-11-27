@@ -18,9 +18,9 @@
     "title": "到貨紀錄",
     "intro": "所有登記過的箱子，最新的在前。",
     "number": "到貨紀錄",
-    "lines": "行數",
+    "lines": "筆數",
     "state": "狀態",
-    "pending": "{{count}} 行待對應",
+    "pending": "{{count}} 筆待對應",
     "done": "完成",
     "created": "登記時間",
     "search": "搜尋 DL 編號、來源或備註",
@@ -34,13 +34,13 @@
   },
   "box": {
     "title": "登記一箱",
-    "intro": "箱子裡每一種東西填一行。輸入或掃描 SKU 或品名，系統會即時列出可對應的明細行。",
+    "intro": "箱子裡每一種東西填一筆。輸入或掃描 SKU 或品名，系統會即時列出可對應的明細。",
     "receivedAt": "到貨日期",
     "source": "來源",
     "sourceHelp": "通常是廠商或物流。",
     "note": "備註",
-    "lineN": "第 {{n}} 行",
-    "removeLine": "移除第 {{n}} 行",
+    "lineN": "第 {{n}} 筆",
+    "removeLine": "移除第 {{n}} 筆",
     "sku": "SKU",
     "name": "品名",
     "good": "可用數量",
@@ -48,7 +48,7 @@
     "problemType": "問題類型",
     "problemNote": "問題說明",
     "choose": "請選擇",
-    "addLine": "新增一行",
+    "addLine": "新增一筆",
     "save": "儲存這一箱",
     "whatRequired": "請輸入 SKU 或品名。",
     "countInvalid": "請輸入整數。",
@@ -56,13 +56,13 @@
     "problemTypeRequired": "請選擇問題類型。"
   },
   "candidates": {
-    "title": "對應到明細行（選填）",
-    "typeToSearch": "輸入至少 2 個字的 SKU 或品名，就會列出可對應的明細行。",
-    "none": "沒有符合的明細行。可以先存檔，之後再對應。",
+    "title": "對應到明細（選填）",
+    "typeToSearch": "輸入至少 2 個字的 SKU 或品名，就會列出可對應的明細。",
+    "none": "沒有符合的明細。可以先存檔，之後再對應。",
     "skuMatch": "SKU 相符",
     "capacity": "還缺 {{count}} 個",
     "willMatch": "分到 {{good}} 個可用、{{problem}} 個有問題",
-    "leftPending": "比選取的明細行還缺的數量多 {{count}} 個，多出的會留在待對應。"
+    "leftPending": "比選取的明細還缺的數量多 {{count}} 個，多出的會留在待對應。"
   },
   "line": {
     "title": "到貨內容",
@@ -75,15 +75,15 @@
     "match": "對應"
   },
   "match": {
-    "title": "對應第 {{n}} 行：{{name}}",
-    "help": "這一行有 {{good}} 個可用、{{problem}} 個有問題。已套用系統建議的分配，可以修改。分配有問題的數量會在該明細行建立一筆問題。",
+    "title": "對應第 {{n}} 筆：{{name}}",
+    "help": "這筆有 {{good}} 個可用、{{problem}} 個有問題。已套用系統建議的分配，可以修改。分配有問題的數量會在該明細建立一筆問題。",
     "good": "可用",
     "problem": "有問題",
-    "goodFor": "VO-{{order}} 第 {{n}} 行的可用數量",
-    "problemFor": "VO-{{order}} 第 {{n}} 行的問題數量",
-    "overHint": "這一行只缺 {{short}} 個，超出的 {{extra}} 個會留在待對應。",
+    "goodFor": "VO-{{order}} 第 {{n}} 筆明細的可用數量",
+    "problemFor": "VO-{{order}} 第 {{n}} 筆明細的問題數量",
+    "overHint": "這筆明細只缺 {{short}} 個，超出的 {{extra}} 個會留在待對應。",
     "totals": "已分配：可用 {{good}} / {{goodOf}}，有問題 {{problem}} / {{problemOf}}",
-    "tooMany": "超過這一行到貨的數量。",
+    "tooMany": "超過這筆到貨的數量。",
     "restReason": "多出部分的原因",
     "restHelp": "「儲存，其餘不需對應」會用到。",
     "overReason": "廠商多寄",
@@ -92,10 +92,10 @@
   },
   "noMatch": {
     "action": "標記不需對應",
-    "help": "用於贈品、多寄或系統外買的東西。部分對應的行標記後，剩餘數量也視為不需對應。",
+    "help": "用於贈品、多寄或系統外買的東西。部分對應的明細標記後，剩餘數量也視為不需對應。",
     "reason": "原因",
     "undo": "撤銷不需對應",
-    "undoHelp": "這一行會回到待對應清單。"
+    "undoHelp": "這筆到貨會回到待對應清單。"
   },
   "void": {
     "action": "作廢到貨紀錄",
@@ -104,15 +104,15 @@
   },
   "receiving": {
     "title": "點收",
-    "intro": "待對應的到貨行；採購人員另外處理到貨問題與短少的明細行。"
+    "intro": "待對應的到貨明細；採購人員另外處理到貨問題與短少的明細。"
   },
   "pending": {
     "title": "待對應",
-    "line": "品項",
+    "line": "到貨明細",
     "delivery": "到貨紀錄",
     "quantity": "數量",
     "matched": "已對應",
-    "empty": "所有到貨行都已對應"
+    "empty": "所有到貨明細都已對應"
   },
   "problem": {
     "title": "到貨問題",
@@ -120,14 +120,14 @@
     "resolvedTitle": "已處理",
     "openEmpty": "沒有未處理的問題",
     "resolvedEmpty": "沒有已處理的問題",
-    "line": "明細行",
+    "line": "明細",
     "type": "問題",
     "note": "備註",
     "open": "未處理",
     "resolve": "處理問題",
     "unresolve": "撤銷處理",
     "unresolveHelp": "問題會回到未處理；它產生的退款紀錄會作廢。",
-    "summary": "VO-{{order}} 第 {{n}} 行 {{name}}：{{count}} 個{{type}}",
+    "summary": "VO-{{order}} 第 {{n}} 筆明細 {{name}}：{{count}} 個{{type}}",
     "action": "處理方式",
     "actions": {
       "exchange": "換貨",
@@ -141,10 +141,10 @@
     }
   },
   "toClose": {
-    "title": "待決定的短少明細行",
+    "title": "待決定的短少明細",
     "received": "已到 / 應到",
     "missing": "短少",
-    "empty": "沒有待決定的短少明細行"
+    "empty": "沒有待決定的短少明細"
   },
   "tabs": {
     "workbench": "工作台",

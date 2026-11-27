@@ -2,7 +2,7 @@ import { Badge } from '@chakra-ui/react';
 import type { ReactNode } from 'react';
 
 /**
- * What a status means, the one place that turns it into a colour (the team's DESIGN.md: Color). Status colours mean
+ * What a status means, the one place that turns it into a colour. Status colours mean
  * status only: green done, orange needs someone's attention, red refused or void, purple finished for good; gray
  * outline for what has not started or is out of the flow, gray subtle for work in progress, yellow for sent back to be changed; blue, cyan and teal tell a batch's collecting, purchasing and receiving apart.
  */

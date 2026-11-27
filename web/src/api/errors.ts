@@ -1,7 +1,7 @@
-import { ApiError } from '@team6083/ui';
+import { apiErrorMessage, ApiError, resolveUiLocale } from '@team6083/ui';
 import i18next, { type TFunction } from 'i18next';
 
-/** Localized text for an error: by API code, else the English server message, else generic. */
+/** Localized text for an error: the app's own codes from errors.json, everything else (standard codes, network) from the package. */
 export function errorMessage(t: TFunction, err: unknown): string {
   if (err instanceof ApiError) {
     // Refused by the client while the server runs a newer build.
@@ -14,8 +14,7 @@ export function errorMessage(t: TFunction, err: unknown): string {
     // text uses it to name the value; other codes keep their plain text.
     const key = `errors:codes.${err.code}`;
     const withValue = typeof err.details.value === 'string' && i18next.exists(`${key}_value`);
-    return t(withValue ? `${key}_value` : key, { ...vars, defaultValue: err.message || t('errors:generic') });
+    if (i18next.exists(key)) return t(withValue ? `${key}_value` : key, vars);
   }
-  if (err instanceof TypeError) return t('errors:network');
-  return t('errors:generic');
+  return apiErrorMessage(err, resolveUiLocale(i18next.language));
 }

@@ -8,7 +8,7 @@ import { Link } from 'react-router';
  */
 export function RouteAnchor({ to, children, ...rest }: Omit<LinkProps, 'href' | 'asChild'> & { to: string; children: ReactNode }) {
   return (
-    <ChakraLink color="fg" textUnderlineOffset="3px" _hover={{ textDecoration: 'underline' }} {...rest} asChild>
+    <ChakraLink {...rest} asChild>
       <Link to={to}>{children}</Link>
     </ChakraLink>
   );

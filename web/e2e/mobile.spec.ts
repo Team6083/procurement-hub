@@ -36,14 +36,17 @@ test('a team admin creates a draft batch and adds an item on a phone', async ({ 
   await expectBatchStatus(page, 'Draft');
 
   // A draft takes no items until it is opened; proposing would. Open it with assignments set.
-  await page.getByRole('button', { name: 'Edit' }).click();
+  // On a phone the batch's buttons are one menu.
+  await page.getByRole('button', { name: 'Batch actions' }).click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
   const edit = page.getByRole('dialog', { name: 'Edit batch' });
   for (const group of ['Approvers']) {
     await edit.getByRole('group', { name: group }).getByText('Tara Teamadmin').click();
   }
   await edit.getByRole('button', { name: 'Save' }).click();
   await expect(edit).toBeHidden();
-  await page.getByRole('button', { name: 'Open for items' }).click();
+  await page.getByRole('button', { name: 'Batch actions' }).click();
+  await page.getByRole('menuitem', { name: 'Open for items' }).click();
   const open = page.getByRole('dialog', { name: 'Open for items' });
   await open.getByLabel('Deadline').fill('2099-01-01T12:00');
   await open.getByRole('button', { name: 'Open for items' }).click();

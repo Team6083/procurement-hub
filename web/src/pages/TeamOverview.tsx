@@ -1,6 +1,6 @@
 import { Badge, Button, Card, HStack, Stack, Text } from '@chakra-ui/react';
 import { useState } from 'react';
-import { EmptyState, FactList, SectionHeader } from '@team6083/ui';
+import { EmptyState, FactList, TitleBar } from '@team6083/ui';
 import { useTranslation } from 'react-i18next';
 import { LuPackage, LuPlus } from 'react-icons/lu';
 import { useBatchList } from '../api/batches';
@@ -28,7 +28,6 @@ export function TeamOverview() {
         <Card.Root size="sm">
           <Card.Body>
             <FactList
-              minChildWidth={{ base: '9rem', md: '12rem' }}
               items={[
                 { label: t('general.visibility'), value: t(`team.visibility.${full.visibility}`) },
                 { label: t('general.locale'), value: t(`common:language.${full.locale}`) },
@@ -48,28 +47,17 @@ export function TeamOverview() {
         </Card.Root>
       )}
       <Stack gap="2">
-        <SectionHeader
-          title={t('common:pages.batches')}
-          mb="0"
-          actions={
+        <TitleBar level={2} title={t('common:pages.batches')} end={
             membership && !team.archived && (
               <Button size="sm" variant="outline" onClick={() => setCreating(true)}>
                 <LuPlus />
                 {membership.role === 'admin' ? tb('list.new') : tb('list.propose')}
               </Button>
             )
-          }
-        />
+          } />
         {list.isPending && <ListSkeleton />}
         {list.error && <ErrorAlert error={list.error} />}
-        {list.data && batches.length === 0 && (
-          <Card.Root size="sm">
-            <Card.Body>
-              <EmptyState icon={<LuPackage />} title={tb('list.empty')} />
-            </Card.Body>
-          </Card.Root>
-        )}
-        {batches.length > 0 && <BatchTable batches={batches} />}
+        {list.data && <BatchTable batches={batches} empty={<EmptyState icon={<LuPackage />} title={tb('list.empty')} />} />}
         {list.hasNextPage && (
           <HStack>
             <Button size="sm" variant="outline" loading={list.isFetchingNextPage} onClick={() => void list.fetchNextPage()}>{tb('list.loadMore')}</Button>

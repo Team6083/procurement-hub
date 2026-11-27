@@ -20,10 +20,13 @@ type BatchTask struct {
 	Count int          `json:"count"`
 }
 
-// VendorTask counts items to purchase for one vendor (nil Vendor: no vendor).
+// VendorTask counts items to purchase for one vendor (nil VendorID and Vendor: "other").
 type VendorTask struct {
-	Vendor *string `json:"vendor"`
-	Count  int     `json:"count"`
+	VendorID *bson.ObjectID `json:"vendorId"`
+	Vendor   *string        `json:"vendor"`
+	// Inactive is true for a vendor that was deactivated; its items still form its own group.
+	Inactive bool `json:"inactive"`
+	Count    int  `json:"count"`
 	// MyBatches counts those in batches the caller is assigned to as purchaser.
 	MyBatches int `json:"myBatches"`
 }
@@ -175,33 +178,29 @@ func (s *Tasks) itemsToPurchase(ctx context.Context, actor authz.Actor) ([]Vendo
 	if err != nil {
 		return nil, err
 	}
-	mine := map[bson.ObjectID]bool{}
-	byVendor := map[string]*VendorTask{}
-	var order []string
-	for _, it := range items {
-		key := it.VendorName
-		vt, ok := byVendor[key]
-		if !ok {
-			vt = &VendorTask{}
-			if key != "" {
-				k := key
-				vt.Vendor = &k
-			}
-			byVendor[key] = vt
-			order = append(order, key)
-		}
-		vt.Count++
-		if _, ok := mine[it.BatchID]; !ok {
-			b, err := s.st.GetBatch(ctx, it.BatchID)
-			mine[it.BatchID] = err == nil && authzIsPurchaserOf(actor.UserID, b)
-		}
-		if mine[it.BatchID] {
-			vt.MyBatches++
-		}
+	vendors, err := s.st.ListVendors(ctx, true)
+	if err != nil {
+		return nil, err
 	}
-	out := make([]VendorTask, 0, len(order))
-	for _, k := range order {
-		out = append(out, *byVendor[k])
+	mine := map[bson.ObjectID]bool{}
+	groups := GroupByVendor(items, vendors, func(it domain.Item) *bson.ObjectID { return it.VendorID }, func(it domain.Item) string { return it.VendorName })
+	out := make([]VendorTask, 0, len(groups))
+	for _, g := range groups {
+		vt := VendorTask{VendorID: g.VendorID, Inactive: g.Inactive, Count: len(g.Items)}
+		if g.VendorID != nil {
+			n := g.Name
+			vt.Vendor = &n
+		}
+		for _, it := range g.Items {
+			if _, ok := mine[it.BatchID]; !ok {
+				b, err := s.st.GetBatch(ctx, it.BatchID)
+				mine[it.BatchID] = err == nil && authzIsPurchaserOf(actor.UserID, b)
+			}
+			if mine[it.BatchID] {
+				vt.MyBatches++
+			}
+		}
+		out = append(out, vt)
 	}
 	return out, nil
 }

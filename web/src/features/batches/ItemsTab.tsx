@@ -9,7 +9,6 @@ import { useReferenceRates } from '../../api/vendors';
 import type { Batch, Item, Team } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
-import { UndoDialog } from '../../components/UndoDialog';
 import { PRIORITIES, priorityLabel } from '../teams/priority';
 import { EstimateSummary, useEstimateText } from './EstimateSummary';
 import { ResubmitDialog } from './ResubmitDialog';
@@ -237,7 +236,7 @@ export function ItemsTab({ batch, team, caller, items, nameOf, defaultSubgroupId
         onClose={() => setForcing(null)}
         onConfirm={(reason) => forcing && action.mutate({ item: forcing, action: 'force-reject', reason }, { onSuccess: () => setForcing(null) })}
       />
-      <UndoDialog
+      <ReasonModal reasonLabel={t('common:undo.reason')}
         open={!!undoing}
         title={undoing?.what === 'review' ? t('item.undoReview') : t('item.unpurchasableUndo')}
         body={undoing?.what === 'review' ? t('item.undoReviewHelp', { name: undoing.item.name }) : t('item.unpurchasableUndoHelp', { name: undoing?.item.name })}

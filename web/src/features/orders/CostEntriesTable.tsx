@@ -1,5 +1,5 @@
 import { Badge, Stack, Text } from '@chakra-ui/react';
-import { DataTable, EmptyState, SectionHeader, type DataColumn, type RowAction } from '@team6083/ui';
+import { DataTable, EmptyState, type DataColumn, type RowAction, TitleBar } from '@team6083/ui';
 import { Button } from '@chakra-ui/react';
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -9,6 +9,7 @@ import { useDeleteCostEntry, useVoidCostEntry } from '../../api/vendorOrders';
 import { ReasonModal } from '../../components/ReasonModal';
 import { formatMoney } from '../money';
 import { CostEntryModal } from './CostEntryModal';
+import { ProvisionalTip } from './StatusBadges';
 import { entryNumbers, isDerived } from './costEntries';
 
 interface Props {
@@ -66,7 +67,7 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
       cell: (e) => {
         if (e.settlement !== 'separate') return '—';
         if (e.currency === baseCurrency) return strike(e, formatMoney(e.amount, baseCurrency, i18n.language));
-        return strike(e, e.actualAmountBase ? formatMoney(e.actualAmountBase, baseCurrency, i18n.language) : <Badge variant="outline" colorPalette="orange">{t('provisional')}</Badge>);
+        return strike(e, e.actualAmountBase ? formatMoney(e.actualAmountBase, baseCurrency, i18n.language) : <ProvisionalTip />);
       },
     },
     { key: 'method', header: t('costs.refundMethod'), cell: (e) => strike(e, e.refundMethod ? t(`costs.methods.${e.refundMethod}`) : '—') },
@@ -95,10 +96,7 @@ export function CostEntriesTable({ order, baseCurrency, baseDigits, teamName, ca
 
   return (
     <Stack gap="2">
-      <SectionHeader
-        as={headingAs} mb="0" title={t('costs.title')} count={order.costEntries.length}
-        actions={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>}
-      />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('costs.title')} after={<Badge>{order.costEntries.length}</Badge>} end={editable && <Button size="sm" variant="outline" onClick={() => setForm('new')}><LuPlus />{t('costs.add')}</Button>} />
       <DataTable
         aria-label={t('costs.title')} rows={order.costEntries} columns={columns} getRowId={(e) => e.id} rowActions={editable ? rowActions : undefined}
         empty={<EmptyState icon={<LuReceipt />} title={t('costs.empty')} />}

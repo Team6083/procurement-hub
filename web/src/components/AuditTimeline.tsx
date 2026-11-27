@@ -1,4 +1,4 @@
-import { Button, Card, HStack, Stack, Text, Timeline } from '@chakra-ui/react';
+import { Button, HStack, Stack, Text, Timeline } from '@chakra-ui/react';
 import { EmptyState } from '@team6083/ui';
 import type { UseInfiniteQueryResult, InfiniteData } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
@@ -29,7 +29,7 @@ export function AuditTimeline({ audit, format, emptyTitle }: { audit: UseInfinit
   if (audit.isPending) return <ListSkeleton />;
   if (audit.error) return <ErrorAlert error={audit.error} />;
   const events = audit.data?.pages.flatMap((p) => p.items) ?? [];
-  if (events.length === 0) return <Card.Root size="sm"><Card.Body><EmptyState icon={<LuHistory />} title={emptyTitle} /></Card.Body></Card.Root>;
+  if (events.length === 0) return <EmptyState icon={<LuHistory />} title={emptyTitle} />;
   return (
     <Stack gap="4">
       <Timeline.Root size="sm">

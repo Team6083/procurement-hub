@@ -1,4 +1,3 @@
-import { Badge } from '@chakra-ui/react';
 import { useTranslation } from 'react-i18next';
 import { useParams } from 'react-router';
 import { useTeam, useTeams } from '../api/teams';
@@ -8,6 +7,7 @@ import { LoadError, NotFound, PageSkeleton } from '../components/PageStates';
 import { SectionLayout, type SectionTab } from '../components/SectionLayout';
 import { TeamContext } from '../features/teams/TeamContext';
 import { paths } from '../paths';
+import { StatusBadge } from '../components/StatusBadge';
 
 /**
  * /teams/:slug/*: the team's section. Tabs: Overview for everyone who can see the team, Members for members, and
@@ -43,7 +43,7 @@ export function TeamShell() {
 
   return (
     <TeamContext.Provider value={{ teamId, slug, team: data, full, canAdmin, isMember: member }}>
-      <SectionLayout keepTitle title={data.name} badge={data.archived && <Badge colorPalette="orange" variant="subtle">{t('team.archived')}</Badge>} tabs={tabs} />
+      <SectionLayout keepTitle title={data.name} badge={data.archived && <StatusBadge tone="neutral">{t('team.archived')}</StatusBadge>} tabs={tabs} />
     </TeamContext.Provider>
   );
 }

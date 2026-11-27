@@ -1,5 +1,5 @@
 import { Box, HStack, Stack, Tabs } from '@chakra-ui/react';
-import { PageHeader } from '@team6083/ui';
+import { TitleBar } from '@team6083/ui';
 import { createContext, useContext, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, useLocation, useNavigate } from 'react-router';
@@ -30,7 +30,7 @@ const matchLength = (tab: SectionTab, pathname: string) =>
   Math.max(-1, ...[tab.to, ...(tab.match ?? [])].filter((p) => pathname === p || pathname.startsWith(`${p}/`)).map((p) => p.length));
 
 /**
- * The one sub-navigation pattern of the app: a section's PageHeader, then URL-routed line tabs under it, then the
+ * The one sub-navigation pattern of the app: a section's heading, then URL-routed line tabs under it, then the
  * open tab's page. The pages never repeat the tab's name as a heading. With a single tab no tab list shows, and the
  * tab's own label is the heading unless `keepTitle`.
  */
@@ -50,13 +50,7 @@ export function SectionLayout({ title, badge, tabs, keepTitle = false, children 
   const single = tabs.length <= 1;
   return (
     <Stack gap="4">
-      <PageHeader
-        mb="0"
-        title={single && active && !keepTitle ? active.label : title}
-        badge={badge}
-        description={active?.description}
-        actions={<HStack ref={setSlot} gap="2" wrap="wrap" />}
-      />
+      <TitleBar level={1} title={single && active && !keepTitle ? active.label : title} after={badge} description={active?.description} end={<HStack ref={setSlot} gap="2" wrap="wrap" />} />
       {!single && (
         <Tabs.Root value={active?.to ?? ''} onValueChange={(e) => void navigate(e.value)}>
           <Box overflowX="auto">

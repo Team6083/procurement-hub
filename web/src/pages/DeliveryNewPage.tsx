@@ -1,5 +1,5 @@
 import { Button, Card, HStack, Input, SimpleGrid, Stack } from '@chakra-ui/react';
-import { PageHeader } from '@team6083/ui';
+import { TitleBar } from '@team6083/ui';
 import { useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuPlus, LuSave } from 'react-icons/lu';
@@ -54,7 +54,7 @@ function NewDelivery() {
 
   return (
     <Stack gap="4">
-      <PageHeader mb="0" title={t('box.title')} description={t('box.intro')} />
+      <TitleBar level={1} title={t('box.title')} description={t('box.intro')} />
       <Card.Root size="sm">
         <Card.Body>
           <SimpleGrid columns={{ base: 1, md: 3 }} gap="3">

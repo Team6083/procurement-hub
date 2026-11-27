@@ -411,3 +411,17 @@ func (s *Store) DeliveryNumbers(ctx context.Context, ids []bson.ObjectID) (map[b
 	}
 	return out, nil
 }
+
+// SetCostEntryComputed writes the computed fields of a cost entry (amountBase and
+// provisional). They are not a user edit, so the version and updatedAt stay.
+func (s *Store) SetCostEntryComputed(ctx context.Context, id bson.ObjectID, amountBase *domain.Decimal, provisional bool) error {
+	res, err := s.c("costEntries").UpdateOne(ctx, bson.D{{Key: "_id", Value: id}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "amountBase", Value: amountBase}, {Key: "provisional", Value: provisional}}}})
+	if err != nil {
+		return err
+	}
+	if res.MatchedCount == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

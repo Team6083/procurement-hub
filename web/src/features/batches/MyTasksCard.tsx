@@ -1,21 +1,22 @@
 import { Badge, Card, HStack, Stack, Text } from '@chakra-ui/react';
-import { EmptyState, SectionHeader } from '@team6083/ui';
+import { EmptyState, TitleBar } from '@team6083/ui';
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { LuCircleCheckBig } from 'react-icons/lu';
 import { useMyTasks } from '../../api/batches';
 import type { Batch } from '../../api/types';
 import { ErrorAlert } from '../../components/ErrorAlert';
+import { ListSkeleton } from '../../components/PageStates';
 import { RouteAnchor } from '../../components/RouteLinks';
 import { paths } from '../../paths';
-import { ListSkeleton } from '../../components/PageStates';
+import { StatusBadge } from '../../components/StatusBadge';
 
 /** A link to a batch with what waits there as a badge beside it, not in parentheses inside the link. */
 function BatchTask({ batch, badge }: { batch: Batch; badge?: string }) {
   return (
     <HStack gap="2" wrap="wrap">
       <RouteAnchor to={paths.batch(batch.id)}>#{batch.number} {batch.title}</RouteAnchor>
-      {badge && <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{badge}</Badge>}
+      {badge && <StatusBadge tone="attention">{badge}</StatusBadge>}
     </HStack>
   );
 }
@@ -25,7 +26,7 @@ function TaskGroup({ title, count, children }: { title: string; count: number; c
   if (count === 0) return null;
   return (
     <Stack gap="2">
-      <SectionHeader as="h3" title={title} count={count} mb="0" />
+      <TitleBar level={3} title={title} after={<Badge>{count}</Badge>} />
       <Card.Root size="sm">
         <Card.Body gap="2" alignItems="flex-start">
           {children}
@@ -98,9 +99,10 @@ export function MyTasksCard() {
       </TaskGroup>
       <TaskGroup title={tb('tasks.purchase')} count={purchase.length}>
         {purchase.map((v) => (
-          <HStack key={v.vendor ?? ''} gap="2" wrap="wrap">
+          <HStack key={v.vendorId ?? 'other'} gap="2" wrap="wrap">
             <RouteAnchor to={paths.purchasing}>{v.vendor ?? tb('tasks.noVendor')}</RouteAnchor>
-            <Badge variant="subtle" colorPalette="orange" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseCount', { count: v.count })}</Badge>
+            {v.inactive && <Badge variant="outline">{tb('tasks.vendorInactive')}</Badge>}
+            <StatusBadge tone="attention">{tb('tasks.purchaseCount', { count: v.count })}</StatusBadge>
             {v.myBatches > 0 && <Badge variant="outline" fontVariantNumeric="tabular-nums">{tb('tasks.purchaseMine', { count: v.myBatches })}</Badge>}
           </HStack>
         ))}

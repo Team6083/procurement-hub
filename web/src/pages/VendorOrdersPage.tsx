@@ -1,5 +1,6 @@
 import { orderLabel } from '../features/labels';
-import { Badge, Button, Card, HStack, Stack } from '@chakra-ui/react';
+import { Badge, Button, HStack, Stack } from '@chakra-ui/react';
+import { PersonAvatar } from '../components/PersonAvatar';
 import { DataTable, EmptyState, FilterBar, type DataColumn } from '@team6083/ui';
 import { useState } from 'react';
 import { useSearchParams } from 'react-router';
@@ -16,7 +17,7 @@ import { RouteAnchor } from '../components/RouteLinks';
 import { useBaseCurrency } from '../api/meta';
 import { shortDate } from '../features/dates';
 import { formatMoney } from '../features/money';
-import { OrderProgressBadges, OrderStatusBadge, ProvisionalBadge } from '../features/orders/StatusBadges';
+import { OrderProgressBadges, OrderStatusBadge, ProvisionalTip } from '../features/orders/StatusBadges';
 import { paths } from '../paths';
 
 /** Vendor orders the caller can see; regular users only reach the ones holding their team's lines. */
@@ -36,9 +37,11 @@ export function VendorOrdersPage() {
   const columns: DataColumn<VendorOrderSummary>[] = [
     { key: 'no', header: t('list.number'), priority: 'primary', cell: (o) => <RouteAnchor to={paths.vendorOrder(o.id)}>{orderLabel(o.number)}</RouteAnchor> },
     { key: 'vendor', header: t('list.vendor'), cell: (o) => o.vendorName },
-    { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalBadge />}</HStack> },
+    { key: 'status', header: t('line.status'), cell: (o) => <HStack gap="2"><OrderStatusBadge status={o.status} />{o.provisional && <ProvisionalTip />}</HStack> },
     { key: 'progress', header: t('progress.title'), cell: (o) => <HStack gap="2" wrap="wrap"><OrderProgressBadges order={o} /></HStack> },
-    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => o.owners.map((x) => x.displayName).join(', ') || '—' },
+    { key: 'owners', header: t('list.owners'), priority: 'secondary', cell: (o) => (o.owners.length === 0 ? '—' : (
+      <HStack gap="1">{o.owners.map((x) => <PersonAvatar key={x.id} name={x.displayName} />)}</HStack>
+    )) },
     { key: 'ext', header: t('details.externalNo'), priority: 'secondary', cell: (o) => o.externalOrderNo || '—' },
     { key: 'teams', header: t('list.teams'), priority: 'secondary', cell: (o) => o.teamIds.map((id) => teams.find((x) => x.id === id)?.name ?? t('common:unknownTeam')).join(', ') },
     { key: 'lines', header: t('list.lines'), numeric: true, cell: (o) => (o.restricted ? <Badge variant="outline">{t('list.visibleLines', { count: o.lineCount })}</Badge> : o.lineCount) },
@@ -64,7 +67,7 @@ export function VendorOrdersPage() {
       {list.data && (
         <DataTable
           aria-label={t('list.title')} rows={rows} columns={columns} getRowId={(o) => o.id}
-          empty={<Card.Root size="sm"><Card.Body><EmptyState icon={<LuShoppingCart />} title={t('list.empty')} /></Card.Body></Card.Root>}
+          empty={<EmptyState icon={<LuShoppingCart />} title={t('list.empty')} />}
         />
       )}
       {list.hasNextPage && (

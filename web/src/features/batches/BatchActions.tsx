@@ -1,6 +1,7 @@
-import { Box, Button, Checkbox, Dialog, HStack, Stack, Text } from '@chakra-ui/react';
-import { useState } from 'react';
+import { Box, Button, Checkbox, Dialog, HStack, IconButton, Menu, Portal, Stack, Text } from '@chakra-ui/react';
+import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
+import { LuEllipsis } from 'react-icons/lu';
 import { useTransition } from '../../api/batches';
 import { useReferenceRates } from '../../api/vendors';
 import type { Batch, BatchAction, Item } from '../../api/types';
@@ -8,7 +9,6 @@ import { ErrorAlert } from '../../components/ErrorAlert';
 import { ReasonModal } from '../../components/ReasonModal';
 import { AppDialog, DialogFooter } from '../../components/ui/dialog';
 import { Tooltip } from '@team6083/ui';
-import { UndoDialog } from '../../components/UndoDialog';
 import { availableActions, type Caller } from './rules';
 import { DeadlineModal } from './DeadlineModal';
 import { EstimateSummary } from './EstimateSummary';
@@ -20,13 +20,15 @@ const PRIMARY: BatchAction[] = ['confirm_review', 'open', 'close', 'reopen'];
 const DANGER: BatchAction[] = ['cancel', 'reject_proposal', 'withdraw_proposal'];
 
 /** Role-aware lifecycle buttons with reason / deadline dialogs where the backend requires them. */
-export function BatchActions({ batch, caller, pendingItems, undecidedItems, items }: {
+export function BatchActions({ batch, caller, pendingItems, undecidedItems, items, leading }: {
   batch: Batch;
   caller: Caller;
   pendingItems: number | undefined;
   undecidedItems?: number;
   /** The batch's items, for the review confirmation's summary. */
   items?: Item[];
+  /** An action that is not a transition (editing the batch): a button next to these on a wide screen, an item of the menu on a phone. */
+  leading?: { label: ReactNode; icon: ReactNode; onSelect: () => void };
 }) {
   const { t } = useTranslation('batches');
   const rates = useReferenceRates().data ?? [];
@@ -34,7 +36,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems, item
   const [outside, setOutside] = useState(false);
   const transition = useTransition(batch.id);
   const actions = availableActions(batch, caller, pendingItems, undecidedItems);
-  if (actions.length === 0) return null;
+  if (actions.length === 0 && !leading) return null;
   const close = () => { setActive(null); setOutside(false); transition.reset(); };
   const run = (body: { reason?: string; deadline?: string; purchaseOutside?: boolean }) =>
     active && transition.mutate({ action: active, ...body }, { onSuccess: close });
@@ -50,7 +52,29 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems, item
   return (
     <>
       <Stack gap="1" align="flex-end">
-        <HStack gap="2" wrap="wrap">
+        {/* A phone has no room for a row of buttons: one menu holds them all. */}
+        <Menu.Root positioning={{ placement: 'bottom-end' }}>
+          <Menu.Trigger asChild>
+            <IconButton hideFrom="md" size="sm" variant="ghost" aria-label={t('actions.menu')}><LuEllipsis /></IconButton>
+          </Menu.Trigger>
+          <Portal>
+            <Menu.Positioner>
+              <Menu.Content>
+                {leading && <Menu.Item value="leading" onSelect={leading.onSelect}>{leading.icon}{leading.label}</Menu.Item>}
+                {actions.map(({ action, disabled }) => (
+                  <Menu.Item
+                    key={action} value={action} disabled={!!disabled}
+                    color={DANGER.includes(action) ? 'fg.error' : undefined}
+                    onSelect={() => { transition.reset(); setActive(action); }}
+                  >
+                    {t(`actions.${action}`)}
+                  </Menu.Item>
+                ))}
+              </Menu.Content>
+            </Menu.Positioner>
+          </Portal>
+        </Menu.Root>
+        <HStack gap="2" wrap="wrap" hideBelow="md">
           {actions.map(({ action, disabled }) => (
             <Tooltip key={action} content={disabled ? t(`actions.disabled.${disabled}`) : ''} disabled={!disabled}>
               <Box as="span" display="inline-block" tabIndex={disabled ? 0 : undefined}>
@@ -102,7 +126,7 @@ export function BatchActions({ batch, caller, pendingItems, undecidedItems, item
         </AppDialog>
       )}
       {active && UNDO.includes(active) && !needsDeadline && (
-        <UndoDialog
+        <ReasonModal reasonLabel={t('common:undo.reason')}
           open
           title={t(`actions.${active}`)}
           body={t(`actions.confirm.${active}`)}

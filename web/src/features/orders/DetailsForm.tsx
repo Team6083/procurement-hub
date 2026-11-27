@@ -1,6 +1,6 @@
 import { Box, Button, Card, Checkbox, CheckboxGroup, Fieldset, HStack, Input, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { SectionHeader, toaster } from '@team6083/ui';
+import { toaster, TitleBar } from '@team6083/ui';
 import { Controller, useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { useBaseCurrency } from '../../api/meta';
@@ -86,7 +86,7 @@ export function DetailsForm({ order, vendors, supported, baseDigits, headingAs =
 
   return (
     <Stack gap="2">
-      <SectionHeader as={headingAs} mb="0" title={t('details.title')} />
+      <TitleBar level={headingAs === 'h3' ? 4 : 2} title={t('details.title')} />
       <Card.Root size="sm">
         <Card.Body>
           <form onSubmit={submit} noValidate>

@@ -563,6 +563,16 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		}
 		if cur != o.Currency {
 			changes = append(changes, ch("currency", o.Currency, cur))
+			// The unit prices were typed in the old currency: they are cleared, and the old
+			// prices are kept in the audit event. With-checkout entries are in the order
+			// currency, so any of them blocks the change.
+			cleared, err := s.clearPricesForCurrency(ctx, o)
+			if err != nil {
+				return nil, err
+			}
+			if len(cleared) > 0 {
+				changes = append(changes, ch("unitPrices", cleared, nil))
+			}
 		}
 		if f.ExternalOrderNo != o.ExternalOrderNo {
 			changes = append(changes, ch("externalOrderNo", o.ExternalOrderNo, f.ExternalOrderNo))
@@ -580,6 +590,48 @@ func (s *VendorOrders) Replace(ctx context.Context, actor authz.Actor, id bson.O
 		o.ChargedAmountBase, o.ExpectedDelivery, o.PaymentNote = f.ChargedAmountBase, f.ExpectedDelivery, f.PaymentNote
 		return &orderMutation{events: []domain.AuditEvent{s.event(actor, o, "vendor_order.updated", "", changes...)}, emit: emit}, nil
 	})
+}
+
+// clearPricesForCurrency prepares a currency change of a draft order. It refuses
+// (422 currency_change_blocked, entries in details.entries) while a non-voided
+// with_checkout entry exists, else clears the unit price of every line and returns
+// the old prices by line number. Separate entries keep their own currency.
+func (s *VendorOrders) clearPricesForCurrency(ctx context.Context, o *domain.VendorOrder) (map[string]string, error) {
+	entries, err := s.st.CostEntriesByOrder(ctx, o.ID)
+	if err != nil {
+		return nil, err
+	}
+	var blocking []map[string]any
+	no := 0
+	for _, e := range entries {
+		if e.Voided != nil {
+			continue
+		}
+		no++
+		if e.Settlement == domain.SettleWithCheckout {
+			blocking = append(blocking, map[string]any{"entryNo": no, "type": e.Type, "currency": e.Currency})
+		}
+	}
+	if len(blocking) > 0 {
+		re := Rule("currency_change_blocked", "Remove the with-checkout cost entries before changing the currency.")
+		re.Details = map[string]any{"entries": blocking}
+		return nil, re
+	}
+	lines, err := s.st.LinesByOrder(ctx, o.ID)
+	if err != nil {
+		return nil, err
+	}
+	cleared := map[string]string{}
+	for _, l := range lines {
+		if l.UnitPrice == nil {
+			continue
+		}
+		if err := s.st.UpdateLine(ctx, l.ID, bson.D{{Key: "unitPrice", Value: nil}}); err != nil {
+			return nil, err
+		}
+		cleared["#"+itoa(l.LineNo)] = l.UnitPrice.String()
+	}
+	return cleared, nil
 }
 
 // ---- lifecycle ----
